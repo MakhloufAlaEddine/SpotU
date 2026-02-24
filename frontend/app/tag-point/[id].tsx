@@ -115,6 +115,7 @@ export default function TagPointDetail() {
 
   if (loading) return (
     <View style={styles.fullScreen}>
+      <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.center}>
         <ActivityIndicator size="large" color={Colors.primary} />
       </View>
@@ -123,6 +124,7 @@ export default function TagPointDetail() {
 
   if (!point) return (
     <View style={styles.fullScreen}>
+      <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.center}>
         <Ionicons name="alert-circle-outline" size={48} color={Colors.muted} />
         <Text style={styles.notFound}>TagPoint introuvable</Text>
