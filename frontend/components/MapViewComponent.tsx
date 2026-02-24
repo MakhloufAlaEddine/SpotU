@@ -23,6 +23,7 @@ interface Props {
   centerLng?: number;
   zoom?: number;
   searchRadius?: number;
+  precisionRadius?: number;  // Circle around selected point for precision visualization
   selectable?: boolean;
   showUserMarker?: boolean;
   onPinPress?: (id: string) => void;
