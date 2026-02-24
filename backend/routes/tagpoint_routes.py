@@ -160,10 +160,12 @@ async def search_tag_points(
 
     where_clause = " AND ".join(conditions)
     order_clause = ""
+    distance_field = ""
     if lat is not None and lng is not None:
-        order_clause = f"ORDER BY location::geography <-> ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography"
+        order_clause = f"ORDER BY tp.location::geography <-> ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography"
+        distance_field = f", ST_Distance(tp.location::geography, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) as distance"
 
-    query = f"""SELECT {TP_FIELDS} 
+    query = f"""SELECT {TP_FIELDS} {distance_field}
         FROM tag_points tp 
         LEFT JOIN users u ON tp.user_id = u.user_id 
         WHERE {where_clause} {order_clause} LIMIT 200"""
