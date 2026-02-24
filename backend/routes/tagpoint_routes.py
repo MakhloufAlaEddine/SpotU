@@ -136,6 +136,12 @@ async def get_tag_point(point_id: str):
 
         # Enrich with tags
         tag_ids_list = pt.get("tag_ids") or []
+        # asyncpg may return JSONB as a string - parse if necessary
+        if isinstance(tag_ids_list, str):
+            try:
+                tag_ids_list = json.loads(tag_ids_list)
+            except (json.JSONDecodeError, TypeError):
+                tag_ids_list = []
         if tag_ids_list:
             tags = await conn.fetch(
                 "SELECT tag_id, name, label_fr, label_en FROM tags WHERE tag_id = ANY($1::text[])",
