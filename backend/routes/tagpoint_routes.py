@@ -13,8 +13,18 @@ router = APIRouter()
 DEFAULT_RADIUS = 5000  # 5km
 
 TP_FIELDS = """
+    tp.point_id, tp.user_id, tp.title, tp.description,
+    tp.precision, tp.tag_ids, tp.domain_id, tp.active, tp.expires_at, tp.created_at, tp.updated_at,
+    tp.image_url,
+    ST_Y(tp.location::geometry) as latitude,
+    ST_X(tp.location::geometry) as longitude,
+    u.name as owner_name, u.picture as owner_picture, u.role as owner_role
+"""
+
+TP_FIELDS_SIMPLE = """
     point_id, user_id, title, description,
     precision, tag_ids, domain_id, active, expires_at, created_at, updated_at,
+    image_url,
     ST_Y(location::geometry) as latitude,
     ST_X(location::geometry) as longitude
 """
