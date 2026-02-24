@@ -128,7 +128,7 @@ export default function CreateScreen() {
     } catch (err: any) {
       Alert.alert(t('error'), err.message);
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
