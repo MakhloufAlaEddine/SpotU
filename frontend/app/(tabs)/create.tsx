@@ -7,8 +7,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { MapViewComponent } from '../../components/MapViewComponent';
-import { DomainPill } from '../../components/DomainPill';
-import { TagSelector } from '../../components/TagSelector';
 import { WButton } from '../../components/WButton';
 import { WInput } from '../../components/WInput';
 import { api } from '../../lib/api';
@@ -17,117 +15,116 @@ import { useLang } from '../../context/LanguageContext';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 import * as Location from 'expo-location';
 
+// Precision options with radius in meters
 const PRECISION_OPTIONS = [
-  { value: 'exact', labelFr: 'Elevé', labelEn: 'High' },
-  { value: '100m', labelFr: 'Moyen', labelEn: 'Medium' },
-  { value: '1000m', labelFr: 'Faible', labelEn: 'Low' },
+  { value: 'exact', label: 'Elevé', radius: 0 },      // Exact location - no circle
+  { value: '100m', label: 'Moyen', radius: 100 },     // 100m radius circle
+  { value: '1000m', label: 'Faible', radius: 1000 },  // 1000m radius circle
 ];
 
-const EXPIRE_OPTIONS = [
-  { value: null, labelFr: 'Jamais', labelEn: 'Never' },
-  { value: 24, labelFr: '24h', labelEn: '24h' },
-  { value: 72, labelFr: '3 jours', labelEn: '3 days' },
-  { value: 168, labelFr: '1 semaine', labelEn: '1 week' },
-];
-
-export default function CreateScreen() {
+export default function CreateTagPointScreen() {
   const router = useRouter();
-  const { user, loading } = useAuth();
+  const { user, token } = useAuth();
   const { t, lang } = useLang();
+
+  // Form state
   const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [domains, setDomains] = useState<any[]>([]);
-  const [selectedDomain, setSelectedDomain] = useState<string>('');
-  const [tags, setTags] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [price, setPrice] = useState('');
   const [precision, setPrecision] = useState('exact');
-  const [expiresHours, setExpiresHours] = useState<number | null>(null);
-  const [selectedLat, setSelectedLat] = useState<number | null>(null);
-  const [selectedLng, setSelectedLng] = useState<number | null>(null);
-  const [centerLat, setCenterLat] = useState(48.8566);
-  const [centerLng, setCenterLng] = useState(2.3522);
+  const [openToCommunication, setOpenToCommunication] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (loading) return; // Wait for auth to initialize
-    if (!user) {
-      Alert.alert('', 'Connectez-vous pour créer un TagPoint');
-      router.replace('/(auth)/login');
-      return;
-    }
-    loadData();
-  }, [loading, user]);
+  // Location state
+  const [centerLat, setCenterLat] = useState(48.8566);
+  const [centerLng, setCenterLng] = useState(2.3522);
+  const [selectedLat, setSelectedLat] = useState<number | null>(null);
+  const [selectedLng, setSelectedLng] = useState<number | null>(null);
+  const [locationAddress, setLocationAddress] = useState('Chargement...');
+
+  // Get current precision radius
+  const currentPrecision = PRECISION_OPTIONS.find(p => p.value === precision);
+  const precisionRadius = currentPrecision?.radius || 0;
 
   useEffect(() => {
-    if (selectedDomain) loadTags(selectedDomain);
-  }, [selectedDomain]);
+    getUserLocation();
+  }, []);
 
-  const loadData = async () => {
+  const getUserLocation = async () => {
     try {
-      const doms = await api.get('/domains');
-      setDomains(doms);
-      if (doms.length > 0) setSelectedDomain(doms[0].domain_id);
-
-      // Try to get location
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === 'granted') {
-        const loc = await Location.getCurrentPositionAsync({});
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
         setCenterLat(loc.coords.latitude);
         setCenterLng(loc.coords.longitude);
+        setSelectedLat(loc.coords.latitude);
+        setSelectedLng(loc.coords.longitude);
+        
+        // Reverse geocode to get address
+        try {
+          const addresses = await Location.reverseGeocodeAsync({
+            latitude: loc.coords.latitude,
+            longitude: loc.coords.longitude,
+          });
+          if (addresses.length > 0) {
+            const addr = addresses[0];
+            setLocationAddress(`${addr.street || ''} ${addr.streetNumber || ''}...${addr.postalCode || ''} ${addr.city || ''}`);
+          }
+        } catch {}
       }
-    } catch {}
+    } catch {
+      // Default to Paris
+      setCenterLat(48.8566);
+      setCenterLng(2.3522);
+    }
   };
 
-  const loadTags = async (domainId: string) => {
+  const handleMapPress = async (lat: number, lng: number) => {
+    setSelectedLat(lat);
+    setSelectedLng(lng);
+    
+    // Reverse geocode
     try {
-      const [t, c] = await Promise.all([
-        api.get(`/tags?domain_id=${domainId}`),
-        api.get(`/tags/categories?domain_id=${domainId}`),
-      ]);
-      setTags(t);
-      setCategories(c);
-      setSelectedTags([]);
+      const addresses = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
+      if (addresses.length > 0) {
+        const addr = addresses[0];
+        setLocationAddress(`${addr.street || ''} ${addr.streetNumber || ''}...${addr.postalCode || ''} ${addr.city || ''}`);
+      }
     } catch {}
   };
 
   const handleSubmit = async () => {
     if (!title.trim()) {
-      Alert.alert('', 'Veuillez saisir un titre');
+      Alert.alert('Erreur', 'Veuillez entrer un titre');
       return;
     }
     if (!selectedLat || !selectedLng) {
-      Alert.alert('', t('selectLocationFirst'));
+      Alert.alert('Erreur', 'Veuillez sélectionner un emplacement sur la carte');
       return;
     }
-    if (!selectedDomain) {
-      Alert.alert('', 'Veuillez sélectionner un domaine');
+    if (!token) {
+      Alert.alert('Erreur', 'Vous devez être connecté');
       return;
     }
 
     setSubmitting(true);
     try {
-      await api.post('/tag-points', {
+      const payload = {
         title: title.trim(),
-        description: description.trim() || null,
+        description: price ? `Prix: ${price}€` : '',
         latitude: selectedLat,
         longitude: selectedLng,
         precision,
-        tag_ids: selectedTags,
-        domain_id: selectedDomain,
-        expires_hours: expiresHours,
-      });
-      Alert.alert('✅', 'TagPoint créé avec succès !', [
-        { text: 'Voir la carte', onPress: () => router.replace('/(tabs)/map') },
+        domain_id: 'dom_sport',
+        tag_ids: [],
+        open_to_communication: openToCommunication,
+      };
+
+      await api.post('/tag-points', payload);
+      Alert.alert('Succès', 'Tag point créé !', [
+        { text: 'OK', onPress: () => router.replace('/(tabs)/map') }
       ]);
-      // Reset form
-      setTitle('');
-      setDescription('');
-      setSelectedTags([]);
-      setSelectedLat(null);
-      setSelectedLng(null);
     } catch (err: any) {
-      Alert.alert(t('error'), err.message);
+      Alert.alert('Erreur', err.message || 'Impossible de créer le tag point');
     } finally {
       setSubmitting(false);
     }
@@ -155,30 +152,38 @@ export default function CreateScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Search bar */}
+          {/* Search label */}
           <Text style={styles.searchLabel}>Rechercher</Text>
 
           {/* Image Upload Area */}
-          <View style={styles.imageUploadArea}>
+          <TouchableOpacity style={styles.imageUploadArea} activeOpacity={0.7}>
             <View style={styles.uploadContent}>
-              <Ionicons name="cloud-upload-outline" size={24} color={Colors.primary} />
+              <Ionicons name="cloud-upload-outline" size={24} color={Colors.muted} />
               <Text style={styles.uploadText}>Télécharger une image 1/10</Text>
             </View>
-          </View>
+          </TouchableOpacity>
 
           {/* Precision selector */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Précision d'emplacement</Text>
             <View style={styles.precisionRow}>
-              {PRECISION_OPTIONS.map((p) => (
+              {PRECISION_OPTIONS.map((p, index) => (
                 <TouchableOpacity
                   key={p.value}
-                  style={[styles.precisionBtn, precision === p.value && styles.precisionBtnActive]}
+                  style={[
+                    styles.precisionBtn,
+                    precision === p.value && styles.precisionBtnActive,
+                    index === 0 && styles.precisionBtnFirst,
+                    index === PRECISION_OPTIONS.length - 1 && styles.precisionBtnLast,
+                  ]}
                   onPress={() => setPrecision(p.value)}
                   testID={`precision-${p.value}`}
                 >
-                  <Text style={[styles.precisionText, precision === p.value && styles.precisionTextActive]}>
-                    {lang === 'fr' ? p.labelFr : p.labelEn}
+                  <Text style={[
+                    styles.precisionText,
+                    precision === p.value && styles.precisionTextActive
+                  ]}>
+                    {p.label}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -186,29 +191,36 @@ export default function CreateScreen() {
           </View>
 
           {/* Location Row */}
-          <TouchableOpacity style={styles.locationRow}>
+          <TouchableOpacity style={styles.locationRow} activeOpacity={0.7}>
             <Ionicons name="location" size={20} color={Colors.primary} />
             <Text style={styles.locationText} numberOfLines={1}>
-              Gare Montparnasse...75014 Par...
+              {locationAddress}
             </Text>
             <Ionicons name="pencil" size={18} color={Colors.foreground} />
           </TouchableOpacity>
 
-          {/* Map for location */}
+          {/* Map with precision circle */}
           <View style={styles.mapSection}>
             <View style={styles.mapWrap}>
               <MapViewComponent
-                centerLat={centerLat}
-                centerLng={centerLng}
-                zoom={14}
+                centerLat={selectedLat || centerLat}
+                centerLng={selectedLng || centerLng}
+                zoom={precisionRadius > 500 ? 13 : 15}
                 selectable
-                showUserMarker
+                showUserMarker={false}
                 selectedLat={selectedLat ?? undefined}
                 selectedLng={selectedLng ?? undefined}
-                onMapPress={(lat, lng) => { setSelectedLat(lat); setSelectedLng(lng); }}
+                onMapPress={handleMapPress}
+                searchRadius={precisionRadius > 0 ? precisionRadius : undefined}
                 style={styles.map}
               />
             </View>
+            {/* Precision indicator text */}
+            {precisionRadius > 0 && (
+              <Text style={styles.precisionIndicator}>
+                Zone de précision: {precisionRadius >= 1000 ? `${precisionRadius/1000}km` : `${precisionRadius}m`}
+              </Text>
+            )}
           </View>
 
           {/* Title */}
@@ -224,8 +236,8 @@ export default function CreateScreen() {
           <WInput
             label="price"
             placeholder="Entrer le prix"
-            value={description}
-            onChangeText={setDescription}
+            value={price}
+            onChangeText={setPrice}
             keyboardType="numeric"
             testID="create-price-input"
           />
@@ -236,14 +248,15 @@ export default function CreateScreen() {
               <Text style={styles.toggleText}>Ouvert à la communication</Text>
               <Ionicons name="information-circle-outline" size={16} color={Colors.muted} />
             </View>
-            <TouchableOpacity style={styles.toggleBtn}>
-              <Ionicons name="checkmark" size={20} color={Colors.primary} />
+            <TouchableOpacity 
+              style={[styles.toggleBtn, openToCommunication && styles.toggleBtnActive]}
+              onPress={() => setOpenToCommunication(!openToCommunication)}
+            >
+              {openToCommunication && (
+                <Ionicons name="checkmark" size={18} color={Colors.background} />
+              )}
             </TouchableOpacity>
           </View>
-
-          {/* Domain selector - hidden for now */}
-          {/* Tags - hidden for now */}
-          {/* Expires - hidden for now */}
 
           <WButton
             label={submitting ? '' : 'Publier'}
@@ -293,7 +306,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.lg,
   },
   uploadContent: {
     alignItems: 'center',
@@ -301,33 +314,43 @@ const styles = StyleSheet.create({
   },
   uploadText: {
     fontSize: 14,
-    color: Colors.primary,
+    color: Colors.muted,
   },
   section: { marginBottom: Spacing.md },
   sectionTitle: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '700',
     color: Colors.foreground,
     marginBottom: Spacing.sm,
   },
   precisionRow: {
     flexDirection: 'row',
-    gap: 0,
     borderRadius: Radius.lg,
     overflow: 'hidden',
     backgroundColor: Colors.card,
   },
   precisionBtn: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 14,
     alignItems: 'center',
     backgroundColor: Colors.card,
+    borderRightWidth: 1,
+    borderRightColor: Colors.border,
+  },
+  precisionBtnFirst: {
+    borderTopLeftRadius: Radius.lg,
+    borderBottomLeftRadius: Radius.lg,
+  },
+  precisionBtnLast: {
+    borderTopRightRadius: Radius.lg,
+    borderBottomRightRadius: Radius.lg,
+    borderRightWidth: 0,
   },
   precisionBtnActive: {
     backgroundColor: Colors.header,
   },
   precisionText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
     color: Colors.muted,
   },
@@ -339,6 +362,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginBottom: Spacing.md,
+    paddingVertical: Spacing.xs,
   },
   locationText: {
     flex: 1,
@@ -346,8 +370,18 @@ const styles = StyleSheet.create({
     color: Colors.foreground,
   },
   mapSection: { marginBottom: Spacing.md },
-  mapWrap: { height: 180, borderRadius: Radius.lg, overflow: 'hidden' },
+  mapWrap: { 
+    height: 200, 
+    borderRadius: Radius.lg, 
+    overflow: 'hidden',
+  },
   map: { flex: 1 },
+  precisionIndicator: {
+    fontSize: 12,
+    color: Colors.muted,
+    textAlign: 'center',
+    marginTop: Spacing.xs,
+  },
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -361,16 +395,22 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   toggleText: {
-    fontSize: 14,
+    fontSize: 15,
     color: Colors.foreground,
   },
   toggleBtn: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: Colors.primary,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: Colors.muted,
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  toggleBtnActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
   },
   submitBtn: { marginTop: Spacing.md },
 });
