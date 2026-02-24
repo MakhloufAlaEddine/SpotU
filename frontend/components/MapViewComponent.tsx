@@ -1,7 +1,12 @@
-import React, { useRef, useCallback } from 'react';
-import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
-import { WebView } from 'react-native-webview';
+import React, { useRef, useCallback, useEffect } from 'react';
+import { View, StyleSheet, ActivityIndicator, Text, Platform } from 'react-native';
 import { Colors } from '../constants/Colors';
+
+// WebView only on native
+let WebView: any = null;
+if (Platform.OS !== 'web') {
+  WebView = require('react-native-webview').WebView;
+}
 
 export interface MapPin {
   id: string;
