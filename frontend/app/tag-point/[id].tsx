@@ -265,11 +265,19 @@ export default function TagPointDetail() {
           </View>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  fullScreen: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
+  headerArea: {
+    backgroundColor: Colors.header,
+    paddingTop: 40, // For status bar space
+  },
   safe: { 
     flex: 1, 
     backgroundColor: Colors.header 
