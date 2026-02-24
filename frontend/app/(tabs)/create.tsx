@@ -49,13 +49,14 @@ export default function CreateScreen() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (loading) return; // Wait for auth to initialize
     if (!user) {
       Alert.alert('', 'Connectez-vous pour créer un TagPoint');
       router.replace('/(auth)/login');
       return;
     }
     loadData();
-  }, []);
+  }, [loading, user]);
 
   useEffect(() => {
     if (selectedDomain) loadTags(selectedDomain);
