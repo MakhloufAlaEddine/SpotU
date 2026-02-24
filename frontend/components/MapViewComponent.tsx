@@ -166,9 +166,12 @@ export function MapViewComponent({
   }, [handleMessage]);
 
   if (Platform.OS === 'web') {
+    // Generate a unique key based on content to force iframe refresh
+    const iframeKey = `${centerLat}-${centerLng}-${precisionRadius}-${selectedLat}-${selectedLng}`;
     return (
       <View style={[styles.container, style]}>
         <iframe
+          key={iframeKey}
           ref={iframeRef}
           srcDoc={html}
           style={{ width: '100%', height: '100%', border: 'none' } as any}
