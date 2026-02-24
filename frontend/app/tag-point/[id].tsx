@@ -1,13 +1,53 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import {
+  View, Text, StyleSheet, ScrollView, ActivityIndicator,
+  TouchableOpacity, Alert, Image, Share,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { MapViewComponent } from '../../components/MapViewComponent';
-import { WButton } from '../../components/WButton';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/LanguageContext';
-import { Colors, Spacing, Radius, Shadow } from '../../constants/Colors';
+import { Colors, Spacing, Radius } from '../../constants/Colors';
+
+// Star Rating Component
+function StarRating({ rating = 0, votes = 0 }: { rating?: number; votes?: number }) {
+  return (
+    <View style={starStyles.container}>
+      {[...Array(5)].map((_, index) => (
+        <Ionicons
+          key={index}
+          name={index < rating ? 'star' : 'star-outline'}
+          size={18}
+          color={index < rating ? Colors.star : Colors.muted}
+        />
+      ))}
+      <Text style={starStyles.votes}>{votes} votes</Text>
+    </View>
+  );
+}
+
+const starStyles = StyleSheet.create({
+  container: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  votes: { fontSize: 14, color: Colors.foreground, marginLeft: 8 },
+});
+
+// Action Button Component
+function ActionButton({ icon, label, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }) {
+  return (
+    <TouchableOpacity style={actionStyles.container} onPress={onPress} activeOpacity={0.7}>
+      <Ionicons name={icon} size={24} color={Colors.foreground} />
+      <Text style={actionStyles.label}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+const actionStyles = StyleSheet.create({
+  container: { alignItems: 'center', gap: 4, flex: 1 },
+  label: { fontSize: 13, color: Colors.foreground },
+});
 
 export default function TagPointDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -16,7 +56,7 @@ export default function TagPointDetail() {
   const { t, lang } = useLang();
   const [point, setPoint] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [deleting, setDeleting] = useState(false);
+  const [showFullDesc, setShowFullDesc] = useState(false);
 
   useEffect(() => {
     if (id) loadPoint();
@@ -33,119 +73,387 @@ export default function TagPointDetail() {
     }
   };
 
-  const handleDelete = async () => {
-    Alert.alert(t('delete'), 'Supprimer ce TagPoint ?', [
-      { text: t('cancel'), style: 'cancel' },
-      {
-        text: t('delete'), style: 'destructive', onPress: async () => {
-          setDeleting(true);
-          try {
-            await api.del(`/tag-points/${id}`);
-            router.back();
-          } catch (err: any) {
-            Alert.alert(t('error'), err.message);
-            setDeleting(false);
-          }
-        }
-      }
-    ]);
+  const handleShare = async () => {
+    try {
+      await Share.share({
+        message: `Découvrez "${point.title}" sur WINEK!`,
+        title: point.title,
+      });
+    } catch {}
+  };
+
+  const handleSendMessage = () => {
+    Alert.alert('Message', 'Fonctionnalité de chat bientôt disponible !');
+  };
+
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 1) return 'Aujourd\'hui';
+    if (diffDays === 1) return 'Hier';
+    if (diffDays < 7) return `Il y a ${diffDays} jours`;
+    if (diffDays < 30) return `Il y a ${Math.floor(diffDays / 7)} semaines`;
+    if (diffDays < 365) return `Il y a ${Math.floor(diffDays / 30)} mois`;
+    return `Il y a ${Math.floor(diffDays / 365)} ans`;
+  };
+
+  const formatDistance = (distance?: number) => {
+    if (!distance) return '---';
+    if (distance < 1000) return `${Math.round(distance)}M`;
+    return `${(distance / 1000).toFixed(1)}KM`;
+  };
+
+  // Get precision radius for map circle
+  const getPrecisionRadius = (precision: string) => {
+    if (precision === '100m') return 100;
+    if (precision === '1000m') return 1000;
+    return 0;
   };
 
   if (loading) return (
-    <View style={styles.center}><ActivityIndicator size="large" color={Colors.primary} /></View>
-  );
-  if (!point) return (
-    <View style={styles.center}><Text style={styles.notFound}>TagPoint introuvable</Text></View>
+    <SafeAreaView style={styles.safe}>
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    </SafeAreaView>
   );
 
-  const lat = point.location?.coordinates?.[1];
-  const lng = point.location?.coordinates?.[0];
-  const isOwner = user?.user_id === point.user_id;
+  if (!point) return (
+    <SafeAreaView style={styles.safe}>
+      <View style={styles.center}>
+        <Ionicons name="alert-circle-outline" size={48} color={Colors.muted} />
+        <Text style={styles.notFound}>TagPoint introuvable</Text>
+      </View>
+    </SafeAreaView>
+  );
+
+  const lat = point.latitude || point.location?.coordinates?.[1];
+  const lng = point.longitude || point.location?.coordinates?.[0];
   const tags: any[] = point.tags || [];
+  const precisionRadius = getPrecisionRadius(point.precision);
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Map preview */}
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
+          <Ionicons name="chevron-back" size={24} color={Colors.primary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Details</Text>
+        <View style={styles.headerRight}>
+          <TouchableOpacity style={styles.headerBtn}>
+            <Ionicons name="location" size={24} color={Colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.headerBtn}>
+            <Ionicons name="search" size={24} color={Colors.primary} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <ScrollView 
+        style={styles.content} 
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Main Image with Owner Avatar */}
+        <View style={styles.imageSection}>
+          <View style={styles.imageContainer}>
+            {point.image_url ? (
+              <Image source={{ uri: point.image_url }} style={styles.mainImage} />
+            ) : (
+              <View style={styles.imagePlaceholder}>
+                <Ionicons name="football-outline" size={64} color={Colors.muted} />
+              </View>
+            )}
+          </View>
+          {/* Owner Avatar */}
+          {point.owner && (
+            <View style={styles.ownerAvatar}>
+              {point.owner.picture ? (
+                <Image source={{ uri: point.owner.picture }} style={styles.avatarImage} />
+              ) : (
+                <View style={styles.avatarPlaceholder}>
+                  <Text style={styles.avatarText}>
+                    {point.owner.name?.charAt(0)?.toUpperCase() || '?'}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+        </View>
+
+        {/* Title */}
+        <Text style={styles.title}>{point.title}</Text>
+
+        {/* Info Row: Distance + Tag */}
+        <View style={styles.infoRow}>
+          <View style={styles.distanceTag}>
+            <Ionicons name="location-outline" size={16} color={Colors.primary} />
+            <Text style={styles.distanceText}>{formatDistance(point.distance)}</Text>
+          </View>
+          {tags.length > 0 && (
+            <View style={styles.categoryTag}>
+              <Text style={styles.categoryText}>
+                {lang === 'fr' ? tags[0].label_fr : tags[0].label_en}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Created + Rating Row */}
+        <View style={styles.createdRow}>
+          <Text style={styles.createdText}>
+            Created {formatTimeAgo(point.created_at)}
+          </Text>
+          <StarRating rating={point.rating || 0} votes={point.votes || 0} />
+        </View>
+
+        {/* Send Message Button */}
+        <TouchableOpacity 
+          style={styles.messageBtn} 
+          onPress={handleSendMessage}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.messageBtnText}>Send a message</Text>
+          <Ionicons name="send" size={20} color={Colors.background} />
+        </TouchableOpacity>
+
+        {/* Action Buttons Row */}
+        <View style={styles.actionsRow}>
+          <ActionButton icon="copy-outline" label="Similar" onPress={() => {}} />
+          <ActionButton icon="share-social-outline" label="Share" onPress={handleShare} />
+          <ActionButton icon="bookmark-outline" label="Save" onPress={() => {}} />
+        </View>
+
+        {/* Map with Precision Circle */}
         {lat && lng && (
-          <View style={styles.mapWrap} testID="tagpoint-map">
+          <View style={styles.mapWrap}>
             <MapViewComponent
               centerLat={lat}
               centerLng={lng}
-              zoom={15}
-              pins={[{ id: point.point_id, lat, lng, title: point.title, color: Colors.primary, type: 'tagpoint' }]}
+              zoom={precisionRadius > 500 ? 14 : 16}
+              precisionRadius={precisionRadius}
+              selectedLat={lat}
+              selectedLng={lng}
               style={styles.map}
             />
           </View>
         )}
 
-        <View style={styles.content}>
-          {/* Tags */}
-          {tags.length > 0 && (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tagsRow}>
-              {tags.map((tag) => (
-                <View key={tag.tag_id} style={styles.tag}>
-                  <Text style={styles.tagText}>{lang === 'fr' ? tag.label_fr : tag.label_en}</Text>
-                </View>
-              ))}
-            </ScrollView>
-          )}
-
-          <Text style={styles.title}>{point.title}</Text>
-          {point.description && <Text style={styles.desc}>{point.description}</Text>}
-
-          <View style={styles.meta}>
-            {point.owner && (
-              <View style={styles.metaItem}>
-                <Text style={styles.metaIcon}>👤</Text>
-                <Text style={styles.metaText}>{point.owner.name}</Text>
-              </View>
-            )}
-            <View style={styles.metaItem}>
-              <Text style={styles.metaIcon}>📍</Text>
-              <Text style={styles.metaText}>Précision: {point.precision}</Text>
-            </View>
-            {point.expires_at && (
-              <View style={styles.metaItem}>
-                <Text style={styles.metaIcon}>⏰</Text>
-                <Text style={styles.metaText}>Expire: {new Date(point.expires_at).toLocaleDateString()}</Text>
-              </View>
+        {/* Description */}
+        {point.description && (
+          <View style={styles.descSection}>
+            <Text style={styles.descTitle}>Description</Text>
+            <Text 
+              style={styles.descText} 
+              numberOfLines={showFullDesc ? undefined : 2}
+            >
+              {point.description}
+            </Text>
+            {point.description.length > 100 && (
+              <TouchableOpacity onPress={() => setShowFullDesc(!showFullDesc)}>
+                <Text style={styles.showMore}>
+                  {showFullDesc ? 'Show Less' : 'Show More'}
+                </Text>
+              </TouchableOpacity>
             )}
           </View>
-
-          {/* Owner actions */}
-          {isOwner && (
-            <WButton
-              label={`🗑️ ${t('delete')}`}
-              onPress={handleDelete}
-              loading={deleting}
-              variant="danger"
-              style={styles.deleteBtn}
-              testID="delete-tagpoint-btn"
-            />
-          )}
-        </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  notFound: { fontSize: 16, color: Colors.muted },
-  scroll: { paddingBottom: 40 },
-  mapWrap: { height: 250 },
-  map: { flex: 1 },
-  content: { padding: Spacing.lg },
-  tagsRow: { marginBottom: Spacing.sm },
-  tag: { backgroundColor: Colors.primaryLight, borderRadius: Radius.full, paddingHorizontal: 12, paddingVertical: 5, marginRight: 8 },
-  tagText: { fontSize: 12, color: Colors.primary, fontWeight: '700' },
-  title: { fontSize: 24, fontWeight: '900', color: Colors.foreground, marginBottom: Spacing.sm },
-  desc: { fontSize: 15, color: Colors.muted, lineHeight: 22, marginBottom: Spacing.md },
-  meta: { gap: 10, marginBottom: Spacing.lg, padding: Spacing.md, backgroundColor: Colors.secondary, borderRadius: Radius.lg },
-  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  metaIcon: { fontSize: 16 },
-  metaText: { fontSize: 14, color: Colors.foreground },
-  deleteBtn: { marginTop: Spacing.sm },
+  safe: { 
+    flex: 1, 
+    backgroundColor: Colors.header 
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    backgroundColor: Colors.header,
+  },
+  headerBtn: { padding: 4 },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.primary,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+  },
+  content: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
+  scroll: {
+    paddingBottom: 40,
+  },
+  center: { 
+    flex: 1, 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    gap: 12,
+  },
+  notFound: { 
+    fontSize: 16, 
+    color: Colors.muted 
+  },
+  imageSection: {
+    position: 'relative',
+    marginBottom: Spacing.md,
+  },
+  imageContainer: {
+    height: 220,
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.md,
+    borderRadius: Radius.lg,
+    overflow: 'hidden',
+  },
+  mainImage: {
+    width: '100%',
+    height: '100%',
+  },
+  imagePlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: Colors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ownerAvatar: {
+    position: 'absolute',
+    top: Spacing.md + 10,
+    right: Spacing.md + 10,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 2,
+    borderColor: Colors.foreground,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+  },
+  avatarPlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: Colors.background,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: Colors.foreground,
+    paddingHorizontal: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  distanceTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  distanceText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.primary,
+  },
+  categoryTag: {
+    backgroundColor: 'transparent',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+  },
+  categoryText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.primary,
+  },
+  createdRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  createdText: {
+    fontSize: 14,
+    color: Colors.muted,
+  },
+  messageBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.header,
+    marginHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.full,
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  messageBtnText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.foreground,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    marginBottom: Spacing.md,
+  },
+  mapWrap: {
+    height: 180,
+    marginHorizontal: Spacing.md,
+    borderRadius: Radius.lg,
+    overflow: 'hidden',
+    marginBottom: Spacing.md,
+  },
+  map: {
+    flex: 1,
+  },
+  descSection: {
+    paddingHorizontal: Spacing.md,
+  },
+  descTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.foreground,
+    marginBottom: Spacing.xs,
+  },
+  descText: {
+    fontSize: 15,
+    color: Colors.muted,
+    lineHeight: 22,
+  },
+  showMore: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.primary,
+    textAlign: 'center',
+    marginTop: Spacing.sm,
+  },
 });
