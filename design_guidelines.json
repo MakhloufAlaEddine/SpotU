@@ -1,0 +1,162 @@
+{
+  "identity": {
+    "name": "WINEK",
+    "mission": "Hyperlocal connection through physical presence. Not just a map, but a canvas of local activity.",
+    "style": "Minimal, Clear, Local & Human",
+    "tone": {
+      "primary": "Trustworthy & Energetic",
+      "secondary": "Grounded & Inclusive"
+    }
+  },
+  "colors": {
+    "palette": {
+      "primary": {
+        "DEFAULT": "#1DBF73",
+        "foreground": "#FFFFFF",
+        "50": "#E8F9F1",
+        "100": "#C6EEDC",
+        "200": "#9FE2C4",
+        "300": "#76D5AB",
+        "400": "#52C894",
+        "500": "#1DBF73",
+        "600": "#17995C",
+        "700": "#117245",
+        "800": "#0C4C2E",
+        "900": "#062617"
+      },
+      "secondary": {
+        "DEFAULT": "#F5F5F7",
+        "foreground": "#1C1C1E"
+      },
+      "accent": {
+        "DEFAULT": "#007AFF",
+        "foreground": "#FFFFFF"
+      },
+      "background": "#FFFFFF",
+      "foreground": "#1C1C1E",
+      "muted": {
+        "DEFAULT": "#F5F5F7",
+        "foreground": "#8E8E93"
+      },
+      "card": {
+        "DEFAULT": "#FFFFFF",
+        "foreground": "#1C1C1E"
+      },
+      "border": "#E5E5EA",
+      "input": "#E5E5EA",
+      "destructive": {
+        "DEFAULT": "#FF3B30",
+        "foreground": "#FFFFFF"
+      },
+      "human": {
+        "DEFAULT": "#FF9500",
+        "foreground": "#FFFFFF"
+      }
+    },
+    "gradients": {
+      "coach_overlay": "linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.6) 100%)",
+      "map_fade": "linear-gradient(to top, #FFFFFF 10%, transparent 100%)"
+    }
+  },
+  "typography": {
+    "font_family": {
+      "sans": ["System", "Inter", "SF Pro Text", "Roboto", "sans-serif"],
+      "heading": ["System", "Inter", "SF Pro Display", "sans-serif"]
+    },
+    "styles": {
+      "h1": "text-4xl font-bold tracking-tight text-foreground",
+      "h2": "text-2xl font-bold tracking-tight text-foreground",
+      "h3": "text-xl font-semibold tracking-tight text-foreground",
+      "body": "text-base font-normal text-muted-foreground leading-relaxed",
+      "caption": "text-xs text-muted-foreground",
+      "button": "text-sm font-medium tracking-wide"
+    }
+  },
+  "spacing": {
+    "container_padding": "p-5 md:p-8",
+    "section_gap": "gap-6",
+    "card_padding": "p-4"
+  },
+  "layout": {
+    "radius": {
+      "default": "rounded-2xl",
+      "sm": "rounded-lg",
+      "full": "rounded-full"
+    },
+    "shadows": {
+      "soft": "shadow-sm shadow-black/5",
+      "floating": "shadow-xl shadow-black/10"
+    }
+  },
+  "components": {
+    "libraries": {
+      "ui": "react-native-reusables (Shadcn for RN)",
+      "icons": "lucide-react-native",
+      "map": "react-native-map-libre-gl (requires dev build) OR react-native-maps (fallback)",
+      "navigation": "expo-router",
+      "gestures": "react-native-gesture-handler",
+      "bottom_sheet": "@gorhom/bottom-sheet"
+    },
+    "custom_components": [
+      {
+        "name": "MapPin",
+        "description": "Custom SVG pin that scales on selection. Green for Sport, Blue for Coaching.",
+        "path": "/components/MapPin.tsx"
+      },
+      {
+        "name": "DomainSelector",
+        "description": "Horizontal scrollable pill list for filtering domains (Sport, Coaching, etc).",
+        "path": "/components/DomainSelector.tsx"
+      },
+      {
+        "name": "CoachCard",
+        "description": "Minimal card with avatar overlap, rating star, and price/hr.",
+        "path": "/components/CoachCard.tsx"
+      },
+      {
+        "name": "FloatingSearchBar",
+        "description": "Search input floating above the map with blurry background.",
+        "path": "/components/FloatingSearchBar.tsx"
+      }
+    ]
+  },
+  "visual_assets": {
+    "images": {
+      "hero_sport": "https://images.unsplash.com/photo-1760879946075-ddb8432a322d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2OTV8MHwxfHNlYXJjaHw0fHxydW5uaW5nJTIwYXRobGV0ZSUyMGNpdHklMjBwYXJrfGVufDB8fHx8MTc3MTk0NzQyMnww&ixlib=rb-4.1.0&q=85",
+      "coach_portrait_1": "https://images.pexels.com/photos/3912944/pexels-photo-3912944.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "coach_portrait_2": "https://images.pexels.com/photos/6740342/pexels-photo-6740342.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "yoga_park": "https://images.pexels.com/photos/35253336/pexels-photo-35253336.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "map_placeholder": "https://images.unsplash.com/photo-1569336415962-a4bd9f69cd83?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80"
+    },
+    "icons": {
+      "sport": "Dumbbell",
+      "coaching": "UserCheck",
+      "social": "Users",
+      "service": "Briefcase"
+    }
+  },
+  "technical_guidelines": {
+    "map_provider": "MapLibre (preferred) or Google Maps (fallback)",
+    "auth_flow": "Supabase or Firebase Auth UI patterns",
+    "styling_engine": "NativeWind (Tailwind CSS for React Native)",
+    "safe_area": "Always wrap screens in SafeAreaView or use expo-router Screen layout",
+    "bilingual_support": "Use i18n-js or similar. Design for 30% text expansion in French."
+  },
+  "instructions_to_main_agent": [
+    "1. Initialize NativeWind: Ensure tailwind.config.js is set up for creating styled components.",
+    "2. Setup Navigation: Use expo-router with a Tabs layout (Map, Search, Create, Bookings, Profile).",
+    "3. Map Integration: Since MapLibre requires native code, if you are in Expo Go, Mock the map component with a static image and interactive pins for MVP.",
+    "4. Component Strategy: Use react-native-reusables patterns. Do not import 'shadcn-ui' directly as it is for web.",
+    "5. Dark Mode: Respect the system preference but default to Light mode for the 'Fresh/Local' feel.",
+    "6. Create 'TagPoint' context: A global state to manage the selected tag on the map."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "You tend to converge toward generic, 'on distribution' outputs. Avoid this.",
+    "Use 2-3x more spacing than feels comfortable. Cramped mobile designs look cheap.",
+    "Every interaction needs micro-animations (Pressable scale feedback).",
+    "Do NOT center align the app container. Use Flexbox logically.",
+    "Always use safe-area-context to handle notches and dynamic islands.",
+    "Use 'sonner' (native equivalent) or a custom toast for notifications.",
+    "All interactive elements MUST include testID attribute."
+  ]
+}
