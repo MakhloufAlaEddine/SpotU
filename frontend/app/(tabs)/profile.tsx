@@ -189,7 +189,16 @@ export default function ProfileScreen() {
         {/* My Services (coach) */}
         {(user.role === 'coach' || user.role === 'admin') && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>🎯 {t('myServices')} ({myServices.length})</Text>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>🎯 {t('myServices')} ({myServices.length})</Text>
+              <TouchableOpacity
+                onPress={() => router.push('/create-service')}
+                style={styles.addServiceBtn}
+                testID="add-service-btn"
+              >
+                <Text style={styles.addServiceText}>+ Ajouter</Text>
+              </TouchableOpacity>
+            </View>
             {myServices.length === 0 ? (
               <Text style={styles.emptySection}>{t('noResults')}</Text>
             ) : (
