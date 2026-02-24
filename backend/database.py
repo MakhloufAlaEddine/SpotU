@@ -159,10 +159,18 @@ def rows_to_list(rows) -> list:
     return [row_to_dict(row) for row in rows]
 
 
+import json as _json
+
+async def _init_connection(conn):
+    """Set JSONB codec for every connection in the pool."""
+    await conn.set_type_codec('jsonb', encoder=_json.dumps, decoder=_json.loads, schema='pg_catalog')
+    await conn.set_type_codec('json', encoder=_json.dumps, decoder=_json.loads, schema='pg_catalog')
+
+
 async def connect_to_db():
     global pool
     database_url = os.environ.get("DATABASE_URL")
-    pool = await asyncpg.create_pool(database_url, min_size=2, max_size=10)
+    pool = await asyncpg.create_pool(database_url, min_size=2, max_size=10, init=_init_connection)
     async with pool.acquire() as conn:
         await conn.execute(CREATE_TABLES_SQL)
     logger.info("Connected to PostgreSQL with PostGIS")
