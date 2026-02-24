@@ -137,6 +137,9 @@ export default function TagPointDetail() {
 
   return (
     <View style={styles.fullScreen}>
+      {/* Cover any navigation header on web */}
+      <View style={styles.headerCover} />
+      
       {/* Header */}
       <View style={styles.headerArea}>
         <View style={styles.header}>
