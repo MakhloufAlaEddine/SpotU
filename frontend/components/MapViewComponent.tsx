@@ -120,7 +120,7 @@ if(CFG.selectable){
 
 export function MapViewComponent({
   pins = [], centerLat = 48.8566, centerLng = 2.3522, zoom = 13,
-  searchRadius, selectable = false, showUserMarker = false,
+  searchRadius, precisionRadius, selectable = false, showUserMarker = false,
   onPinPress, onMapPress, selectedLat, selectedLng, style,
 }: Props) {
   const ref = useRef<any>(null);
@@ -128,7 +128,7 @@ export function MapViewComponent({
 
   const html = buildHTML({
     lat: centerLat, lng: centerLng, zoom,
-    pins, radius: searchRadius,
+    pins, radius: searchRadius, precisionRadius,
     selectable, showUser: showUserMarker,
     selLat: selectedLat, selLng: selectedLng,
   });
