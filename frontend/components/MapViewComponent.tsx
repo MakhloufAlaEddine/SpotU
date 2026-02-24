@@ -88,13 +88,19 @@ if(CFG.radius){
 var precisionCircle=null;
 var selMarker=null;
 
-console.log('Map CFG:', JSON.stringify({selLat:CFG.selLat,selLng:CFG.selLng,precisionRadius:CFG.precisionRadius}));
+// DEBUG: Always log the config
+console.log('MAP CONFIG:', JSON.stringify({
+  selLat: CFG.selLat,
+  selLng: CFG.selLng,
+  precisionRadius: CFG.precisionRadius,
+  selectable: CFG.selectable
+}));
 
 function updatePrecisionCircle(lat,lng){
   console.log('updatePrecisionCircle called:', lat, lng, 'radius:', CFG.precisionRadius);
   if(precisionCircle){map.removeLayer(precisionCircle);}
   if(CFG.precisionRadius && CFG.precisionRadius > 0){
-    console.log('Drawing circle with radius:', CFG.precisionRadius);
+    console.log('Drawing RED circle with radius:', CFG.precisionRadius);
     precisionCircle=L.circle([lat,lng],{
       radius:CFG.precisionRadius,
       color:'#FF3B30',
@@ -107,12 +113,14 @@ function updatePrecisionCircle(lat,lng){
   }
 }
 
+// Always draw the initial marker and circle if coordinates exist
+if(CFG.selLat && CFG.selLng){
+  console.log('Drawing initial marker at:', CFG.selLat, CFG.selLng);
+  selMarker=L.marker([CFG.selLat,CFG.selLng],{icon:mkPin('#FF3B30')}).addTo(map);
+  updatePrecisionCircle(CFG.selLat,CFG.selLng);
+}
+
 if(CFG.selectable){
-  if(CFG.selLat&&CFG.selLng){
-    console.log('Initial selected point:', CFG.selLat, CFG.selLng);
-    selMarker=L.marker([CFG.selLat,CFG.selLng],{icon:mkPin('#FF3B30')}).addTo(map);
-    updatePrecisionCircle(CFG.selLat,CFG.selLng);
-  }
   map.on('click',function(e){
     console.log('Map clicked:', e.latlng.lat, e.latlng.lng);
     msg({type:'press',lat:e.latlng.lat,lng:e.latlng.lng});
