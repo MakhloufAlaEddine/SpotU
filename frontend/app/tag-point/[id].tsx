@@ -155,7 +155,7 @@ export default function TagPointDetail() {
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </SafeAreaView>
 
       <ScrollView 
         style={styles.content} 
