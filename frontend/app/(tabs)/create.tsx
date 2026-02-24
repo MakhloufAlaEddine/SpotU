@@ -34,11 +34,11 @@ export default function CreateTagPointScreen() {
   const [openToCommunication, setOpenToCommunication] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  // Location state
+  // Location state - initialize with Paris coordinates
   const [centerLat, setCenterLat] = useState(48.8566);
   const [centerLng, setCenterLng] = useState(2.3522);
-  const [selectedLat, setSelectedLat] = useState<number | null>(null);
-  const [selectedLng, setSelectedLng] = useState<number | null>(null);
+  const [selectedLat, setSelectedLat] = useState<number>(48.8566);
+  const [selectedLng, setSelectedLng] = useState<number>(2.3522);
   const [locationAddress, setLocationAddress] = useState('Chargement...');
 
   // Get current precision radius
