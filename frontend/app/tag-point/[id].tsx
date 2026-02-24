@@ -277,9 +277,19 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
+  headerCover: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 50,
+    backgroundColor: Colors.header,
+    zIndex: 100,
+  },
   headerArea: {
     backgroundColor: Colors.header,
-    paddingTop: 40, // For status bar space
+    paddingTop: 50,
+    zIndex: 101,
   },
   safe: { 
     flex: 1, 
