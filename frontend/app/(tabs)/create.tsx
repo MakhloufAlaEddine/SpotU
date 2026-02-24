@@ -31,7 +31,7 @@ const EXPIRE_OPTIONS = [
 
 export default function CreateScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const { t, lang } = useLang();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
