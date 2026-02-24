@@ -61,20 +61,41 @@ export default function TagPointDetail() {
   // Hide expo-router header on web
   useEffect(() => {
     if (Platform.OS === 'web') {
-      const style = document.createElement('style');
-      style.textContent = `
-        header[role="banner"],
-        div[data-testid="header"],
-        [class*="Header"],
-        [class*="header"] > span:first-child,
-        body > div > div > div:first-child > div:first-child {
-          display: none !important;
-          height: 0 !important;
-          overflow: hidden !important;
-        }
-      `;
-      document.head.appendChild(style);
-      return () => { document.head.removeChild(style); };
+      // Find and hide the navigation header
+      const hideHeader = () => {
+        // Look for any element containing "TagPoint" text at the top
+        const allElements = document.querySelectorAll('*');
+        allElements.forEach((el: any) => {
+          if (el.textContent === 'TagPoint' && el.tagName !== 'SCRIPT') {
+            const parent = el.closest('div');
+            if (parent && parent.getBoundingClientRect().top < 60) {
+              parent.style.display = 'none';
+            }
+          }
+        });
+        // Also try to hide any header with green/teal text at the top
+        const topElements = document.querySelectorAll('div');
+        topElements.forEach((el: any) => {
+          const rect = el.getBoundingClientRect();
+          if (rect.top < 50 && rect.height < 60 && rect.height > 20) {
+            const style = window.getComputedStyle(el);
+            if (style.color.includes('rgb(29, 191, 115)') || 
+                el.textContent?.trim() === 'TagPoint') {
+              el.style.display = 'none';
+            }
+          }
+        });
+      };
+      
+      // Run immediately and after a delay
+      hideHeader();
+      const timer1 = setTimeout(hideHeader, 100);
+      const timer2 = setTimeout(hideHeader, 500);
+      
+      return () => {
+        clearTimeout(timer1);
+        clearTimeout(timer2);
+      };
     }
   }, []);
 
