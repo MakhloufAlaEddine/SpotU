@@ -135,6 +135,17 @@ export default function CreateScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Ionicons name="chevron-back" size={24} color={Colors.primary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Créer un point tag</Text>
+        <TouchableOpacity style={styles.headerAction}>
+          <Text style={styles.headerActionText}>Choisir</Text>
+        </TouchableOpacity>
+      </View>
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.kav}
@@ -144,12 +155,47 @@ export default function CreateScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.screenTitle}>📍 {t('createTagPoint')}</Text>
+          {/* Search bar */}
+          <Text style={styles.searchLabel}>Rechercher</Text>
+
+          {/* Image Upload Area */}
+          <View style={styles.imageUploadArea}>
+            <View style={styles.uploadContent}>
+              <Ionicons name="cloud-upload-outline" size={24} color={Colors.primary} />
+              <Text style={styles.uploadText}>Télécharger une image 1/10</Text>
+            </View>
+          </View>
+
+          {/* Precision selector */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Précision d'emplacement</Text>
+            <View style={styles.precisionRow}>
+              {PRECISION_OPTIONS.map((p) => (
+                <TouchableOpacity
+                  key={p.value}
+                  style={[styles.precisionBtn, precision === p.value && styles.precisionBtnActive]}
+                  onPress={() => setPrecision(p.value)}
+                  testID={`precision-${p.value}`}
+                >
+                  <Text style={[styles.precisionText, precision === p.value && styles.precisionTextActive]}>
+                    {lang === 'fr' ? p.labelFr : p.labelEn}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Location Row */}
+          <TouchableOpacity style={styles.locationRow}>
+            <Ionicons name="location" size={20} color={Colors.primary} />
+            <Text style={styles.locationText} numberOfLines={1}>
+              Gare Montparnasse...75014 Par...
+            </Text>
+            <Ionicons name="pencil" size={18} color={Colors.foreground} />
+          </TouchableOpacity>
 
           {/* Map for location */}
           <View style={styles.mapSection}>
-            <Text style={styles.sectionTitle}>{t('selectLocation')}</Text>
-            <Text style={styles.hint}>{t('locationHint')}</Text>
             <View style={styles.mapWrap}>
               <MapViewComponent
                 centerLat={centerLat}
@@ -163,106 +209,44 @@ export default function CreateScreen() {
                 style={styles.map}
               />
             </View>
-            {selectedLat && selectedLng && (
-              <Text style={styles.coordsText}>
-                📌 {selectedLat.toFixed(5)}, {selectedLng.toFixed(5)}
-              </Text>
-            )}
           </View>
 
-          {/* Title & Description */}
+          {/* Title */}
           <WInput
-            label={t('tagPointTitle')}
-            placeholder="Ex: Footing au Parc"
+            label="Titre"
+            placeholder="Entrer un titre"
             value={title}
             onChangeText={setTitle}
             testID="create-title-input"
           />
+
+          {/* Price */}
           <WInput
-            label={t('tagPointDesc')}
-            placeholder="Décrivez votre activité…"
+            label="price"
+            placeholder="Entrer le prix"
             value={description}
             onChangeText={setDescription}
-            multiline
-            numberOfLines={3}
-            testID="create-desc-input"
+            keyboardType="numeric"
+            testID="create-price-input"
           />
 
-          {/* Domain selector */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{t('selectDomain')}</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {domains.map((d) => (
-                <DomainPill
-                  key={d.domain_id}
-                  domain={d}
-                  selected={selectedDomain === d.domain_id}
-                  onPress={() => setSelectedDomain(d.domain_id)}
-                  lang={lang}
-                />
-              ))}
-            </ScrollView>
+          {/* Communication Toggle */}
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleLabel}>
+              <Text style={styles.toggleText}>Ouvert à la communication</Text>
+              <Ionicons name="information-circle-outline" size={16} color={Colors.muted} />
+            </View>
+            <TouchableOpacity style={styles.toggleBtn}>
+              <Ionicons name="checkmark" size={20} color={Colors.primary} />
+            </TouchableOpacity>
           </View>
 
-          {/* Tags */}
-          {tags.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>{t('selectTags')}</Text>
-              <TagSelector
-                tags={tags}
-                categories={categories}
-                selectedIds={selectedTags}
-                onToggle={(id) => {
-                  setSelectedTags((prev) =>
-                    prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]
-                  );
-                }}
-                lang={lang}
-                maxSelect={5}
-              />
-            </View>
-          )}
-
-          {/* Precision */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{t('precision')}</Text>
-            <View style={styles.optionRow}>
-              {PRECISION_OPTIONS.map((p) => (
-                <TouchableOpacity
-                  key={p.value}
-                  style={[styles.optionBtn, precision === p.value && styles.optionBtnActive]}
-                  onPress={() => setPrecision(p.value)}
-                  testID={`precision-${p.value}`}
-                >
-                  <Text style={[styles.optionText, precision === p.value && styles.optionTextActive]}>
-                    {lang === 'fr' ? p.labelFr : p.labelEn}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          {/* Expires */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{t('expiresIn')}</Text>
-            <View style={styles.optionRow}>
-              {EXPIRE_OPTIONS.map((e) => (
-                <TouchableOpacity
-                  key={String(e.value)}
-                  style={[styles.optionBtn, expiresHours === e.value && styles.optionBtnActive]}
-                  onPress={() => setExpiresHours(e.value)}
-                  testID={`expire-${e.value ?? 'never'}`}
-                >
-                  <Text style={[styles.optionText, expiresHours === e.value && styles.optionTextActive]}>
-                    {lang === 'fr' ? e.labelFr : e.labelEn}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
+          {/* Domain selector - hidden for now */}
+          {/* Tags - hidden for now */}
+          {/* Expires - hidden for now */}
 
           <WButton
-            label={submitting ? '' : `🚀 ${t('publish')}`}
+            label={submitting ? '' : 'Publier'}
             onPress={handleSubmit}
             loading={submitting}
             style={styles.submitBtn}
