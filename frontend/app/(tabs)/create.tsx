@@ -104,7 +104,7 @@ export default function CreateScreen() {
       return;
     }
 
-    setLoading(true);
+    setSubmitting(true);
     try {
       await api.post('/tag-points', {
         title: title.trim(),
