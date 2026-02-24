@@ -315,6 +315,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
+  absoluteHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: Colors.header,
+    paddingTop: 30,
+    zIndex: 1000,
+  },
   headerCover: {
     position: 'absolute',
     top: 0,
