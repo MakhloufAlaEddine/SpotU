@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { MapViewComponent } from '../../components/MapViewComponent';
 import { DomainPill } from '../../components/DomainPill';
 import { TagSelector } from '../../components/TagSelector';
@@ -17,9 +18,9 @@ import { Colors, Spacing, Radius } from '../../constants/Colors';
 import * as Location from 'expo-location';
 
 const PRECISION_OPTIONS = [
-  { value: 'exact', labelFr: 'Exacte', labelEn: 'Exact' },
-  { value: '100m', labelFr: '~100m', labelEn: '~100m' },
-  { value: '1000m', labelFr: '~1km', labelEn: '~1km' },
+  { value: 'exact', labelFr: 'Elevé', labelEn: 'High' },
+  { value: '100m', labelFr: 'Moyen', labelEn: 'Medium' },
+  { value: '1000m', labelFr: 'Faible', labelEn: 'Low' },
 ];
 
 const EXPIRE_OPTIONS = [
