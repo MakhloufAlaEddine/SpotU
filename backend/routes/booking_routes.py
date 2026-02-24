@@ -16,9 +16,9 @@ async def _enrich_bookings(conn, bookings: list) -> list:
             b["service_id"]
         )
         b["service"] = row_to_dict(svc_row)
-        if svc_row:
+        if b.get("coach_id"):
             coach_row = await conn.fetchrow(
-                "SELECT user_id, name, picture FROM users WHERE user_id = $1", svc_row["coach_id"] if hasattr(svc_row, 'get') else dict(svc_row).get("coach_id")
+                "SELECT user_id, name, picture FROM users WHERE user_id = $1", b["coach_id"]
             )
             b["coach"] = row_to_dict(coach_row)
         result.append(b)
