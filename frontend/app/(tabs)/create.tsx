@@ -46,7 +46,7 @@ export default function CreateScreen() {
   const [selectedLng, setSelectedLng] = useState<number | null>(null);
   const [centerLat, setCenterLat] = useState(48.8566);
   const [centerLng, setCenterLng] = useState(2.3522);
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (loading) return; // Wait for auth to initialize
