@@ -88,26 +88,33 @@ if(CFG.radius){
 var precisionCircle=null;
 var selMarker=null;
 
+console.log('Map CFG:', JSON.stringify({selLat:CFG.selLat,selLng:CFG.selLng,precisionRadius:CFG.precisionRadius}));
+
 function updatePrecisionCircle(lat,lng){
+  console.log('updatePrecisionCircle called:', lat, lng, 'radius:', CFG.precisionRadius);
   if(precisionCircle){map.removeLayer(precisionCircle);}
   if(CFG.precisionRadius && CFG.precisionRadius > 0){
+    console.log('Drawing circle with radius:', CFG.precisionRadius);
     precisionCircle=L.circle([lat,lng],{
       radius:CFG.precisionRadius,
       color:'#FF3B30',
       fillColor:'#FF3B30',
-      fillOpacity:0.15,
-      weight:2,
-      dashArray:''
+      fillOpacity:0.25,
+      weight:3
     }).addTo(map);
+    // Fit map to show the circle
+    map.fitBounds(precisionCircle.getBounds(), {padding: [20, 20]});
   }
 }
 
 if(CFG.selectable){
   if(CFG.selLat&&CFG.selLng){
+    console.log('Initial selected point:', CFG.selLat, CFG.selLng);
     selMarker=L.marker([CFG.selLat,CFG.selLng],{icon:mkPin('#FF3B30')}).addTo(map);
     updatePrecisionCircle(CFG.selLat,CFG.selLng);
   }
   map.on('click',function(e){
+    console.log('Map clicked:', e.latlng.lat, e.latlng.lng);
     msg({type:'press',lat:e.latlng.lat,lng:e.latlng.lng});
     if(selMarker){map.removeLayer(selMarker);}
     selMarker=L.marker([e.latlng.lat,e.latlng.lng],{icon:mkPin('#FF3B30')}).addTo(map);
