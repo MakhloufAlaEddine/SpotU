@@ -58,6 +58,26 @@ export default function TagPointDetail() {
   const [loading, setLoading] = useState(true);
   const [showFullDesc, setShowFullDesc] = useState(false);
 
+  // Hide expo-router header on web
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const style = document.createElement('style');
+      style.textContent = `
+        header[role="banner"],
+        div[data-testid="header"],
+        [class*="Header"],
+        [class*="header"] > span:first-child,
+        body > div > div > div:first-child > div:first-child {
+          display: none !important;
+          height: 0 !important;
+          overflow: hidden !important;
+        }
+      `;
+      document.head.appendChild(style);
+      return () => { document.head.removeChild(style); };
+    }
+  }, []);
+
   useEffect(() => {
     if (id) loadPoint();
   }, [id]);
