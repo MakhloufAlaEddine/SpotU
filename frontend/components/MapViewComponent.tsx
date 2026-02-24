@@ -37,6 +37,7 @@ function buildHTML(p: {
   pins: MapPin[]; radius?: number;
   selectable: boolean; showUser: boolean;
   selLat?: number; selLng?: number;
+  precisionRadius?: number;  // Circle around selected point
 }): string {
   const cfg = JSON.stringify(p);
   return `<!DOCTYPE html><html>
@@ -81,15 +82,35 @@ CFG.pins.forEach(function(p){
 if(CFG.radius){
   L.circle([CFG.lat,CFG.lng],{radius:CFG.radius,color:'#1DBF73',fillColor:'#1DBF73',fillOpacity:0.06,weight:1.5,dashArray:'6,4'}).addTo(map);
 }
+
+// Precision circle for selected point
+var precisionCircle=null;
+var selMarker=null;
+
+function updatePrecisionCircle(lat,lng){
+  if(precisionCircle){map.removeLayer(precisionCircle);}
+  if(CFG.precisionRadius && CFG.precisionRadius > 0){
+    precisionCircle=L.circle([lat,lng],{
+      radius:CFG.precisionRadius,
+      color:'#FF3B30',
+      fillColor:'#FF3B30',
+      fillOpacity:0.15,
+      weight:2,
+      dashArray:''
+    }).addTo(map);
+  }
+}
+
 if(CFG.selectable){
-  var selMarker=null;
   if(CFG.selLat&&CFG.selLng){
     selMarker=L.marker([CFG.selLat,CFG.selLng],{icon:mkPin('#FF3B30')}).addTo(map);
+    updatePrecisionCircle(CFG.selLat,CFG.selLng);
   }
   map.on('click',function(e){
     msg({type:'press',lat:e.latlng.lat,lng:e.latlng.lng});
     if(selMarker){map.removeLayer(selMarker);}
     selMarker=L.marker([e.latlng.lat,e.latlng.lng],{icon:mkPin('#FF3B30')}).addTo(map);
+    updatePrecisionCircle(e.latlng.lat,e.latlng.lng);
   });
 }
 </script>
