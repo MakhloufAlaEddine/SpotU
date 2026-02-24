@@ -24,7 +24,7 @@ export function WButton({ label, onPress, variant = 'primary', size = 'md', load
       style={[styles.base, styles[variant], styles[size], isDisabled && styles.disabled, style]}
     >
       {loading
-        ? <ActivityIndicator color={variant === 'primary' ? '#fff' : Colors.primary} size="small" />
+        ? <ActivityIndicator color={variant === 'primary' ? '#000' : Colors.primary} size="small" />
         : <Text style={[styles.label, styles[`${variant}Label` as keyof typeof styles]]}>{label}</Text>
       }
     </TouchableOpacity>
@@ -39,7 +39,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   primary: { backgroundColor: Colors.primary },
-  secondary: { backgroundColor: Colors.secondary, borderWidth: 1.5, borderColor: Colors.border },
+  secondary: { 
+    backgroundColor: Colors.card, 
+    borderWidth: 1, 
+    borderColor: Colors.border 
+  },
   ghost: { backgroundColor: 'transparent' },
   danger: { backgroundColor: Colors.destructive },
   sm: { paddingVertical: Spacing.xs + 2, paddingHorizontal: Spacing.md },
@@ -47,7 +51,7 @@ const styles = StyleSheet.create({
   lg: { paddingVertical: Spacing.md, paddingHorizontal: Spacing.xl },
   disabled: { opacity: 0.5 },
   label: { fontWeight: '600', letterSpacing: 0.3 },
-  primaryLabel: { color: '#fff', fontSize: 15 },
+  primaryLabel: { color: '#000', fontSize: 15 },
   secondaryLabel: { color: Colors.foreground, fontSize: 15 },
   ghostLabel: { color: Colors.primary, fontSize: 15 },
   dangerLabel: { color: '#fff', fontSize: 15 },
