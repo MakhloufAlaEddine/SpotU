@@ -114,20 +114,20 @@ export default function TagPointDetail() {
   };
 
   if (loading) return (
-    <SafeAreaView style={styles.safe}>
+    <View style={styles.fullScreen}>
       <View style={styles.center}>
         <ActivityIndicator size="large" color={Colors.primary} />
       </View>
-    </SafeAreaView>
+    </View>
   );
 
   if (!point) return (
-    <SafeAreaView style={styles.safe}>
+    <View style={styles.fullScreen}>
       <View style={styles.center}>
         <Ionicons name="alert-circle-outline" size={48} color={Colors.muted} />
         <Text style={styles.notFound}>TagPoint introuvable</Text>
       </View>
-    </SafeAreaView>
+    </View>
   );
 
   const lat = point.latitude || point.location?.coordinates?.[1];
