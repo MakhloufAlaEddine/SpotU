@@ -136,20 +136,22 @@ export default function TagPointDetail() {
   const precisionRadius = getPrecisionRadius(point.precision);
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <View style={styles.fullScreen}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
-          <Ionicons name="chevron-back" size={24} color={Colors.primary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Details</Text>
-        <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.headerBtn}>
-            <Ionicons name="location" size={24} color={Colors.primary} />
+      <View style={styles.headerArea}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
+            <Ionicons name="chevron-back" size={24} color={Colors.primary} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.headerBtn}>
-            <Ionicons name="search" size={24} color={Colors.primary} />
-          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Details</Text>
+          <View style={styles.headerRight}>
+            <TouchableOpacity style={styles.headerBtn}>
+              <Ionicons name="location" size={24} color={Colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.headerBtn}>
+              <Ionicons name="search" size={24} color={Colors.primary} />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
