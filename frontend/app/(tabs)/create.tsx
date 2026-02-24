@@ -211,7 +211,7 @@ export default function CreateTagPointScreen() {
                 selectedLat={selectedLat ?? undefined}
                 selectedLng={selectedLng ?? undefined}
                 onMapPress={handleMapPress}
-                searchRadius={precisionRadius > 0 ? precisionRadius : undefined}
+                precisionRadius={precisionRadius}
                 style={styles.map}
               />
             </View>
