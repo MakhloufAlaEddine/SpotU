@@ -163,7 +163,10 @@ async def search_tag_points(
     if lat is not None and lng is not None:
         order_clause = f"ORDER BY location::geography <-> ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography"
 
-    query = f"SELECT {TP_FIELDS} FROM tag_points WHERE {where_clause} {order_clause} LIMIT 200"
+    query = f"""SELECT {TP_FIELDS} 
+        FROM tag_points tp 
+        LEFT JOIN users u ON tp.user_id = u.user_id 
+        WHERE {where_clause} {order_clause} LIMIT 200"""
 
     async with pool.acquire() as conn:
         rows = await conn.fetch(query, *params)
