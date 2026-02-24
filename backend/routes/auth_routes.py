@@ -17,7 +17,7 @@ async def register(data: UserCreate):
             raise HTTPException(status_code=400, detail="Email already registered")
         uid = new_id("user")
         await conn.execute(
-            f"INSERT INTO users (user_id, email, password_hash, name, role, language, coach_tags) VALUES ($1, $2, $3, $4, 'user', $5, '[]'::jsonb)",
+            "INSERT INTO users (user_id, email, password_hash, name, role, language, coach_tags) VALUES ($1, $2, $3, $4, 'user', $5, '[]'::jsonb)",
             uid, data.email.lower(), hash_password(data.password), data.name, data.language
         )
         row = await conn.fetchrow(f"SELECT {USER_FIELDS} FROM users WHERE user_id = $1", uid)
@@ -62,7 +62,7 @@ async def google_auth(data: GoogleAuthRequest):
 
         uid = new_id("user")
         await conn.execute(
-            f"INSERT INTO users (user_id, email, name, picture, role, language, coach_tags) VALUES ($1, $2, $3, $4, 'user', 'fr', '[]'::jsonb)",
+            "INSERT INTO users (user_id, email, name, picture, role, language, coach_tags) VALUES ($1, $2, $3, $4, 'user', 'fr', '[]'::jsonb)",
             uid, email, name, picture
         )
         user_row = await conn.fetchrow(f"SELECT {USER_FIELDS} FROM users WHERE user_id = $1", uid)
