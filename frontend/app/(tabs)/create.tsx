@@ -203,6 +203,7 @@ export default function CreateTagPointScreen() {
           <View style={styles.mapSection}>
             <View style={styles.mapWrap}>
               <MapViewComponent
+                key={`map-${precision}-${selectedLat}-${selectedLng}`}
                 centerLat={selectedLat || centerLat}
                 centerLng={selectedLng || centerLng}
                 zoom={precisionRadius > 500 ? 13 : 15}
