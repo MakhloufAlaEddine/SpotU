@@ -261,9 +261,9 @@ export default function CreateScreen() {
           </View>
 
           <WButton
-            label={loading ? '' : `🚀 ${t('publish')}`}
+            label={submitting ? '' : `🚀 ${t('publish')}`}
             onPress={handleSubmit}
-            loading={loading}
+            loading={submitting}
             style={styles.submitBtn}
             testID="create-submit-btn"
           />
