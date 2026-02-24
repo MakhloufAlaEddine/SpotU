@@ -203,14 +203,14 @@ export default function CreateTagPointScreen() {
           <View style={styles.mapSection}>
             <View style={styles.mapWrap}>
               <MapViewComponent
-                key={`map-${precision}-${selectedLat?.toFixed(4)}-${selectedLng?.toFixed(4)}`}
-                centerLat={selectedLat || centerLat}
-                centerLng={selectedLng || centerLng}
+                key={`map-${precision}`}
+                centerLat={selectedLat}
+                centerLng={selectedLng}
                 zoom={precisionRadius >= 1000 ? 14 : precisionRadius >= 100 ? 16 : 17}
                 selectable
                 showUserMarker={false}
-                selectedLat={selectedLat ?? undefined}
-                selectedLng={selectedLng ?? undefined}
+                selectedLat={selectedLat}
+                selectedLng={selectedLng}
                 onMapPress={handleMapPress}
                 precisionRadius={precisionRadius}
                 style={styles.map}
