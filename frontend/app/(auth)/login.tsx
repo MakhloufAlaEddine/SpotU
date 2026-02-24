@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, KeyboardAvoidingView,
-  Platform, ScrollView, ActivityIndicator, Alert, Pressable,
+  Platform, ScrollView, ActivityIndicator, Alert, Pressable, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -43,10 +43,13 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Header */}
+          {/* Header with Logo */}
           <View style={styles.header}>
-            <Text style={styles.logo}>WINEK</Text>
-            <Text style={styles.tagline}>Trouvez. Connectez. Bougez.</Text>
+            <Image 
+              source={require('../../assets/splash.png')} 
+              style={styles.logo}
+              resizeMode="contain"
+            />
           </View>
 
           {/* Form */}
@@ -113,23 +116,18 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
+  safe: { flex: 1, backgroundColor: Colors.header },
   kav: { flex: 1 },
   scroll: { flexGrow: 1, padding: Spacing.lg, justifyContent: 'center' },
-  header: { alignItems: 'center', marginBottom: Spacing.xl },
+  header: { alignItems: 'center', marginBottom: Spacing.lg },
   logo: {
-    fontSize: 42,
-    fontWeight: '900',
-    color: Colors.primary,
-    letterSpacing: -1,
+    width: 200,
+    height: 150,
   },
-  tagline: { fontSize: 14, color: Colors.muted, marginTop: 4 },
   form: {
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.card,
     borderRadius: Radius.xl,
     padding: Spacing.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
   },
   title: {
     fontSize: 22,
@@ -151,7 +149,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: Radius.full,
     paddingVertical: Spacing.sm + 4,
