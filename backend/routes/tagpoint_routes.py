@@ -5,6 +5,8 @@ from models import TagPointCreate, TagPointUpdate, new_id
 from auth_utils import require_auth, get_token_from_request, decode_jwt
 from database import get_pool, row_to_dict, rows_to_list
 import json
+import random
+import math
 
 router = APIRouter()
 
@@ -28,12 +30,72 @@ def build_point_response(row_dict: dict) -> dict:
     return row_dict
 
 
-def apply_precision_offset(lat: float, lng: float, precision: str):
+def apply_precision_offset(lat: float, lng: float, precision: str, seed: str = None):
+    """
+    Apply a random offset to coordinates based on precision level.
+    Uses a seed (point_id) to ensure consistent offset for the same point.
+    
+    - exact: No offset
+    - 100m: Random offset within 100m radius
+    - 1000m: Random offset within 1000m radius
+    """
+    if precision == "exact" or precision is None:
+        return lat, lng
+    
+    # Get radius in meters
     if precision == "100m":
-        return round(lat, 3), round(lng, 3)
+        radius_m = 100
     elif precision == "1000m":
-        return round(lat, 2), round(lng, 2)
-    return lat, lng
+        radius_m = 1000
+    else:
+        return lat, lng
+    
+    # Use seed for consistent random offset per point
+    if seed:
+        random.seed(hash(seed))
+    
+    # Generate random angle and distance
+    angle = random.uniform(0, 2 * math.pi)
+    # Use square root for uniform distribution within circle
+    distance = radius_m * math.sqrt(random.uniform(0, 1))
+    
+    # Convert meters to degrees (approximate)
+    # 1 degree latitude ≈ 111,320 meters
+    # 1 degree longitude ≈ 111,320 * cos(latitude) meters
+    lat_offset = (distance * math.cos(angle)) / 111320
+    lng_offset = (distance * math.sin(angle)) / (111320 * math.cos(math.radians(lat)))
+    
+    # Reset random seed
+    random.seed()
+    
+    return lat + lat_offset, lng + lng_offset
+
+
+def randomize_for_storage(lat: float, lng: float, precision: str):
+    """
+    Apply permanent randomization when storing coordinates.
+    This adds a random offset that will be stored in the database.
+    """
+    if precision == "exact" or precision is None:
+        return lat, lng
+    
+    # Get radius in meters
+    if precision == "100m":
+        radius_m = 100
+    elif precision == "1000m":
+        radius_m = 1000
+    else:
+        return lat, lng
+    
+    # Generate random angle and distance
+    angle = random.uniform(0, 2 * math.pi)
+    distance = radius_m * math.sqrt(random.uniform(0, 1))
+    
+    # Convert meters to degrees
+    lat_offset = (distance * math.cos(angle)) / 111320
+    lng_offset = (distance * math.sin(angle)) / (111320 * math.cos(math.radians(lat)))
+    
+    return lat + lat_offset, lng + lng_offset
 
 
 @router.get("/tag-points")
