@@ -124,15 +124,122 @@ async def seed_initial_data():
         count = await conn.fetchval("SELECT COUNT(*) FROM tag_points")
         if count == 0:
             demo_points = [
-                ("pt_demo001", "user_demo001", "Footing au Parc de la Villette", "Rejoignez-moi pour un footing de 8km autour du parc !", 2.3933, 48.8936, "exact", json.dumps(["tag_route", "tag_10k"]), "dom_sport"),
-                ("pt_demo002", "user_demo001", "Match de basket - Terrain Oberkampf", "On cherche des joueurs pour un 3x3, tous niveaux bienvenus.", 2.3773, 48.8647, "exact", json.dumps(["tag_match_basket", "tag_3x3"]), "dom_sport"),
-                ("pt_demo003", "user_coach001", "Yoga en plein air - Trocadéro", "Séance de Hatha Yoga tous les matins. Tapis recommandé.", 2.2895, 48.8619, "100m", json.dumps(["tag_hatha", "tag_meditation"]), "dom_sport"),
-                ("pt_demo004", "user_coach001", "CrossFit outdoor - Bois de Vincennes", "Entraînement CrossFit intensif en plein air. Niveau intermédiaire.", 2.4323, 48.8390, "100m", json.dumps(["tag_crossfit", "tag_hiit"]), "dom_sport"),
+                # (point_id, user_id, title, description, lng, lat, precision, tag_ids_json, domain_id, image_url)
+                # --- Sport Paris Centre ---
+                ("pt_demo001", "user_demo001",
+                 "Footing au Parc de la Villette",
+                 "Rejoignez-moi pour un footing de 8km autour du parc, tous les matins à 7h30. Pace 5'30/km. Niveau intermédiaire.",
+                 2.3933, 48.8936, "exact",
+                 json.dumps(["tag_route", "tag_10k"]), "dom_sport",
+                 "https://images.pexels.com/photos/5038834/pexels-photo-5038834.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"),
+
+                ("pt_demo002", "user_demo001",
+                 "Match de basket - Terrain Oberkampf",
+                 "On cherche des joueurs pour un 3x3 le samedi après-midi. Tous niveaux bienvenus. Terrain en goudron.",
+                 2.3773, 48.8647, "exact",
+                 json.dumps(["tag_match_basket", "tag_3x3"]), "dom_sport",
+                 "https://images.pexels.com/photos/5274806/pexels-photo-5274806.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"),
+
+                ("pt_demo003", "user_coach001",
+                 "Yoga en plein air - Trocadéro",
+                 "Séance de Hatha Yoga tous les matins face à la Tour Eiffel. Tapis recommandé. Ouvert à tous les niveaux.",
+                 2.2895, 48.8619, "100m",
+                 json.dumps(["tag_hatha", "tag_meditation"]), "dom_sport",
+                 "https://images.unsplash.com/photo-1758274536083-b821befda77c?crop=entropy&cs=srgb&fm=jpg&ixlib=rb-4.1.0&q=85"),
+
+                ("pt_demo004", "user_coach001",
+                 "CrossFit outdoor - Bois de Vincennes",
+                 "Entraînement CrossFit intensif en plein air chaque dimanche à 9h. Niveau intermédiaire à avancé.",
+                 2.4323, 48.8390, "100m",
+                 json.dumps(["tag_crossfit", "tag_hiit"]), "dom_sport",
+                 "https://images.unsplash.com/photo-1760331840426-027b269d0af2?crop=entropy&cs=srgb&fm=jpg&ixlib=rb-4.1.0&q=85"),
+
+                # --- Sport Paris Nord/Est ---
+                ("pt_demo005", "user_demo002",
+                 "Match de foot 5v5 - Buttes Chaumont",
+                 "Recherche joueurs pour match amical 5 contre 5 le mercredi soir à 19h. Synthétique.",
+                 2.3850, 48.8771, "exact",
+                 json.dumps(["tag_match_ami", "tag_entrainement_foot"]), "dom_sport",
+                 "https://images.unsplash.com/photo-1759210720456-c9814f721479?crop=entropy&cs=srgb&fm=jpg&ixlib=rb-4.1.0&q=85"),
+
+                ("pt_demo006", "user_demo002",
+                 "Sortie vélo - Canal Saint-Martin",
+                 "Balade à vélo le dimanche matin le long du canal. 30km, rythme tranquille. VTT ou route bienvenus.",
+                 2.3617, 48.8717, "exact",
+                 json.dumps(["tag_vtt", "tag_balade"]), "dom_sport",
+                 "https://images.pexels.com/photos/19835454/pexels-photo-19835454.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"),
+
+                ("pt_demo007", "user_demo003",
+                 "Boxe & MMA - Belleville",
+                 "Session sparring boxe débutant/intermédiaire. Gants fournis. Dans le gymnase de la mairie.",
+                 2.3841, 48.8701, "exact",
+                 json.dumps(["tag_boxe", "tag_mma"]), "dom_sport",
+                 "https://images.pexels.com/photos/6295997/pexels-photo-6295997.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"),
+
+                # --- Sport Paris Sud/Ouest ---
+                ("pt_demo008", "user_demo003",
+                 "Tennis - Courts de Montmartre",
+                 "Partenaire de tennis cherché pour jouer le samedi. Niveau 15/4 environ. Courts rouges.",
+                 2.3368, 48.8855, "exact",
+                 json.dumps(["tag_match_ami"]), "dom_sport",
+                 "https://images.unsplash.com/photo-1766675122854-28fc70f50132?crop=entropy&cs=srgb&fm=jpg&ixlib=rb-4.1.0&q=85"),
+
+                ("pt_demo009", "user_coach001",
+                 "Running - Bois de Boulogne",
+                 "Groupe de running le mardi et jeudi à 6h45. 10-12km autour du lac. Pace 5'/km. Tous niveaux.",
+                 2.2369, 48.8644, "exact",
+                 json.dumps(["tag_trail", "tag_10k"]), "dom_sport",
+                 "https://images.unsplash.com/photo-1750089440020-58fcbd0f0d89?crop=entropy&cs=srgb&fm=jpg&ixlib=rb-4.1.0&q=85"),
+
+                ("pt_demo010", "user_demo001",
+                 "Yoga & Méditation - Parc Monceau",
+                 "Vinyasa yoga le matin sous les arbres. Durée 1h. Apporter son tapis. Gratuit.",
+                 2.3089, 48.8796, "100m",
+                 json.dumps(["tag_vinyasa", "tag_meditation"]), "dom_sport",
+                 "https://images.pexels.com/photos/8539083/pexels-photo-8539083.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"),
+
+                # --- Coaching ---
+                ("pt_demo011", "user_coach001",
+                 "Coach fitness certifiée - Bercy",
+                 "Coaching personnalisé fitness, perte de poids et renforcement musculaire. Séance découverte offerte.",
+                 2.3795, 48.8382, "1000m",
+                 json.dumps(["tag_coach_perso", "tag_perte_poids"]), "dom_coaching",
+                 "https://images.pexels.com/photos/1552242/pexels-photo-1552242.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"),
+
+                ("pt_demo012", "user_demo002",
+                 "Prépa physique football - Stade Charléty",
+                 "Programme de préparation physique spécifique football. Explosivité, endurance, prévention blessures.",
+                 2.3438, 48.8161, "exact",
+                 json.dumps(["tag_prep_physique", "tag_entrainement_foot"]), "dom_coaching",
+                 "https://images.unsplash.com/photo-1760331840426-027b269d0af2?crop=entropy&cs=srgb&fm=jpg&ixlib=rb-4.1.0&q=85"),
+
+                # --- Nord Paris ---
+                ("pt_demo013", "user_demo003",
+                 "Streetball 3x3 - République",
+                 "On joue tous les soirs en semaine à partir de 18h. Terrain en asphalte. Bonne ambiance garantie !",
+                 2.3631, 48.8675, "exact",
+                 json.dumps(["tag_streetball", "tag_3x3"]), "dom_sport",
+                 "https://images.pexels.com/photos/1905009/pexels-photo-1905009.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"),
+
+                ("pt_demo014", "user_demo001",
+                 "HIIT morning - Sceaux",
+                 "Entraînement HIIT intensif dans le parc de Sceaux. 45min non-stop. Cardio + musculation. 7h du matin.",
+                 2.2960, 48.7758, "exact",
+                 json.dumps(["tag_hiit", "tag_cardio"]), "dom_sport",
+                 "https://images.pexels.com/photos/13993895/pexels-photo-13993895.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"),
+
+                ("pt_demo015", "user_coach001",
+                 "Coaching mental sportif - Neuilly",
+                 "Séances de préparation mentale pour sportifs. Gestion du stress, confiance en soi, performance.",
+                 2.2694, 48.8847, "1000m",
+                 json.dumps(["tag_mental_sport", "tag_coach_perso"]), "dom_coaching",
+                 "https://images.unsplash.com/photo-1602520628350-fbf9db1f02ae?crop=entropy&cs=srgb&fm=jpg&ixlib=rb-4.1.0&q=85"),
             ]
             for p in demo_points:
                 await conn.execute(
-                    "INSERT INTO tag_points (point_id, user_id, title, description, location, precision, tag_ids, domain_id, active) VALUES ($1,$2,$3,$4,ST_SetSRID(ST_MakePoint($5,$6),4326),$7,$8::jsonb,$9,TRUE) ON CONFLICT DO NOTHING",
-                    p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8]
+                    """INSERT INTO tag_points (point_id, user_id, title, description, location, precision, tag_ids, domain_id, active, image_url)
+                       VALUES ($1,$2,$3,$4,ST_SetSRID(ST_MakePoint($5,$6),4326),$7,$8::jsonb,$9,TRUE,$10) ON CONFLICT DO NOTHING""",
+                    p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9]
                 )
             logger.info("Seeded demo tag points")
 
