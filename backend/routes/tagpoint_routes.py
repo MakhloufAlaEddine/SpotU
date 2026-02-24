@@ -192,7 +192,10 @@ async def my_tag_points(request: Request):
     user = await require_auth(request, pool)
     async with pool.acquire() as conn:
         rows = await conn.fetch(
-            f"SELECT {TP_FIELDS} FROM tag_points WHERE user_id = $1 ORDER BY created_at DESC",
+            f"""SELECT {TP_FIELDS} 
+                FROM tag_points tp 
+                LEFT JOIN users u ON tp.user_id = u.user_id 
+                WHERE tp.user_id = $1 ORDER BY tp.created_at DESC""",
             user["user_id"]
         )
     return [build_point_response(row_to_dict(r)) for r in rows]
