@@ -5,6 +5,7 @@ import httpx
 from datetime import datetime, timezone, timedelta
 from fastapi import HTTPException, Request
 from typing import Optional
+from database import row_to_dict
 
 JWT_SECRET = os.environ.get("JWT_SECRET", "winek-secret-2024")
 JWT_ALGORITHM = "HS256"
@@ -17,7 +18,10 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(password: str, hashed: str) -> bool:
-    return bcrypt.checkpw(password.encode(), hashed.encode())
+    try:
+        return bcrypt.checkpw(password.encode(), hashed.encode())
+    except Exception:
+        return False
 
 
 def create_jwt(user_id: str, role: str) -> str:
@@ -45,19 +49,26 @@ def get_token_from_request(request: Request) -> Optional[str]:
     return request.cookies.get("winek_token")
 
 
-async def require_auth(request: Request, db) -> dict:
+USER_FIELDS = "user_id, email, name, role, language, picture, bio, phone, is_coach_verified, coach_tags, hourly_rate, created_at, updated_at"
+
+
+async def require_auth(request: Request, pool) -> dict:
     token = get_token_from_request(request)
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
     payload = decode_jwt(token)
-    user = await db.users.find_one({"user_id": payload["user_id"]}, {"_id": 0, "password_hash": 0})
-    if not user:
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            f"SELECT {USER_FIELDS} FROM users WHERE user_id = $1",
+            payload["user_id"]
+        )
+    if not row:
         raise HTTPException(status_code=401, detail="User not found")
-    return user
+    return row_to_dict(row)
 
 
-async def require_role(request: Request, db, role: str) -> dict:
-    user = await require_auth(request, db)
+async def require_role(request: Request, pool, role: str) -> dict:
+    user = await require_auth(request, pool)
     if user["role"] != role:
         raise HTTPException(status_code=403, detail=f"Requires {role} role")
     return user

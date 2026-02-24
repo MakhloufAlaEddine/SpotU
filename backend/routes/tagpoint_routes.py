@@ -2,22 +2,36 @@ from fastapi import APIRouter, Request, HTTPException, Query
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List
 from models import TagPointCreate, TagPointUpdate, new_id
-from auth_utils import require_auth
-from database import get_db
-import math
+from auth_utils import require_auth, get_token_from_request, decode_jwt
+from database import get_pool, row_to_dict, rows_to_list
+import json
 
 router = APIRouter()
 
 DEFAULT_RADIUS = 5000  # 5km
 
+TP_FIELDS = """
+    point_id, user_id, title, description,
+    precision, tag_ids, domain_id, active, expires_at, created_at, updated_at,
+    ST_Y(location::geometry) as latitude,
+    ST_X(location::geometry) as longitude
+"""
+
+
+def build_point_response(row_dict: dict) -> dict:
+    lat = row_dict.pop("latitude", None)
+    lng = row_dict.pop("longitude", None)
+    if lat is not None and lng is not None:
+        row_dict["location"] = {"type": "Point", "coordinates": [lng, lat]}
+        row_dict["latitude"] = lat
+        row_dict["longitude"] = lng
+    return row_dict
+
 
 def apply_precision_offset(lat: float, lng: float, precision: str):
-    """Return lat/lng with precision-based rounding for non-owners."""
     if precision == "100m":
-        # Round to ~100m grid
         return round(lat, 3), round(lng, 3)
     elif precision == "1000m":
-        # Round to ~1km grid
         return round(lat, 2), round(lng, 2)
     return lat, lng
 
@@ -31,29 +45,11 @@ async def search_tag_points(
     tag_ids: Optional[str] = Query(None),
     request: Request = None,
 ):
-    db = get_db()
-    query = {"active": True}
+    pool = get_pool()
 
-    if lat is not None and lng is not None:
-        query["location"] = {
-            "$near": {
-                "$geometry": {"type": "Point", "coordinates": [lng, lat]},
-                "$maxDistance": radius,
-            }
-        }
-    if domain_id:
-        query["domain_id"] = domain_id
-    if tag_ids:
-        ids = [t.strip() for t in tag_ids.split(",") if t.strip()]
-        if ids:
-            query["tag_ids"] = {"$in": ids}
-
-    points = await db.tag_points.find(query, {"_id": 0}).to_list(200)
-
-    # Get current user if authenticated
+    # Determine current user
     current_user_id = None
     try:
-        from auth_utils import get_token_from_request, decode_jwt
         token = get_token_from_request(request)
         if token:
             payload = decode_jwt(token)
@@ -61,91 +57,163 @@ async def search_tag_points(
     except Exception:
         pass
 
-    # Apply precision masking for non-owners
+    conditions = ["active = TRUE"]
+    params = []
+    param_idx = 1
+
+    if lat is not None and lng is not None:
+        conditions.append(
+            f"ST_DWithin(location::geography, ST_SetSRID(ST_MakePoint(${param_idx}, ${param_idx+1}), 4326)::geography, ${param_idx+2})"
+        )
+        params.extend([lng, lat, radius])
+        param_idx += 3
+
+    if domain_id:
+        conditions.append(f"domain_id = ${param_idx}")
+        params.append(domain_id)
+        param_idx += 1
+
+    if tag_ids:
+        ids = [t.strip() for t in tag_ids.split(",") if t.strip()]
+        if ids:
+            conditions.append(f"tag_ids ?| ARRAY[{', '.join([f'${param_idx+i}' for i in range(len(ids))])}]")
+            params.extend(ids)
+            param_idx += len(ids)
+
+    where_clause = " AND ".join(conditions)
+    order_clause = ""
+    if lat is not None and lng is not None:
+        order_clause = f"ORDER BY location::geography <-> ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography"
+
+    query = f"SELECT {TP_FIELDS} FROM tag_points WHERE {where_clause} {order_clause} LIMIT 200"
+
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(query, *params)
+
     result = []
-    for pt in points:
+    for row in rows:
+        pt = build_point_response(row_to_dict(row))
+        # Apply precision masking for non-owners
         if pt.get("user_id") != current_user_id and pt.get("precision") in ("100m", "1000m"):
-            loc = pt.get("location", {})
-            coords = loc.get("coordinates", [0, 0])
-            new_lat, new_lng = apply_precision_offset(coords[1], coords[0], pt["precision"])
+            new_lat, new_lng = apply_precision_offset(
+                pt.get("latitude", 0), pt.get("longitude", 0), pt["precision"]
+            )
             pt["location"] = {"type": "Point", "coordinates": [new_lng, new_lat]}
+            pt["latitude"] = new_lat
+            pt["longitude"] = new_lng
         result.append(pt)
     return result
 
 
 @router.get("/tag-points/mine")
 async def my_tag_points(request: Request):
-    db = get_db()
-    user = await require_auth(request, db)
-    points = await db.tag_points.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(100)
-    return points
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            f"SELECT {TP_FIELDS} FROM tag_points WHERE user_id = $1 ORDER BY created_at DESC",
+            user["user_id"]
+        )
+    return [build_point_response(row_to_dict(r)) for r in rows]
 
 
 @router.get("/tag-points/{point_id}")
-async def get_tag_point(point_id: str, request: Request):
-    db = get_db()
-    pt = await db.tag_points.find_one({"point_id": point_id}, {"_id": 0})
-    if not pt:
-        raise HTTPException(status_code=404, detail="TagPoint not found")
-    # Enrich with user info
-    owner = await db.users.find_one({"user_id": pt["user_id"]}, {"_id": 0, "password_hash": 0, "email": 0})
-    pt["owner"] = owner
-    # Enrich with tags
-    if pt.get("tag_ids"):
-        tags = await db.tags.find({"tag_id": {"$in": pt["tag_ids"]}}, {"_id": 0}).to_list(20)
-        pt["tags"] = tags
+async def get_tag_point(point_id: str):
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            f"SELECT {TP_FIELDS} FROM tag_points WHERE point_id = $1", point_id
+        )
+        if not row:
+            raise HTTPException(status_code=404, detail="TagPoint not found")
+        pt = build_point_response(row_to_dict(row))
+
+        # Enrich with owner info
+        owner_row = await conn.fetchrow(
+            "SELECT user_id, name, picture, role FROM users WHERE user_id = $1", pt["user_id"]
+        )
+        pt["owner"] = row_to_dict(owner_row)
+
+        # Enrich with tags
+        tag_ids_list = pt.get("tag_ids") or []
+        if tag_ids_list:
+            tags = await conn.fetch(
+                "SELECT tag_id, name, label_fr, label_en FROM tags WHERE tag_id = ANY($1::text[])",
+                tag_ids_list
+            )
+            pt["tags"] = rows_to_list(tags)
+        else:
+            pt["tags"] = []
     return pt
 
 
 @router.post("/tag-points")
 async def create_tag_point(data: TagPointCreate, request: Request):
-    db = get_db()
-    user = await require_auth(request, db)
+    pool = get_pool()
+    user = await require_auth(request, pool)
     expires_at = None
     if data.expires_hours:
         expires_at = datetime.now(timezone.utc) + timedelta(hours=data.expires_hours)
-    doc = {
-        "point_id": new_id("pt"),
-        "user_id": user["user_id"],
-        "title": data.title,
-        "description": data.description,
-        "location": {"type": "Point", "coordinates": [data.longitude, data.latitude]},
-        "precision": data.precision,
-        "tag_ids": data.tag_ids,
-        "domain_id": data.domain_id,
-        "active": True,
-        "expires_at": expires_at,
-        "created_at": datetime.now(timezone.utc),
-    }
-    await db.tag_points.insert_one(doc)
-    doc.pop("_id", None)
-    return doc
+    pid = new_id("pt")
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """INSERT INTO tag_points
+               (point_id, user_id, title, description, location, precision, tag_ids, domain_id, active, expires_at)
+               VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($5, $6), 4326), $7, $8, $9, TRUE, $10)""",
+            pid, user["user_id"], data.title, data.description,
+            data.longitude, data.latitude,
+            data.precision, json.dumps(data.tag_ids), data.domain_id, expires_at
+        )
+        row = await conn.fetchrow(f"SELECT {TP_FIELDS} FROM tag_points WHERE point_id = $1", pid)
+    return build_point_response(row_to_dict(row))
 
 
 @router.put("/tag-points/{point_id}")
 async def update_tag_point(point_id: str, data: TagPointUpdate, request: Request):
-    db = get_db()
-    user = await require_auth(request, db)
-    pt = await db.tag_points.find_one({"point_id": point_id})
-    if not pt:
-        raise HTTPException(status_code=404, detail="TagPoint not found")
-    if pt["user_id"] != user["user_id"] and user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Not authorized")
-    update = {k: v for k, v in data.model_dump().items() if v is not None}
-    update["updated_at"] = datetime.now(timezone.utc)
-    await db.tag_points.update_one({"point_id": point_id}, {"$set": update})
-    updated = await db.tag_points.find_one({"point_id": point_id}, {"_id": 0})
-    return updated
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    async with pool.acquire() as conn:
+        existing = await conn.fetchrow("SELECT user_id FROM tag_points WHERE point_id = $1", point_id)
+        if not existing:
+            raise HTTPException(status_code=404, detail="TagPoint not found")
+        if existing["user_id"] != user["user_id"] and user["role"] != "admin":
+            raise HTTPException(status_code=403, detail="Not authorized")
+
+        update_dict = {k: v for k, v in data.model_dump().items() if v is not None}
+        if not update_dict:
+            row = await conn.fetchrow(f"SELECT {TP_FIELDS} FROM tag_points WHERE point_id = $1", point_id)
+            return build_point_response(row_to_dict(row))
+
+        set_clauses = []
+        values = []
+        i = 1
+        for key, val in update_dict.items():
+            if key == "tag_ids":
+                set_clauses.append(f"tag_ids = ${i}::jsonb")
+                values.append(json.dumps(val))
+            else:
+                set_clauses.append(f"{key} = ${i}")
+                values.append(val)
+            i += 1
+        values.append(point_id)
+        set_clauses.append("updated_at = NOW()")
+        query = f"UPDATE tag_points SET {', '.join(set_clauses)} WHERE point_id = ${i}"
+        await conn.execute(query, *values)
+        row = await conn.fetchrow(f"SELECT {TP_FIELDS} FROM tag_points WHERE point_id = $1", point_id)
+    return build_point_response(row_to_dict(row))
 
 
 @router.delete("/tag-points/{point_id}")
 async def delete_tag_point(point_id: str, request: Request):
-    db = get_db()
-    user = await require_auth(request, db)
-    pt = await db.tag_points.find_one({"point_id": point_id})
-    if not pt:
-        raise HTTPException(status_code=404, detail="TagPoint not found")
-    if pt["user_id"] != user["user_id"] and user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Not authorized")
-    await db.tag_points.update_one({"point_id": point_id}, {"$set": {"active": False}})
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    async with pool.acquire() as conn:
+        existing = await conn.fetchrow("SELECT user_id FROM tag_points WHERE point_id = $1", point_id)
+        if not existing:
+            raise HTTPException(status_code=404, detail="TagPoint not found")
+        if existing["user_id"] != user["user_id"] and user["role"] != "admin":
+            raise HTTPException(status_code=403, detail="Not authorized")
+        await conn.execute(
+            "UPDATE tag_points SET active = FALSE, updated_at = NOW() WHERE point_id = $1", point_id
+        )
     return {"success": True}
