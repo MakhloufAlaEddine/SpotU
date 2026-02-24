@@ -137,8 +137,10 @@ export default function TagPointDetail() {
 
   return (
     <View style={styles.fullScreen}>
-      {/* Absolute positioned header to cover the navigation bar */}
-      <View style={styles.absoluteHeader}>
+      <Stack.Screen options={{ headerShown: false }} />
+      {/* Custom Header */}
+      <SafeAreaView edges={['top']} style={styles.safeHeader}>
+        <View style={styles.header}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
             <Ionicons name="chevron-back" size={24} color={Colors.primary} />
