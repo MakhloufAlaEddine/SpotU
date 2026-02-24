@@ -313,16 +313,13 @@ export default function TagPointDetail() {
 const styles = StyleSheet.create({
   fullScreen: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.header,
+    marginTop: -45, // Push content over the native header
   },
   absoluteHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
     backgroundColor: Colors.header,
-    paddingTop: 30,
-    zIndex: 1000,
+    paddingTop: 45,
+    zIndex: 9999,
   },
   headerCover: {
     position: 'absolute',
