@@ -112,7 +112,7 @@ The app is bilingual (French / English) with configurable language per user.
 - [ ] Advanced analytics
 
 ## Frontend URL
-https://winek-local-sports.preview.emergentagent.com
+https://local-coach-connect.preview.emergentagent.com
 
 ## Architecture Notes
 - Backend binding: 0.0.0.0:8001, all routes prefixed /api
