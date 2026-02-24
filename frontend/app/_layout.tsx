@@ -8,16 +8,28 @@ export default function RootLayout() {
     <AuthProvider>
       <LanguageProvider>
         <StatusBar style="light" />
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="index" options={{ headerShown: false }} />
-          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="tag-point" options={{ headerShown: false, title: '' }} />
-          <Stack.Screen name="(main)" options={{ headerShown: false }} />
-          <Stack.Screen name="coach/[id]" options={{ headerShown: false }} />
-          <Stack.Screen name="booking/[id]" options={{ headerShown: false }} />
-          <Stack.Screen name="booking/success" options={{ headerShown: false }} />
-          <Stack.Screen name="admin/index" options={{ headerShown: false }} />
+        <Stack 
+          screenOptions={{ 
+            headerShown: false,
+            contentStyle: { backgroundColor: '#000000' }
+          }}
+        >
+          <Stack.Screen name="index" />
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen 
+            name="tag-point" 
+            options={{ 
+              headerShown: false,
+              presentation: 'card',
+              animation: 'slide_from_right'
+            }} 
+          />
+          <Stack.Screen name="(main)" />
+          <Stack.Screen name="coach/[id]" />
+          <Stack.Screen name="booking/[id]" />
+          <Stack.Screen name="booking/success" />
+          <Stack.Screen name="admin/index" />
         </Stack>
       </LanguageProvider>
     </AuthProvider>
