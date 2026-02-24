@@ -277,30 +277,9 @@ const styles = StyleSheet.create({
   fullScreen: {
     flex: 1,
     backgroundColor: Colors.header,
-    marginTop: -45, // Push content over the native header
   },
-  absoluteHeader: {
+  safeHeader: {
     backgroundColor: Colors.header,
-    paddingTop: 45,
-    zIndex: 9999,
-  },
-  headerCover: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 50,
-    backgroundColor: Colors.header,
-    zIndex: 100,
-  },
-  headerArea: {
-    backgroundColor: Colors.header,
-    paddingTop: 50,
-    zIndex: 101,
-  },
-  safe: { 
-    flex: 1, 
-    backgroundColor: Colors.header 
   },
   header: {
     flexDirection: 'row',
