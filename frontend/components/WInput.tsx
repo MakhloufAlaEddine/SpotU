@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, TextInput, Text, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
 import { Colors, Radius, Spacing } from '../constants/Colors';
+import { Ionicons } from '@expo/vector-icons';
 
 interface Props {
   label?: string;
@@ -41,7 +42,11 @@ export function WInput({ label, placeholder, value, onChangeText, secureTextEntr
         />
         {secureTextEntry && (
           <TouchableOpacity onPress={() => setHidden(!hidden)} style={styles.eye}>
-            <Text style={styles.eyeText}>{hidden ? '👁' : '🙈'}</Text>
+            <Ionicons 
+              name={hidden ? 'eye-outline' : 'eye-off-outline'} 
+              size={20} 
+              color={Colors.muted} 
+            />
           </TouchableOpacity>
         )}
       </View>
@@ -51,19 +56,26 @@ export function WInput({ label, placeholder, value, onChangeText, secureTextEntr
 
 const styles = StyleSheet.create({
   container: { marginBottom: Spacing.md },
-  label: { fontSize: 13, fontWeight: '600', color: Colors.foreground, marginBottom: 6 },
+  label: { 
+    fontSize: 13, 
+    fontWeight: '600', 
+    color: Colors.foreground, 
+    marginBottom: 6 
+  },
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-    borderRadius: Radius.md,
-    backgroundColor: Colors.background,
-    paddingHorizontal: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    backgroundColor: 'transparent',
   },
-  focused: { borderColor: Colors.primary },
-  input: { flex: 1, paddingVertical: Spacing.sm + 2, fontSize: 15, color: Colors.foreground },
+  focused: { borderBottomColor: Colors.primary },
+  input: { 
+    flex: 1, 
+    paddingVertical: Spacing.sm + 2, 
+    fontSize: 15, 
+    color: Colors.foreground 
+  },
   multiline: { paddingTop: Spacing.sm + 2, minHeight: 80, textAlignVertical: 'top' },
   eye: { padding: 4 },
-  eyeText: { fontSize: 16 },
 });
