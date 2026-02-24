@@ -58,39 +58,6 @@ export default function TagPointDetail() {
   const [loading, setLoading] = useState(true);
   const [showFullDesc, setShowFullDesc] = useState(false);
 
-  // Hide expo-router header on web
-  useEffect(() => {
-    if (Platform.OS === 'web') {
-      // Find and hide the navigation header by targeting the specific text
-      const hideNavHeader = () => {
-        const allSpans = document.querySelectorAll('span');
-        allSpans.forEach((span: any) => {
-          if (span.textContent === 'TagPoint') {
-            // Go up the DOM tree and hide the header container
-            let parent = span.parentElement;
-            for (let i = 0; i < 5; i++) {
-              if (parent) {
-                const rect = parent.getBoundingClientRect();
-                if (rect.top < 50 && rect.height < 60) {
-                  parent.style.display = 'none';
-                  break;
-                }
-                parent = parent.parentElement;
-              }
-            }
-          }
-        });
-      };
-      
-      // Run multiple times to catch the element after render
-      hideNavHeader();
-      setTimeout(hideNavHeader, 100);
-      setTimeout(hideNavHeader, 300);
-      setTimeout(hideNavHeader, 500);
-      setTimeout(hideNavHeader, 1000);
-    }
-  }, [point]); // Also run when point data loads
-
   useEffect(() => {
     if (id) loadPoint();
   }, [id]);
