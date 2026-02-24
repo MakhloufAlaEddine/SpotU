@@ -88,19 +88,12 @@ if(CFG.radius){
 var precisionCircle=null;
 var selMarker=null;
 
-// DEBUG: Always log the config
-console.log('MAP CONFIG:', JSON.stringify({
-  selLat: CFG.selLat,
-  selLng: CFG.selLng,
-  precisionRadius: CFG.precisionRadius,
-  selectable: CFG.selectable
-}));
-
 function updatePrecisionCircle(lat,lng){
-  console.log('updatePrecisionCircle called:', lat, lng, 'radius:', CFG.precisionRadius);
   if(precisionCircle){map.removeLayer(precisionCircle);}
+  if(selMarker){map.removeLayer(selMarker);selMarker=null;}
+  
   if(CFG.precisionRadius && CFG.precisionRadius > 0){
-    console.log('Drawing RED circle with radius:', CFG.precisionRadius);
+    // Only show circle, no marker for Moyen/Faible precision
     precisionCircle=L.circle([lat,lng],{
       radius:CFG.precisionRadius,
       color:'#FF3B30',
@@ -108,24 +101,21 @@ function updatePrecisionCircle(lat,lng){
       fillOpacity:0.25,
       weight:3
     }).addTo(map);
-    // Fit map to show the circle
     map.fitBounds(precisionCircle.getBounds(), {padding: [20, 20]});
+  } else {
+    // Show marker only for exact precision (no circle)
+    selMarker=L.marker([lat,lng],{icon:mkPin('#FF3B30')}).addTo(map);
   }
 }
 
-// Always draw the initial marker and circle if coordinates exist
+// Draw initial marker/circle based on precision
 if(CFG.selLat && CFG.selLng){
-  console.log('Drawing initial marker at:', CFG.selLat, CFG.selLng);
-  selMarker=L.marker([CFG.selLat,CFG.selLng],{icon:mkPin('#FF3B30')}).addTo(map);
   updatePrecisionCircle(CFG.selLat,CFG.selLng);
 }
 
 if(CFG.selectable){
   map.on('click',function(e){
-    console.log('Map clicked:', e.latlng.lat, e.latlng.lng);
     msg({type:'press',lat:e.latlng.lat,lng:e.latlng.lng});
-    if(selMarker){map.removeLayer(selMarker);}
-    selMarker=L.marker([e.latlng.lat,e.latlng.lng],{icon:mkPin('#FF3B30')}).addTo(map);
     updatePrecisionCircle(e.latlng.lat,e.latlng.lng);
   });
 }
