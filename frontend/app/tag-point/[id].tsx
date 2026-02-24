@@ -360,7 +360,6 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     backgroundColor: Colors.background,
-    marginTop: 75, // Space for absolute header
   },
   scroll: {
     paddingBottom: 40,
