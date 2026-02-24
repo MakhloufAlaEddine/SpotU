@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { MapViewComponent, MapPin } from '../../components/MapViewComponent';
 import { DomainPill } from '../../components/DomainPill';
@@ -20,7 +21,7 @@ const DOMAIN_COLORS: Record<string, string> = {
   dom_sport: Colors.sport,
   dom_coaching: Colors.coaching,
   dom_service: Colors.service,
-  dom_social: Colors.social,
+  dom_social: Colors.socialDomain,
 };
 
 export default function MapScreen() {
@@ -132,8 +133,13 @@ export default function MapScreen() {
               onPress={() => setSelectedDomain(null)}
               testID="domain-all"
             >
+              <Ionicons 
+                name="globe-outline" 
+                size={16} 
+                color={!selectedDomain ? Colors.foreground : Colors.muted} 
+              />
               <Text style={[styles.allPillText, !selectedDomain && styles.allPillTextActive]}>
-                🌍 Tout
+                Tout
               </Text>
             </TouchableOpacity>
             {domains.map((d) => (
@@ -175,7 +181,7 @@ export default function MapScreen() {
               style={styles.closeBtn}
               testID="close-selected-card"
             >
-              <Text style={styles.closeBtnText}>✕</Text>
+              <Ionicons name="close" size={20} color={Colors.muted} />
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -202,7 +208,7 @@ export default function MapScreen() {
           >
             {tagPoints.length === 0 ? (
               <View style={styles.empty}>
-                <Text style={styles.emptyIcon}>📍</Text>
+                <Ionicons name="location-outline" size={48} color={Colors.muted} />
                 <Text style={styles.emptyText}>{t('noPoints')}</Text>
               </View>
             ) : (
@@ -221,7 +227,13 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   mapWrap: { position: 'relative', overflow: 'hidden' },
   map: { flex: 1 },
-  mapPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.secondary, gap: 12 },
+  mapPlaceholder: { 
+    flex: 1, 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    backgroundColor: Colors.card, 
+    gap: 12 
+  },
   loadingText: { color: Colors.muted, fontSize: 14 },
   domainBar: {
     position: 'absolute',
@@ -233,26 +245,24 @@ const styles = StyleSheet.create({
   domainScroll: { paddingHorizontal: 0, gap: 8 },
   allPill: {
     paddingHorizontal: Spacing.md,
-    paddingVertical: 6,
+    paddingVertical: 8,
     borderRadius: Radius.full,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-    backgroundColor: 'rgba(255,255,255,0.95)',
+    backgroundColor: Colors.card,
     marginRight: 8,
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
   },
-  allPillActive: { backgroundColor: Colors.foreground, borderColor: Colors.foreground },
-  allPillText: { fontSize: 13, fontWeight: '600', color: Colors.foreground },
-  allPillTextActive: { color: '#fff' },
+  allPillActive: { backgroundColor: Colors.header },
+  allPillText: { fontSize: 13, fontWeight: '600', color: Colors.muted },
+  allPillTextActive: { color: Colors.foreground },
   selectedCard: {
     marginHorizontal: Spacing.md,
     marginTop: -20,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.card,
     borderRadius: Radius.lg,
     padding: Spacing.md,
     zIndex: 10,
-    ...Shadow.floating,
   },
   selectedCardContent: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   selectedDot: { width: 12, height: 12, borderRadius: 6 },
@@ -260,13 +270,18 @@ const styles = StyleSheet.create({
   selectedTitle: { fontSize: 15, fontWeight: '700', color: Colors.foreground },
   selectedDesc: { fontSize: 12, color: Colors.muted, marginTop: 2 },
   closeBtn: { padding: 6 },
-  closeBtnText: { fontSize: 14, color: Colors.muted },
   listArea: { flex: 1 },
-  listHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.md, paddingTop: Spacing.sm, paddingBottom: 4 },
+  listHeader: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    paddingHorizontal: Spacing.md, 
+    paddingTop: Spacing.sm, 
+    paddingBottom: 4 
+  },
   listTitle: { fontSize: 13, fontWeight: '700', color: Colors.muted },
   list: { paddingHorizontal: Spacing.md, paddingBottom: 20 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl },
   empty: { alignItems: 'center', padding: Spacing.xl, gap: 12 },
-  emptyIcon: { fontSize: 40 },
   emptyText: { fontSize: 15, color: Colors.muted, textAlign: 'center' },
 });
