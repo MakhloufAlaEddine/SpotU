@@ -1,6 +1,7 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, View } from 'react-native';
 import { Colors, Radius, Spacing } from '../constants/Colors';
+import { Ionicons } from '@expo/vector-icons';
 
 interface Domain {
   domain_id: string;
@@ -18,16 +19,16 @@ interface Props {
   lang?: 'fr' | 'en';
 }
 
-const ICONS: Record<string, string> = {
-  sport: '🏃',
-  coaching: '🎯',
-  service: '🔧',
-  social: '👥',
+const ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
+  sport: 'fitness-outline',
+  coaching: 'school-outline',
+  service: 'construct-outline',
+  social: 'people-outline',
 };
 
 export function DomainPill({ domain, selected, onPress, lang = 'fr' }: Props) {
   const label = lang === 'fr' ? domain.label_fr : domain.label_en;
-  const icon = ICONS[domain.name] ?? '⚡';
+  const icon = ICONS[domain.name] ?? 'flash-outline';
   const color = domain.color || Colors.primary;
 
   return (
@@ -40,7 +41,11 @@ export function DomainPill({ domain, selected, onPress, lang = 'fr' }: Props) {
         selected ? { backgroundColor: color, borderColor: color } : styles.inactive,
       ]}
     >
-      <Text style={styles.icon}>{icon}</Text>
+      <Ionicons 
+        name={icon} 
+        size={14} 
+        color={selected ? '#fff' : Colors.muted} 
+      />
       <Text style={[styles.label, selected ? styles.labelActive : styles.labelInactive]}>
         {label}
       </Text>
@@ -54,13 +59,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs + 2,
+    paddingVertical: Spacing.xs + 4,
     borderRadius: Radius.full,
-    borderWidth: 1.5,
+    borderWidth: 0,
     marginRight: Spacing.sm,
+    backgroundColor: Colors.card,
   },
-  inactive: { backgroundColor: Colors.background, borderColor: Colors.border },
-  icon: { fontSize: 14 },
+  inactive: { backgroundColor: Colors.card },
   label: { fontSize: 13, fontWeight: '600' },
   labelActive: { color: '#fff' },
   labelInactive: { color: Colors.foreground },
