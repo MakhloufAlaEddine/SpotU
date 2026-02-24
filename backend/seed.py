@@ -107,16 +107,31 @@ async def seed_initial_data():
             )
             # Coach
             await conn.execute(
-                "INSERT INTO users (user_id, email, password_hash, name, role, language, bio, is_coach_verified, coach_tags, hourly_rate) VALUES ($1,$2,$3,$4,'coach','fr',$5,TRUE,$6::jsonb,60.0) ON CONFLICT DO NOTHING",
+                "INSERT INTO users (user_id, email, password_hash, name, role, language, bio, is_coach_verified, coach_tags, hourly_rate, picture) VALUES ($1,$2,$3,$4,'coach','fr',$5,TRUE,$6::jsonb,60.0,$7) ON CONFLICT DO NOTHING",
                 "user_coach001", "coach@winek.app", hash_password("WinekCoach2024!"), "Sophie Martin",
                 "Coach sportive certifiée, spécialisée fitness et running. 8 ans d'expérience.",
-                json.dumps(["tag_musculation", "tag_hiit", "tag_cardio"])
+                json.dumps(["tag_musculation", "tag_hiit", "tag_cardio"]),
+                "https://images.pexels.com/photos/1552253/pexels-photo-1552253.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=150&w=150"
             )
             # Demo user
             await conn.execute(
-                "INSERT INTO users (user_id, email, password_hash, name, role, language, bio, is_coach_verified, coach_tags) VALUES ($1,$2,$3,$4,'user','fr',$5,FALSE,'[]'::jsonb) ON CONFLICT DO NOTHING",
+                "INSERT INTO users (user_id, email, password_hash, name, role, language, bio, is_coach_verified, coach_tags, picture) VALUES ($1,$2,$3,$4,'user','fr',$5,FALSE,'[]'::jsonb,$6) ON CONFLICT DO NOTHING",
                 "user_demo001", "user@winek.app", hash_password("WinekUser2024!"), "Thomas Dupont",
-                "Passionné de sport et de running."
+                "Passionné de sport et de running.",
+                "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=150&w=150"
+            )
+            # Extra demo users
+            await conn.execute(
+                "INSERT INTO users (user_id, email, password_hash, name, role, language, bio, is_coach_verified, coach_tags, picture) VALUES ($1,$2,$3,$4,'user','fr',$5,FALSE,'[]'::jsonb,$6) ON CONFLICT DO NOTHING",
+                "user_demo002", "mbenali@winek.app", hash_password("WinekDemo2024!"), "Mohamed Benali",
+                "Joueur de basket passionné. Fan de streetball et 3x3.",
+                "https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=150&w=150"
+            )
+            await conn.execute(
+                "INSERT INTO users (user_id, email, password_hash, name, role, language, bio, is_coach_verified, coach_tags, picture) VALUES ($1,$2,$3,$4,'user','fr',$5,FALSE,'[]'::jsonb,$6) ON CONFLICT DO NOTHING",
+                "user_demo003", "cdurand@winek.app", hash_password("WinekDemo2024!"), "Camille Durand",
+                "Pratiquante de yoga et arts martiaux depuis 10 ans.",
+                "https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=150&w=150"
             )
             logger.info("Seeded users: admin@winek.app / WinekAdmin2024!, coach@winek.app / WinekCoach2024!, user@winek.app / WinekUser2024!")
 
