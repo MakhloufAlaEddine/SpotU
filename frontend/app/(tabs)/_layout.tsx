@@ -3,11 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 
-type IconName = 'home-outline' | 'home' | 'chatbubble-outline' | 'chatbubble' | 
-                'add-circle-outline' | 'add-circle' | 'notifications-outline' | 
-                'notifications' | 'menu-outline' | 'menu';
-
-function TabIcon({ name, focused }: { name: IconName; focused: boolean }) {
+function TabIcon({ name, focused }: { name: keyof typeof Ionicons.glyphMap; focused: boolean }) {
   return (
     <Ionicons 
       name={name} 
