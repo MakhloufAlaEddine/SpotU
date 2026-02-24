@@ -101,7 +101,8 @@ export function MapViewComponent({
   searchRadius, selectable = false, showUserMarker = false,
   onPinPress, onMapPress, selectedLat, selectedLng, style,
 }: Props) {
-  const ref = useRef<WebView>(null);
+  const ref = useRef<any>(null);
+  const iframeRef = useRef<any>(null);
 
   const html = buildHTML({
     lat: centerLat, lng: centerLng, zoom,
@@ -110,13 +111,53 @@ export function MapViewComponent({
     selLat: selectedLat, selLng: selectedLng,
   });
 
+  const handleMessage = useCallback((data: any) => {
+    if (data.type === 'pin') onPinPress?.(data.id);
+    if (data.type === 'press') onMapPress?.(data.lat, data.lng);
+  }, [onPinPress, onMapPress]);
+
+  // Web: listen to iframe messages
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const listener = (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data);
+        handleMessage(data);
+      } catch {}
+    };
+    window.addEventListener('message', listener);
+    return () => window.removeEventListener('message', listener);
+  }, [handleMessage]);
+
   const onMessage = useCallback((e: any) => {
     try {
       const data = JSON.parse(e.nativeEvent.data);
-      if (data.type === 'pin') onPinPress?.(data.id);
-      if (data.type === 'press') onMapPress?.(data.lat, data.lng);
+      handleMessage(data);
     } catch {}
-  }, [onPinPress, onMapPress]);
+  }, [handleMessage]);
+
+  if (Platform.OS === 'web') {
+    return (
+      <View style={[styles.container, style]}>
+        <iframe
+          ref={iframeRef}
+          srcDoc={html}
+          style={{ width: '100%', height: '100%', border: 'none' } as any}
+          title="WINEK Map"
+          sandbox="allow-scripts allow-same-origin"
+        />
+      </View>
+    );
+  }
+
+  if (!WebView) {
+    return (
+      <View style={[styles.container, style, styles.loading]}>
+        <ActivityIndicator color={Colors.primary} size="large" />
+        <Text style={styles.loadingText}>Chargement carte…</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, style]}>
