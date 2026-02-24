@@ -37,6 +37,12 @@ def build_point_response(row_dict: dict) -> dict:
         row_dict["location"] = {"type": "Point", "coordinates": [lng, lat]}
         row_dict["latitude"] = lat
         row_dict["longitude"] = lng
+    # Build owner sub-object if owner fields present
+    owner_name = row_dict.pop("owner_name", None)
+    owner_picture = row_dict.pop("owner_picture", None)
+    owner_role = row_dict.pop("owner_role", None)
+    if owner_name:
+        row_dict["owner"] = {"name": owner_name, "picture": owner_picture, "role": owner_role}
     return row_dict
 
 
