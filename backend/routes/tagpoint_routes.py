@@ -223,13 +223,17 @@ async def create_tag_point(data: TagPointCreate, request: Request):
     if data.expires_hours:
         expires_at = datetime.now(timezone.utc) + timedelta(hours=data.expires_hours)
     pid = new_id("pt")
+    
+    # Apply precision-based randomization to stored coordinates
+    stored_lat, stored_lng = randomize_for_storage(data.latitude, data.longitude, data.precision)
+    
     async with pool.acquire() as conn:
         await conn.execute(
             """INSERT INTO tag_points
                (point_id, user_id, title, description, location, precision, tag_ids, domain_id, active, expires_at)
                VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($5, $6), 4326), $7, $8, $9, TRUE, $10)""",
             pid, user["user_id"], data.title, data.description,
-            data.longitude, data.latitude,
+            stored_lng, stored_lat,
             data.precision, json.dumps(data.tag_ids), data.domain_id, expires_at
         )
         row = await conn.fetchrow(f"SELECT {TP_FIELDS} FROM tag_points WHERE point_id = $1", pid)
