@@ -206,21 +206,18 @@ async def get_tag_point(point_id: str):
     pool = get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            f"SELECT {TP_FIELDS} FROM tag_points WHERE point_id = $1", point_id
+            f"""SELECT {TP_FIELDS}
+                FROM tag_points tp
+                LEFT JOIN users u ON tp.user_id = u.user_id
+                WHERE tp.point_id = $1""",
+            point_id
         )
         if not row:
             raise HTTPException(status_code=404, detail="TagPoint not found")
         pt = build_point_response(row_to_dict(row))
 
-        # Enrich with owner info
-        owner_row = await conn.fetchrow(
-            "SELECT user_id, name, picture, role FROM users WHERE user_id = $1", pt["user_id"]
-        )
-        pt["owner"] = row_to_dict(owner_row)
-
         # Enrich with tags
         tag_ids_list = pt.get("tag_ids") or []
-        # asyncpg may return JSONB as a string - parse if necessary
         if isinstance(tag_ids_list, str):
             try:
                 tag_ids_list = json.loads(tag_ids_list)
