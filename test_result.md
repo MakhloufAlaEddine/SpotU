@@ -101,3 +101,231 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: |
+  Build WINEK - a hyperlocal, tag-based connection platform focused on sports and coaching.
+  V1 features: Users can create/search geo-located "tagPoints", coaches can offer paid services,
+  integrated Stripe payments, bilingual (FR/EN), Google + email/password auth.
+  Stack: FastAPI + PostgreSQL + PostGIS (migrated from MongoDB), Expo React Native frontend.
+  User language: French.
+
+backend:
+  - task: "PostgreSQL + PostGIS database setup and migration"
+    implemented: true
+    working: true
+    file: "/app/backend/database.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Migrated from MongoDB to PostgreSQL + PostGIS. All tables created with spatial indexes. Seeded with demo data (4 domains, 28 tags, 3 users, 4 tagpoints, 1 service). Verified via curl: domains, login, geo-search all working."
+
+  - task: "Auth API - register, login, Google OAuth"
+    implemented: true
+    working: true
+    file: "/app/backend/routes/auth_routes.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Implemented register (email/password), login, Google OAuth via Emergent session. Tested login for user@winek.app - returns JWT token successfully."
+
+  - task: "TagPoints API with PostGIS geo-search"
+    implemented: true
+    working: true
+    file: "/app/backend/routes/tagpoint_routes.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Implemented with ST_DWithin for radius search, ST_MakePoint for insertion, precision masking, domain/tag filtering. Returns 4 results near Paris center in tests."
+
+  - task: "Services API (coach offerings)"
+    implemented: true
+    working: true
+    file: "/app/backend/routes/service_routes.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "CRUD for coach services with geo-search using PostGIS. Enriches with coach info and reviews."
+
+  - task: "Bookings API"
+    implemented: true
+    working: true
+    file: "/app/backend/routes/booking_routes.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Booking creation with commission calculation (15%), status management, enriched with service and coach info."
+
+  - task: "Domains/Tags API"
+    implemented: true
+    working: true
+    file: "/app/backend/routes/domain_routes.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Verified via curl - returns 4 domains correctly."
+
+  - task: "Payment API with Stripe"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/routes/payment_routes.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented with emergentintegrations Stripe. Uses test key from environment. Not fully tested - needs end-to-end test."
+
+frontend:
+  - task: "Login screen (email/password + Google)"
+    implemented: true
+    working: true
+    file: "/app/frontend/app/(auth)/login.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Verified with screenshot - login screen shows correctly at /login URL. Email/password form + Google login button. Successfully tested login with user@winek.app."
+
+  - task: "Register screen"
+    implemented: true
+    working: true
+    file: "/app/frontend/app/(auth)/register.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Register screen with name, email, password + language selector (FR/EN) + Google option."
+
+  - task: "Map screen with TagPoints (Leaflet/WebView)"
+    implemented: true
+    working: true
+    file: "/app/frontend/app/(tabs)/map.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Map screen works on web using iframe fallback (MapViewComponent updated). Shows 2 TagPoints near Paris. Domain filter pills working. Bottom tab navigation visible."
+
+  - task: "Search screen with radius and domain filter"
+    implemented: true
+    working: true
+    file: "/app/frontend/app/(tabs)/search.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Verified - shows TagPoints (2) and Coachs (1) tabs, radius selector (1-50km), domain filter, search bar."
+
+  - task: "Create TagPoint screen"
+    implemented: true
+    working: true
+    file: "/app/frontend/app/(tabs)/create.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Create TagPoint form with map location picker, title, description, domain, tags, precision, expiry. Needs full E2E test."
+
+  - task: "Profile screen with language switching"
+    implemented: true
+    working: true
+    file: "/app/frontend/app/(tabs)/profile.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Verified with screenshot - shows user info, language switcher (FR/EN), Devenir Coach button, My TagPoints, logout."
+
+  - task: "Bookings screen"
+    implemented: true
+    working: true
+    file: "/app/frontend/app/(tabs)/bookings.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Bookings list screen with my bookings / coach bookings tabs."
+
+  - task: "MapViewComponent web fallback (iframe)"
+    implemented: true
+    working: true
+    file: "/app/frontend/components/MapViewComponent.tsx"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Updated to use iframe on web (Platform.OS === web) and WebView on native. Conditional import to avoid WebView error on web."
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 1
+  run_ui: true
+
+test_plan:
+  current_focus:
+    - "Login screen (email/password + Google)"
+    - "Register screen"
+    - "Map screen with TagPoints (Leaflet/WebView)"
+    - "Search screen with radius and domain filter"
+    - "Create TagPoint screen"
+    - "Profile screen with language switching"
+    - "MapViewComponent web fallback (iframe)"
+  stuck_tasks: []
+  test_all: true
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: |
+      Complete MVP implementation done:
+      1. MIGRATED backend from MongoDB to PostgreSQL + PostGIS
+      2. Created all auth screens (login, register, google callback)
+      3. Created all tab screens (map, search, create, bookings, profile)
+      4. MapViewComponent updated with web iframe fallback
+      5. Backend seeded with demo data (Paris tagpoints, coach, services)
+      
+      CREDENTIALS FOR TESTING:
+      - Admin: admin@winek.app / WinekAdmin2024!
+      - Coach: coach@winek.app / WinekCoach2024!
+      - User: user@winek.app / WinekUser2024!
+      
+      FRONTEND URL: https://winek-local-sports.preview.emergentagent.com
+      BACKEND URL: https://winek-local-sports.preview.emergentagent.com/api
+      
+      Test all high priority features. Note: Stripe payment test not critical for MVP verification.
