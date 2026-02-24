@@ -1,181 +1,178 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  ActivityIndicator, RefreshControl, Alert,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/LanguageContext';
-import { WButton } from '../../components/WButton';
 import { Colors, Spacing, Radius, Shadow } from '../../constants/Colors';
 
-const STATUS_CONFIG: Record<string, { color: string; bg: string; label_fr: string; label_en: string }> = {
-  pending: { color: Colors.warning, bg: '#FFF5E0', label_fr: 'En attente', label_en: 'Pending' },
-  confirmed: { color: Colors.accent, bg: '#E5F0FF', label_fr: 'Confirmée', label_en: 'Confirmed' },
-  completed: { color: Colors.success, bg: '#E8F9F1', label_fr: 'Terminée', label_en: 'Completed' },
-  cancelled: { color: Colors.destructive, bg: '#FFEDED', label_fr: 'Annulée', label_en: 'Cancelled' },
+type BookingTab = 'mine' | 'coach';
+
+const STATUS_COLORS: Record<string, string> = {
+  pending: Colors.warning,
+  confirmed: Colors.accent,
+  completed: Colors.success,
+  cancelled: Colors.destructive,
 };
 
 export default function BookingsScreen() {
-  const { user } = useAuth();
-  const { t, lang } = useLang();
   const router = useRouter();
-  const [myBookings, setMyBookings] = useState<any[]>([]);
-  const [coachBookings, setCoachBookings] = useState<any[]>([]);
-  const [tab, setTab] = useState<'mine' | 'coach'>('mine');
-  const [loading, setLoading] = useState(false);
+  const { user } = useAuth();
+  const { t } = useLang();
+  const [tab, setTab] = useState<BookingTab>('mine');
+  const [bookings, setBookings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    if (user) loadBookings();
-  }, [user]);
+    loadBookings();
+  }, [tab, user]);
 
   const loadBookings = async () => {
-    setLoading(true);
+    if (!user) { setLoading(false); return; }
     try {
-      const mine = await api.get('/bookings/mine');
-      setMyBookings(mine);
-      if (user?.role === 'coach' || user?.role === 'admin') {
-        const coach = await api.get('/bookings/coach');
-        setCoachBookings(coach);
-      }
-    } catch {} finally {
+      const endpoint = tab === 'mine' ? '/bookings/mine' : '/bookings/coach';
+      const data = await api.get(endpoint);
+      setBookings(data);
+    } catch {}
+    finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  const handlePay = async (booking: any) => {
-    try {
-      const originUrl = typeof window !== 'undefined' ? window.location.origin : process.env.EXPO_PUBLIC_BACKEND_URL;
-      const res = await api.post('/payments/checkout', { booking_id: booking.booking_id, origin_url: originUrl });
-      if (typeof window !== 'undefined') {
-        window.open(res.url, '_blank');
-      }
-    } catch (err: any) {
-      Alert.alert(t('error'), err.message);
-    }
-  };
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadBookings();
+  }, [tab, user]);
 
   if (!user) {
     return (
-      <SafeAreaView style={styles.safe} edges={['top']}>
+      <SafeAreaView style={styles.safe}>
         <View style={styles.center}>
+          <Text style={styles.emptyIcon}>🔒</Text>
           <Text style={styles.emptyText}>Connectez-vous pour voir vos réservations</Text>
-          <WButton label={t('login')} onPress={() => router.replace('/(auth)/login')} />
         </View>
       </SafeAreaView>
     );
   }
 
-  const displayBookings = tab === 'mine' ? myBookings : coachBookings;
-
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={styles.title}>{t('bookings')}</Text>
-      </View>
-
       {/* Tabs */}
       <View style={styles.tabs}>
-        <TouchableOpacity testID="tab-my-bookings" style={[styles.tab, tab === 'mine' && styles.tabActive]} onPress={() => setTab('mine')}>
-          <Text style={[styles.tabText, tab === 'mine' && styles.tabTextActive]}>📅 {t('myBookings')}</Text>
+        <TouchableOpacity
+          style={[styles.tabBtn, tab === 'mine' && styles.tabBtnActive]}
+          onPress={() => setTab('mine')}
+          testID="tab-my-bookings"
+        >
+          <Text style={[styles.tabText, tab === 'mine' && styles.tabTextActive]}>
+            📅 {t('myBookings')}
+          </Text>
         </TouchableOpacity>
-        {(user.role === 'coach' || user.role === 'admin') && (
-          <TouchableOpacity testID="tab-coach-bookings" style={[styles.tab, tab === 'coach' && styles.tabActive]} onPress={() => setTab('coach')}>
-            <Text style={[styles.tabText, tab === 'coach' && styles.tabTextActive]}>🎯 {t('coachBookings')}</Text>
+        {user.role === 'coach' || user.role === 'admin' ? (
+          <TouchableOpacity
+            style={[styles.tabBtn, tab === 'coach' && styles.tabBtnActive]}
+            onPress={() => setTab('coach')}
+            testID="tab-coach-bookings"
+          >
+            <Text style={[styles.tabText, tab === 'coach' && styles.tabTextActive]}>
+              🎯 {t('coachBookings')}
+            </Text>
           </TouchableOpacity>
-        )}
+        ) : null}
       </View>
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadBookings(); }} tintColor={Colors.primary} />}
-      >
-        {loading ? <ActivityIndicator color={Colors.primary} style={{ marginTop: Spacing.xl }} /> :
-          displayBookings.length === 0 ? (
+      {loading ? (
+        <View style={styles.center}><ActivityIndicator size="large" color={Colors.primary} /></View>
+      ) : (
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
+          }
+        >
+          {bookings.length === 0 ? (
             <View style={styles.empty}>
               <Text style={styles.emptyIcon}>📅</Text>
               <Text style={styles.emptyText}>{t('noBookings')}</Text>
             </View>
           ) : (
-            displayBookings.map((booking) => {
-              const sc = STATUS_CONFIG[booking.status] || STATUS_CONFIG.pending;
-              return (
-                <TouchableOpacity
-                  key={booking.booking_id}
-                  testID={`booking-card-${booking.booking_id}`}
-                  style={styles.card}
-                  onPress={() => router.push(`/booking/${booking.booking_id}`)}
-                  activeOpacity={0.85}
-                >
+            bookings.map((b) => (
+              <TouchableOpacity
+                key={b.booking_id}
+                style={styles.card}
+                onPress={() => router.push(`/booking/${b.booking_id}`)}
+                activeOpacity={0.85}
+                testID={`booking-card-${b.booking_id}`}
+              >
+                <View style={[styles.statusStrip, { backgroundColor: STATUS_COLORS[b.status] || Colors.muted }]} />
+                <View style={styles.cardContent}>
                   <View style={styles.cardHeader}>
-                    <View style={[styles.statusBadge, { backgroundColor: sc.bg }]}>
-                      <Text style={[styles.statusText, { color: sc.color }]}>
-                        {lang === 'fr' ? sc.label_fr : sc.label_en}
+                    <Text style={styles.serviceTitle} numberOfLines={1}>
+                      {b.service?.title ?? 'Service'}
+                    </Text>
+                    <View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[b.status] + '20' }]}>
+                      <Text style={[styles.statusText, { color: STATUS_COLORS[b.status] }]}>
+                        {t(b.status) || b.status}
                       </Text>
                     </View>
-                    <Text style={styles.amount}>{booking.amount}€</Text>
                   </View>
-                  <Text style={styles.serviceTitle} numberOfLines={1}>
-                    {booking.service?.title ?? '—'}
-                  </Text>
-                  {booking.coach && (
-                    <Text style={styles.coachName}>🎯 {booking.coach.name}</Text>
+                  {b.coach && (
+                    <Text style={styles.coachName}>👤 {b.coach.name}</Text>
                   )}
-                  {booking.scheduled_at && (
-                    <Text style={styles.scheduledAt}>
-                      📅 {new Date(booking.scheduled_at).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-US')}
-                    </Text>
-                  )}
-                  {tab === 'mine' && booking.payment_status !== 'paid' && booking.status !== 'cancelled' && (
-                    <WButton
-                      label={`💳 ${t('payNow')} - ${booking.amount}€`}
-                      onPress={() => handlePay(booking)}
-                      style={styles.payBtn}
-                      size="sm"
-                      testID={`pay-btn-${booking.booking_id}`}
-                    />
-                  )}
-                  {booking.payment_status === 'paid' && (
-                    <View style={styles.paidBadge}>
-                      <Text style={styles.paidText}>✅ {t('paid')}</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              );
-            })
-          )
-        }
-      </ScrollView>
+                  <View style={styles.cardFooter}>
+                    <Text style={styles.amount}>{b.amount}€</Text>
+                    {b.payment_status === 'paid' ? (
+                      <Text style={styles.paidTag}>✅ {t('paid')}</Text>
+                    ) : b.status !== 'cancelled' ? (
+                      <Text style={styles.payHint}>💳 {t('payNow')}</Text>
+                    ) : null}
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16, padding: Spacing.lg },
-  header: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm, paddingBottom: Spacing.sm },
-  title: { fontSize: 22, fontWeight: '900', color: Colors.foreground },
-  tabs: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: Colors.border },
-  tab: { flex: 1, paddingVertical: Spacing.sm + 2, alignItems: 'center' },
-  tabActive: { borderBottomWidth: 2, borderBottomColor: Colors.primary },
-  tabText: { fontSize: 13, fontWeight: '600', color: Colors.muted },
+  safe: { flex: 1, backgroundColor: Colors.secondary },
+  tabs: { flexDirection: 'row', backgroundColor: Colors.background, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  tabBtn: { flex: 1, paddingVertical: 14, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  tabBtnActive: { borderBottomColor: Colors.primary },
+  tabText: { fontSize: 14, fontWeight: '600', color: Colors.muted },
   tabTextActive: { color: Colors.primary },
-  scroll: { flex: 1 },
-  scrollContent: { padding: Spacing.md },
-  card: { backgroundColor: Colors.card, borderRadius: Radius.lg, padding: Spacing.md, marginBottom: Spacing.sm, ...Shadow.soft },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  statusBadge: { borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 3 },
-  statusText: { fontSize: 12, fontWeight: '700' },
-  amount: { fontSize: 18, fontWeight: '800', color: Colors.primary },
-  serviceTitle: { fontSize: 15, fontWeight: '700', color: Colors.foreground, marginBottom: 4 },
-  coachName: { fontSize: 13, color: Colors.muted, marginBottom: 2 },
-  scheduledAt: { fontSize: 13, color: Colors.muted, marginBottom: 8 },
-  payBtn: { alignSelf: 'flex-start', marginTop: 6 },
-  paidBadge: { alignSelf: 'flex-start', backgroundColor: Colors.primaryLight, borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 3, marginTop: 4 },
-  paidText: { fontSize: 12, fontWeight: '700', color: Colors.primary },
-  empty: { alignItems: 'center', paddingTop: Spacing.xxl },
-  emptyIcon: { fontSize: 48, marginBottom: Spacing.md },
+  scroll: { padding: Spacing.md, paddingBottom: 40 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl, gap: 12 },
+  empty: { alignItems: 'center', padding: Spacing.xxl, gap: 12 },
+  emptyIcon: { fontSize: 48 },
   emptyText: { fontSize: 15, color: Colors.muted, textAlign: 'center' },
+  card: {
+    flexDirection: 'row',
+    backgroundColor: Colors.background,
+    borderRadius: Radius.lg,
+    marginBottom: Spacing.sm,
+    overflow: 'hidden',
+    ...Shadow.soft,
+  },
+  statusStrip: { width: 5 },
+  cardContent: { flex: 1, padding: Spacing.md },
+  cardHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 },
+  serviceTitle: { fontSize: 15, fontWeight: '700', color: Colors.foreground, flex: 1, marginRight: 8 },
+  statusBadge: { borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 3 },
+  statusText: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  coachName: { fontSize: 13, color: Colors.muted, marginBottom: 8 },
+  cardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  amount: { fontSize: 18, fontWeight: '900', color: Colors.primary },
+  paidTag: { fontSize: 12, color: Colors.success, fontWeight: '700' },
+  payHint: { fontSize: 13, color: Colors.accent, fontWeight: '700' },
 });

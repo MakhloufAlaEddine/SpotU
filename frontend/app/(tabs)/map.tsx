@@ -1,13 +1,20 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  ActivityIndicator, RefreshControl, Dimensions,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import { MapViewComponent, MapPin } from '../../components/MapViewComponent';
 import { DomainPill } from '../../components/DomainPill';
+import { TagPointCard } from '../../components/TagPointCard';
 import { api } from '../../lib/api';
 import { useLang } from '../../context/LanguageContext';
 import { Colors, Spacing, Radius, Shadow } from '../../constants/Colors';
+
+const { height } = Dimensions.get('window');
+const MAP_HEIGHT = height * 0.55;
 
 const DOMAIN_COLORS: Record<string, string> = {
   dom_sport: Colors.sport,
@@ -19,175 +26,247 @@ const DOMAIN_COLORS: Record<string, string> = {
 export default function MapScreen() {
   const router = useRouter();
   const { t, lang } = useLang();
+  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [domains, setDomains] = useState<any[]>([]);
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
   const [tagPoints, setTagPoints] = useState<any[]>([]);
-  const [services, setServices] = useState<any[]>([]);
-  const [userLat, setUserLat] = useState(48.8566);
-  const [userLng, setUserLng] = useState(2.3522);
-  const [hasLocation, setHasLocation] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedPoint, setSelectedPoint] = useState<any>(null);
 
   useEffect(() => {
-    loadDomains();
-    requestLocation();
+    initMap();
   }, []);
 
   useEffect(() => {
-    loadMapData();
-  }, [userLat, userLng, selectedDomain]);
+    if (location) loadTagPoints();
+  }, [location, selectedDomain]);
 
-  const requestLocation = async () => {
+  const initMap = async () => {
     try {
+      // Load domains
+      const doms = await api.get('/domains');
+      setDomains(doms);
+
+      // Get location
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === 'granted') {
         const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        setUserLat(loc.coords.latitude);
-        setUserLng(loc.coords.longitude);
-        setHasLocation(true);
+        setLocation({ lat: loc.coords.latitude, lng: loc.coords.longitude });
+      } else {
+        // Default: Paris center
+        setLocation({ lat: 48.8566, lng: 2.3522 });
       }
-    } catch {}
+    } catch {
+      setLocation({ lat: 48.8566, lng: 2.3522 });
+    }
   };
 
-  const loadDomains = async () => {
-    try {
-      const data = await api.get('/domains');
-      setDomains(data);
-    } catch {}
-  };
-
-  const loadMapData = useCallback(async () => {
-    setLoading(true);
+  const loadTagPoints = async () => {
+    if (!location) return;
     try {
       const params = new URLSearchParams({
-        lat: userLat.toString(), lng: userLng.toString(), radius: '10000',
-        ...(selectedDomain ? { domain_id: selectedDomain } : {}),
+        lat: location.lat.toString(),
+        lng: location.lng.toString(),
+        radius: '5000',
       });
-      const [pts, svcs] = await Promise.all([
-        api.get(`/tag-points?${params}`),
-        api.get(`/services?lat=${userLat}&lng=${userLng}&radius=10000${selectedDomain === 'dom_coaching' ? '' : ''}`),
-      ]);
-      setTagPoints(pts);
-      setServices(svcs);
-    } catch {} finally {
+      if (selectedDomain) params.append('domain_id', selectedDomain);
+      const points = await api.get(`/tag-points?${params.toString()}`);
+      setTagPoints(points);
+    } catch {}
+    finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  }, [userLat, userLng, selectedDomain]);
+  };
 
-  const pins: MapPin[] = [
-    ...tagPoints.map((pt) => ({
-      id: pt.point_id,
-      lat: pt.location?.coordinates?.[1] ?? 0,
-      lng: pt.location?.coordinates?.[0] ?? 0,
-      title: pt.title,
-      color: DOMAIN_COLORS[pt.domain_id] || Colors.primary,
-      type: 'tagpoint',
-    })),
-    ...services.map((svc) => ({
-      id: `svc_${svc.service_id}`,
-      lat: svc.location?.coordinates?.[1] ?? 0,
-      lng: svc.location?.coordinates?.[0] ?? 0,
-      title: svc.title,
-      color: Colors.coaching,
-      type: 'service',
-    })),
-  ].filter((p) => p.lat && p.lng);
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadTagPoints();
+  }, [location, selectedDomain]);
+
+  const pins: MapPin[] = tagPoints.map((pt) => ({
+    id: pt.point_id,
+    lat: pt.latitude ?? pt.location?.coordinates?.[1] ?? 0,
+    lng: pt.longitude ?? pt.location?.coordinates?.[0] ?? 0,
+    title: pt.title,
+    color: DOMAIN_COLORS[pt.domain_id] || Colors.primary,
+  }));
 
   const handlePinPress = (id: string) => {
-    if (id.startsWith('svc_')) {
-      const serviceId = id.replace('svc_', '');
-      const svc = services.find((s) => s.service_id === serviceId);
-      if (svc?.coach?.user_id) router.push(`/coach/${svc.coach.user_id}?service_id=${serviceId}`);
-    } else {
-      router.push(`/tag-point/${id}`);
-    }
+    const found = tagPoints.find((p) => p.point_id === id);
+    if (found) setSelectedPoint(found);
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.logo}>WINEK</Text>
-        <TouchableOpacity testID="refresh-map-btn" onPress={loadMapData} style={styles.refreshBtn}>
-          <Text style={styles.refreshIcon}>↻</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Domain filters */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.domainsScroll} contentContainerStyle={styles.domainsContent}>
-        <TouchableOpacity
-          testID="domain-all-btn"
-          style={[styles.allPill, !selectedDomain && styles.allPillActive]}
-          onPress={() => setSelectedDomain(null)}
-        >
-          <Text style={[styles.allText, !selectedDomain && styles.allTextActive]}>🌍 Tout</Text>
-        </TouchableOpacity>
-        {domains.map((d) => (
-          <DomainPill
-            key={d.domain_id}
-            domain={d}
-            selected={selectedDomain === d.domain_id}
-            onPress={() => setSelectedDomain(selectedDomain === d.domain_id ? null : d.domain_id)}
-            lang={lang}
-          />
-        ))}
-      </ScrollView>
-
+    <View style={styles.container} testID="map-screen">
       {/* Map */}
-      <View style={styles.mapContainer} testID="map-container">
-        <MapViewComponent
-          pins={pins}
-          centerLat={userLat}
-          centerLng={userLng}
-          zoom={13}
-          showUserMarker={hasLocation}
-          onPinPress={handlePinPress}
-          style={styles.map}
-        />
-        {/* Stats overlay */}
-        <View style={styles.statsOverlay}>
-          <Text style={styles.statsText}>📍 {tagPoints.length} points · 🎯 {services.length} coachs</Text>
+      <View style={[styles.mapWrap, { height: MAP_HEIGHT }]}>
+        {location ? (
+          <MapViewComponent
+            centerLat={location.lat}
+            centerLng={location.lng}
+            zoom={14}
+            pins={pins}
+            searchRadius={5000}
+            showUserMarker
+            onPinPress={handlePinPress}
+            style={styles.map}
+          />
+        ) : (
+          <View style={styles.mapPlaceholder}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+            <Text style={styles.loadingText}>{t('loadingMap')}</Text>
+          </View>
+        )}
+
+        {/* Domain filter bar floating on map */}
+        <View style={styles.domainBar}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.domainScroll}
+          >
+            <TouchableOpacity
+              style={[styles.allPill, !selectedDomain && styles.allPillActive]}
+              onPress={() => setSelectedDomain(null)}
+              testID="domain-all"
+            >
+              <Text style={[styles.allPillText, !selectedDomain && styles.allPillTextActive]}>
+                🌍 Tout
+              </Text>
+            </TouchableOpacity>
+            {domains.map((d) => (
+              <DomainPill
+                key={d.domain_id}
+                domain={d}
+                selected={selectedDomain === d.domain_id}
+                onPress={() => setSelectedDomain(selectedDomain === d.domain_id ? null : d.domain_id)}
+                lang={lang}
+              />
+            ))}
+          </ScrollView>
         </View>
-        {/* Create FAB */}
-        <TouchableOpacity
-          testID="create-fab"
-          style={styles.fab}
-          onPress={() => router.push('/(tabs)/create')}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.fabText}>＋</Text>
-        </TouchableOpacity>
       </View>
-    </SafeAreaView>
+
+      {/* Selected pin card */}
+      {selectedPoint && (
+        <TouchableOpacity
+          style={styles.selectedCard}
+          onPress={() => router.push(`/tag-point/${selectedPoint.point_id}`)}
+          activeOpacity={0.9}
+          testID={`selected-point-card`}
+        >
+          <View style={styles.selectedCardContent}>
+            <View
+              style={[
+                styles.selectedDot,
+                { backgroundColor: DOMAIN_COLORS[selectedPoint.domain_id] || Colors.primary }
+              ]}
+            />
+            <View style={styles.selectedInfo}>
+              <Text style={styles.selectedTitle} numberOfLines={1}>{selectedPoint.title}</Text>
+              {selectedPoint.description && (
+                <Text style={styles.selectedDesc} numberOfLines={1}>{selectedPoint.description}</Text>
+              )}
+            </View>
+            <TouchableOpacity
+              onPress={() => setSelectedPoint(null)}
+              style={styles.closeBtn}
+              testID="close-selected-card"
+            >
+              <Text style={styles.closeBtnText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      )}
+
+      {/* TagPoints list */}
+      <SafeAreaView style={styles.listArea} edges={['bottom']}>
+        <View style={styles.listHeader}>
+          <Text style={styles.listTitle}>
+            {t('nearYou')} · {tagPoints.length} {t('results')}
+          </Text>
+        </View>
+        {loading ? (
+          <View style={styles.center}>
+            <ActivityIndicator color={Colors.primary} />
+          </View>
+        ) : (
+          <ScrollView
+            contentContainerStyle={styles.list}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
+            }
+          >
+            {tagPoints.length === 0 ? (
+              <View style={styles.empty}>
+                <Text style={styles.emptyIcon}>📍</Text>
+                <Text style={styles.emptyText}>{t('noPoints')}</Text>
+              </View>
+            ) : (
+              tagPoints.map((pt) => (
+                <TagPointCard key={pt.point_id} point={pt} lang={lang} />
+              ))
+            )}
+          </ScrollView>
+        )}
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm },
-  logo: { fontSize: 20, fontWeight: '900', color: Colors.foreground, letterSpacing: 3 },
-  refreshBtn: { width: 36, height: 36, borderRadius: Radius.full, backgroundColor: Colors.secondary, alignItems: 'center', justifyContent: 'center' },
-  refreshIcon: { fontSize: 18, color: Colors.foreground },
-  domainsScroll: { maxHeight: 48 },
-  domainsContent: { paddingHorizontal: Spacing.lg, paddingBottom: 4 },
-  allPill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 6, borderRadius: Radius.full, borderWidth: 1.5, borderColor: Colors.border, marginRight: Spacing.sm },
-  allPillActive: { backgroundColor: Colors.foreground, borderColor: Colors.foreground },
-  allText: { fontSize: 13, fontWeight: '600', color: Colors.foreground },
-  allTextActive: { color: '#fff' },
-  mapContainer: { flex: 1, position: 'relative' },
+  container: { flex: 1, backgroundColor: Colors.background },
+  mapWrap: { position: 'relative', overflow: 'hidden' },
   map: { flex: 1 },
-  statsOverlay: {
-    position: 'absolute', top: 12, left: 16, right: 16,
-    backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: Radius.full,
-    paddingHorizontal: 14, paddingVertical: 7,
-    alignItems: 'center', ...Shadow.soft,
+  mapPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.secondary, gap: 12 },
+  loadingText: { color: Colors.muted, fontSize: 14 },
+  domainBar: {
+    position: 'absolute',
+    top: 12,
+    left: 0,
+    right: 0,
+    paddingHorizontal: Spacing.md,
   },
-  statsText: { fontSize: 12, color: Colors.foreground, fontWeight: '600' },
-  fab: {
-    position: 'absolute', bottom: 24, right: 20,
-    width: 56, height: 56, borderRadius: 28,
-    backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center',
+  domainScroll: { paddingHorizontal: 0, gap: 8 },
+  allPill: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    borderRadius: Radius.full,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    marginRight: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  allPillActive: { backgroundColor: Colors.foreground, borderColor: Colors.foreground },
+  allPillText: { fontSize: 13, fontWeight: '600', color: Colors.foreground },
+  allPillTextActive: { color: '#fff' },
+  selectedCard: {
+    marginHorizontal: Spacing.md,
+    marginTop: -20,
+    backgroundColor: Colors.background,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    zIndex: 10,
     ...Shadow.floating,
   },
-  fabText: { fontSize: 28, color: '#fff', marginTop: -2 },
+  selectedCardContent: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  selectedDot: { width: 12, height: 12, borderRadius: 6 },
+  selectedInfo: { flex: 1 },
+  selectedTitle: { fontSize: 15, fontWeight: '700', color: Colors.foreground },
+  selectedDesc: { fontSize: 12, color: Colors.muted, marginTop: 2 },
+  closeBtn: { padding: 6 },
+  closeBtnText: { fontSize: 14, color: Colors.muted },
+  listArea: { flex: 1 },
+  listHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.md, paddingTop: Spacing.sm, paddingBottom: 4 },
+  listTitle: { fontSize: 13, fontWeight: '700', color: Colors.muted },
+  list: { paddingHorizontal: Spacing.md, paddingBottom: 20 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl },
+  empty: { alignItems: 'center', padding: Spacing.xl, gap: 12 },
+  emptyIcon: { fontSize: 40 },
+  emptyText: { fontSize: 15, color: Colors.muted, textAlign: 'center' },
 });

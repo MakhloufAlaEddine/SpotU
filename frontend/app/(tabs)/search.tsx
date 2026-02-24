@@ -1,5 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View, Text, StyleSheet, TextInput, ScrollView,
+  TouchableOpacity, ActivityIndicator, RefreshControl,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { TagPointCard } from '../../components/TagPointCard';
@@ -7,169 +10,218 @@ import { CoachCard } from '../../components/CoachCard';
 import { DomainPill } from '../../components/DomainPill';
 import { api } from '../../lib/api';
 import { useLang } from '../../context/LanguageContext';
-import { Colors, Spacing, Radius, Shadow } from '../../constants/Colors';
+import { Colors, Spacing, Radius } from '../../constants/Colors';
 
-type Tab = 'tagpoints' | 'coaches';
+const RADII = [1000, 5000, 10000, 25000, 50000];
+const RADIUS_LABELS = ['1km', '5km', '10km', '25km', '50km'];
+
+type SearchTab = 'tagpoints' | 'coaches';
 
 export default function SearchScreen() {
   const { t, lang } = useLang();
-  const [activeTab, setActiveTab] = useState<Tab>('tagpoints');
   const [query, setQuery] = useState('');
-  const [radius, setRadius] = useState(5);
+  const [tab, setTab] = useState<SearchTab>('tagpoints');
+  const [radiusIdx, setRadiusIdx] = useState(1);
   const [domains, setDomains] = useState<any[]>([]);
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
   const [tagPoints, setTagPoints] = useState<any[]>([]);
-  const [services, setServices] = useState<any[]>([]);
+  const [coaches, setCoaches] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [userLat, setUserLat] = useState(48.8566);
-  const [userLng, setUserLng] = useState(2.3522);
+  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   useEffect(() => {
-    loadDomains();
-    getLocation();
+    api.get('/domains').then(setDomains).catch(() => {});
+    Location.requestForegroundPermissionsAsync().then(({ status }) => {
+      if (status === 'granted') {
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }).then((loc) => {
+          setLocation({ lat: loc.coords.latitude, lng: loc.coords.longitude });
+        });
+      } else {
+        setLocation({ lat: 48.8566, lng: 2.3522 });
+      }
+    });
   }, []);
 
-  const getLocation = async () => {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === 'granted') {
-        const loc = await Location.getCurrentPositionAsync({});
-        setUserLat(loc.coords.latitude);
-        setUserLng(loc.coords.longitude);
-      }
-    } catch {}
-  };
+  useEffect(() => {
+    if (location) doSearch();
+  }, [location, radiusIdx, selectedDomain]);
 
-  const loadDomains = async () => {
-    try {
-      const data = await api.get('/domains');
-      setDomains(data);
-    } catch {}
-  };
-
-  const handleSearch = async () => {
+  const doSearch = useCallback(async () => {
+    if (!location) return;
     setLoading(true);
     try {
-      const radiusM = radius * 1000;
-      const params = `lat=${userLat}&lng=${userLng}&radius=${radiusM}${selectedDomain ? `&domain_id=${selectedDomain}` : ''}`;
+      const radius = RADII[radiusIdx];
+      const params = new URLSearchParams({
+        lat: location.lat.toString(),
+        lng: location.lng.toString(),
+        radius: radius.toString(),
+      });
+      if (selectedDomain) params.append('domain_id', selectedDomain);
+
       const [pts, svcs] = await Promise.all([
-        api.get(`/tag-points?${params}`),
-        api.get(`/services?${params}`),
+        api.get(`/tag-points?${params.toString()}`),
+        api.get(`/services?${params.toString()}`),
       ]);
-      const filteredPts = query ? pts.filter((p: any) => p.title?.toLowerCase().includes(query.toLowerCase()) || p.description?.toLowerCase().includes(query.toLowerCase())) : pts;
-      const filteredSvcs = query ? svcs.filter((s: any) => s.title?.toLowerCase().includes(query.toLowerCase()) || s.description?.toLowerCase().includes(query.toLowerCase())) : svcs;
-      setTagPoints(filteredPts);
-      setServices(filteredSvcs);
-    } catch {} finally {
-      setLoading(false);
-    }
-  };
+      setTagPoints(pts);
+      setCoaches(svcs);
+    } catch {}
+    finally { setLoading(false); }
+  }, [location, radiusIdx, selectedDomain]);
 
-  useEffect(() => {
-    handleSearch();
-  }, [userLat, userLng, selectedDomain, radius]);
+  const filteredPoints = query
+    ? tagPoints.filter((p) => p.title.toLowerCase().includes(query.toLowerCase()))
+    : tagPoints;
 
-  const RADII = [1, 5, 10, 20, 50];
+  const filteredCoaches = query
+    ? coaches.filter((c) => c.title.toLowerCase().includes(query.toLowerCase()) || c.coach?.name?.toLowerCase().includes(query.toLowerCase()))
+    : coaches;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScrollView style={styles.scroll} stickyHeaderIndices={[0]}>
-        {/* Sticky search header */}
-        <View style={styles.searchHeader}>
-          <View style={styles.searchBar}>
-            <Text style={styles.searchIcon}>🔍</Text>
-            <TextInput
-              testID="search-input"
-              style={styles.searchInput}
-              placeholder={t('searchPlaceholder')}
-              placeholderTextColor={Colors.muted}
-              value={query}
-              onChangeText={setQuery}
-              onSubmitEditing={handleSearch}
-              returnKeyType="search"
-            />
-          </View>
-          {/* Radius */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.radiusScroll}>
-            {RADII.map((r) => (
-              <TouchableOpacity
-                key={r}
-                testID={`radius-${r}km-btn`}
-                style={[styles.radiusPill, radius === r && styles.radiusPillActive]}
-                onPress={() => setRadius(r)}
-              >
-                <Text style={[styles.radiusText, radius === r && styles.radiusTextActive]}>{r}km</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-          {/* Domain filters */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.domainsScroll} contentContainerStyle={{ paddingRight: 16 }}>
-            <TouchableOpacity
-              style={[styles.allPill, !selectedDomain && styles.allPillActive]}
-              onPress={() => setSelectedDomain(null)}
-            >
-              <Text style={[styles.allText, !selectedDomain && styles.allTextActive]}>Tout</Text>
-            </TouchableOpacity>
-            {domains.map((d) => (
-              <DomainPill key={d.domain_id} domain={d} selected={selectedDomain === d.domain_id} onPress={() => setSelectedDomain(d.domain_id === selectedDomain ? null : d.domain_id)} lang={lang} />
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* Tabs */}
-        <View style={styles.tabs}>
-          <TouchableOpacity testID="tab-tagpoints" style={[styles.tab, activeTab === 'tagpoints' && styles.tabActive]} onPress={() => setActiveTab('tagpoints')}>
-            <Text style={[styles.tabText, activeTab === 'tagpoints' && styles.tabTextActive]}>📍 {t('tagPoints')} ({tagPoints.length})</Text>
+      {/* Search bar */}
+      <View style={styles.searchBar}>
+        <Text style={styles.searchIcon}>🔍</Text>
+        <TextInput
+          style={styles.searchInput}
+          placeholder={t('searchPlaceholder')}
+          placeholderTextColor={Colors.muted}
+          value={query}
+          onChangeText={setQuery}
+          returnKeyType="search"
+          onSubmitEditing={doSearch}
+          testID="search-input"
+        />
+        {query.length > 0 && (
+          <TouchableOpacity onPress={() => setQuery('')} testID="clear-search">
+            <Text style={styles.clearBtn}>✕</Text>
           </TouchableOpacity>
-          <TouchableOpacity testID="tab-coaches" style={[styles.tab, activeTab === 'coaches' && styles.tabActive]} onPress={() => setActiveTab('coaches')}>
-            <Text style={[styles.tabText, activeTab === 'coaches' && styles.tabTextActive]}>🎯 {t('coaches')} ({services.length})</Text>
-          </TouchableOpacity>
-        </View>
-
-        {loading ? (
-          <ActivityIndicator color={Colors.primary} style={{ marginTop: Spacing.xl }} />
-        ) : (
-          <View style={styles.results}>
-            {activeTab === 'tagpoints' && (
-              tagPoints.length === 0
-                ? <View style={styles.empty}><Text style={styles.emptyText}>{t('noResults')}</Text></View>
-                : tagPoints.map((pt) => <TagPointCard key={pt.point_id} point={pt} lang={lang} />)
-            )}
-            {activeTab === 'coaches' && (
-              services.length === 0
-                ? <View style={styles.empty}><Text style={styles.emptyText}>{t('noResults')}</Text></View>
-                : services.map((svc) => <CoachCard key={svc.service_id} service={svc} lang={lang} />)
-            )}
-          </View>
         )}
+      </View>
+
+      {/* Radius selector */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.radiusRow} contentContainerStyle={styles.radiusContent}>
+        <Text style={styles.radiusLabel}>📍 Rayon :</Text>
+        {RADII.map((r, i) => (
+          <TouchableOpacity
+            key={r}
+            style={[styles.radiusBtn, radiusIdx === i && styles.radiusBtnActive]}
+            onPress={() => setRadiusIdx(i)}
+            testID={`radius-${RADIUS_LABELS[i]}`}
+          >
+            <Text style={[styles.radiusBtnText, radiusIdx === i && styles.radiusBtnTextActive]}>
+              {RADIUS_LABELS[i]}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </ScrollView>
+
+      {/* Domain filter */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.domainRow} contentContainerStyle={styles.domainContent}>
+        <TouchableOpacity
+          style={[styles.allPill, !selectedDomain && styles.allPillActive]}
+          onPress={() => setSelectedDomain(null)}
+          testID="search-domain-all"
+        >
+          <Text style={[styles.allText, !selectedDomain && styles.allTextActive]}>Tout</Text>
+        </TouchableOpacity>
+        {domains.map((d) => (
+          <DomainPill
+            key={d.domain_id}
+            domain={d}
+            selected={selectedDomain === d.domain_id}
+            onPress={() => setSelectedDomain(selectedDomain === d.domain_id ? null : d.domain_id)}
+            lang={lang}
+          />
+        ))}
+      </ScrollView>
+
+      {/* Tabs */}
+      <View style={styles.tabs}>
+        {(['tagpoints', 'coaches'] as SearchTab[]).map((tabKey) => (
+          <TouchableOpacity
+            key={tabKey}
+            style={[styles.tabBtn, tab === tabKey && styles.tabBtnActive]}
+            onPress={() => setTab(tabKey)}
+            testID={`search-tab-${tabKey}`}
+          >
+            <Text style={[styles.tabText, tab === tabKey && styles.tabTextActive]}>
+              {tabKey === 'tagpoints' ? `📍 ${t('tagPoints')}` : `🎯 ${t('coaches')}`}
+            </Text>
+            <View style={[styles.tabBadge, tab === tabKey && styles.tabBadgeActive]}>
+              <Text style={[styles.tabBadgeText, tab === tabKey && styles.tabBadgeTextActive]}>
+                {tabKey === 'tagpoints' ? filteredPoints.length : filteredCoaches.length}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Results */}
+      {loading ? (
+        <View style={styles.center}><ActivityIndicator color={Colors.primary} size="large" /></View>
+      ) : (
+        <ScrollView contentContainerStyle={styles.results} showsVerticalScrollIndicator={false}>
+          {tab === 'tagpoints' && (
+            filteredPoints.length === 0
+              ? <View style={styles.empty}><Text style={styles.emptyIcon}>📍</Text><Text style={styles.emptyText}>{t('noResults')}</Text></View>
+              : filteredPoints.map((pt) => <TagPointCard key={pt.point_id} point={pt} lang={lang} />)
+          )}
+          {tab === 'coaches' && (
+            filteredCoaches.length === 0
+              ? <View style={styles.empty}><Text style={styles.emptyIcon}>🎯</Text><Text style={styles.emptyText}>{t('noResults')}</Text></View>
+              : filteredCoaches.map((svc) => <CoachCard key={svc.service_id} service={svc} lang={lang} />)
+          )}
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
-  scroll: { flex: 1 },
-  searchHeader: { backgroundColor: Colors.background, paddingTop: Spacing.sm, paddingBottom: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  searchBar: { flexDirection: 'row', alignItems: 'center', marginHorizontal: Spacing.lg, backgroundColor: Colors.secondary, borderRadius: Radius.full, paddingHorizontal: Spacing.md, marginBottom: Spacing.sm },
-  searchIcon: { fontSize: 16, marginRight: 8 },
-  searchInput: { flex: 1, paddingVertical: Spacing.sm + 2, fontSize: 15, color: Colors.foreground },
-  radiusScroll: { paddingLeft: Spacing.lg, marginBottom: Spacing.sm },
-  radiusPill: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: Radius.full, borderWidth: 1.5, borderColor: Colors.border, marginRight: 8 },
-  radiusPillActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  radiusText: { fontSize: 13, fontWeight: '600', color: Colors.muted },
-  radiusTextActive: { color: '#fff' },
-  domainsScroll: { paddingLeft: Spacing.lg },
-  allPill: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: Radius.full, borderWidth: 1.5, borderColor: Colors.border, marginRight: 8 },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    margin: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: Colors.secondary,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: 8,
+  },
+  searchIcon: { fontSize: 16 },
+  searchInput: { flex: 1, paddingVertical: 12, fontSize: 15, color: Colors.foreground },
+  clearBtn: { fontSize: 14, color: Colors.muted, padding: 4 },
+  radiusRow: { borderBottomWidth: 1, borderBottomColor: Colors.border },
+  radiusContent: { paddingHorizontal: Spacing.md, paddingVertical: 8, gap: 8, alignItems: 'center' },
+  radiusLabel: { fontSize: 13, color: Colors.muted, marginRight: 4 },
+  radiusBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: Radius.full, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.background },
+  radiusBtnActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  radiusBtnText: { fontSize: 13, fontWeight: '600', color: Colors.foreground },
+  radiusBtnTextActive: { color: '#fff' },
+  domainRow: { borderBottomWidth: 1, borderBottomColor: Colors.border },
+  domainContent: { paddingHorizontal: Spacing.md, paddingVertical: 8, gap: 8, alignItems: 'center' },
+  allPill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: Radius.full, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.background },
   allPillActive: { backgroundColor: Colors.foreground, borderColor: Colors.foreground },
   allText: { fontSize: 13, fontWeight: '600', color: Colors.foreground },
   allTextActive: { color: '#fff' },
-  tabs: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: Colors.border },
-  tab: { flex: 1, paddingVertical: Spacing.sm + 2, alignItems: 'center' },
-  tabActive: { borderBottomWidth: 2, borderBottomColor: Colors.primary },
-  tabText: { fontSize: 13, fontWeight: '600', color: Colors.muted },
+  tabs: { flexDirection: 'row', paddingHorizontal: Spacing.md, paddingTop: Spacing.sm, gap: Spacing.sm },
+  tabBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 10, borderRadius: Radius.lg, borderWidth: 1.5,
+    borderColor: Colors.border, gap: 6, backgroundColor: Colors.background,
+  },
+  tabBtnActive: { backgroundColor: Colors.primaryLight, borderColor: Colors.primary },
+  tabText: { fontSize: 14, fontWeight: '600', color: Colors.muted },
   tabTextActive: { color: Colors.primary },
-  results: { padding: Spacing.md },
-  empty: { alignItems: 'center', paddingTop: Spacing.xl },
-  emptyText: { fontSize: 15, color: Colors.muted },
+  tabBadge: { backgroundColor: Colors.secondary, borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 2 },
+  tabBadgeActive: { backgroundColor: Colors.primary },
+  tabBadgeText: { fontSize: 11, fontWeight: '700', color: Colors.muted },
+  tabBadgeTextActive: { color: '#fff' },
+  results: { padding: Spacing.md, paddingBottom: 40 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xxl },
+  empty: { alignItems: 'center', padding: Spacing.xl, gap: 12 },
+  emptyIcon: { fontSize: 40 },
+  emptyText: { fontSize: 15, color: Colors.muted, textAlign: 'center' },
 });
