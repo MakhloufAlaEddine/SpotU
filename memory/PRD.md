@@ -94,12 +94,12 @@ The app is bilingual (French / English) with configurable language per user.
 - [x] Bilingual FR/EN support
 
 ### P1 (High Priority - Remaining)
+- [x] TagPoint detail screen (/tag-point/[id]) - UI redesign + header bug fix (2026-02-24)
+- [ ] Coach service creation screen (/create-service)
 - [ ] Complete Stripe payment flow testing
 - [ ] Coach profile detail screen (/coach/[id])
-- [ ] TagPoint detail screen (/tag-point/[id])
 - [ ] Booking detail + pay screen (/booking/[id])
 - [ ] Write/read reviews for coaches
-- [ ] Coach service creation screen (/create-service)
 - [ ] Push notifications (booking confirmations)
 - [ ] Admin dashboard UI
 
