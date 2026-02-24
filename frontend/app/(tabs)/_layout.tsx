@@ -1,12 +1,19 @@
 import { Tabs } from 'expo-router';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Colors } from '../../constants/Colors';
+import { Ionicons } from '@expo/vector-icons';
 
-function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
+type IconName = 'home-outline' | 'home' | 'chatbubble-outline' | 'chatbubble' | 
+                'add-circle-outline' | 'add-circle' | 'notifications-outline' | 
+                'notifications' | 'menu-outline' | 'menu';
+
+function TabIcon({ name, focused }: { name: IconName; focused: boolean }) {
   return (
-    <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
-      <Text style={styles.emoji}>{emoji}</Text>
-    </View>
+    <Ionicons 
+      name={name} 
+      size={24} 
+      color={focused ? Colors.primary : Colors.muted} 
+    />
   );
 }
 
@@ -16,7 +23,7 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: styles.tabBar,
-        tabBarLabelStyle: styles.tabLabel,
+        tabBarShowLabel: false,
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.muted,
       }}
@@ -24,15 +31,19 @@ export default function TabLayout() {
       <Tabs.Screen
         name="map"
         options={{
-          title: 'Carte',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="🗺️" focused={focused} />,
+          title: 'Accueil',
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name={focused ? 'home' : 'home-outline'} focused={focused} />
+          ),
         }}
       />
       <Tabs.Screen
         name="search"
         options={{
-          title: 'Recherche',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="🔍" focused={focused} />,
+          title: 'Chat',
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name={focused ? 'chatbubble' : 'chatbubble-outline'} focused={focused} />
+          ),
         }}
       />
       <Tabs.Screen
@@ -41,7 +52,7 @@ export default function TabLayout() {
           title: 'Créer',
           tabBarIcon: ({ focused }) => (
             <View style={styles.createBtn}>
-              <Text style={styles.createBtnText}>+</Text>
+              <Ionicons name="add" size={28} color={Colors.primary} />
             </View>
           ),
           tabBarLabel: () => null,
@@ -50,15 +61,19 @@ export default function TabLayout() {
       <Tabs.Screen
         name="bookings"
         options={{
-          title: 'Réservations',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="📅" focused={focused} />,
+          title: 'Notifications',
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name={focused ? 'notifications' : 'notifications-outline'} focused={focused} />
+          ),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profil',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="👤" focused={focused} />,
+          title: 'Menu',
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name={focused ? 'menu' : 'menu-outline'} focused={focused} />
+          ),
         }}
       />
     </Tabs>
@@ -70,27 +85,18 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
-    height: 65,
+    height: 70,
     paddingBottom: 10,
-    paddingTop: 6,
+    paddingTop: 10,
   },
-  tabLabel: { fontSize: 10, fontWeight: '600' },
-  iconWrap: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 16 },
-  iconWrapActive: { backgroundColor: Colors.primaryLight },
-  emoji: { fontSize: 18 },
   createBtn: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: Colors.primary,
+    borderWidth: 2,
+    borderColor: Colors.primary,
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -12,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 8,
   },
-  createBtnText: { fontSize: 28, fontWeight: '300', color: '#fff', lineHeight: 32 },
 });
