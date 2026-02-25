@@ -35,13 +35,26 @@ async def get_categories(domain_id: Optional[str] = Query(None)):
     pool = get_pool()
     async with pool.acquire() as conn:
         if domain_id:
-            rows = await conn.fetch(
+            cat_rows = await conn.fetch(
                 "SELECT * FROM tag_categories WHERE active = TRUE AND domain_id = $1 ORDER BY name",
                 domain_id
             )
         else:
-            rows = await conn.fetch("SELECT * FROM tag_categories WHERE active = TRUE ORDER BY name")
-    return rows_to_list(rows)
+            cat_rows = await conn.fetch("SELECT * FROM tag_categories WHERE active = TRUE ORDER BY name")
+        tag_rows = await conn.fetch("SELECT * FROM tags WHERE active = TRUE ORDER BY name")
+
+    tags_by_category: dict = {}
+    for tag in tag_rows:
+        t = row_to_dict(tag)
+        cid = t["category_id"]
+        tags_by_category.setdefault(cid, []).append(t)
+
+    result = []
+    for cat in cat_rows:
+        c = row_to_dict(cat)
+        c["tags"] = tags_by_category.get(c["category_id"], [])
+        result.append(c)
+    return result
 
 
 @router.post("/tags/categories")
