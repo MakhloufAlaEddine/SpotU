@@ -225,6 +225,16 @@ export default function MenuScreen() {
     router.replace('/(auth)/login');
   };
 
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   if (!user) {
     return (
       <SafeAreaView style={styles.safe}>
