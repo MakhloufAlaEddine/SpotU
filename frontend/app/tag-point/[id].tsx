@@ -215,7 +215,8 @@ export default function TagPointDetail() {
   const [ratingDist, setRatingDist] = useState<Record<string, number>>({});
   const [isParticipant, setIsParticipant] = useState(false);
   const [participantsCount, setParticipantsCount] = useState(0);
-  const [rsvpLoading, setRsvpLoading] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const [saveLoading, setSaveLoading] = useState(false);
 
   useEffect(() => {
     if (id) { loadPoint(); loadVotes(); if (user) loadMyVote(); }
