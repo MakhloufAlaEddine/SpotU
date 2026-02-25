@@ -42,7 +42,8 @@ export default function RegisterScreen() {
     try {
       pendingNav.current = true;
       await register(email.trim(), password, name.trim(), lang);
-      // Navigation gérée par le useEffect sur user ci-dessus
+      // Navigation directe (fonctionne sur web) + useEffect comme backup sur native
+      router.replace('/(tabs)/map');
     } catch (err: any) {
       pendingNav.current = false;
       Alert.alert(t('error'), err.message || 'Erreur lors de l\'inscription');
