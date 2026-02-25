@@ -257,7 +257,7 @@ async def create_tag_point(data: TagPointCreate, request: Request):
             stored_lng, stored_lat,
             data.precision, json.dumps(data.tag_ids), data.domain_id, expires_at
         )
-        row = await conn.fetchrow(f"SELECT {TP_FIELDS} FROM tag_points WHERE point_id = $1", pid)
+        row = await conn.fetchrow(f"SELECT {TP_FIELDS} FROM tag_points tp LEFT JOIN users u ON tp.user_id = u.user_id WHERE tp.point_id = $1", pid)
     return build_point_response(row_to_dict(row))
 
 
