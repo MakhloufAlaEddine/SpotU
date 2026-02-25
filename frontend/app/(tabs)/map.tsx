@@ -152,9 +152,10 @@ function NearbyCard({ point, userLat, userLng, onPress }: { point: any; userLat:
 }
 
 // ── List Row Card ────────────────────────────────────────────
-function ListCard({ point, onPress }: { point: any; onPress: () => void }) {
+function ListCard({ point, userLat, userLng, onPress }: { point: any; userLat: number; userLng: number; onPress: () => void }) {
   const bg = DOMAIN_COLORS[point.domain_id] || '#1A3A3A';
   const icon = DOMAIN_ICONS[point.domain_id] || 'location-outline';
+  const dist = distPipe(userLat, userLng, point);
   return (
     <TouchableOpacity style={styles.listCard} onPress={onPress} activeOpacity={0.8}>
       {point.image_url ? (
@@ -173,9 +174,7 @@ function ListCard({ point, onPress }: { point: any; onPress: () => void }) {
           <Text style={styles.listOwner}>{point.owner.name}</Text>
         )}
       </View>
-      {point.distance != null && (
-        <Text style={styles.listDist}>{formatDist(point.distance)}</Text>
-      )}
+      {dist ? <Text style={styles.listDist}>{dist}</Text> : null}
     </TouchableOpacity>
   );
 }
