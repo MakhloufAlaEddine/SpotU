@@ -219,26 +219,35 @@ export default function SearchScreen() {
         {/* Tag search row */}
         <View style={styles.tagInputRow}>
           <TouchableOpacity
-            style={styles.tagInput}
+            style={[styles.tagBtn, selectedTags.length > 0 && styles.tagBtnActive]}
             onPress={() => setShowTagModal(true)}
             testID="tag-search-button"
-            activeOpacity={0.7}
+            activeOpacity={0.8}
           >
+            <Ionicons
+              name="pricetags-outline"
+              size={16}
+              color={selectedTags.length > 0 ? Colors.primary : Colors.muted}
+            />
             {selectedTags.length === 0 ? (
-              <Text style={styles.tagInputPlaceholder}>Chercher des tags</Text>
+              <Text style={styles.tagBtnPlaceholder}>Chercher des tags</Text>
             ) : (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillsRow}>
-                {selectedTags.map(id => (
-                  <View key={id} style={styles.selectedPill}>
-                    <Text style={styles.selectedPillText} numberOfLines={1}>
-                      {tagsMap[id]?.label_fr || id}
-                    </Text>
-                    <TouchableOpacity onPress={() => toggleTag(id)} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                      <Ionicons name="close" size={13} color="#fff" />
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </ScrollView>
+              <Text style={styles.tagBtnCount} numberOfLines={1}>
+                {selectedTags.length === 1
+                  ? tagsMap[selectedTags[0]]?.label_fr || '1 tag'
+                  : `${tagsMap[selectedTags[0]]?.label_fr || ''}${selectedTags.length > 1 ? ` +${selectedTags.length - 1}` : ''}`}
+              </Text>
+            )}
+            {selectedTags.length > 0 ? (
+              <TouchableOpacity
+                onPress={(e) => { e.stopPropagation?.(); setSelectedTags([]); }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                testID="clear-tags-btn"
+              >
+                <Ionicons name="close-circle" size={18} color={Colors.primary} />
+              </TouchableOpacity>
+            ) : (
+              <Ionicons name="chevron-down" size={16} color={Colors.muted} />
             )}
           </TouchableOpacity>
 
@@ -254,6 +263,28 @@ export default function SearchScreen() {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Selected tags chips row */}
+        {selectedTags.length > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chipsRow}
+            style={styles.chipsScroll}
+          >
+            {selectedTags.map(id => (
+              <View key={id} style={styles.chip} testID={`selected-chip-${id}`}>
+                <Text style={styles.chipText}>{tagsMap[id]?.label_fr || id}</Text>
+                <TouchableOpacity
+                  onPress={() => toggleTag(id)}
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                >
+                  <Ionicons name="close" size={13} color={Colors.primary} />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </ScrollView>
+        )}
 
         {/* Location row */}
         <TouchableOpacity style={styles.locationRow} onPress={() => router.push('/set-location' as any)}>
