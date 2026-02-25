@@ -183,7 +183,7 @@ function ListCard({ point, userLat, userLng, onPress }: { point: any; userLat: n
 export default function HomeScreen() {
   const router = useRouter();
   const { t, lang } = useLang();
-  const { location, loading: locLoading } = useGlobalLocation();
+  const { location, loading: locLoading } = useLocation();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [tagPoints, setTagPoints] = useState<any[]>([]);
