@@ -417,55 +417,64 @@ export default function TagPointDetail() {
 
       {/* Vote Modal */}
       <Modal visible={showVoteModal} animationType="slide" transparent onRequestClose={() => setShowVoteModal(false)}>
-        <View style={st.modalOverlay}>
-          <TouchableOpacity style={st.modalBackdrop} activeOpacity={1} onPress={() => setShowVoteModal(false)} />
-          <View style={st.modalSheet}>
-            <View style={st.modalHeader}>
-              <Text style={st.modalTitle}>Votre avis</Text>
-              <TouchableOpacity onPress={() => setShowVoteModal(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Ionicons name="close" size={22} color={Colors.foreground} />
-              </TouchableOpacity>
-            </View>
-
-            {voteSuccess ? (
-              <View style={{ alignItems: 'center', paddingVertical: Spacing.xl }}>
-                <Ionicons name="checkmark-circle" size={48} color={Colors.primary} />
-                <Text style={{ fontSize: 16, fontWeight: '700', color: Colors.foreground, marginTop: Spacing.md }}>Vote enregistré !</Text>
-              </View>
-            ) : (
-              <>
-                <View style={st.modalStarsRow}>
-                  <InteractiveStars value={pendingStar} onChange={setPendingStar} size={36} />
-                </View>
-                {pendingStar > 0 && (
-                  <Text style={st.modalStarLabel}>
-                    {['', 'Mauvais', 'Moyen', 'Bien', 'Très bien', 'Excellent'][pendingStar]}
-                  </Text>
-                )}
-                <TextInput
-                  style={st.modalCommentInput}
-                  placeholder="Commentaire (optionnel)…"
-                  placeholderTextColor={Colors.muted}
-                  value={comment}
-                  onChangeText={setComment}
-                  multiline
-                  numberOfLines={3}
-                  testID="vote-comment-input"
-                />
-                <TouchableOpacity
-                  style={[st.modalSubmitBtn, (submitting || pendingStar === 0) && { opacity: 0.4 }]}
-                  onPress={handleVoteSubmit}
-                  disabled={submitting || pendingStar === 0}
-                  testID="vote-submit-btn"
-                >
-                  {submitting
-                    ? <ActivityIndicator color="#fff" size="small" />
-                    : <Text style={st.modalSubmitText}>Envoyer</Text>}
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <View style={st.modalOverlay}>
+            <TouchableOpacity style={st.modalBackdrop} activeOpacity={1} onPress={() => setShowVoteModal(false)} />
+            <View style={st.modalSheet}>
+              <View style={st.modalHeader}>
+                <Text style={st.modalTitle}>
+                  {myVote ? 'Modifier votre avis' : 'Votre avis'}
+                </Text>
+                <TouchableOpacity onPress={() => setShowVoteModal(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <Ionicons name="close" size={22} color={Colors.foreground} />
                 </TouchableOpacity>
-              </>
-            )}
+              </View>
+
+              {voteSuccess ? (
+                <View style={{ alignItems: 'center', paddingVertical: Spacing.xl }}>
+                  <Ionicons name="checkmark-circle" size={48} color={Colors.primary} />
+                  <Text style={{ fontSize: 16, fontWeight: '700', color: Colors.foreground, marginTop: Spacing.md }}>Vote enregistré !</Text>
+                </View>
+              ) : (
+                <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                  <View style={st.modalStarsRow}>
+                    <InteractiveStars value={pendingStar} onChange={setPendingStar} size={36} />
+                  </View>
+                  {pendingStar > 0 && (
+                    <Text style={st.modalStarLabel}>
+                      {['', 'Mauvais', 'Moyen', 'Bien', 'Très bien', 'Excellent'][pendingStar]}
+                    </Text>
+                  )}
+                  <TextInput
+                    style={st.modalCommentInput}
+                    placeholder="Commentaire (optionnel)…"
+                    placeholderTextColor={Colors.muted}
+                    value={comment}
+                    onChangeText={setComment}
+                    multiline
+                    numberOfLines={3}
+                    textAlignVertical="top"
+                    testID="vote-comment-input"
+                  />
+                  <TouchableOpacity
+                    style={[st.modalSubmitBtn, (submitting || pendingStar === 0) && { opacity: 0.4 }]}
+                    onPress={handleVoteSubmit}
+                    disabled={submitting || pendingStar === 0}
+                    testID="vote-submit-btn"
+                  >
+                    {submitting
+                      ? <ActivityIndicator color="#fff" size="small" />
+                      : <Text style={st.modalSubmitText}>Envoyer</Text>}
+                  </TouchableOpacity>
+                  <View style={{ height: 20 }} />
+                </ScrollView>
+              )}
+            </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
