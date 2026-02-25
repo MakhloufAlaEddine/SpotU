@@ -60,7 +60,7 @@ export default function BookingsScreen() {
     loadBookings();
   }, [tab, user]);
 
-  if (loading) {
+  if (loading || isRefreshingUser) {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.center}><ActivityIndicator size="large" color={Colors.primary} /></View>
