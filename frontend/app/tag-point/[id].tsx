@@ -158,11 +158,10 @@ export default function TagPointDetail() {
   const [point, setPoint] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showFullDesc, setShowFullDesc] = useState(false);
+  const [showVoteModal, setShowVoteModal] = useState(false);
   const [votes, setVotes] = useState<any[]>([]);
   const [currentRating, setCurrentRating] = useState(0);
   const [currentVotes, setCurrentVotes] = useState(0);
-
-  // Vote inline state
   const [pendingStar, setPendingStar] = useState(0);
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
