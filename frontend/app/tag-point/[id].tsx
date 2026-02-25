@@ -659,15 +659,15 @@ const st = StyleSheet.create({
   scheduleBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginHorizontal: Spacing.md, marginBottom: Spacing.md, backgroundColor: Colors.card, padding: Spacing.md, borderRadius: Radius.lg, borderLeftWidth: 3, borderLeftColor: Colors.primary },
   scheduleText: { flex: 1, fontSize: 14, color: Colors.foreground, lineHeight: 20 },
 
-  rsvpRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingHorizontal: Spacing.md, marginBottom: Spacing.md },
-  rsvpBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.primary, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm + 2, borderRadius: Radius.full },
+  rsvpRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.md, marginBottom: Spacing.sm },
+  rsvpBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.primary, paddingHorizontal: Spacing.md, paddingVertical: 7, borderRadius: Radius.full },
   rsvpBtnActive: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: Colors.primary },
-  rsvpText: { fontSize: 15, fontWeight: '700', color: Colors.background },
+  rsvpText: { fontSize: 13, fontWeight: '700', color: Colors.background },
   rsvpTextActive: { color: Colors.primary },
-  rsvpCount: { fontSize: 14, color: Colors.muted },
+  rsvpCount: { fontSize: 13, color: Colors.muted },
 
-  messageBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.header, marginHorizontal: Spacing.md, paddingVertical: Spacing.md, borderRadius: Radius.full, gap: Spacing.sm, marginBottom: Spacing.md },
-  messageBtnText: { fontSize: 16, fontWeight: '600', color: Colors.foreground },
+  messageBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.header, marginHorizontal: Spacing.md, paddingVertical: 10, borderRadius: Radius.full, gap: Spacing.sm, marginBottom: Spacing.sm },
+  messageBtnText: { fontSize: 14, fontWeight: '600', color: Colors.foreground },
 
   actionsRow: { flexDirection: 'row', paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border, marginBottom: Spacing.md },
   actionBtn: { flex: 1, alignItems: 'center', gap: 4 },
