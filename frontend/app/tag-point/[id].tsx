@@ -148,9 +148,9 @@ export default function TagPointDetail() {
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Details</Text>
           <View style={styles.headerRight}>
-            <TouchableOpacity style={styles.headerBtn}>
-              <Ionicons name="location" size={24} color={Colors.primary} />
-            </TouchableOpacity>
+          <TouchableOpacity style={styles.headerBtn}>
+            <Ionicons name="location" size={24} color={Colors.primary} />
+          </TouchableOpacity>
             <TouchableOpacity style={styles.headerBtn}>
               <Ionicons name="search" size={24} color={Colors.primary} />
             </TouchableOpacity>
