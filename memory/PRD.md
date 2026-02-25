@@ -92,6 +92,13 @@ The app is bilingual (French / English) with configurable language per user.
 - [x] Create TagPoint form
 - [x] Profile screen
 - [x] Bilingual FR/EN support
+- [x] Homepage redesign (carousel + sections) (2026-02-24)
+- [x] Distance calculation + display (2026-02-24)
+- [x] **BUG FIX: Distances se mettent à jour quand localisation change** (2026-02-25)
+  - Implémenté LocationContext réactif (context/LocationContext.tsx)
+  - Pipe Haversine côté client (utils/distance.ts) — calcul pur sans appel API
+  - set-location.tsx utilise setLocation() du contexte pour mise à jour instantanée
+  - map.tsx et search.tsx calculent les distances depuis les coords GPS des tagpoints
 
 ### P1 (High Priority - Remaining)
 - [x] TagPoint detail screen (/tag-point/[id]) - UI redesign + header bug fix (2026-02-24)
