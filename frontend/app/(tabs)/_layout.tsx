@@ -36,6 +36,12 @@ export default function TabLayout() {
       <Tabs.Screen
         name="search"
         options={{
+          href: null, // Caché du tab bar, accessible via header search icon
+        }}
+      />
+      <Tabs.Screen
+        name="chat"
+        options={{
           title: 'Chat',
           tabBarIcon: ({ focused }) => (
             <TabIcon name={focused ? 'chatbubble' : 'chatbubble-outline'} focused={focused} />
