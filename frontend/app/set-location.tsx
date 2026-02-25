@@ -30,6 +30,7 @@ const SAVED_ADDRESSES = [
 
 export default function SetLocationScreen() {
   const router = useRouter();
+  const { setLocation } = useLocation();
   const [loading, setLoading] = useState(false);
   const [currentAddress, setCurrentAddress] = useState('Paris, France');
   const [selectedLat, setSelectedLat] = useState(48.8566);
