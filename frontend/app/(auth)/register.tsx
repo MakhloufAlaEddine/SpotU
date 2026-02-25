@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, KeyboardAvoidingView, Platform,
   ScrollView, Alert, Pressable, TouchableOpacity,
@@ -13,22 +13,14 @@ import { Colors, Spacing, Radius } from '../../constants/Colors';
 
 export default function RegisterScreen() {
   const router = useRouter();
-  const { register, loginWithGoogle, user } = useAuth();
+  const { register, loginWithGoogle } = useAuth();
   const { t, setLanguage, lang } = useLang();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const pendingNav = useRef(false);
 
-  // Navigation vers la carte UNIQUEMENT après que user soit confirmé dans le contexte
-  useEffect(() => {
-    if (user && pendingNav.current) {
-      pendingNav.current = false;
-      router.replace('/(tabs)/map');
-    }
-  }, [user]);
-
+  // La navigation post-inscription est entièrement gérée par NavigationGuard dans _layout.tsx
   const handleRegister = async () => {
     if (!name.trim() || !email.trim() || !password) {
       Alert.alert('', 'Veuillez remplir tous les champs');
@@ -40,12 +32,8 @@ export default function RegisterScreen() {
     }
     setLoading(true);
     try {
-      pendingNav.current = true;
       await register(email.trim(), password, name.trim(), lang);
-      // Navigation directe (fonctionne sur web) + useEffect comme backup sur native
-      router.replace('/(tabs)/map');
     } catch (err: any) {
-      pendingNav.current = false;
       Alert.alert(t('error'), err.message || 'Erreur lors de l\'inscription');
     } finally {
       setLoading(false);
