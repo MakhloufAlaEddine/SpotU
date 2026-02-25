@@ -391,7 +391,7 @@ class TestUserProfile:
         # Restore original name
         api_client.put(
             f"{BASE_URL}/api/users/profile",
-            json={"name": "Test User"},
+            json={"name": "Thomas Dupont"},
             headers={"Authorization": f"Bearer {user_token}"}
         )
 
