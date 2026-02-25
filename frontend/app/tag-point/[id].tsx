@@ -672,6 +672,20 @@ const st = StyleSheet.create({
   headerActionSaved: { backgroundColor: Colors.primaryLight, borderColor: Colors.primary },
   scroll: { flex: 1, backgroundColor: Colors.background },
 
+  // Bloc actions unifié (Option B)
+  actionsBlock: { marginHorizontal: Spacing.md, marginBottom: Spacing.md, backgroundColor: Colors.card, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
+  rsvpRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.md },
+  rsvpBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.primary, paddingVertical: 12, borderRadius: Radius.full },
+  rsvpBtnActive: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: Colors.primary },
+  rsvpText: { fontSize: 14, fontWeight: '700', color: Colors.background },
+  rsvpTextActive: { color: Colors.primary },
+  msgBtn: { width: 46, height: 46, borderRadius: 23, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
+  actionsDivider: { height: 1, backgroundColor: Colors.border, marginHorizontal: Spacing.md },
+  secondaryRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.sm },
+  secBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 8 },
+  secLabel: { fontSize: 13, color: Colors.muted, fontWeight: '500' },
+  secDivider: { width: 1, height: 20, backgroundColor: Colors.border },
+
   ownerBadge: { position: 'absolute', bottom: -16, left: 12, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.card, borderRadius: Radius.full, paddingRight: 12, paddingVertical: 4, paddingLeft: 4, borderWidth: 1, borderColor: Colors.border },
   ownerAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.primary, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
   ownerInitial: { fontSize: 15, fontWeight: '700', color: Colors.background },
