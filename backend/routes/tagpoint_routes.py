@@ -245,6 +245,22 @@ async def get_tag_point(point_id: str):
     return pt
 
 
+@router.get("/tag-points/{point_id}/my-vote")
+async def get_my_vote(point_id: str, request: Request):
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT vote_id, rating, comment, created_at, updated_at FROM tag_point_votes WHERE point_id = $1 AND user_id = $2",
+            point_id, user["user_id"]
+        )
+    if not row:
+        return {"exists": False, "rating": 0, "comment": None}
+    d = row_to_dict(row)
+    d["exists"] = True
+    return d
+
+
 @router.post("/tag-points/{point_id}/vote")
 async def vote_tag_point(point_id: str, request: Request):
     pool = get_pool()
