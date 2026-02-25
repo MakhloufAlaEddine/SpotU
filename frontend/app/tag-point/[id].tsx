@@ -201,8 +201,9 @@ export default function TagPointDetail() {
       setCurrentVotes(res.vote_count);
       setVoteSuccess(true);
       setComment('');
-      setTimeout(() => setVoteSuccess(false), 3000);
+      setPendingStar(0);
       loadVotes();
+      setTimeout(() => { setVoteSuccess(false); setShowVoteModal(false); }, 1500);
     } catch (e: any) {
       Alert.alert('Erreur', e.message || 'Impossible d\'envoyer le vote');
     } finally {
