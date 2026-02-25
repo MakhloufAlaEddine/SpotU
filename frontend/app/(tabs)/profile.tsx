@@ -186,11 +186,13 @@ export default function MenuScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [myTagPoints, setMyTagPoints] = useState<any[]>([]);
   const [showLangModal, setShowLangModal] = useState(false);
+  const [isRefreshingUser, setIsRefreshingUser] = useState(false);
 
   // Fallback: si le token est en storage mais user pas encore résolu, on rafraîchit
   useEffect(() => {
     if (!loading && !user) {
-      refreshUser();
+      setIsRefreshingUser(true);
+      refreshUser().finally(() => setIsRefreshingUser(false));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading]);
