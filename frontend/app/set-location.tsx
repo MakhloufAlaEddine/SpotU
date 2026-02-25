@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator,
+  TextInput, FlatList, Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
@@ -8,6 +9,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../constants/Colors';
 import { MapViewComponent } from '../components/MapViewComponent';
 import { useLocation } from '../context/LocationContext';
+
+type NominatimResult = {
+  place_id: number;
+  display_name: string;
+  lat: string;
+  lon: string;
+};
 
 const SAVED_ADDRESSES = [
   {
