@@ -255,7 +255,7 @@ export default function HomeScreen() {
           <View style={styles.headerLeft} />
           <Text style={styles.headerTitle}>Accueil</Text>
           <View style={styles.headerRight}>
-            <TouchableOpacity style={styles.headerBtn} onPress={() => router.push('/(tabs)/map' as any)}>
+            <TouchableOpacity style={styles.headerBtn} onPress={() => router.push('/set-location' as any)}>
               <Ionicons name="location" size={22} color={Colors.primary} />
             </TouchableOpacity>
             <TouchableOpacity style={styles.headerBtn} onPress={() => router.push('/(tabs)/search' as any)}>
