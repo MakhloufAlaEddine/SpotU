@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import { storage } from '../lib/storage';
 import { api } from '../lib/api';
 import { setLang, Lang } from '../lib/i18n';
