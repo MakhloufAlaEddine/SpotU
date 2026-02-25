@@ -13,18 +13,23 @@ export default function AuthCallback() {
     if (processed.current) return;
     processed.current = true;
 
-    // 1. Lire le session_id depuis l'URL hash OU depuis sessionStorage (backup)
+    // Lire le session_id depuis l'URL (hash OU query params) OU sessionStorage (backup)
     let sessionId: string | null = null;
 
     if (typeof window !== 'undefined') {
+      // 1. Chercher dans le hash (#session_id=...)
       const hash = window.location.hash || '';
-      const match = hash.match(/session_id=([^&]+)/);
-      if (match) {
-        sessionId = match[1];
-        // Stocker en backup et nettoyer l'URL
+      const hashMatch = hash.match(/session_id=([^&]+)/);
+      // 2. Chercher dans les query params (?session_id=...)
+      const search = window.location.search || '';
+      const queryMatch = search.match(/[?&]session_id=([^&]+)/);
+
+      const raw = hashMatch?.[1] || queryMatch?.[1] || null;
+      if (raw) {
+        try { sessionId = decodeURIComponent(raw); } catch { sessionId = raw; }
         try { sessionStorage.setItem('winek_pending_session', sessionId); } catch {}
       } else {
-        // Fallback: récupérer depuis sessionStorage si l'URL a déjà changé
+        // Fallback sessionStorage si l'URL a déjà changé
         try { sessionId = sessionStorage.getItem('winek_pending_session'); } catch {}
       }
     }
@@ -40,6 +45,7 @@ export default function AuthCallback() {
         .catch((err: any) => {
           console.log('[AuthCallback] error:', err?.message);
           try { sessionStorage.removeItem('winek_pending_session'); } catch {}
+          // Rediriger vers login avec indicateur d'erreur
           router.replace('/(auth)/login');
         });
     } else {
