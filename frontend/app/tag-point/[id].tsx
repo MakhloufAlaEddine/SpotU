@@ -421,13 +421,6 @@ export default function TagPointDetail() {
           </View>
         )}
       </ScrollView>
-
-      <VoteModal
-        visible={showVoteModal}
-        pointId={id as string}
-        onClose={() => setShowVoteModal(false)}
-        onSuccess={handleVoteSuccess}
-      />
     </View>
   );
 }
