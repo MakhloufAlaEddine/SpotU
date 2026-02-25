@@ -63,10 +63,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // CRITICAL: If returning from OAuth callback, skip the /me check.
-    // AuthCallback will exchange the session_id and establish the session first.
+    // processGoogleCallback will call setLoading(false) when done.
     if (typeof window !== 'undefined' && window.location.hash?.includes('session_id=')) {
-      setLoading(false);
-      return;
+      return; // Keep loading = true until processGoogleCallback finishes
     }
     checkAuth();
   }, [checkAuth]);
