@@ -421,7 +421,7 @@ export default function TagPointDetail() {
           </View>
         )}
 
-        {/* 4. RSVP + Message sur la même ligne */}
+        {/* 4. RSVP + Message */}
         <View style={st.rsvpRow}>
           <TouchableOpacity
             style={[st.rsvpBtn, isParticipant && st.rsvpBtnActive]}
@@ -435,18 +435,10 @@ export default function TagPointDetail() {
                   <Ionicons name={isParticipant ? 'checkmark-circle' : 'add-circle-outline'}
                     size={18} color={isParticipant ? Colors.primary : Colors.background} />
                   <Text style={[st.rsvpText, isParticipant && st.rsvpTextActive]}>
-                    {isParticipant ? 'Je participe' : 'Rejoindre'}
+                    {isParticipant ? `Je participe${participantsCount > 0 ? ` · ${participantsCount}` : ''}` : `Rejoindre${participantsCount > 0 ? ` · ${participantsCount}` : ''}`}
                   </Text>
                 </>}
           </TouchableOpacity>
-
-          {participantsCount > 0 && (
-            <Text style={st.rsvpCount} testID="participants-count">
-              {participantsCount} participant{participantsCount > 1 ? 's' : ''}
-            </Text>
-          )}
-
-          <View style={{ flex: 1 }} />
 
           <TouchableOpacity
             style={st.msgBtn}
@@ -454,38 +446,6 @@ export default function TagPointDetail() {
             testID="message-button"
           >
             <Ionicons name="chatbubble-ellipses-outline" size={20} color={Colors.foreground} />
-          </TouchableOpacity>
-        </View>
-
-        <View style={st.actionsRow}>
-          <TouchableOpacity style={st.actionBtn} onPress={openSimilar} activeOpacity={0.7} testID="similar-btn">
-            <View style={st.actionIcon}>
-              <Ionicons name="layers-outline" size={26} color={Colors.foreground} />
-            </View>
-            <Text style={st.actionLabel}>Similaires</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={st.actionBtn}
-            onPress={async () => { try { await Share.share({ message: `"${point.title}" sur WINEK !` }); } catch {} }}
-            activeOpacity={0.7}
-            testID="share-btn"
-          >
-            <View style={st.actionIcon}>
-              <Ionicons name="share-social-outline" size={26} color={Colors.foreground} />
-            </View>
-            <Text style={st.actionLabel}>Partager</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={st.actionBtn} onPress={toggleSave} disabled={saveLoading} activeOpacity={0.7} testID="save-btn">
-            <View style={[st.actionIcon, isSaved && st.actionIconSaved]}>
-              {saveLoading
-                ? <ActivityIndicator size="small" color={isSaved ? Colors.primary : Colors.foreground} />
-                : <Ionicons name={isSaved ? 'bookmark' : 'bookmark-outline'} size={26} color={isSaved ? Colors.primary : Colors.foreground} />}
-            </View>
-            <Text style={[st.actionLabel, isSaved && { color: Colors.primary }]}>
-              {isSaved ? 'Enregistré' : 'Sauvegarder'}
-            </Text>
           </TouchableOpacity>
         </View>
 
