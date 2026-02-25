@@ -13,19 +13,31 @@ import { Colors, Spacing, Radius } from '../../constants/Colors';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { login, loginWithGoogle } = useAuth();
+  const { login, loginWithGoogle, user } = useAuth();
   const { t } = useLang();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const pendingNav = useRef(false);
+
+  // Navigation vers la carte UNIQUEMENT après que user soit confirmé dans le contexte
+  // Évite la race condition setUser (async) vs router.replace (immédiat)
+  useEffect(() => {
+    if (user && pendingNav.current) {
+      pendingNav.current = false;
+      router.replace('/(tabs)/map');
+    }
+  }, [user]);
 
   const handleLogin = async () => {
     if (!email.trim() || !password) return;
     setLoading(true);
     try {
+      pendingNav.current = true;
       await login(email.trim(), password);
-      router.replace('/(tabs)/map');
+      // Navigation gérée par le useEffect sur user ci-dessus
     } catch (err: any) {
+      pendingNav.current = false;
       Alert.alert(t('error'), err.message || 'Erreur de connexion');
     } finally {
       setLoading(false);
@@ -35,12 +47,12 @@ export default function LoginScreen() {
   const handleGoogleLogin = async () => {
     setLoading(true);
     try {
+      pendingNav.current = true;
       await loginWithGoogle();
-      // Sur native, loginWithGoogle est async et retourne après auth
-      // Sur web, il redirige la page donc ce code n'est jamais atteint
-      router.replace('/(tabs)/map');
+      // Sur web : la page redirige vers Emergent, ce code n'est pas atteint
+      // Sur native : navigation gérée par le useEffect sur user ci-dessus
     } catch (err: any) {
-      // Sur web: code non atteint. Sur native: erreur possible
+      pendingNav.current = false;
       Alert.alert(t('error'), 'Connexion Google annulée');
     } finally {
       setLoading(false);
