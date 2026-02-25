@@ -204,7 +204,7 @@ async def my_tag_points(request: Request):
 
 
 @router.get("/tag-points/{point_id}")
-async def get_tag_point(point_id: str):
+async def get_tag_point(point_id: str, request: Request):
     pool = get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
@@ -218,7 +218,6 @@ async def get_tag_point(point_id: str):
             raise HTTPException(status_code=404, detail="TagPoint not found")
         pt = build_point_response(row_to_dict(row))
 
-        # Enrich with tags
         tag_ids_list = pt.get("tag_ids") or []
         if isinstance(tag_ids_list, str):
             try:
@@ -227,20 +226,44 @@ async def get_tag_point(point_id: str):
                 tag_ids_list = []
         if tag_ids_list:
             tags = await conn.fetch(
-                "SELECT tag_id, name, label_fr, label_en FROM tags WHERE tag_id = ANY($1::text[])",
+                "SELECT tag_id, name, label_fr, label_en, category_id FROM tags WHERE tag_id = ANY($1::text[])",
                 tag_ids_list
             )
             pt["tags"] = rows_to_list(tags)
         else:
             pt["tags"] = []
 
-        # Enrich with vote stats
         vote_stats = await conn.fetchrow(
             "SELECT ROUND(AVG(rating)::numeric, 1) as avg_rating, COUNT(*) as vote_count FROM tag_point_votes WHERE point_id = $1",
             point_id
         )
         pt["rating"] = float(vote_stats["avg_rating"]) if vote_stats["avg_rating"] else 0
         pt["votes"] = vote_stats["vote_count"] or 0
+
+        # Distribution 1-5
+        dist = await conn.fetch(
+            "SELECT rating, COUNT(*) as cnt FROM tag_point_votes WHERE point_id=$1 GROUP BY rating ORDER BY rating",
+            point_id
+        )
+        pt["rating_distribution"] = {str(r["rating"]): r["cnt"] for r in dist}
+
+        # Participants
+        pt["participants_count"] = await conn.fetchval(
+            "SELECT COUNT(*) FROM tag_point_participants WHERE point_id=$1", point_id
+        ) or 0
+
+        # Current user participation
+        pt["is_participant"] = False
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            try:
+                user = await require_auth(request, pool)
+                pt["is_participant"] = await conn.fetchval(
+                    "SELECT EXISTS(SELECT 1 FROM tag_point_participants WHERE point_id=$1 AND user_id=$2)",
+                    point_id, user["user_id"]
+                )
+            except Exception:
+                pass
 
     return pt
 
