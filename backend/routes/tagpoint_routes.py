@@ -233,7 +233,72 @@ async def get_tag_point(point_id: str):
             pt["tags"] = rows_to_list(tags)
         else:
             pt["tags"] = []
+
+        # Enrich with vote stats
+        vote_stats = await conn.fetchrow(
+            "SELECT ROUND(AVG(rating)::numeric, 1) as avg_rating, COUNT(*) as vote_count FROM tag_point_votes WHERE point_id = $1",
+            point_id
+        )
+        pt["rating"] = float(vote_stats["avg_rating"]) if vote_stats["avg_rating"] else 0
+        pt["votes"] = vote_stats["vote_count"] or 0
+
     return pt
+
+
+@router.post("/tag-points/{point_id}/vote")
+async def vote_tag_point(point_id: str, request: Request):
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    body = await request.json()
+    rating = body.get("rating")
+    comment = body.get("comment", None)
+
+    if not rating or not (1 <= int(rating) <= 5):
+        raise HTTPException(status_code=400, detail="Rating must be between 1 and 5")
+
+    vid = new_id("vote")
+    async with pool.acquire() as conn:
+        existing = await conn.fetchrow(
+            "SELECT vote_id FROM tag_point_votes WHERE point_id = $1 AND user_id = $2",
+            point_id, user["user_id"]
+        )
+        if existing:
+            await conn.execute(
+                "UPDATE tag_point_votes SET rating = $1, comment = $2, updated_at = NOW() WHERE point_id = $3 AND user_id = $4",
+                int(rating), comment, point_id, user["user_id"]
+            )
+        else:
+            await conn.execute(
+                "INSERT INTO tag_point_votes (vote_id, point_id, user_id, rating, comment) VALUES ($1, $2, $3, $4, $5)",
+                vid, point_id, user["user_id"], int(rating), comment
+            )
+        # Return updated stats
+        stats = await conn.fetchrow(
+            "SELECT ROUND(AVG(rating)::numeric, 1) as avg_rating, COUNT(*) as vote_count FROM tag_point_votes WHERE point_id = $1",
+            point_id
+        )
+    return {
+        "success": True,
+        "avg_rating": float(stats["avg_rating"]) if stats["avg_rating"] else 0,
+        "vote_count": stats["vote_count"] or 0,
+    }
+
+
+@router.get("/tag-points/{point_id}/votes")
+async def get_tag_point_votes(point_id: str):
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT v.vote_id, v.rating, v.comment, v.created_at,
+                      u.name as user_name, u.picture as user_picture
+               FROM tag_point_votes v
+               JOIN users u ON v.user_id = u.user_id
+               WHERE v.point_id = $1
+               ORDER BY v.created_at DESC
+               LIMIT 20""",
+            point_id
+        )
+    return rows_to_list(rows)
 
 
 @router.post("/tag-points")
