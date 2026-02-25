@@ -172,6 +172,8 @@ export default function TagPointDetail() {
   const [submitting, setSubmitting] = useState(false);
   const [voteSuccess, setVoteSuccess] = useState(false);
 
+  const [showAllVotes, setShowAllVotes] = useState(false);
+
   const openVoteModal = () => {
     // Pré-remplir avec le vote existant
     setPendingStar(myVote?.rating || 0);
