@@ -74,7 +74,11 @@ export default function SetLocationScreen() {
       address: currentAddress,
       isGPS: false,
     });
-    router.back();
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/map' as any);
+    }
   };
 
   const handleSaved = (addr: (typeof SAVED_ADDRESSES)[0]) => {

@@ -220,10 +220,10 @@ export default function SearchScreen() {
         </View>
 
         {/* Location Row */}
-        <TouchableOpacity style={styles.locationRow}>
+        <TouchableOpacity style={styles.locationRow} onPress={() => router.push('/set-location' as any)}>
           <Ionicons name="location" size={20} color={Colors.primary} />
           <Text style={styles.locationText} numberOfLines={1}>
-            Gare Montparnas......75014 Pa...
+            {location.address || 'Paris, France'}
           </Text>
         </TouchableOpacity>
 
