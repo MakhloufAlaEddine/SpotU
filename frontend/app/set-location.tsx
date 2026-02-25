@@ -159,31 +159,78 @@ export default function SetLocationScreen() {
 
       <SafeAreaView edges={['top']} style={styles.safeHeader}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.headerSide}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.headerSide} testID="cancel-button">
             <Text style={styles.headerAction}>Annuler</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Set global location</Text>
+          <Text style={styles.headerTitle}>Définir la localisation</Text>
           <TouchableOpacity
             onPress={handleChoose}
             style={[styles.headerSide, { alignItems: 'flex-end' }]}
+            testID="choose-button"
           >
             <Text style={[styles.headerAction, styles.headerChoose]}>Choisir</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
 
-      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={{ flex: 1 }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* GPS row */}
-        <TouchableOpacity style={styles.gpsRow} onPress={initLocation}>
+        <TouchableOpacity style={styles.gpsRow} onPress={initLocation} testID="gps-button">
           <View style={styles.gpsIcon}>
             <Ionicons name="locate" size={22} color={Colors.foreground} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.gpsTitle}>Localisation actuelle</Text>
-            <Text style={styles.gpsSub}>Using GPS</Text>
+            <Text style={styles.gpsSub}>Utiliser le GPS</Text>
           </View>
           {loading && <ActivityIndicator size="small" color={Colors.primary} />}
         </TouchableOpacity>
+
+        {/* Search input */}
+        <View style={styles.searchContainer}>
+          <View style={styles.searchInputRow}>
+            <Ionicons name="search" size={18} color={Colors.muted} style={{ marginRight: Spacing.sm }} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Rechercher une adresse…"
+              placeholderTextColor={Colors.muted}
+              value={searchQuery}
+              onChangeText={handleSearchChange}
+              returnKeyType="search"
+              clearButtonMode="while-editing"
+              testID="address-search-input"
+            />
+            {searching && <ActivityIndicator size="small" color={Colors.primary} />}
+          </View>
+
+          {/* Search results dropdown */}
+          {showResults && (
+            <View style={styles.resultsDropdown}>
+              <FlatList
+                data={searchResults}
+                keyExtractor={(item) => String(item.place_id)}
+                scrollEnabled={false}
+                keyboardShouldPersistTaps="handled"
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.resultItem}
+                    onPress={() => handleSelectResult(item)}
+                    testID={`search-result-${item.place_id}`}
+                  >
+                    <Ionicons name="location-outline" size={16} color={Colors.primary} style={{ marginRight: Spacing.sm }} />
+                    <Text style={styles.resultText} numberOfLines={2}>
+                      {item.display_name}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              />
+            </View>
+          )}
+        </View>
 
         {/* Map */}
         <View style={styles.mapContainer}>
@@ -202,17 +249,14 @@ export default function SetLocationScreen() {
                 color: '#E53E3E',
               },
             ]}
-            onMapPress={(lat, lng) => {
-              setSelectedLat(lat);
-              setSelectedLng(lng);
-            }}
+            onMapPress={handleMapPress}
           />
         </View>
 
         {/* Current address bar */}
-        <View style={styles.addressRow}>
+        <View style={styles.addressRow} testID="current-address-bar">
           <Ionicons name="location" size={18} color={Colors.primary} />
-          <Text style={styles.addressText} numberOfLines={2}>
+          <Text style={styles.addressText} numberOfLines={2} testID="current-address-text">
             {currentAddress}
           </Text>
         </View>
@@ -225,6 +269,7 @@ export default function SetLocationScreen() {
               key={addr.id}
               style={styles.savedRow}
               onPress={() => handleSaved(addr)}
+              testID={`saved-address-${addr.id}`}
             >
               <View style={styles.savedIcon}>
                 <Ionicons name={addr.icon} size={20} color={Colors.foreground} />
