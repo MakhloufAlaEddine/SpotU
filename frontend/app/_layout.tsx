@@ -1,5 +1,6 @@
 import { Stack, useRouter, useSegments, useRootNavigationState } from 'expo-router';
 import { useEffect } from 'react';
+import { Platform } from 'react-native';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { LanguageProvider } from '../context/LanguageContext';
 import { LocationProvider } from '../context/LocationContext';
@@ -14,8 +15,13 @@ function NavigationGuard() {
   const navigationState = useRootNavigationState();
 
   useEffect(() => {
-    // Attendre que l'état de navigation soit prêt (nécessaire pour les full page loads)
-    if (!navigationState?.key) return;
+    // Sur WEB seulement : attendre que le stack de navigation soit initialisé
+    // (évite les appels router.replace() avant que react-navigation soit prêt,
+    //  ce qui arrivait lors des full page loads / deep links directs)
+    // Sur NATIVE (Expo Go) : cette vérification n'est PAS nécessaire et
+    // bloque la navigation après Google OAuth car l'état peut être undefined
+    // temporairement après la fermeture du navigateur in-app.
+    if (Platform.OS === 'web' && !navigationState?.key) return;
     if (loading) return;
 
     const inAuth = segments[0] === '(auth)';
