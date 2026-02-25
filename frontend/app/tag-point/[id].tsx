@@ -290,6 +290,18 @@ export default function TagPointDetail() {
     setLoadingSimilar(false);
   };
 
+  const toggleSave = async () => {
+    if (!user) { Alert.alert('Connexion requise', 'Connectez-vous pour sauvegarder.'); return; }
+    setSaveLoading(true);
+    try {
+      const res = isSaved
+        ? await api.del(`/tag-points/${id}/unsave`)
+        : await api.post(`/tag-points/${id}/save`, {});
+      setIsSaved(res.is_saved);
+    } catch (e: any) { Alert.alert('Erreur', e.message); }
+    finally { setSaveLoading(false); }
+  };
+
   const getPrecisionRadius = (p: string) => p === '100m' ? 100 : p === '1000m' ? 1000 : 0;
 
   if (loading) return (
