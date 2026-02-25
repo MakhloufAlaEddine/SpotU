@@ -55,15 +55,27 @@ export default function SetLocationScreen() {
     initLocation();
   }, []);
 
+  const formatAddress = (data: { display_name: string; address?: Record<string, string> }) => {
+    const a = data.address || {};
+    const parts = [
+      a.road || a.pedestrian || a.footway,
+      a.house_number,
+      a.postcode,
+      a.city || a.town || a.village || a.municipality,
+      a.country,
+    ].filter(Boolean);
+    return parts.length >= 2 ? parts.join(', ') : data.display_name;
+  };
+
   const reverseGeocode = async (lat: number, lng: number) => {
     try {
       const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`,
         { headers: { 'Accept-Language': 'fr' } }
       );
       const data = await res.json();
       if (data && data.display_name) {
-        setCurrentAddress(data.display_name);
+        setCurrentAddress(formatAddress(data));
         setSearchQuery('');
       }
     } catch (_) {}
