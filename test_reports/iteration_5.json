@@ -1,0 +1,67 @@
+{
+  "summary": "Frontend testing of /set-location screen for WINEK app. Tested new address search feature (Nominatim integration) and bug fix (reverse geocoding on map tap). All 7 requested test scenarios PASS after clearing stale Metro bundler cache. Backend is down (PostgreSQL unavailable) — auth was mocked via Playwright route interception.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "All backend APIs",
+        "issue": "Backend fails to start: PostgreSQL connection refused on 127.0.0.1:5432 (OSError). All /api/* routes return 502. This is a known environment limitation.",
+        "priority": "CRITICAL (env-level, not code-level)"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "set-location - address bar",
+        "issues": [
+          "Nominatim display_name is very verbose (e.g. 'Lyon, Métropole de Lyon, Rhône, Auvergne-Rhône-Alpes, France métropolitaine, France'). Consider truncating or formatting for better UX, though functionality is correct."
+        ]
+      }
+    ]
+  },
+  "test_results": {
+    "1_screen_loads": "PASS: /set-location shows 'Définir la localisation' title with correct French UI after authentication",
+    "2_search_input_visible": "PASS: [data-testid=address-search-input] visible with placeholder 'Rechercher une adresse…'",
+    "3_nominatim_suggestions": "PASS: Typing 'Paris' → 4 Nominatim results appear after 500ms debounce + network (~6s total). Typing 'Lyon' → 5 results.",
+    "4_click_suggestion_updates_address": "PASS: Clicking result updates [data-testid=current-address-text], clears search field, closes dropdown. Map pin moves to selected location.",
+    "5_saved_addresses": "PASS: Home ('27 Bis Boulevard de la République, 78360 Montesson') and Work ('53 Boulevard Brune, 75014 Paris') both clickable and update address correctly.",
+    "6_choose_cancel_buttons": "PASS: [data-testid=choose-button] shows 'Choisir', [data-testid=cancel-button] shows 'Annuler'",
+    "7_map_pin_moves": "PASS: Map iframe renders OpenStreetMap, pin moves to selected coordinates after suggestion click (verified Paris→Lyon)"
+  },
+  "fix_applied": {
+    "action": "Cleared Metro bundler cache (rm -rf /app/frontend/.metro-cache) and restarted Expo supervisor",
+    "reason": "App was serving a stale JS bundle from before E1's changes (showing old English text 'Set global location' instead of 'Définir la localisation', and missing search input). Metro was running in CI mode (CI=true) which disables hot reload — stale cache persists across sessions.",
+    "important_note": "Metro runs with CI=true (hot reload disabled). Future code changes require clearing .metro-cache and restarting expo supervisor to take effect in tests."
+  },
+  "test_report_links": [],
+  "action_items": [
+    "No blocking issues. All set-location features working as expected.",
+    "Optional UX improvement: Truncate/format Nominatim display_name in address bar (currently shows very long strings like 'Lyon, Métropole de Lyon, Rhône, Auvergne-Rhône-Alpes, France métropolitaine, France')",
+    "Note: Metro CI=true disables hot reload. When testing new changes, clear .metro-cache and restart expo supervisor."
+  ],
+  "critical_code_review_comments": [
+    "set-location.tsx looks good: debounce (500ms), error handling (try/catch), proper state cleanup after result selection.",
+    "reverseGeocode silently catches errors (empty catch) — fine for UX but consider logging for debug.",
+    "Metro running in CI mode (CI=true env) means no hot reload — relevant for future testing iterations.",
+    "Nominatim API is external and can be slow (5-7s for results); the 500ms debounce is appropriate."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A (PostgreSQL unavailable in this environment)",
+    "frontend": "100% (7/7 test scenarios pass)"
+  },
+  "seed_data_creation": "None — auth mocked via Playwright route interception for /api/auth/me",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Set-location screen fully tested and all features working. Key: Metro runs in CI mode (no hot reload) — clear .metro-cache + restart expo after code changes. Auth mock: intercept **/api/auth/me returning mock user + set localStorage.winek_token. Backend (PostgreSQL) still unavailable. All data-testid attributes in set-location.tsx work correctly on web.",
+  "rca_of_issue": {
+    "bug": "Stale Metro bundle served old version of set-location.tsx (missing search input, English strings)",
+    "root_cause": "Metro Bundler runs in CI mode (CI=true in environment), which disables hot reload/watch mode. When the container was restarted, Metro served the cached bundle from /app/frontend/.metro-cache which was built before E1's set-location changes. The EXPO_USE_FAST_RESOLVER=1 also contributes to caching behavior.",
+    "reproduction": "1. E1 modifies set-location.tsx. 2. Metro cache still has old bundle. 3. Browser requests bundle → Metro serves cached version. 4. App shows old UI without search input.",
+    "fix": "Clear Metro cache: rm -rf /app/frontend/.metro-cache && sudo supervisorctl restart expo",
+    "prevention": "Either remove CI=true to enable watch mode, or document that cache clear + restart is required after code changes in this environment."
+  }
+}
