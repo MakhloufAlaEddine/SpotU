@@ -85,6 +85,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     applyUser(data.user);
   };
 
+  const processGoogleCallback = useCallback(async (sessionId: string) => {
+    const data = await api.post<{ user: User; token: string }>('/auth/google', { session_id: sessionId });
+    await storage.set('winek_token', data.token);
+    setToken(data.token);
+    applyUser(data.user);
+  }, []);
+
   const loginWithGoogle = useCallback(async () => {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       // Web : ouvrir directement dans le même onglet
@@ -92,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
       window.open(authUrl, '_self');
     } else {
-      // Native (iOS/Android Expo Go) : navigateur intégré
+      // Native (iOS/Android Expo Go) : navigateur intégré in-app
       const redirectUrl = 'https://winek-sports-connect.preview.emergentagent.com/(auth)/callback';
       const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
       const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUrl);
@@ -105,13 +112,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
   }, [processGoogleCallback]);
-
-  const processGoogleCallback = async (sessionId: string) => {
-    const data = await api.post<{ user: User; token: string }>('/auth/google', { session_id: sessionId });
-    await storage.set('winek_token', data.token);
-    setToken(data.token);
-    applyUser(data.user);
-  };
 
   const logout = async () => {
     await storage.remove('winek_token');
