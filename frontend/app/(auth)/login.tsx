@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, KeyboardAvoidingView,
   Platform, ScrollView, ActivityIndicator, Alert, Pressable, Image,
@@ -13,33 +13,19 @@ import { Colors, Spacing, Radius } from '../../constants/Colors';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { login, loginWithGoogle, user } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
   const { t } = useLang();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const pendingNav = useRef(false);
 
-  // Navigation vers la carte UNIQUEMENT après que user soit confirmé dans le contexte
-  // Évite la race condition setUser (async) vs router.replace (immédiat)
-  useEffect(() => {
-    if (user && pendingNav.current) {
-      pendingNav.current = false;
-      router.replace('/(tabs)/map');
-    }
-  }, [user]);
-
+  // La navigation post-login est entièrement gérée par NavigationGuard dans _layout.tsx
   const handleLogin = async () => {
     if (!email.trim() || !password) return;
     setLoading(true);
     try {
-      pendingNav.current = true;
       await login(email.trim(), password);
-      // Navigation directe (fonctionne sur web)
-      // Sur native : si race condition, le useEffect prend le relais
-      router.replace('/(tabs)/map');
     } catch (err: any) {
-      pendingNav.current = false;
       Alert.alert(t('error'), err.message || 'Erreur de connexion');
     } finally {
       setLoading(false);
@@ -49,13 +35,8 @@ export default function LoginScreen() {
   const handleGoogleLogin = async () => {
     setLoading(true);
     try {
-      pendingNav.current = true;
       await loginWithGoogle();
-      // Sur web : la page redirige via <a>, ce code n'est jamais atteint
-      // Sur native : navigation directe + useEffect comme backup
-      router.replace('/(tabs)/map');
     } catch (err: any) {
-      pendingNav.current = false;
       Alert.alert(t('error'), 'Connexion Google annulée');
     } finally {
       setLoading(false);
