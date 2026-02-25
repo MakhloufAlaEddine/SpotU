@@ -93,15 +93,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const loginWithGoogle = useCallback(async () => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      // Web : window.location.assign() est une méthode (fonctionne là où href échoue)
-      const redirectUrl = window.location.origin + '/(auth)/callback';
-      const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
-      window.location.assign(authUrl);
-    } else {
-      // Native (iOS/Android Expo Go) : navigateur intégré in-app
-      const redirectUrl = 'https://winek-sports-connect.preview.emergentagent.com/(auth)/callback';
-      const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+    // Utilise WebBrowser.openAuthSessionAsync pour toutes les plateformes
+    // (évite les problèmes de window.location sur Hermes/React Native)
+    const redirectUrl = (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.origin)
+      ? window.location.origin + '/(auth)/callback'
+      : 'https://winek-sports-connect.preview.emergentagent.com/(auth)/callback';
+
+    const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+
+    try {
       const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUrl);
       if (result.type === 'success') {
         const match = result.url.match(/session_id=([^&]+)/);
@@ -109,6 +109,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (sessionId) {
           await processGoogleCallback(sessionId);
         }
+      }
+    } catch (err) {
+      // Fallback pour web si WebBrowser échoue (popup bloqué, etc.)
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        window.location.assign(authUrl);
       }
     }
   }, [processGoogleCallback]);
