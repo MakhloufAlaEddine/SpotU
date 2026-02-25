@@ -625,4 +625,11 @@ const st = StyleSheet.create({
   voteName: { fontSize: 14, fontWeight: '600', color: Colors.foreground },
   voteComment: { fontSize: 13, color: Colors.muted, marginTop: 2, lineHeight: 18 },
   voteDate: { fontSize: 12, color: Colors.muted, marginTop: 4 },
+
+  similarGrid: { padding: Spacing.md, gap: 12 },
+  similarRow: { flexDirection: 'row', gap: 12 },
+  similarCard: { flex: 1, backgroundColor: Colors.card, borderRadius: Radius.lg, overflow: 'hidden', padding: Spacing.sm },
+  similarImg: { width: '100%', height: 100, marginBottom: Spacing.sm, overflow: 'hidden', borderRadius: Radius.md },
+  similarTitle: { fontSize: 13, fontWeight: '600', color: Colors.foreground, lineHeight: 18 },
+  similarDist: { fontSize: 12, color: Colors.primary, fontWeight: '600' },
 });
