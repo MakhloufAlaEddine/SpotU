@@ -6,7 +6,23 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('EXPO_PUBLIC_BACKEND_URL', '').rstrip('/')
+def _load_base_url():
+    # Try env var first, then fallback to .env file
+    url = os.environ.get('EXPO_PUBLIC_BACKEND_URL') or os.environ.get('REACT_APP_BACKEND_URL')
+    if url:
+        return url.rstrip('/')
+    env_path = os.path.join(os.path.dirname(__file__), '../../frontend/.env')
+    try:
+        with open(env_path) as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith('EXPO_PUBLIC_BACKEND_URL='):
+                    return line.split('=', 1)[1].strip().rstrip('/')
+    except Exception:
+        pass
+    return 'https://winek-coaching.preview.emergentagent.com'
+
+BASE_URL = _load_base_url()
 
 # Test credentials (seeded users)
 USER_EMAIL = "user@winek.app"
