@@ -106,6 +106,12 @@ The app is bilingual (French / English) with configurable language per user.
   - processGoogleCallback gère setLoading(true/false), refreshUser wrappé useCallback
   - profile.tsx + bookings.tsx: guard loading (ActivityIndicator) + fallback refreshUser
   - tagpoint_routes.py: fix 500 sur création (alias tp manquant dans SELECT post-insert)
+- [x] **BUG FIX CRITIQUE: App bloquée sur écran login après connexion** (2026-02-25)
+  - NavigationGuard centralisé dans _layout.tsx (source unique de vérité)
+  - useRootNavigationState pour attendre que le stack navigation soit prêt (expo-router v6)
+  - Suppression de toute logique de navigation dans login.tsx, register.tsx, index.tsx
+  - callback.tsx simplifié — le Guard gère le redirect succès OAuth
+  - 7/7 scénarios de navigation validés par l'agent de test
 
 ### P1 (High Priority - Remaining)
 - [x] TagPoint detail screen (/tag-point/[id]) - UI redesign + header bug fix (2026-02-24)
