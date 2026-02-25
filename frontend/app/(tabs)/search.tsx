@@ -10,7 +10,8 @@ import Slider from '@react-native-community/slider';
 import { api } from '../../lib/api';
 import { useLang } from '../../context/LanguageContext';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
-import { useGlobalLocation } from '../../hooks/useGlobalLocation';
+import { useLocation } from '../../context/LocationContext';
+import { haversineDistance, formatDistance } from '../../utils/distance';
 
 // Star Rating Component
 function StarRating({ rating = 0, maxStars = 5 }: { rating?: number; maxStars?: number }) {
