@@ -58,6 +58,14 @@ export default function BookingsScreen() {
     loadBookings();
   }, [tab, user]);
 
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.center}><ActivityIndicator size="large" color={Colors.primary} /></View>
+      </SafeAreaView>
+    );
+  }
+
   if (!user) {
     return (
       <SafeAreaView style={styles.safe}>
@@ -95,7 +103,7 @@ export default function BookingsScreen() {
         ) : null}
       </View>
 
-      {loading ? (
+      {fetching ? (
         <View style={styles.center}><ActivityIndicator size="large" color={Colors.primary} /></View>
       ) : (
         <ScrollView
