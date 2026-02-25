@@ -401,31 +401,42 @@ export default function TagPointDetail() {
         )}
 
         {/* Votes & Comments */}
+        {/* Section Avis */}
         {votes.length > 0 && (
           <View style={st.section}>
-            <Text style={st.sectionTitle}>Avis ({votes.length})</Text>
-            {votes.map((v) => (
-              <View key={v.vote_id} style={st.voteRow} testID={`vote-item-${v.vote_id}`}>
-                <View style={st.voteAvatar}>
-                  {v.user_picture
-                    ? <Image source={{ uri: v.user_picture }} style={{ width: '100%', height: '100%' }} />
-                    : <Text style={st.voteAvatarText}>{v.user_name?.charAt(0)?.toUpperCase() || '?'}</Text>}
-                </View>
-                <View style={{ flex: 1 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Text style={st.voteName}>{v.user_name}</Text>
-                    <View style={{ flexDirection: 'row', gap: 2 }}>
-                      {[1,2,3,4,5].map(i => (
-                        <Ionicons key={i} name={i <= v.rating ? 'star' : 'star-outline'} size={12}
-                          color={i <= v.rating ? Colors.star : Colors.muted} />
-                      ))}
-                    </View>
+            {/* En-tête avec note globale */}
+            <View style={st.reviewsHeader}>
+              <Text style={st.sectionTitle}>Avis</Text>
+              <View style={st.reviewsSummary}>
+                <Text style={st.reviewsRating}>{currentRating.toFixed(1)}</Text>
+                <View>
+                  <View style={{ flexDirection: 'row', gap: 2 }}>
+                    {[1,2,3,4,5].map(i => (
+                      <Ionicons key={i} name={i <= Math.round(currentRating) ? 'star' : 'star-outline'}
+                        size={14} color={i <= Math.round(currentRating) ? Colors.star : Colors.muted} />
+                    ))}
                   </View>
-                  {v.comment && <Text style={st.voteComment}>{v.comment}</Text>}
-                  <Text style={st.voteDate}>{formatTimeAgo(v.created_at)}</Text>
+                  <Text style={st.reviewsCount}>{currentVotes} avis</Text>
                 </View>
               </View>
+            </View>
+
+            {/* 3 premiers avis */}
+            {votes.slice(0, 3).map((v) => (
+              <VoteCard key={v.vote_id} v={v} />
             ))}
+
+            {/* Bouton "Voir tous" si > 3 */}
+            {votes.length > 3 && (
+              <TouchableOpacity
+                style={st.seeAllBtn}
+                onPress={() => setShowAllVotes(true)}
+                testID="see-all-votes-btn"
+              >
+                <Text style={st.seeAllText}>Voir les {votes.length} avis</Text>
+                <Ionicons name="chevron-forward" size={16} color={Colors.primary} />
+              </TouchableOpacity>
+            )}
           </View>
         )}
       </ScrollView>
