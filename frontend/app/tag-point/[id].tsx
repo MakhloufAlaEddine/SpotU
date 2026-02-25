@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, ActivityIndicator,
-  TouchableOpacity, Alert, Image, Share,
+  TouchableOpacity, Alert, Image, Share, TextInput, Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
@@ -9,125 +9,200 @@ import { Ionicons } from '@expo/vector-icons';
 import { MapViewComponent } from '../../components/MapViewComponent';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
+import { useLocation } from '../../context/LocationContext';
 import { useLang } from '../../context/LanguageContext';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
+import { haversineDistance, formatDistance } from '../../utils/distance';
 
-// Star Rating Component
-function StarRating({ rating = 0, votes = 0 }: { rating?: number; votes?: number }) {
+// ─── Interactive Stars ────────────────────────────────────────────────────────
+function InteractiveStars({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   return (
-    <View style={starStyles.container}>
-      {[...Array(5)].map((_, index) => (
-        <Ionicons
-          key={index}
-          name={index < rating ? 'star' : 'star-outline'}
-          size={18}
-          color={index < rating ? Colors.star : Colors.muted}
-        />
+    <View style={{ flexDirection: 'row', gap: 6 }}>
+      {[1, 2, 3, 4, 5].map(i => (
+        <TouchableOpacity key={i} onPress={() => onChange(i)} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }} testID={`star-${i}`}>
+          <Ionicons name={i <= value ? 'star' : 'star-outline'} size={30} color={i <= value ? Colors.star : Colors.muted} />
+        </TouchableOpacity>
       ))}
-      <Text style={starStyles.votes}>{votes} votes</Text>
     </View>
   );
 }
 
-const starStyles = StyleSheet.create({
-  container: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  votes: { fontSize: 14, color: Colors.foreground, marginLeft: 8 },
+// ─── Display Stars (read-only) ────────────────────────────────────────────────
+function StarDisplay({ rating = 0, votes = 0 }: { rating?: number; votes?: number }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+      {[1, 2, 3, 4, 5].map(i => (
+        <Ionicons key={i} name={i <= Math.round(rating) ? 'star' : 'star-outline'} size={16}
+          color={i <= Math.round(rating) ? Colors.star : Colors.muted} />
+      ))}
+      <Text style={{ fontSize: 13, color: Colors.muted, marginLeft: 6 }}>{votes} vote{votes !== 1 ? 's' : ''}</Text>
+    </View>
+  );
+}
+
+// ─── Vote Modal ───────────────────────────────────────────────────────────────
+function VoteModal({ visible, pointId, onClose, onSuccess }:
+  { visible: boolean; pointId: string; onClose: () => void; onSuccess: (rating: number, votes: number) => void }) {
+  const [stars, setStars] = useState(0);
+  const [comment, setComment] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    if (stars === 0) { Alert.alert('Note requise', 'Veuillez sélectionner une note.'); return; }
+    setSubmitting(true);
+    try {
+      const res = await api.post(`/tag-points/${pointId}/vote`, { rating: stars, comment: comment.trim() || null });
+      onSuccess(res.avg_rating, res.vote_count);
+      setStars(0);
+      setComment('');
+      onClose();
+    } catch (e: any) {
+      Alert.alert('Erreur', e.message || 'Impossible d\'envoyer le vote');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={modalSt.overlay}>
+        <View style={modalSt.sheet}>
+          <View style={modalSt.header}>
+            <Text style={modalSt.title}>Votre avis</Text>
+            <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="close" size={22} color={Colors.foreground} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={modalSt.starsRow}>
+            <InteractiveStars value={stars} onChange={setStars} />
+          </View>
+          {stars > 0 && (
+            <Text style={modalSt.starsLabel}>
+              {['', 'Mauvais', 'Moyen', 'Bien', 'Très bien', 'Excellent'][stars]}
+            </Text>
+          )}
+
+          <TextInput
+            style={modalSt.commentInput}
+            placeholder="Ajouter un commentaire (optionnel)…"
+            placeholderTextColor={Colors.muted}
+            value={comment}
+            onChangeText={setComment}
+            multiline
+            numberOfLines={3}
+            testID="vote-comment-input"
+          />
+
+          <TouchableOpacity
+            style={[modalSt.submitBtn, stars === 0 && modalSt.submitDisabled]}
+            onPress={handleSubmit}
+            disabled={submitting || stars === 0}
+            testID="vote-submit-btn"
+          >
+            {submitting
+              ? <ActivityIndicator color="#fff" size="small" />
+              : <Text style={modalSt.submitText}>Envoyer</Text>}
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const modalSt = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
+  sheet: { backgroundColor: Colors.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: Spacing.lg, paddingBottom: 40 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.lg },
+  title: { fontSize: 18, fontWeight: '700', color: Colors.foreground },
+  starsRow: { alignItems: 'center', marginBottom: Spacing.sm },
+  starsLabel: { textAlign: 'center', fontSize: 14, color: Colors.primary, fontWeight: '600', marginBottom: Spacing.md },
+  commentInput: { backgroundColor: Colors.card, borderRadius: Radius.md, padding: Spacing.md, color: Colors.foreground, fontSize: 14, minHeight: 80, textAlignVertical: 'top', marginBottom: Spacing.md, borderWidth: 1, borderColor: Colors.border },
+  submitBtn: { backgroundColor: Colors.primary, borderRadius: Radius.full, paddingVertical: Spacing.md, alignItems: 'center' },
+  submitDisabled: { opacity: 0.4 },
+  submitText: { fontSize: 16, fontWeight: '700', color: '#fff' },
 });
 
-// Action Button Component
+// ─── Action Button ────────────────────────────────────────────────────────────
 function ActionButton({ icon, label, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }) {
   return (
-    <TouchableOpacity style={actionStyles.container} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity style={{ alignItems: 'center', gap: 4, flex: 1 }} onPress={onPress} activeOpacity={0.7}>
       <Ionicons name={icon} size={24} color={Colors.foreground} />
-      <Text style={actionStyles.label}>{label}</Text>
+      <Text style={{ fontSize: 13, color: Colors.foreground }}>{label}</Text>
     </TouchableOpacity>
   );
 }
 
-const actionStyles = StyleSheet.create({
-  container: { alignItems: 'center', gap: 4, flex: 1 },
-  label: { fontSize: 13, color: Colors.foreground },
-});
-
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function TagPointDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { user } = useAuth();
-  const { t, lang } = useLang();
+  const { location } = useLocation();
+  const { lang } = useLang();
+
   const [point, setPoint] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showFullDesc, setShowFullDesc] = useState(false);
+  const [showVoteModal, setShowVoteModal] = useState(false);
+  const [votes, setVotes] = useState<any[]>([]);
+  const [currentRating, setCurrentRating] = useState(0);
+  const [currentVotes, setCurrentVotes] = useState(0);
 
   useEffect(() => {
-    if (id) loadPoint();
+    if (id) { loadPoint(); loadVotes(); }
   }, [id]);
 
   const loadPoint = async () => {
     try {
       const data = await api.get(`/tag-points/${id}`);
       setPoint(data);
+      setCurrentRating(data.rating || 0);
+      setCurrentVotes(data.votes || 0);
     } catch (err: any) {
-      Alert.alert(t('error'), err.message);
+      Alert.alert('Erreur', err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleShare = async () => {
+  const loadVotes = async () => {
     try {
-      await Share.share({
-        message: `Découvrez "${point.title}" sur WINEK!`,
-        title: point.title,
-      });
+      const data = await api.get(`/tag-points/${id}/votes`);
+      setVotes(data);
     } catch {}
   };
 
-  const handleSendMessage = () => {
-    Alert.alert('Message', 'Fonctionnalité de chat bientôt disponible !');
+  const handleVoteSuccess = (avgRating: number, voteCount: number) => {
+    setCurrentRating(avgRating);
+    setCurrentVotes(voteCount);
+    loadVotes();
   };
 
   const formatTimeAgo = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    
-    if (diffDays < 1) return 'Aujourd\'hui';
-    if (diffDays === 1) return 'Hier';
-    if (diffDays < 7) return `Il y a ${diffDays} jours`;
-    if (diffDays < 30) return `Il y a ${Math.floor(diffDays / 7)} semaines`;
-    if (diffDays < 365) return `Il y a ${Math.floor(diffDays / 30)} mois`;
-    return `Il y a ${Math.floor(diffDays / 365)} ans`;
+    const diff = Math.floor((Date.now() - new Date(dateString).getTime()) / 86400000);
+    if (diff < 1) return "Aujourd'hui";
+    if (diff === 1) return 'Hier';
+    if (diff < 7) return `Il y a ${diff} jours`;
+    if (diff < 30) return `Il y a ${Math.floor(diff / 7)} semaines`;
+    return `Il y a ${Math.floor(diff / 30)} mois`;
   };
 
-  const formatDistance = (distance?: number) => {
-    if (!distance) return '---';
-    if (distance < 1000) return `${Math.round(distance)}M`;
-    return `${(distance / 1000).toFixed(1)}KM`;
-  };
-
-  // Get precision radius for map circle
-  const getPrecisionRadius = (precision: string) => {
-    if (precision === '100m') return 100;
-    if (precision === '1000m') return 1000;
-    return 0;
-  };
+  const getPrecisionRadius = (p: string) => p === '100m' ? 100 : p === '1000m' ? 1000 : 0;
 
   if (loading) return (
-    <View style={styles.fullScreen}>
+    <View style={st.fullScreen}>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-      </View>
+      <View style={st.center}><ActivityIndicator size="large" color={Colors.primary} /></View>
     </View>
   );
 
   if (!point) return (
-    <View style={styles.fullScreen}>
+    <View style={st.fullScreen}>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={styles.center}>
+      <View style={st.center}>
         <Ionicons name="alert-circle-outline" size={48} color={Colors.muted} />
-        <Text style={styles.notFound}>TagPoint introuvable</Text>
+        <Text style={{ fontSize: 16, color: Colors.muted }}>TagPoint introuvable</Text>
       </View>
     </View>
   );
@@ -137,331 +212,218 @@ export default function TagPointDetail() {
   const tags: any[] = point.tags || [];
   const precisionRadius = getPrecisionRadius(point.precision);
 
+  // Distance from user to tagpoint
+  const distanceStr = (lat != null && lng != null)
+    ? formatDistance(haversineDistance(location.lat, location.lng, lat, lng))
+    : '---';
+
   return (
-    <View style={styles.fullScreen}>
+    <View style={st.fullScreen}>
       <Stack.Screen options={{ headerShown: false }} />
-      {/* Custom Header */}
-      <SafeAreaView edges={['top']} style={styles.safeHeader}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
+
+      <SafeAreaView edges={['top']} style={{ backgroundColor: Colors.header }}>
+        <View style={st.header}>
+          <TouchableOpacity onPress={() => router.back()} style={st.headerBtn}>
             <Ionicons name="chevron-back" size={24} color={Colors.primary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Details</Text>
-          <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.headerBtn} onPress={() => router.push('/set-location' as any)}>
-            <Ionicons name="location" size={24} color={Colors.primary} />
-          </TouchableOpacity>
-            <TouchableOpacity style={styles.headerBtn}>
+          <Text style={st.headerTitle}>Détails</Text>
+          <View style={{ flexDirection: 'row', gap: Spacing.md }}>
+            <TouchableOpacity style={st.headerBtn} onPress={() => router.push('/set-location' as any)}>
+              <Ionicons name="location" size={24} color={Colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity style={st.headerBtn} onPress={() => router.push('/(tabs)/search' as any)}>
               <Ionicons name="search" size={24} color={Colors.primary} />
             </TouchableOpacity>
           </View>
         </View>
       </SafeAreaView>
 
-      <ScrollView 
-        style={styles.content} 
-        contentContainerStyle={styles.scroll}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Main Image with Owner Avatar */}
-        <View style={styles.imageSection}>
-          <View style={styles.imageContainer}>
-            {point.image_url ? (
-              <Image source={{ uri: point.image_url }} style={styles.mainImage} />
-            ) : (
-              <View style={styles.imagePlaceholder}>
-                <Ionicons name="football-outline" size={64} color={Colors.muted} />
-              </View>
-            )}
+      <ScrollView style={st.scroll} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
+        {/* Image + Owner Avatar */}
+        <View style={{ position: 'relative', marginHorizontal: Spacing.md, marginTop: Spacing.md, marginBottom: Spacing.md }}>
+          <View style={st.imgBox}>
+            {point.image_url
+              ? <Image source={{ uri: point.image_url }} style={{ width: '100%', height: '100%' }} />
+              : <View style={st.imgPlaceholder}><Ionicons name="football-outline" size={64} color={Colors.muted} /></View>}
           </View>
-          {/* Owner Avatar */}
           {point.owner && (
-            <View style={styles.ownerAvatar}>
-              {point.owner.picture ? (
-                <Image source={{ uri: point.owner.picture }} style={styles.avatarImage} />
-              ) : (
-                <View style={styles.avatarPlaceholder}>
-                  <Text style={styles.avatarText}>
-                    {point.owner.name?.charAt(0)?.toUpperCase() || '?'}
-                  </Text>
-                </View>
-              )}
+            <View style={st.ownerAvatar}>
+              {point.owner.picture
+                ? <Image source={{ uri: point.owner.picture }} style={{ width: '100%', height: '100%' }} />
+                : <View style={st.avatarFallback}>
+                    <Text style={{ fontSize: 20, fontWeight: '700', color: Colors.background }}>
+                      {point.owner.name?.charAt(0)?.toUpperCase() || '?'}
+                    </Text>
+                  </View>}
             </View>
           )}
         </View>
 
         {/* Title */}
-        <Text style={styles.title}>{point.title}</Text>
+        <Text style={st.title}>{point.title}</Text>
 
-        {/* Info Row: Distance + Tag */}
-        <View style={styles.infoRow}>
-          <View style={styles.distanceTag}>
+        {/* Distance + Tag */}
+        <View style={st.infoRow}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <Ionicons name="location-outline" size={16} color={Colors.primary} />
-            <Text style={styles.distanceText}>{formatDistance(point.distance)}</Text>
+            <Text style={st.distanceText} testID="tagpoint-distance">{distanceStr}</Text>
           </View>
           {tags.length > 0 && (
-            <View style={styles.categoryTag}>
-              <Text style={styles.categoryText}>
-                {lang === 'fr' ? tags[0].label_fr : tags[0].label_en}
-              </Text>
-            </View>
+            <Text style={st.tagText}>{lang === 'fr' ? tags[0].label_fr : tags[0].label_en}</Text>
           )}
         </View>
 
-        {/* Created + Rating Row */}
-        <View style={styles.createdRow}>
-          <Text style={styles.createdText}>
-            Created {formatTimeAgo(point.created_at)}
-          </Text>
-          <StarRating rating={point.rating || 0} votes={point.votes || 0} />
+        {/* Created + Rating row */}
+        <View style={st.createdRow}>
+          <Text style={st.createdText}>{formatTimeAgo(point.created_at)}</Text>
+          <TouchableOpacity
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+            onPress={() => user ? setShowVoteModal(true) : Alert.alert('Connexion requise', 'Connectez-vous pour voter.')}
+            testID="open-vote-modal-btn"
+          >
+            <StarDisplay rating={currentRating} votes={currentVotes} />
+          </TouchableOpacity>
         </View>
 
-        {/* Send Message Button */}
-        <TouchableOpacity 
-          style={styles.messageBtn} 
-          onPress={handleSendMessage}
+        {/* Rate CTA — only if logged in */}
+        {user && (
+          <TouchableOpacity
+            style={st.rateBtn}
+            onPress={() => setShowVoteModal(true)}
+            testID="rate-button"
+          >
+            <Ionicons name="star-outline" size={18} color={Colors.primary} />
+            <Text style={st.rateBtnText}>Donner mon avis</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Send Message */}
+        <TouchableOpacity
+          style={st.messageBtn}
+          onPress={() => Alert.alert('Message', 'Fonctionnalité de chat bientôt disponible !')}
           activeOpacity={0.8}
         >
-          <Text style={styles.messageBtnText}>Send a message</Text>
+          <Text style={st.messageBtnText}>Envoyer un message</Text>
           <Ionicons name="send" size={20} color={Colors.background} />
         </TouchableOpacity>
 
-        {/* Action Buttons Row */}
-        <View style={styles.actionsRow}>
-          <ActionButton icon="copy-outline" label="Similar" onPress={() => {}} />
-          <ActionButton icon="share-social-outline" label="Share" onPress={handleShare} />
-          <ActionButton icon="bookmark-outline" label="Save" onPress={() => {}} />
+        {/* Actions */}
+        <View style={st.actionsRow}>
+          <ActionButton icon="copy-outline" label="Similaires" onPress={() => {}} />
+          <ActionButton icon="share-social-outline" label="Partager" onPress={async () => {
+            try { await Share.share({ message: `Découvrez "${point.title}" sur WINEK!` }); } catch {}
+          }} />
+          <ActionButton icon="bookmark-outline" label="Sauvegarder" onPress={() => {}} />
         </View>
 
-        {/* Map with Precision Circle */}
+        {/* Map */}
         {lat && lng && (
-          <View style={styles.mapWrap}>
+          <View style={st.mapWrap}>
             <MapViewComponent
-              centerLat={lat}
-              centerLng={lng}
+              centerLat={lat} centerLng={lng}
               zoom={precisionRadius > 500 ? 14 : 16}
               precisionRadius={precisionRadius}
-              selectedLat={lat}
-              selectedLng={lng}
-              style={styles.map}
+              selectedLat={lat} selectedLng={lng}
             />
           </View>
         )}
 
         {/* Description */}
         {point.description && (
-          <View style={styles.descSection}>
-            <Text style={styles.descTitle}>Description</Text>
-            <Text 
-              style={styles.descText} 
-              numberOfLines={showFullDesc ? undefined : 2}
-            >
+          <View style={st.section}>
+            <Text style={st.sectionTitle}>Description</Text>
+            <Text style={st.descText} numberOfLines={showFullDesc ? undefined : 2}>
               {point.description}
             </Text>
             {point.description.length > 100 && (
               <TouchableOpacity onPress={() => setShowFullDesc(!showFullDesc)}>
-                <Text style={styles.showMore}>
-                  {showFullDesc ? 'Show Less' : 'Show More'}
-                </Text>
+                <Text style={st.showMore}>{showFullDesc ? 'Réduire' : 'Voir plus'}</Text>
               </TouchableOpacity>
             )}
           </View>
         )}
+
+        {/* Votes & Comments */}
+        {votes.length > 0 && (
+          <View style={st.section}>
+            <Text style={st.sectionTitle}>Avis ({votes.length})</Text>
+            {votes.map((v) => (
+              <View key={v.vote_id} style={st.voteRow} testID={`vote-item-${v.vote_id}`}>
+                <View style={st.voteAvatar}>
+                  {v.user_picture
+                    ? <Image source={{ uri: v.user_picture }} style={{ width: '100%', height: '100%' }} />
+                    : <Text style={st.voteAvatarText}>{v.user_name?.charAt(0)?.toUpperCase() || '?'}</Text>}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Text style={st.voteName}>{v.user_name}</Text>
+                    <View style={{ flexDirection: 'row', gap: 2 }}>
+                      {[1,2,3,4,5].map(i => (
+                        <Ionicons key={i} name={i <= v.rating ? 'star' : 'star-outline'} size={12}
+                          color={i <= v.rating ? Colors.star : Colors.muted} />
+                      ))}
+                    </View>
+                  </View>
+                  {v.comment && <Text style={st.voteComment}>{v.comment}</Text>}
+                  <Text style={st.voteDate}>{formatTimeAgo(v.created_at)}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
       </ScrollView>
+
+      <VoteModal
+        visible={showVoteModal}
+        pointId={id as string}
+        onClose={() => setShowVoteModal(false)}
+        onSuccess={handleVoteSuccess}
+      />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  fullScreen: {
-    flex: 1,
-    backgroundColor: Colors.header,
-  },
-  safeHeader: {
-    backgroundColor: Colors.header,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    backgroundColor: Colors.header,
-  },
+const st = StyleSheet.create({
+  fullScreen: { flex: 1, backgroundColor: Colors.header },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm },
   headerBtn: { padding: 4 },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: Colors.primary,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    gap: Spacing.md,
-  },
-  content: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  scroll: {
-    paddingBottom: 40,
-  },
-  center: { 
-    flex: 1, 
-    alignItems: 'center', 
-    justifyContent: 'center',
-    gap: 12,
-  },
-  notFound: { 
-    fontSize: 16, 
-    color: Colors.muted 
-  },
-  imageSection: {
-    position: 'relative',
-    marginBottom: Spacing.md,
-  },
-  imageContainer: {
-    height: 220,
-    marginHorizontal: Spacing.md,
-    marginTop: Spacing.md,
-    borderRadius: Radius.lg,
-    overflow: 'hidden',
-  },
-  mainImage: {
-    width: '100%',
-    height: '100%',
-  },
-  imagePlaceholder: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: Colors.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ownerAvatar: {
-    position: 'absolute',
-    top: Spacing.md + 10,
-    right: Spacing.md + 10,
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    borderWidth: 2,
-    borderColor: Colors.foreground,
-    overflow: 'hidden',
-  },
-  avatarImage: {
-    width: '100%',
-    height: '100%',
-  },
-  avatarPlaceholder: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: Colors.background,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: Colors.foreground,
-    paddingHorizontal: Spacing.md,
-    marginBottom: Spacing.sm,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    paddingHorizontal: Spacing.md,
-    marginBottom: Spacing.sm,
-  },
-  distanceTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  distanceText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.primary,
-  },
-  categoryTag: {
-    backgroundColor: 'transparent',
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
-  },
-  categoryText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.primary,
-  },
-  createdRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md,
-    marginBottom: Spacing.md,
-  },
-  createdText: {
-    fontSize: 14,
-    color: Colors.muted,
-  },
-  messageBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.header,
-    marginHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
-    borderRadius: Radius.full,
-    gap: Spacing.sm,
-    marginBottom: Spacing.md,
-  },
-  messageBtnText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.foreground,
-  },
-  actionsRow: {
-    flexDirection: 'row',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-    marginBottom: Spacing.md,
-  },
-  mapWrap: {
-    height: 180,
-    marginHorizontal: Spacing.md,
-    borderRadius: Radius.lg,
-    overflow: 'hidden',
-    marginBottom: Spacing.md,
-  },
-  map: {
-    flex: 1,
-  },
-  descSection: {
-    paddingHorizontal: Spacing.md,
-  },
-  descTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.foreground,
-    marginBottom: Spacing.xs,
-  },
-  descText: {
-    fontSize: 15,
-    color: Colors.muted,
-    lineHeight: 22,
-  },
-  showMore: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.primary,
-    textAlign: 'center',
-    marginTop: Spacing.sm,
-  },
+  headerTitle: { fontSize: 18, fontWeight: '600', color: Colors.primary },
+  scroll: { flex: 1, backgroundColor: Colors.background },
+
+  imgBox: { height: 220, borderRadius: Radius.lg, overflow: 'hidden' },
+  imgPlaceholder: { width: '100%', height: '100%', backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center' },
+  ownerAvatar: { position: 'absolute', top: 10, right: 10, width: 50, height: 50, borderRadius: 25, borderWidth: 2, borderColor: Colors.foreground, overflow: 'hidden' },
+  avatarFallback: { width: '100%', height: '100%', backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
+
+  title: { fontSize: 22, fontWeight: '700', color: Colors.foreground, paddingHorizontal: Spacing.md, marginBottom: Spacing.sm },
+
+  infoRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingHorizontal: Spacing.md, marginBottom: Spacing.sm },
+  distanceText: { fontSize: 15, fontWeight: '700', color: Colors.primary },
+  tagText: { fontSize: 15, fontWeight: '600', color: Colors.primary },
+
+  createdRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, marginBottom: Spacing.md },
+  createdText: { fontSize: 13, color: Colors.muted },
+
+  rateBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginHorizontal: Spacing.md, marginBottom: Spacing.md, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md, borderRadius: Radius.full, borderWidth: 1.5, borderColor: Colors.primary, alignSelf: 'flex-start' },
+  rateBtnText: { fontSize: 14, fontWeight: '600', color: Colors.primary },
+
+  messageBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.header, marginHorizontal: Spacing.md, paddingVertical: Spacing.md, borderRadius: Radius.full, gap: Spacing.sm, marginBottom: Spacing.md },
+  messageBtnText: { fontSize: 16, fontWeight: '600', color: Colors.foreground },
+
+  actionsRow: { flexDirection: 'row', paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border, marginBottom: Spacing.md },
+
+  mapWrap: { height: 180, marginHorizontal: Spacing.md, borderRadius: Radius.lg, overflow: 'hidden', marginBottom: Spacing.md },
+
+  section: { paddingHorizontal: Spacing.md, marginBottom: Spacing.lg },
+  sectionTitle: { fontSize: 18, fontWeight: '700', color: Colors.foreground, marginBottom: Spacing.sm },
+  descText: { fontSize: 15, color: Colors.muted, lineHeight: 22 },
+  showMore: { fontSize: 15, fontWeight: '600', color: Colors.primary, textAlign: 'center', marginTop: Spacing.sm },
+
+  voteRow: { flexDirection: 'row', gap: Spacing.md, paddingVertical: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  voteAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  voteAvatarText: { fontSize: 16, fontWeight: '700', color: Colors.background },
+  voteName: { fontSize: 14, fontWeight: '600', color: Colors.foreground },
+  voteComment: { fontSize: 13, color: Colors.muted, marginTop: 2, lineHeight: 18 },
+  voteDate: { fontSize: 12, color: Colors.muted, marginTop: 4 },
 });
