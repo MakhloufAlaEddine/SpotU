@@ -252,14 +252,19 @@ async def get_tag_point(point_id: str, request: Request):
             "SELECT COUNT(*) FROM tag_point_participants WHERE point_id=$1", point_id
         ) or 0
 
-        # Current user participation
+        # Current user participation + save
         pt["is_participant"] = False
+        pt["is_saved"] = False
         auth_header = request.headers.get("Authorization", "")
         if auth_header.startswith("Bearer "):
             try:
                 user = await require_auth(request, pool)
                 pt["is_participant"] = await conn.fetchval(
                     "SELECT EXISTS(SELECT 1 FROM tag_point_participants WHERE point_id=$1 AND user_id=$2)",
+                    point_id, user["user_id"]
+                )
+                pt["is_saved"] = await conn.fetchval(
+                    "SELECT EXISTS(SELECT 1 FROM tag_point_saves WHERE point_id=$1 AND user_id=$2)",
                     point_id, user["user_id"]
                 )
             except Exception:
