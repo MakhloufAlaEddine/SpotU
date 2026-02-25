@@ -85,10 +85,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const processGoogleCallback = useCallback(async (sessionId: string) => {
-    const data = await api.post<{ user: User; token: string }>('/auth/google', { session_id: sessionId });
-    await storage.set('winek_token', data.token);
-    setToken(data.token);
-    applyUser(data.user);
+    setLoading(true);
+    try {
+      const data = await api.post<{ user: User; token: string }>('/auth/google', { session_id: sessionId });
+      await storage.set('winek_token', data.token);
+      setToken(data.token);
+      applyUser(data.user);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   const loginWithGoogle = useCallback(async () => {
