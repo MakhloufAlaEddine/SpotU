@@ -81,6 +81,19 @@ async def fetch_emergent_session(session_id: str) -> dict:
             headers={"X-Session-ID": session_id},
             timeout=10.0,
         )
+        try:
+            body = resp.json()
+        except Exception:
+            body = {}
+
         if resp.status_code != 200:
-            raise HTTPException(status_code=401, detail="Invalid Google session")
-        return resp.json()
+            raise HTTPException(status_code=401, detail=body or "Invalid Google session")
+
+        # Emergent peut retourner 200 avec un corps d'erreur
+        if "error" in body:
+            raise HTTPException(status_code=401, detail=body)
+
+        if not body.get("email"):
+            raise HTTPException(status_code=401, detail="Could not retrieve user email from Google")
+
+        return body
