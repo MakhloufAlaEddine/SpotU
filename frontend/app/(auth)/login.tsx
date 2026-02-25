@@ -32,6 +32,21 @@ export default function LoginScreen() {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    try {
+      await loginWithGoogle();
+      // Sur native, loginWithGoogle est async et retourne après auth
+      // Sur web, il redirige la page donc ce code n'est jamais atteint
+      router.replace('/(tabs)/map');
+    } catch (err: any) {
+      // Sur web: code non atteint. Sur native: erreur possible
+      Alert.alert(t('error'), 'Connexion Google annulée');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView
