@@ -275,7 +275,7 @@ export default function SearchScreen() {
                   image={pt.image_url}
                   title={pt.title || 'Sans titre'}
                   author={pt.owner?.name || 'Anonyme'}
-                  distance={formatDistance(pt.distance)}
+                  distance={getDistance(pt)}
                   rating={pt.rating || 0}
                   onPress={() => router.push(`/tag-point/${pt.point_id}`)}
                 />
