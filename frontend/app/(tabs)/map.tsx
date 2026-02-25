@@ -33,9 +33,12 @@ const DOMAIN_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   dom_social: 'people-outline',
 };
 
-function formatDist(d?: number) {
-  if (!d) return '';
-  return d < 1000 ? `${Math.round(d)}M` : `${(d / 1000).toFixed(1)}KM`;
+/** Calcule et formate la distance entre l'utilisateur et un tagpoint (pipe client) */
+function distPipe(userLat: number, userLng: number, point: any): string {
+  const lat = point.latitude ?? point.location?.coordinates?.[1];
+  const lng = point.longitude ?? point.location?.coordinates?.[0];
+  if (lat == null || lng == null) return '';
+  return formatDistance(haversineDistance(userLat, userLng, lat, lng));
 }
 
 // ── Skeleton ────────────────────────────────────────────────
