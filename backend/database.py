@@ -171,7 +171,7 @@ async def _init_connection(conn):
 async def connect_to_db():
     global pool
     database_url = os.environ.get("DATABASE_URL")
-    pool = await asyncpg.create_pool(database_url, min_size=2, max_size=10, init=_init_connection)
+    pool = await asyncpg.create_pool(database_url, min_size=2, max_size=10, init=_init_connection, ssl=False)
     async with pool.acquire() as conn:
         await conn.execute(CREATE_TABLES_SQL)
         # Migrations — ajout de colonnes manquantes sur les tables existantes
