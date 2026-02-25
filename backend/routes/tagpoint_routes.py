@@ -274,7 +274,7 @@ async def update_tag_point(point_id: str, data: TagPointUpdate, request: Request
 
         update_dict = {k: v for k, v in data.model_dump().items() if v is not None}
         if not update_dict:
-            row = await conn.fetchrow(f"SELECT {TP_FIELDS} FROM tag_points WHERE point_id = $1", point_id)
+            row = await conn.fetchrow(f"SELECT {TP_FIELDS} FROM tag_points tp LEFT JOIN users u ON tp.user_id = u.user_id WHERE tp.point_id = $1", point_id)
             return build_point_response(row_to_dict(row))
 
         set_clauses = []
@@ -292,7 +292,7 @@ async def update_tag_point(point_id: str, data: TagPointUpdate, request: Request
         set_clauses.append("updated_at = NOW()")
         query = f"UPDATE tag_points SET {', '.join(set_clauses)} WHERE point_id = ${i}"
         await conn.execute(query, *values)
-        row = await conn.fetchrow(f"SELECT {TP_FIELDS} FROM tag_points WHERE point_id = $1", point_id)
+        row = await conn.fetchrow(f"SELECT {TP_FIELDS} FROM tag_points tp LEFT JOIN users u ON tp.user_id = u.user_id WHERE tp.point_id = $1", point_id)
     return build_point_response(row_to_dict(row))
 
 
