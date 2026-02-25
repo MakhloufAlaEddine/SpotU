@@ -680,12 +680,6 @@ const st = StyleSheet.create({
   messageBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.header, marginHorizontal: Spacing.md, paddingVertical: 10, borderRadius: Radius.full, gap: Spacing.sm, marginBottom: Spacing.sm },
   messageBtnText: { fontSize: 14, fontWeight: '600', color: Colors.foreground },
 
-  actionsRow: { flexDirection: 'row', paddingHorizontal: Spacing.md, paddingVertical: Spacing.lg, borderBottomWidth: 1, borderBottomColor: Colors.border, marginBottom: Spacing.md, justifyContent: 'space-around' },
-  actionBtn: { flex: 1, alignItems: 'center', gap: 8 },
-  actionIcon: { width: 54, height: 54, borderRadius: Radius.lg, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
-  actionIconSaved: { backgroundColor: Colors.primaryLight, borderColor: Colors.primary },
-  actionLabel: { fontSize: 12, color: Colors.muted, fontWeight: '500' },
-
   mapWrap: { height: 180, marginHorizontal: Spacing.md, borderRadius: Radius.lg, overflow: 'hidden', marginBottom: Spacing.md },
 
   section: { paddingHorizontal: Spacing.md, marginBottom: Spacing.lg },
