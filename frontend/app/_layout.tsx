@@ -1,12 +1,14 @@
 import { Stack } from 'expo-router';
 import { AuthProvider } from '../context/AuthContext';
 import { LanguageProvider } from '../context/LanguageContext';
+import { LocationProvider } from '../context/LocationContext';
 import { StatusBar } from 'expo-status-bar';
 
 export default function RootLayout() {
   return (
     <AuthProvider>
       <LanguageProvider>
+        <LocationProvider>
         <StatusBar style="light" />
         <Stack 
           screenOptions={{ 
