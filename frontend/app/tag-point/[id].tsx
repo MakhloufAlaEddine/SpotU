@@ -727,6 +727,13 @@ const st = StyleSheet.create({
   voteComment: { fontSize: 13, color: Colors.muted, marginTop: 2, lineHeight: 18 },
   voteDate: { fontSize: 12, color: Colors.muted, marginTop: 4 },
 
+  reviewsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.md },
+  reviewsSummary: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  reviewsRating: { fontSize: 36, fontWeight: '800', color: Colors.foreground },
+  reviewsCount: { fontSize: 12, color: Colors.muted, marginTop: 2 },
+  seeAllBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: Spacing.sm, marginTop: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.border },
+  seeAllText: { fontSize: 14, fontWeight: '600', color: Colors.primary },
+
   similarGrid: { padding: Spacing.md, gap: 12 },
   similarRow: { flexDirection: 'row', gap: 12 },
   similarCard: { flex: 1, backgroundColor: Colors.card, borderRadius: Radius.lg, overflow: 'hidden', padding: Spacing.sm },
