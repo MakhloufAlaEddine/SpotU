@@ -178,8 +178,8 @@ export default function TagPointDetail() {
   };
 
   useEffect(() => {
-    if (id) { loadPoint(); loadVotes(); }
-  }, [id]);
+    if (id) { loadPoint(); loadVotes(); if (user) loadMyVote(); }
+  }, [id, user]);
 
   const loadPoint = async () => {
     try {
