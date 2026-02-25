@@ -670,6 +670,7 @@ const st = StyleSheet.create({
   rsvpText: { fontSize: 13, fontWeight: '700', color: Colors.background },
   rsvpTextActive: { color: Colors.primary },
   rsvpCount: { fontSize: 13, color: Colors.muted },
+  msgBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
 
   messageBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.header, marginHorizontal: Spacing.md, paddingVertical: 10, borderRadius: Radius.full, gap: Spacing.sm, marginBottom: Spacing.sm },
   messageBtnText: { fontSize: 14, fontWeight: '600', color: Colors.foreground },
