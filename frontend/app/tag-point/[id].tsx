@@ -405,32 +405,70 @@ export default function TagPointDetail() {
           </View>
         )}
 
-        {/* 4. RSVP + Message */}
-        <View style={st.rsvpRow}>
-          <TouchableOpacity
-            style={[st.rsvpBtn, isParticipant && st.rsvpBtnActive]}
-            onPress={toggleRSVP}
-            disabled={rsvpLoading}
-            testID="rsvp-button"
-          >
-            {rsvpLoading
-              ? <ActivityIndicator color={isParticipant ? Colors.primary : Colors.background} size="small" />
-              : <>
-                  <Ionicons name={isParticipant ? 'checkmark-circle' : 'add-circle-outline'}
-                    size={18} color={isParticipant ? Colors.primary : Colors.background} />
-                  <Text style={[st.rsvpText, isParticipant && st.rsvpTextActive]}>
-                    {isParticipant ? `Je participe${participantsCount > 0 ? ` · ${participantsCount}` : ''}` : `Rejoindre${participantsCount > 0 ? ` · ${participantsCount}` : ''}`}
-                  </Text>
-                </>}
-          </TouchableOpacity>
+        {/* 4. Bloc Actions unifié */}
+        <View style={st.actionsBlock}>
+          {/* Ligne 1 : Rejoindre + Chat */}
+          <View style={st.rsvpRow}>
+            <TouchableOpacity
+              style={[st.rsvpBtn, isParticipant && st.rsvpBtnActive]}
+              onPress={toggleRSVP}
+              disabled={rsvpLoading}
+              testID="rsvp-button"
+            >
+              {rsvpLoading
+                ? <ActivityIndicator color={isParticipant ? Colors.primary : Colors.background} size="small" />
+                : <>
+                    <Ionicons name={isParticipant ? 'checkmark-circle' : 'add-circle-outline'}
+                      size={18} color={isParticipant ? Colors.primary : Colors.background} />
+                    <Text style={[st.rsvpText, isParticipant && st.rsvpTextActive]}>
+                      {isParticipant
+                        ? `Je participe${participantsCount > 0 ? `  ·  ${participantsCount}` : ''}`
+                        : `Rejoindre${participantsCount > 0 ? `  ·  ${participantsCount}` : ''}`}
+                    </Text>
+                  </>}
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={st.msgBtn}
-            onPress={() => Alert.alert('Chat', 'Bientôt disponible !')}
-            testID="message-button"
-          >
-            <Ionicons name="chatbubble-ellipses-outline" size={20} color={Colors.foreground} />
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={st.msgBtn}
+              onPress={() => Alert.alert('Chat', 'Bientôt disponible !')}
+              testID="message-button"
+            >
+              <Ionicons name="chatbubble-ellipses-outline" size={20} color={Colors.foreground} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Séparateur */}
+          <View style={st.actionsDivider} />
+
+          {/* Ligne 2 : Similaires · Partager · Sauvegarder */}
+          <View style={st.secondaryRow}>
+            <TouchableOpacity style={st.secBtn} onPress={openSimilar} testID="similar-btn">
+              <Ionicons name="layers-outline" size={18} color={Colors.muted} />
+              <Text style={st.secLabel}>Similaires</Text>
+            </TouchableOpacity>
+
+            <View style={st.secDivider} />
+
+            <TouchableOpacity
+              style={st.secBtn}
+              onPress={async () => { try { await Share.share({ message: `"${point.title}" sur WINEK !` }); } catch {} }}
+              testID="share-btn"
+            >
+              <Ionicons name="share-social-outline" size={18} color={Colors.muted} />
+              <Text style={st.secLabel}>Partager</Text>
+            </TouchableOpacity>
+
+            <View style={st.secDivider} />
+
+            <TouchableOpacity style={st.secBtn} onPress={toggleSave} disabled={saveLoading} testID="save-btn">
+              {saveLoading
+                ? <ActivityIndicator size="small" color={isSaved ? Colors.primary : Colors.muted} />
+                : <Ionicons name={isSaved ? 'bookmark' : 'bookmark-outline'} size={18} color={isSaved ? Colors.primary : Colors.muted} />}
+              <Text style={[st.secLabel, isSaved && { color: Colors.primary }]}>
+                {isSaved ? 'Enregistré' : 'Sauvegarder'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* 6. Map */}
