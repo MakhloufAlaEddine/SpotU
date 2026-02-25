@@ -139,7 +139,7 @@ export default function SearchScreen() {
   const [combineMode, setCombineMode] = useState(false);
   const [tagPoints, setTagPoints] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const { location } = useGlobalLocation();
+  const { location } = useLocation();
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
   useEffect(() => {
@@ -161,13 +161,12 @@ export default function SearchScreen() {
     finally { setLoading(false); }
   }, [location.lat, location.lng, radiusKm]);
 
-  // Format distance
-  const formatDistance = (distanceMeters?: number) => {
-    if (!distanceMeters) return '---';
-    if (distanceMeters < 1000) {
-      return `${Math.round(distanceMeters)}M`;
-    }
-    return `${(distanceMeters / 1000).toFixed(1)}KM`;
+  // Pipe client : calcule la distance depuis les coordonnées du tagpoint
+  const getDistance = (pt: any): string => {
+    const lat = pt.latitude ?? pt.location?.coordinates?.[1];
+    const lng = pt.longitude ?? pt.location?.coordinates?.[0];
+    if (lat == null || lng == null) return '---';
+    return formatDistance(haversineDistance(location.lat, location.lng, lat, lng));
   };
 
   const filteredPoints = query
