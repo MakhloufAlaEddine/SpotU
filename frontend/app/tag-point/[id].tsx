@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, ActivityIndicator,
-  TouchableOpacity, Alert, Image, Share, TextInput, Modal,
-  KeyboardAvoidingView, Platform,
+  View, Text, StyleSheet, ScrollView, FlatList, Dimensions,
+  ActivityIndicator, TouchableOpacity, Alert, Image, Share,
+  TextInput, Modal, KeyboardAvoidingView, Platform, Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
@@ -15,141 +15,134 @@ import { useLang } from '../../context/LanguageContext';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { haversineDistance, formatDistance } from '../../utils/distance';
 
+const { width: SCREEN_W } = Dimensions.get('window');
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function timeAgo(d: string) {
+  const diff = Math.floor((Date.now() - new Date(d).getTime()) / 86400000);
+  if (diff < 1) return "Aujourd'hui";
+  if (diff === 1) return 'Hier';
+  if (diff < 7) return `${diff} j`;
+  if (diff < 30) return `${Math.floor(diff / 7)} sem`;
+  return `${Math.floor(diff / 30)} mois`;
+}
+
+const CATEGORY_COLORS: Record<string, string> = {
+  cat_running: '#00BFA5', cat_football: '#4CAF50', cat_basketball: '#FF9800',
+  cat_tennis: '#E91E63', cat_yoga: '#9C27B0', cat_cycling: '#2196F3',
+  cat_fitness: '#F44336', cat_swimming: '#00BCD4', cat_boxing: '#FF5722',
+  cat_hiking: '#8BC34A', cat_volleyball: '#FF9500', default: '#00BFA5',
+};
+const tagColor = (cat?: string) => cat ? (CATEGORY_COLORS[cat] || CATEGORY_COLORS.default) : CATEGORY_COLORS.default;
+
+// ─── Skeleton ─────────────────────────────────────────────────────────────────
+function Skeleton({ w, h, radius = 8 }: { w: number | string; h: number; radius?: number }) {
+  const anim = useRef(new Animated.Value(0.4)).current;
+  useEffect(() => {
+    Animated.loop(Animated.sequence([
+      Animated.timing(anim, { toValue: 1, duration: 800, useNativeDriver: true }),
+      Animated.timing(anim, { toValue: 0.4, duration: 800, useNativeDriver: true }),
+    ])).start();
+  }, []);
+  return <Animated.View style={{ width: w as any, height: h, borderRadius: radius, backgroundColor: Colors.card, opacity: anim }} />;
+}
+
+function TagPointSkeleton() {
+  return (
+    <ScrollView style={{ flex: 1, backgroundColor: Colors.background }} contentContainerStyle={{ gap: 16, padding: Spacing.md }}>
+      <Skeleton w="100%" h={220} radius={Radius.lg} />
+      <Skeleton w="70%" h={26} />
+      <Skeleton w="40%" h={16} />
+      <Skeleton w="100%" h={60} />
+      <Skeleton w="100%" h={180} radius={Radius.lg} />
+    </ScrollView>
+  );
+}
+
+// ─── Image Carousel ───────────────────────────────────────────────────────────
+function ImageCarousel({ images, fallback }: { images: string[]; fallback?: string }) {
+  const [index, setIndex] = useState(0);
+  const allImgs = images.length > 0 ? images : fallback ? [fallback] : [];
+  if (allImgs.length === 0) {
+    return (
+      <View style={carSt.box}>
+        <View style={carSt.placeholder}><Ionicons name="image-outline" size={64} color={Colors.muted} /></View>
+      </View>
+    );
+  }
+  return (
+    <View style={carSt.box}>
+      <FlatList
+        data={allImgs}
+        horizontal pagingEnabled showsHorizontalScrollIndicator={false}
+        keyExtractor={(_, i) => String(i)}
+        onMomentumScrollEnd={e => setIndex(Math.round(e.nativeEvent.contentOffset.x / (SCREEN_W - Spacing.md * 2)))}
+        renderItem={({ item }) => (
+          <View style={{ width: SCREEN_W - Spacing.md * 2, height: 220 }}>
+            <Image source={{ uri: item }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+          </View>
+        )}
+      />
+      {allImgs.length > 1 && (
+        <View style={carSt.dots}>
+          {allImgs.map((_, i) => (
+            <View key={i} style={[carSt.dot, i === index && carSt.dotActive]} />
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+const carSt = StyleSheet.create({
+  box: { height: 220, borderRadius: Radius.lg, overflow: 'hidden' },
+  placeholder: { flex: 1, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center' },
+  dots: { position: 'absolute', bottom: 10, alignSelf: 'center', flexDirection: 'row', gap: 5 },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.5)' },
+  dotActive: { backgroundColor: '#fff', width: 18 },
+});
+
 // ─── Interactive Stars ────────────────────────────────────────────────────────
 function InteractiveStars({ value, onChange, size = 30 }: { value: number; onChange: (v: number) => void; size?: number }) {
   return (
-    <View style={{ flexDirection: 'row', gap: 4 }}>
-      {[1, 2, 3, 4, 5].map(i => (
-        <TouchableOpacity
-          key={i}
-          onPress={() => onChange(i)}
-          activeOpacity={0.6}
-          hitSlop={{ top: 12, bottom: 12, left: 6, right: 6 }}
-          testID={`star-${i}`}
-        >
-          <Ionicons
-            name={i <= value ? 'star' : 'star-outline'}
-            size={size}
-            color={i <= value ? Colors.star : Colors.muted}
-          />
+    <View style={{ flexDirection: 'row', gap: 6 }}>
+      {[1,2,3,4,5].map(i => (
+        <TouchableOpacity key={i} onPress={() => onChange(i)} activeOpacity={0.6}
+          hitSlop={{ top: 12, bottom: 12, left: 6, right: 6 }} testID={`star-${i}`}>
+          <Ionicons name={i <= value ? 'star' : 'star-outline'} size={size}
+            color={i <= value ? Colors.star : Colors.muted} />
         </TouchableOpacity>
       ))}
     </View>
   );
 }
 
-// ─── Display Stars (read-only) ────────────────────────────────────────────────
-function StarDisplay({ rating = 0, votes = 0 }: { rating?: number; votes?: number }) {
+// ─── Rating Distribution ──────────────────────────────────────────────────────
+function RatingBars({ dist, total }: { dist: Record<string, number>; total: number }) {
+  if (total === 0) return null;
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-      {[1, 2, 3, 4, 5].map(i => (
-        <Ionicons key={i} name={i <= Math.round(rating) ? 'star' : 'star-outline'} size={14}
-          color={i <= Math.round(rating) ? Colors.star : Colors.muted} />
-      ))}
-      {votes > 0 && (
-        <Text style={{ fontSize: 12, color: Colors.muted, marginLeft: 4 }}>
-          {rating.toFixed(1)} ({votes})
-        </Text>
-      )}
+    <View style={{ gap: 5, marginTop: Spacing.sm }}>
+      {[5,4,3,2,1].map(star => {
+        const count = dist[String(star)] || 0;
+        const pct = total > 0 ? count / total : 0;
+        return (
+          <View key={star} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Text style={{ fontSize: 12, color: Colors.muted, width: 10 }}>{star}</Text>
+            <Ionicons name="star" size={11} color={Colors.star} />
+            <View style={{ flex: 1, height: 6, backgroundColor: Colors.border, borderRadius: 3, overflow: 'hidden' }}>
+              <View style={{ width: `${pct * 100}%`, height: '100%', backgroundColor: Colors.star, borderRadius: 3 }} />
+            </View>
+            <Text style={{ fontSize: 11, color: Colors.muted, width: 20, textAlign: 'right' }}>{count}</Text>
+          </View>
+        );
+      })}
     </View>
   );
 }
 
-// ─── Vote Modal ───────────────────────────────────────────────────────────────
-function VoteModal({ visible, pointId, onClose, onSuccess }:
-  { visible: boolean; pointId: string; onClose: () => void; onSuccess: (rating: number, votes: number) => void }) {
-  const [stars, setStars] = useState(0);
-  const [comment, setComment] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-
-  const handleSubmit = async () => {
-    if (stars === 0) { Alert.alert('Note requise', 'Veuillez sélectionner une note.'); return; }
-    setSubmitting(true);
-    try {
-      const res = await api.post(`/tag-points/${pointId}/vote`, { rating: stars, comment: comment.trim() || null });
-      onSuccess(res.avg_rating, res.vote_count);
-      setStars(0);
-      setComment('');
-      onClose();
-    } catch (e: any) {
-      Alert.alert('Erreur', e.message || 'Impossible d\'envoyer le vote');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={modalSt.overlay}>
-        <View style={modalSt.sheet}>
-          <View style={modalSt.header}>
-            <Text style={modalSt.title}>Votre avis</Text>
-            <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="close" size={22} color={Colors.foreground} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={modalSt.starsRow}>
-            <InteractiveStars value={stars} onChange={setStars} />
-          </View>
-          {stars > 0 && (
-            <Text style={modalSt.starsLabel}>
-              {['', 'Mauvais', 'Moyen', 'Bien', 'Très bien', 'Excellent'][stars]}
-            </Text>
-          )}
-
-          <TextInput
-            style={modalSt.commentInput}
-            placeholder="Ajouter un commentaire (optionnel)…"
-            placeholderTextColor={Colors.muted}
-            value={comment}
-            onChangeText={setComment}
-            multiline
-            numberOfLines={3}
-            testID="vote-comment-input"
-          />
-
-          <TouchableOpacity
-            style={[modalSt.submitBtn, stars === 0 && modalSt.submitDisabled]}
-            onPress={handleSubmit}
-            disabled={submitting || stars === 0}
-            testID="vote-submit-btn"
-          >
-            {submitting
-              ? <ActivityIndicator color="#fff" size="small" />
-              : <Text style={modalSt.submitText}>Envoyer</Text>}
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-const modalSt = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: Colors.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: Spacing.lg, paddingBottom: 40 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.lg },
-  title: { fontSize: 18, fontWeight: '700', color: Colors.foreground },
-  starsRow: { alignItems: 'center', marginBottom: Spacing.sm },
-  starsLabel: { textAlign: 'center', fontSize: 14, color: Colors.primary, fontWeight: '600', marginBottom: Spacing.md },
-  commentInput: { backgroundColor: Colors.card, borderRadius: Radius.md, padding: Spacing.md, color: Colors.foreground, fontSize: 14, minHeight: 80, textAlignVertical: 'top', marginBottom: Spacing.md, borderWidth: 1, borderColor: Colors.border },
-  submitBtn: { backgroundColor: Colors.primary, borderRadius: Radius.full, paddingVertical: Spacing.md, alignItems: 'center' },
-  submitDisabled: { opacity: 0.4 },
-  submitText: { fontSize: 16, fontWeight: '700', color: '#fff' },
-});
-
 // ─── Vote Card ────────────────────────────────────────────────────────────────
 function VoteCard({ v }: { v: any }) {
   const [expanded, setExpanded] = useState(false);
-  const isLong = v.comment && v.comment.length > 100;
-  const formatTimeAgoInner = (d: string) => {
-    const diff = Math.floor((Date.now() - new Date(d).getTime()) / 86400000);
-    if (diff < 1) return "Aujourd'hui";
-    if (diff === 1) return 'Hier';
-    if (diff < 7) return `Il y a ${diff} j`;
-    if (diff < 30) return `Il y a ${Math.floor(diff / 7)} sem`;
-    return `Il y a ${Math.floor(diff / 30)} mois`;
-  };
+  const isLong = v.comment && v.comment.length > 120;
   return (
     <View style={vcSt.card} testID={`vote-item-${v.vote_id}`}>
       <View style={vcSt.topRow}>
@@ -159,13 +152,13 @@ function VoteCard({ v }: { v: any }) {
             : <Text style={vcSt.avatarText}>{v.user_name?.charAt(0)?.toUpperCase() || '?'}</Text>}
         </View>
         <View style={{ flex: 1 }}>
-          <View style={vcSt.nameRow}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <Text style={vcSt.name}>{v.user_name}</Text>
-            <Text style={vcSt.date}>{formatTimeAgoInner(v.created_at)}</Text>
+            <Text style={vcSt.date}>{timeAgo(v.created_at)}</Text>
           </View>
           <View style={{ flexDirection: 'row', gap: 2, marginTop: 2 }}>
             {[1,2,3,4,5].map(i => (
-              <Ionicons key={i} name={i <= v.rating ? 'star' : 'star-outline'} size={13}
+              <Ionicons key={i} name={i <= v.rating ? 'star' : 'star-outline'} size={12}
                 color={i <= v.rating ? Colors.star : Colors.muted} />
             ))}
           </View>
@@ -173,9 +166,7 @@ function VoteCard({ v }: { v: any }) {
       </View>
       {v.comment && (
         <>
-          <Text style={vcSt.comment} numberOfLines={expanded ? undefined : 3}>
-            {v.comment}
-          </Text>
+          <Text style={vcSt.comment} numberOfLines={expanded ? undefined : 3}>{v.comment}</Text>
           {isLong && (
             <TouchableOpacity onPress={() => setExpanded(!expanded)}>
               <Text style={vcSt.readMore}>{expanded ? 'Réduire' : 'Lire la suite'}</Text>
@@ -186,26 +177,16 @@ function VoteCard({ v }: { v: any }) {
     </View>
   );
 }
-
 const vcSt = StyleSheet.create({
   card: { backgroundColor: Colors.card, borderRadius: Radius.lg, padding: Spacing.md, marginBottom: Spacing.sm },
   topRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.sm },
   avatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  avatarText: { fontSize: 16, fontWeight: '700', color: Colors.background },
-  nameRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  avatarText: { fontSize: 15, fontWeight: '700', color: Colors.background },
   name: { fontSize: 14, fontWeight: '700', color: Colors.foreground },
-  date: { fontSize: 12, color: Colors.muted },
-  comment: { fontSize: 14, color: Colors.foreground, lineHeight: 20 },
-  readMore: { fontSize: 13, fontWeight: '600', color: Colors.primary, marginTop: 4 },
+  date: { fontSize: 11, color: Colors.muted },
+  comment: { fontSize: 13, color: Colors.foreground, lineHeight: 19 },
+  readMore: { fontSize: 12, fontWeight: '600', color: Colors.primary, marginTop: 4 },
 });
-function ActionButton({ icon, label, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }) {
-  return (
-    <TouchableOpacity style={{ alignItems: 'center', gap: 4, flex: 1 }} onPress={onPress} activeOpacity={0.7}>
-      <Ionicons name={icon} size={24} color={Colors.foreground} />
-      <Text style={{ fontSize: 13, color: Colors.foreground }}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function TagPointDetail() {
@@ -218,28 +199,23 @@ export default function TagPointDetail() {
   const [point, setPoint] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showFullDesc, setShowFullDesc] = useState(false);
+  const [votes, setVotes] = useState<any[]>([]);
   const [showVoteModal, setShowVoteModal] = useState(false);
+  const [showAllVotes, setShowAllVotes] = useState(false);
   const [showSimilar, setShowSimilar] = useState(false);
   const [similar, setSimilar] = useState<any[]>([]);
   const [loadingSimilar, setLoadingSimilar] = useState(false);
-  const [votes, setVotes] = useState<any[]>([]);
-  const [currentRating, setCurrentRating] = useState(0);
-  const [currentVotes, setCurrentVotes] = useState(0);
   const [myVote, setMyVote] = useState<{ rating: number; comment: string | null } | null>(null);
   const [pendingStar, setPendingStar] = useState(0);
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [voteSuccess, setVoteSuccess] = useState(false);
-
-  const [showAllVotes, setShowAllVotes] = useState(false);
-
-  const openVoteModal = () => {
-    // Pré-remplir avec le vote existant
-    setPendingStar(myVote?.rating || 0);
-    setComment(myVote?.comment || '');
-    setVoteSuccess(false);
-    setShowVoteModal(true);
-  };
+  const [currentRating, setCurrentRating] = useState(0);
+  const [currentVotes, setCurrentVotes] = useState(0);
+  const [ratingDist, setRatingDist] = useState<Record<string, number>>({});
+  const [isParticipant, setIsParticipant] = useState(false);
+  const [participantsCount, setParticipantsCount] = useState(0);
+  const [rsvpLoading, setRsvpLoading] = useState(false);
 
   useEffect(() => {
     if (id) { loadPoint(); loadVotes(); if (user) loadMyVote(); }
@@ -251,35 +227,29 @@ export default function TagPointDetail() {
       setPoint(data);
       setCurrentRating(data.rating || 0);
       setCurrentVotes(data.votes || 0);
-    } catch (err: any) {
-      Alert.alert('Erreur', err.message);
-    } finally {
-      setLoading(false);
-    }
+      setRatingDist(data.rating_distribution || {});
+      setIsParticipant(data.is_participant || false);
+      setParticipantsCount(data.participants_count || 0);
+    } catch (e: any) { Alert.alert('Erreur', e.message); }
+    finally { setLoading(false); }
   };
 
-  const openSimilar = async () => {
-    setShowSimilar(true);
-    if (similar.length > 0) return;
-    setLoadingSimilar(true);
+  const loadMyVote = async () => {
     try {
-      const data = await api.get(`/tag-points/${id}/similar`);
-      setSimilar(data);
-    } catch {}
-    setLoadingSimilar(false);
-  };
-
-  const loadMyVote = async () => {    try {
       const data = await api.get(`/tag-points/${id}/my-vote`);
       if (data.exists) setMyVote({ rating: data.rating, comment: data.comment });
     } catch {}
   };
 
   const loadVotes = async () => {
-    try {
-      const data = await api.get(`/tag-points/${id}/votes`);
-      setVotes(data);
-    } catch {}
+    try { setVotes(await api.get(`/tag-points/${id}/votes`)); } catch {}
+  };
+
+  const openVoteModal = () => {
+    setPendingStar(myVote?.rating || 0);
+    setComment(myVote?.comment || '');
+    setVoteSuccess(false);
+    setShowVoteModal(true);
   };
 
   const handleVoteSubmit = async () => {
@@ -288,63 +258,63 @@ export default function TagPointDetail() {
     setSubmitting(true);
     try {
       const res = await api.post(`/tag-points/${id}/vote`, { rating: pendingStar, comment: comment.trim() || null });
-      setCurrentRating(res.avg_rating);
-      setCurrentVotes(res.vote_count);
+      setCurrentRating(res.avg_rating); setCurrentVotes(res.vote_count);
       setMyVote({ rating: pendingStar, comment: comment.trim() || null });
-      setVoteSuccess(true);
-      setComment('');
-      setPendingStar(0);
-      loadVotes();
+      setVoteSuccess(true); setComment(''); setPendingStar(0);
+      loadVotes(); loadPoint();
       setTimeout(() => { setVoteSuccess(false); setShowVoteModal(false); }, 1500);
-    } catch (e: any) {
-      Alert.alert('Erreur', e.message || 'Impossible d\'envoyer le vote');
-    } finally {
-      setSubmitting(false);
-    }
+    } catch (e: any) { Alert.alert('Erreur', e.message || "Impossible d'envoyer"); }
+    finally { setSubmitting(false); }
   };
 
-  const formatTimeAgo = (dateString: string) => {
-    const diff = Math.floor((Date.now() - new Date(dateString).getTime()) / 86400000);
-    if (diff < 1) return "Aujourd'hui";
-    if (diff === 1) return 'Hier';
-    if (diff < 7) return `Il y a ${diff} jours`;
-    if (diff < 30) return `Il y a ${Math.floor(diff / 7)} semaines`;
-    return `Il y a ${Math.floor(diff / 30)} mois`;
+  const toggleRSVP = async () => {
+    if (!user) { Alert.alert('Connexion requise', 'Connectez-vous pour participer.'); return; }
+    setRsvpLoading(true);
+    try {
+      const res = isParticipant
+        ? await api.delete(`/tag-points/${id}/leave`)
+        : await api.post(`/tag-points/${id}/join`, {});
+      setIsParticipant(res.is_participant);
+      setParticipantsCount(res.participants_count);
+    } catch (e: any) { Alert.alert('Erreur', e.message); }
+    finally { setRsvpLoading(false); }
+  };
+
+  const openSimilar = async () => {
+    setShowSimilar(true);
+    if (similar.length > 0) return;
+    setLoadingSimilar(true);
+    try { setSimilar(await api.get(`/tag-points/${id}/similar`)); } catch {}
+    setLoadingSimilar(false);
   };
 
   const getPrecisionRadius = (p: string) => p === '100m' ? 100 : p === '1000m' ? 1000 : 0;
 
   if (loading) return (
-    <View style={st.fullScreen}>
-      <Stack.Screen options={{ headerShown: false }} />
-      <View style={st.center}><ActivityIndicator size="large" color={Colors.primary} /></View>
-    </View>
+    <View style={st.screen}><Stack.Screen options={{ headerShown: false }} /><TagPointSkeleton /></View>
   );
-
   if (!point) return (
-    <View style={st.fullScreen}>
+    <View style={[st.screen, { alignItems: 'center', justifyContent: 'center' }]}>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={st.center}>
-        <Ionicons name="alert-circle-outline" size={48} color={Colors.muted} />
-        <Text style={{ fontSize: 16, color: Colors.muted }}>TagPoint introuvable</Text>
-      </View>
+      <Ionicons name="alert-circle-outline" size={48} color={Colors.muted} />
+      <Text style={{ color: Colors.muted, marginTop: 8 }}>TagPoint introuvable</Text>
     </View>
   );
 
-  const lat = point.latitude || point.location?.coordinates?.[1];
-  const lng = point.longitude || point.location?.coordinates?.[0];
+  const lat = point.latitude ?? point.location?.coordinates?.[1];
+  const lng = point.longitude ?? point.location?.coordinates?.[0];
   const tags: any[] = point.tags || [];
-  const precisionRadius = getPrecisionRadius(point.precision);
-
-  // Distance from user to tagpoint
+  const images: string[] = (() => {
+    try { return Array.isArray(point.images) ? point.images : JSON.parse(point.images || '[]'); } catch { return []; }
+  })();
   const distanceStr = (lat != null && lng != null)
-    ? formatDistance(haversineDistance(location.lat, location.lng, lat, lng))
-    : '---';
+    ? formatDistance(haversineDistance(location.lat, location.lng, lat, lng)) : '---';
 
   return (
-    <View style={st.fullScreen}>
+    <View style={st.screen}>
       <Stack.Screen options={{ headerShown: false }} />
 
+      {/* Header */}
       <SafeAreaView edges={['top']} style={{ backgroundColor: Colors.header }}>
         <View style={st.header}>
           <TouchableOpacity onPress={() => router.back()} style={st.headerBtn}>
@@ -352,106 +322,141 @@ export default function TagPointDetail() {
           </TouchableOpacity>
           <Text style={st.headerTitle}>Détails</Text>
           <View style={{ flexDirection: 'row', gap: Spacing.md }}>
-            <TouchableOpacity style={st.headerBtn} onPress={() => router.push('/set-location' as any)}>
-              <Ionicons name="location" size={24} color={Colors.primary} />
+            <TouchableOpacity onPress={() => router.push('/set-location' as any)} style={st.headerBtn}>
+              <Ionicons name="location" size={22} color={Colors.primary} />
             </TouchableOpacity>
-            <TouchableOpacity style={st.headerBtn} onPress={() => router.push('/(tabs)/search' as any)}>
-              <Ionicons name="search" size={24} color={Colors.primary} />
+            <TouchableOpacity onPress={() => router.push('/(tabs)/search' as any)} style={st.headerBtn}>
+              <Ionicons name="search" size={22} color={Colors.primary} />
             </TouchableOpacity>
           </View>
         </View>
       </SafeAreaView>
 
-      <ScrollView style={st.scroll} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
-        {/* Image + Owner Avatar */}
-        <View style={{ position: 'relative', marginHorizontal: Spacing.md, marginTop: Spacing.md, marginBottom: Spacing.md }}>
-          <View style={st.imgBox}>
-            {point.image_url
-              ? <Image source={{ uri: point.image_url }} style={{ width: '100%', height: '100%' }} />
-              : <View style={st.imgPlaceholder}><Ionicons name="football-outline" size={64} color={Colors.muted} /></View>}
-          </View>
+      <ScrollView style={st.scroll} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+
+        {/* 1. Image Carousel */}
+        <View style={{ marginHorizontal: Spacing.md, marginTop: Spacing.md }}>
+          <ImageCarousel images={images} fallback={point.image_url} />
+          {/* Owner avatar overlay */}
           {point.owner && (
-            <View style={st.ownerAvatar}>
-              {point.owner.picture
-                ? <Image source={{ uri: point.owner.picture }} style={{ width: '100%', height: '100%' }} />
-                : <View style={st.avatarFallback}>
-                    <Text style={{ fontSize: 20, fontWeight: '700', color: Colors.background }}>
-                      {point.owner.name?.charAt(0)?.toUpperCase() || '?'}
-                    </Text>
-                  </View>}
-            </View>
+            <TouchableOpacity
+              style={st.ownerBadge}
+              onPress={() => point.owner.role === 'coach' && router.push(`/coach/${point.owner.user_id}` as any)}
+              activeOpacity={point.owner.role === 'coach' ? 0.7 : 1}
+              testID="owner-avatar"
+            >
+              <View style={st.ownerAvatar}>
+                {point.owner.picture
+                  ? <Image source={{ uri: point.owner.picture }} style={{ width: '100%', height: '100%' }} />
+                  : <Text style={st.ownerInitial}>{point.owner.name?.charAt(0)?.toUpperCase() || '?'}</Text>}
+              </View>
+              <View>
+                <Text style={st.ownerName}>{point.owner.name}</Text>
+                {point.owner.role === 'coach' && <Text style={st.ownerRole}>Coach →</Text>}
+              </View>
+            </TouchableOpacity>
           )}
         </View>
 
-        {/* Title */}
-        <Text style={st.title}>{point.title}</Text>
-
-        {/* Distance + Tag */}
-        <View style={st.infoRow}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <Ionicons name="location-outline" size={16} color={Colors.primary} />
-            <Text style={st.distanceText} testID="tagpoint-distance">{distanceStr}</Text>
+        {/* 2. Titre + distance + tags */}
+        <View style={st.titleSection}>
+          <Text style={st.title}>{point.title}</Text>
+          <View style={st.metaRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Ionicons name="location-outline" size={15} color={Colors.primary} />
+              <Text style={st.distText} testID="tagpoint-distance">{distanceStr}</Text>
+            </View>
+            <TouchableOpacity style={st.ratingTap} onPress={openVoteModal} testID="open-vote-modal-btn">
+              {[1,2,3,4,5].map(i => (
+                <Ionicons key={i} name={i <= Math.round(currentRating) ? 'star' : 'star-outline'}
+                  size={14} color={i <= Math.round(currentRating) ? Colors.star : Colors.muted} />
+              ))}
+              {currentVotes > 0 && <Text style={st.ratingCount}>{currentRating.toFixed(1)} ({currentVotes})</Text>}
+            </TouchableOpacity>
           </View>
+
+          {/* Tags colorés */}
           {tags.length > 0 && (
-            <Text style={st.tagText}>{lang === 'fr' ? tags[0].label_fr : tags[0].label_en}</Text>
+            <View style={st.tagsRow}>
+              {tags.map(tag => (
+                <View key={tag.tag_id} style={[st.tagPill, { backgroundColor: tagColor(tag.category_id) + '22', borderColor: tagColor(tag.category_id) }]}>
+                  <Text style={[st.tagText, { color: tagColor(tag.category_id) }]}>
+                    {lang === 'fr' ? tag.label_fr : tag.label_en}
+                  </Text>
+                </View>
+              ))}
+            </View>
           )}
         </View>
 
-        {/* Rating actuel + bouton voter */}
-        <View style={st.createdRow}>
-          <Text style={st.createdText}>{formatTimeAgo(point.created_at)}</Text>
+        {/* 3. Horaires */}
+        {point.schedule && (
+          <View style={st.scheduleBox}>
+            <Ionicons name="calendar-outline" size={18} color={Colors.primary} />
+            <Text style={st.scheduleText}>{point.schedule}</Text>
+          </View>
+        )}
+
+        {/* 4. RSVP Button */}
+        <View style={st.rsvpRow}>
           <TouchableOpacity
-            style={st.voteRow2}
-            onPress={openVoteModal}
-            testID="open-vote-modal-btn"
-            activeOpacity={0.7}
+            style={[st.rsvpBtn, isParticipant && st.rsvpBtnActive]}
+            onPress={toggleRSVP}
+            disabled={rsvpLoading}
+            testID="rsvp-button"
           >
-            <StarDisplay rating={currentRating} votes={currentVotes} />
-            <View style={st.voteChip}>
-              <Text style={st.voteChipText}>Voter</Text>
-            </View>
+            {rsvpLoading
+              ? <ActivityIndicator color={isParticipant ? Colors.primary : Colors.background} size="small" />
+              : <>
+                  <Ionicons name={isParticipant ? 'checkmark-circle' : 'add-circle-outline'}
+                    size={20} color={isParticipant ? Colors.primary : Colors.background} />
+                  <Text style={[st.rsvpText, isParticipant && st.rsvpTextActive]}>
+                    {isParticipant ? 'Je participe' : 'Rejoindre'}
+                  </Text>
+                </>}
           </TouchableOpacity>
+          {participantsCount > 0 && (
+            <Text style={st.rsvpCount} testID="participants-count">
+              {participantsCount} participant{participantsCount > 1 ? 's' : ''}
+            </Text>
+          )}
         </View>
 
-        {/* Send Message */}
-        <TouchableOpacity
-          style={st.messageBtn}
-          onPress={() => Alert.alert('Message', 'Fonctionnalité de chat bientôt disponible !')}
-          activeOpacity={0.8}
-        >
+        {/* 5. Message + Actions */}
+        <TouchableOpacity style={st.messageBtn} onPress={() => Alert.alert('Chat', 'Bientôt disponible !')}>
           <Text style={st.messageBtnText}>Envoyer un message</Text>
           <Ionicons name="send" size={20} color={Colors.background} />
         </TouchableOpacity>
 
-        {/* Actions */}
         <View style={st.actionsRow}>
-          <ActionButton icon="copy-outline" label="Similaires" onPress={openSimilar} />
-          <ActionButton icon="share-social-outline" label="Partager" onPress={async () => {
-            try { await Share.share({ message: `Découvrez "${point.title}" sur WINEK!` }); } catch {}
-          }} />
-          <ActionButton icon="bookmark-outline" label="Sauvegarder" onPress={() => {}} />
+          {[
+            { icon: 'copy-outline' as const, label: 'Similaires', onPress: openSimilar },
+            { icon: 'share-social-outline' as const, label: 'Partager', onPress: async () => { try { await Share.share({ message: `"${point.title}" sur WINEK !` }); } catch {} } },
+            { icon: 'bookmark-outline' as const, label: 'Sauvegarder', onPress: () => {} },
+          ].map(a => (
+            <TouchableOpacity key={a.label} style={st.actionBtn} onPress={a.onPress} activeOpacity={0.7}>
+              <Ionicons name={a.icon} size={24} color={Colors.foreground} />
+              <Text style={st.actionLabel}>{a.label}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
-        {/* Map */}
-        {lat && lng && (
+        {/* 6. Map */}
+        {lat != null && lng != null && (
           <View style={st.mapWrap}>
-            <MapViewComponent
-              centerLat={lat} centerLng={lng}
-              zoom={precisionRadius > 500 ? 14 : 16}
-              precisionRadius={precisionRadius}
-              selectedLat={lat} selectedLng={lng}
-            />
+            <MapViewComponent centerLat={lat} centerLng={lng}
+              zoom={getPrecisionRadius(point.precision) > 500 ? 14 : 16}
+              precisionRadius={getPrecisionRadius(point.precision)}
+              selectedLat={lat} selectedLng={lng} />
           </View>
         )}
 
-        {/* Description */}
+        {/* 7. Description */}
         {point.description && (
           <View style={st.section}>
             <Text style={st.sectionTitle}>Description</Text>
-            <Text style={st.descText} numberOfLines={showFullDesc ? undefined : 2}>
-              {point.description}
-            </Text>
-            {point.description.length > 100 && (
+            <Text style={st.descText} numberOfLines={showFullDesc ? undefined : 3}>{point.description}</Text>
+            {point.description.length > 150 && (
               <TouchableOpacity onPress={() => setShowFullDesc(!showFullDesc)}>
                 <Text style={st.showMore}>{showFullDesc ? 'Réduire' : 'Voir plus'}</Text>
               </TouchableOpacity>
@@ -459,39 +464,30 @@ export default function TagPointDetail() {
           </View>
         )}
 
-        {/* Votes & Comments */}
-        {/* Section Avis */}
-        {votes.length > 0 && (
+        {/* 8. Avis */}
+        {(currentVotes > 0) && (
           <View style={st.section}>
-            {/* En-tête avec note globale */}
             <View style={st.reviewsHeader}>
-              <Text style={st.sectionTitle}>Avis</Text>
-              <View style={st.reviewsSummary}>
-                <Text style={st.reviewsRating}>{currentRating.toFixed(1)}</Text>
+              <View style={st.reviewsBig}>
+                <Text style={st.reviewsNum}>{currentRating.toFixed(1)}</Text>
                 <View>
                   <View style={{ flexDirection: 'row', gap: 2 }}>
                     {[1,2,3,4,5].map(i => (
                       <Ionicons key={i} name={i <= Math.round(currentRating) ? 'star' : 'star-outline'}
-                        size={14} color={i <= Math.round(currentRating) ? Colors.star : Colors.muted} />
+                        size={16} color={i <= Math.round(currentRating) ? Colors.star : Colors.muted} />
                     ))}
                   </View>
-                  <Text style={st.reviewsCount}>{currentVotes} avis</Text>
+                  <Text style={st.reviewsCountTxt}>{currentVotes} avis</Text>
                 </View>
+              </View>
+              <View style={{ flex: 1, paddingLeft: Spacing.md }}>
+                <RatingBars dist={ratingDist} total={currentVotes} />
               </View>
             </View>
 
-            {/* 3 premiers avis */}
-            {votes.slice(0, 3).map((v) => (
-              <VoteCard key={v.vote_id} v={v} />
-            ))}
-
-            {/* Bouton "Voir tous" si > 3 */}
+            {votes.slice(0, 3).map(v => <VoteCard key={v.vote_id} v={v} />)}
             {votes.length > 3 && (
-              <TouchableOpacity
-                style={st.seeAllBtn}
-                onPress={() => setShowAllVotes(true)}
-                testID="see-all-votes-btn"
-              >
+              <TouchableOpacity style={st.seeAllBtn} onPress={() => setShowAllVotes(true)} testID="see-all-votes-btn">
                 <Text style={st.seeAllText}>Voir les {votes.length} avis</Text>
                 <Ionicons name="chevron-forward" size={16} color={Colors.primary} />
               </TouchableOpacity>
@@ -500,169 +496,134 @@ export default function TagPointDetail() {
         )}
       </ScrollView>
 
-      {/* Modal : Tous les avis */}
+      {/* FAB Voter */}
+      <TouchableOpacity style={st.fab} onPress={openVoteModal} testID="fab-vote">
+        <Ionicons name="star" size={22} color={Colors.background} />
+      </TouchableOpacity>
+
+      {/* ── Modals ── */}
+
+      {/* Tous les avis */}
       <Modal visible={showAllVotes} animationType="slide" transparent onRequestClose={() => setShowAllVotes(false)}>
-        <View style={st.modalOverlay}>
-          <TouchableOpacity style={st.modalBackdrop} activeOpacity={1} onPress={() => setShowAllVotes(false)} />
-          <View style={[st.modalSheet, { maxHeight: '90%' }]}>
-            <View style={st.modalHeader}>
+        <View style={ms.overlay}>
+          <TouchableOpacity style={ms.backdrop} activeOpacity={1} onPress={() => setShowAllVotes(false)} />
+          <View style={[ms.sheet, { maxHeight: '90%' }]}>
+            <View style={ms.header}>
               <View>
-                <Text style={st.modalTitle}>{votes.length} avis</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                  <View style={{ flexDirection: 'row', gap: 2 }}>
-                    {[1,2,3,4,5].map(i => (
-                      <Ionicons key={i} name={i <= Math.round(currentRating) ? 'star' : 'star-outline'}
-                        size={14} color={i <= Math.round(currentRating) ? Colors.star : Colors.muted} />
-                    ))}
-                  </View>
-                  <Text style={{ fontSize: 13, color: Colors.muted }}>{currentRating.toFixed(1)} / 5</Text>
-                </View>
+                <Text style={ms.title}>{votes.length} avis</Text>
+                <Text style={{ fontSize: 13, color: Colors.muted }}>{currentRating.toFixed(1)} / 5</Text>
               </View>
-              <TouchableOpacity onPress={() => setShowAllVotes(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <TouchableOpacity onPress={() => setShowAllVotes(false)}>
                 <Ionicons name="close" size={22} color={Colors.foreground} />
               </TouchableOpacity>
             </View>
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: Spacing.md, paddingBottom: 40 }}>
+            <ScrollView contentContainerStyle={{ padding: Spacing.md, paddingBottom: 40 }}>
               {votes.map(v => <VoteCard key={v.vote_id} v={v} />)}
             </ScrollView>
           </View>
         </View>
       </Modal>
 
-      {/* Similar TagPoints Bottom Sheet */}
+      {/* Similaires */}
       <Modal visible={showSimilar} animationType="slide" transparent onRequestClose={() => setShowSimilar(false)}>
-        <View style={st.modalOverlay}>
-          <TouchableOpacity style={st.modalBackdrop} activeOpacity={1} onPress={() => setShowSimilar(false)} />
-          <View style={[st.modalSheet, { maxHeight: '80%' }]}>
-            <View style={st.modalHeader}>
-              <Text style={st.modalTitle}>TagPoints similaires</Text>
-              <TouchableOpacity onPress={() => setShowSimilar(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+        <View style={ms.overlay}>
+          <TouchableOpacity style={ms.backdrop} activeOpacity={1} onPress={() => setShowSimilar(false)} />
+          <View style={[ms.sheet, { maxHeight: '80%' }]}>
+            <View style={ms.header}>
+              <Text style={ms.title}>TagPoints similaires</Text>
+              <TouchableOpacity onPress={() => setShowSimilar(false)}>
                 <Ionicons name="close" size={22} color={Colors.foreground} />
               </TouchableOpacity>
             </View>
-
-            {loadingSimilar ? (
-              <View style={{ alignItems: 'center', paddingVertical: Spacing.xl }}>
-                <ActivityIndicator color={Colors.primary} size="large" />
-              </View>
-            ) : similar.length === 0 ? (
-              <View style={{ alignItems: 'center', paddingVertical: Spacing.xl }}>
-                <Ionicons name="search-outline" size={40} color={Colors.muted} />
-                <Text style={{ color: Colors.muted, marginTop: 8 }}>Aucun résultat similaire</Text>
-              </View>
-            ) : (
-              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={st.similarGrid}>
-                {similar.reduce<any[][]>((rows, item, i) => {
-                  if (i % 2 === 0) rows.push([item]);
-                  else rows[rows.length - 1].push(item);
-                  return rows;
-                }, []).map((row, rowIdx) => (
-                  <View key={rowIdx} style={st.similarRow}>
-                    {row.map((item: any) => {
-                      const iLat = item.latitude ?? item.location?.coordinates?.[1];
-                      const iLng = item.longitude ?? item.location?.coordinates?.[0];
-                      const dist = item.dist_m != null
-                        ? item.dist_m < 1000 ? `${Math.round(item.dist_m)}m` : `${(item.dist_m / 1000).toFixed(1)}km`
-                        : '---';
-                      return (
-                        <TouchableOpacity
-                          key={item.point_id}
-                          style={st.similarCard}
-                          activeOpacity={0.8}
-                          onPress={() => { setShowSimilar(false); router.replace(`/tag-point/${item.point_id}` as any); }}
-                          testID={`similar-card-${item.point_id}`}
-                        >
-                          <View style={st.similarImg}>
-                            {item.image_url
-                              ? <Image source={{ uri: item.image_url }} style={{ width: '100%', height: '100%', borderRadius: Radius.md }} />
-                              : <View style={[{ width: '100%', height: '100%', backgroundColor: Colors.card, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' }]}>
-                                  <Ionicons name="image-outline" size={28} color={Colors.muted} />
-                                </View>
-                            }
-                          </View>
-                          <Text style={st.similarTitle} numberOfLines={2}>{item.title}</Text>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                            <Ionicons name="location-outline" size={12} color={Colors.primary} />
-                            <Text style={st.similarDist}>{dist}</Text>
-                          </View>
-                          {(item.rating || 0) > 0 && (
-                            <View style={{ flexDirection: 'row', gap: 2, marginTop: 2 }}>
-                              {[1,2,3,4,5].map(i => (
-                                <Ionicons key={i} name={i <= Math.round(item.rating) ? 'star' : 'star-outline'} size={11}
-                                  color={i <= Math.round(item.rating) ? Colors.star : Colors.muted} />
-                              ))}
-                            </View>
-                          )}
-                        </TouchableOpacity>
-                      );
-                    })}
-                    {row.length === 1 && <View style={st.similarCard} />}
+            {loadingSimilar
+              ? <View style={{ padding: Spacing.xl, alignItems: 'center' }}><ActivityIndicator color={Colors.primary} size="large" /></View>
+              : similar.length === 0
+                ? <View style={{ padding: Spacing.xl, alignItems: 'center' }}>
+                    <Ionicons name="search-outline" size={40} color={Colors.muted} />
+                    <Text style={{ color: Colors.muted, marginTop: 8 }}>Aucun résultat similaire</Text>
                   </View>
-                ))}
-                <View style={{ height: 20 }} />
-              </ScrollView>
-            )}
+                : (
+                  <ScrollView contentContainerStyle={{ padding: Spacing.md, gap: 12 }}>
+                    {similar.reduce<any[][]>((rows, item, i) => {
+                      if (i % 2 === 0) rows.push([item]); else rows[rows.length - 1].push(item); return rows;
+                    }, []).map((row, ri) => (
+                      <View key={ri} style={{ flexDirection: 'row', gap: 12 }}>
+                        {row.map((item: any) => (
+                          <TouchableOpacity key={item.point_id} style={ms.simCard}
+                            onPress={() => { setShowSimilar(false); router.replace(`/tag-point/${item.point_id}` as any); }}
+                            testID={`similar-card-${item.point_id}`}>
+                            <View style={ms.simImg}>
+                              {item.image_url
+                                ? <Image source={{ uri: item.image_url }} style={{ width: '100%', height: '100%', borderRadius: Radius.md }} />
+                                : <View style={{ flex: 1, backgroundColor: Colors.border, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' }}>
+                                    <Ionicons name="image-outline" size={24} color={Colors.muted} />
+                                  </View>}
+                            </View>
+                            <Text style={ms.simTitle} numberOfLines={2}>{item.title}</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 }}>
+                              <Ionicons name="location-outline" size={11} color={Colors.primary} />
+                              <Text style={ms.simDist}>
+                                {item.dist_m != null ? (item.dist_m < 1000 ? `${Math.round(item.dist_m)}m` : `${(item.dist_m/1000).toFixed(1)}km`) : '---'}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        ))}
+                        {row.length === 1 && <View style={{ flex: 1 }} />}
+                      </View>
+                    ))}
+                    <View style={{ height: 20 }} />
+                  </ScrollView>
+                )}
           </View>
         </View>
       </Modal>
 
       {/* Vote Modal */}
       <Modal visible={showVoteModal} animationType="slide" transparent onRequestClose={() => setShowVoteModal(false)}>
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-          <View style={st.modalOverlay}>
-            <TouchableOpacity style={st.modalBackdrop} activeOpacity={1} onPress={() => setShowVoteModal(false)} />
-            <View style={st.modalSheet}>
-              <View style={st.modalHeader}>
-                <Text style={st.modalTitle}>
-                  {myVote ? 'Modifier votre avis' : 'Votre avis'}
-                </Text>
-                <TouchableOpacity onPress={() => setShowVoteModal(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <View style={ms.overlay}>
+            <TouchableOpacity style={ms.backdrop} activeOpacity={1} onPress={() => setShowVoteModal(false)} />
+            <View style={ms.sheet}>
+              <View style={ms.header}>
+                <Text style={ms.title}>{myVote ? 'Modifier votre avis' : 'Votre avis'}</Text>
+                <TouchableOpacity onPress={() => setShowVoteModal(false)}>
                   <Ionicons name="close" size={22} color={Colors.foreground} />
                 </TouchableOpacity>
               </View>
-
-              {voteSuccess ? (
-                <View style={{ alignItems: 'center', paddingVertical: Spacing.xl }}>
-                  <Ionicons name="checkmark-circle" size={48} color={Colors.primary} />
-                  <Text style={{ fontSize: 16, fontWeight: '700', color: Colors.foreground, marginTop: Spacing.md }}>Vote enregistré !</Text>
-                </View>
-              ) : (
-                <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-                  <View style={st.modalStarsRow}>
-                    <InteractiveStars value={pendingStar} onChange={setPendingStar} size={36} />
+              {voteSuccess
+                ? <View style={{ alignItems: 'center', paddingVertical: Spacing.xl }}>
+                    <Ionicons name="checkmark-circle" size={56} color={Colors.primary} />
+                    <Text style={{ fontSize: 16, fontWeight: '700', color: Colors.foreground, marginTop: Spacing.md }}>Vote enregistré !</Text>
                   </View>
-                  {pendingStar > 0 && (
-                    <Text style={st.modalStarLabel}>
-                      {['', 'Mauvais', 'Moyen', 'Bien', 'Très bien', 'Excellent'][pendingStar]}
-                    </Text>
-                  )}
-                  <TextInput
-                    style={st.modalCommentInput}
-                    placeholder="Commentaire (optionnel)…"
-                    placeholderTextColor={Colors.muted}
-                    value={comment}
-                    onChangeText={setComment}
-                    multiline
-                    numberOfLines={3}
-                    textAlignVertical="top"
-                    testID="vote-comment-input"
-                  />
-                  <TouchableOpacity
-                    style={[st.modalSubmitBtn, (submitting || pendingStar === 0) && { opacity: 0.4 }]}
-                    onPress={handleVoteSubmit}
-                    disabled={submitting || pendingStar === 0}
-                    testID="vote-submit-btn"
-                  >
-                    {submitting
-                      ? <ActivityIndicator color="#fff" size="small" />
-                      : <Text style={st.modalSubmitText}>Envoyer</Text>}
-                  </TouchableOpacity>
-                  <View style={{ height: 20 }} />
-                </ScrollView>
-              )}
+                : (
+                  <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                    <View style={{ alignItems: 'center', marginBottom: Spacing.sm }}>
+                      <InteractiveStars value={pendingStar} onChange={setPendingStar} size={38} />
+                    </View>
+                    {pendingStar > 0 && (
+                      <Text style={{ textAlign: 'center', fontSize: 14, color: Colors.primary, fontWeight: '600', marginBottom: Spacing.md }}>
+                        {['','Mauvais','Moyen','Bien','Très bien','Excellent'][pendingStar]}
+                      </Text>
+                    )}
+                    <TextInput
+                      style={ms.input}
+                      placeholder="Commentaire (optionnel)…"
+                      placeholderTextColor={Colors.muted}
+                      value={comment} onChangeText={setComment}
+                      multiline numberOfLines={3} textAlignVertical="top"
+                      testID="vote-comment-input"
+                    />
+                    <TouchableOpacity
+                      style={[ms.submitBtn, (submitting || pendingStar === 0) && { opacity: 0.4 }]}
+                      onPress={handleVoteSubmit} disabled={submitting || pendingStar === 0}
+                      testID="vote-submit-btn">
+                      {submitting
+                        ? <ActivityIndicator color="#fff" size="small" />
+                        : <Text style={ms.submitText}>Envoyer</Text>}
+                    </TouchableOpacity>
+                    <View style={{ height: 20 }} />
+                  </ScrollView>
+                )}
             </View>
           </View>
         </KeyboardAvoidingView>
@@ -671,73 +632,75 @@ export default function TagPointDetail() {
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const st = StyleSheet.create({
-  fullScreen: { flex: 1, backgroundColor: Colors.header },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  screen: { flex: 1, backgroundColor: Colors.header },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm },
   headerBtn: { padding: 4 },
-  headerTitle: { fontSize: 18, fontWeight: '600', color: Colors.primary },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: Colors.primary },
   scroll: { flex: 1, backgroundColor: Colors.background },
 
-  imgBox: { height: 220, borderRadius: Radius.lg, overflow: 'hidden' },
-  imgPlaceholder: { width: '100%', height: '100%', backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center' },
-  ownerAvatar: { position: 'absolute', top: 10, right: 10, width: 50, height: 50, borderRadius: 25, borderWidth: 2, borderColor: Colors.foreground, overflow: 'hidden' },
-  avatarFallback: { width: '100%', height: '100%', backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
+  ownerBadge: { position: 'absolute', bottom: -16, left: 12, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.card, borderRadius: Radius.full, paddingRight: 12, paddingVertical: 4, paddingLeft: 4, borderWidth: 1, borderColor: Colors.border },
+  ownerAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.primary, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  ownerInitial: { fontSize: 15, fontWeight: '700', color: Colors.background },
+  ownerName: { fontSize: 13, fontWeight: '600', color: Colors.foreground },
+  ownerRole: { fontSize: 11, color: Colors.primary },
 
-  title: { fontSize: 22, fontWeight: '700', color: Colors.foreground, paddingHorizontal: Spacing.md, marginBottom: Spacing.sm },
+  titleSection: { paddingHorizontal: Spacing.md, paddingTop: 28, paddingBottom: Spacing.md },
+  title: { fontSize: 22, fontWeight: '800', color: Colors.foreground, marginBottom: Spacing.sm },
+  metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.sm },
+  distText: { fontSize: 15, fontWeight: '700', color: Colors.primary },
+  ratingTap: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  ratingCount: { fontSize: 12, color: Colors.muted, marginLeft: 4 },
+  tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+  tagPill: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: Radius.full, borderWidth: 1.5 },
+  tagText: { fontSize: 13, fontWeight: '600' },
 
-  infoRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingHorizontal: Spacing.md, marginBottom: Spacing.sm },
-  distanceText: { fontSize: 15, fontWeight: '700', color: Colors.primary },
-  tagText: { fontSize: 15, fontWeight: '600', color: Colors.primary },
+  scheduleBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginHorizontal: Spacing.md, marginBottom: Spacing.md, backgroundColor: Colors.card, padding: Spacing.md, borderRadius: Radius.lg, borderLeftWidth: 3, borderLeftColor: Colors.primary },
+  scheduleText: { flex: 1, fontSize: 14, color: Colors.foreground, lineHeight: 20 },
 
-  createdRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, marginBottom: Spacing.md },
-  createdText: { fontSize: 13, color: Colors.muted },
-
-  voteRow2: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  voteChip: { backgroundColor: Colors.primary, borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 4 },
-  voteChipText: { fontSize: 12, fontWeight: '700', color: '#fff' },
-
-  modalOverlay: { flex: 1, justifyContent: 'flex-end' },
-  modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)' },
-  modalSheet: { backgroundColor: Colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: Spacing.lg, paddingBottom: 40 },
-  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.lg },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: Colors.foreground },
-  modalStarsRow: { alignItems: 'center', marginBottom: Spacing.sm },
-  modalStarLabel: { textAlign: 'center', fontSize: 14, color: Colors.primary, fontWeight: '600', marginBottom: Spacing.md },
-  modalCommentInput: { backgroundColor: Colors.card, borderRadius: Radius.md, padding: Spacing.md, color: Colors.foreground, fontSize: 14, minHeight: 80, textAlignVertical: 'top', marginBottom: Spacing.md, borderWidth: 1, borderColor: Colors.border },
-  modalSubmitBtn: { backgroundColor: Colors.primary, borderRadius: Radius.full, paddingVertical: Spacing.md, alignItems: 'center' },
-  modalSubmitText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+  rsvpRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingHorizontal: Spacing.md, marginBottom: Spacing.md },
+  rsvpBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.primary, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm + 2, borderRadius: Radius.full },
+  rsvpBtnActive: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: Colors.primary },
+  rsvpText: { fontSize: 15, fontWeight: '700', color: Colors.background },
+  rsvpTextActive: { color: Colors.primary },
+  rsvpCount: { fontSize: 14, color: Colors.muted },
 
   messageBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.header, marginHorizontal: Spacing.md, paddingVertical: Spacing.md, borderRadius: Radius.full, gap: Spacing.sm, marginBottom: Spacing.md },
   messageBtnText: { fontSize: 16, fontWeight: '600', color: Colors.foreground },
 
   actionsRow: { flexDirection: 'row', paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border, marginBottom: Spacing.md },
+  actionBtn: { flex: 1, alignItems: 'center', gap: 4 },
+  actionLabel: { fontSize: 12, color: Colors.foreground },
 
   mapWrap: { height: 180, marginHorizontal: Spacing.md, borderRadius: Radius.lg, overflow: 'hidden', marginBottom: Spacing.md },
 
   section: { paddingHorizontal: Spacing.md, marginBottom: Spacing.lg },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: Colors.foreground, marginBottom: Spacing.sm },
+  sectionTitle: { fontSize: 18, fontWeight: '800', color: Colors.foreground, marginBottom: Spacing.md },
   descText: { fontSize: 15, color: Colors.muted, lineHeight: 22 },
-  showMore: { fontSize: 15, fontWeight: '600', color: Colors.primary, textAlign: 'center', marginTop: Spacing.sm },
+  showMore: { fontSize: 14, fontWeight: '600', color: Colors.primary, textAlign: 'center', marginTop: Spacing.sm },
 
-  voteRow: { flexDirection: 'row', gap: Spacing.md, paddingVertical: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  voteAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  voteAvatarText: { fontSize: 16, fontWeight: '700', color: Colors.background },
-  voteName: { fontSize: 14, fontWeight: '600', color: Colors.foreground },
-  voteComment: { fontSize: 13, color: Colors.muted, marginTop: 2, lineHeight: 18 },
-  voteDate: { fontSize: 12, color: Colors.muted, marginTop: 4 },
-
-  reviewsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.md },
-  reviewsSummary: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  reviewsRating: { fontSize: 36, fontWeight: '800', color: Colors.foreground },
-  reviewsCount: { fontSize: 12, color: Colors.muted, marginTop: 2 },
-  seeAllBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: Spacing.sm, marginTop: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.border },
+  reviewsHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: Spacing.md },
+  reviewsBig: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  reviewsNum: { fontSize: 44, fontWeight: '800', color: Colors.foreground, lineHeight: 50 },
+  reviewsCountTxt: { fontSize: 12, color: Colors.muted, marginTop: 2 },
+  seeAllBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: Spacing.sm, marginTop: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.border },
   seeAllText: { fontSize: 14, fontWeight: '600', color: Colors.primary },
 
-  similarGrid: { padding: Spacing.md, gap: 12 },
-  similarRow: { flexDirection: 'row', gap: 12 },
-  similarCard: { flex: 1, backgroundColor: Colors.card, borderRadius: Radius.lg, overflow: 'hidden', padding: Spacing.sm },
-  similarImg: { width: '100%', height: 100, marginBottom: Spacing.sm, overflow: 'hidden', borderRadius: Radius.md },
-  similarTitle: { fontSize: 13, fontWeight: '600', color: Colors.foreground, lineHeight: 18 },
-  similarDist: { fontSize: 12, color: Colors.primary, fontWeight: '600' },
+  fab: { position: 'absolute', bottom: 32, right: 20, width: 54, height: 54, borderRadius: 27, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 8 },
+});
+
+const ms = StyleSheet.create({
+  overlay: { flex: 1, justifyContent: 'flex-end' },
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.55)' },
+  sheet: { backgroundColor: Colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: Spacing.lg, paddingBottom: 40 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.lg },
+  title: { fontSize: 18, fontWeight: '800', color: Colors.foreground },
+  input: { backgroundColor: Colors.card, borderRadius: Radius.md, padding: Spacing.md, color: Colors.foreground, fontSize: 14, minHeight: 80, textAlignVertical: 'top', marginBottom: Spacing.md, borderWidth: 1, borderColor: Colors.border },
+  submitBtn: { backgroundColor: Colors.primary, borderRadius: Radius.full, paddingVertical: Spacing.md, alignItems: 'center' },
+  submitText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+  simCard: { flex: 1, backgroundColor: Colors.card, borderRadius: Radius.lg, padding: Spacing.sm },
+  simImg: { height: 100, borderRadius: Radius.md, marginBottom: Spacing.sm, overflow: 'hidden' },
+  simTitle: { fontSize: 13, fontWeight: '600', color: Colors.foreground, lineHeight: 18 },
+  simDist: { fontSize: 12, color: Colors.primary, fontWeight: '600' },
 });
