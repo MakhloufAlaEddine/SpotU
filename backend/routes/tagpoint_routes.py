@@ -15,7 +15,7 @@ DEFAULT_RADIUS = 5000  # 5km
 TP_FIELDS = """
     tp.point_id, tp.user_id, tp.title, tp.description,
     tp.precision, tp.tag_ids, tp.domain_id, tp.active, tp.expires_at, tp.created_at, tp.updated_at,
-    tp.image_url,
+    tp.image_url, tp.images, tp.schedule,
     ST_Y(tp.location::geometry) as latitude,
     ST_X(tp.location::geometry) as longitude,
     u.name as owner_name, u.picture as owner_picture, u.role as owner_role
