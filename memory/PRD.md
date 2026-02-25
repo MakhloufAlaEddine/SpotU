@@ -113,6 +113,13 @@ The app is bilingual (French / English) with configurable language per user.
   - callback.tsx simplifié — le Guard gère le redirect succès OAuth
   - 7/7 scénarios de navigation validés par l'agent de test
 
+- [x] **FEATURE + BUG FIX: Écran set-location amélioré** (2026-02-25)
+  - Nouvelle fonctionnalité: champ de recherche d'adresse avec Nominatim (OpenStreetMap) — debounce 500ms, dropdown résultats
+  - Correction bug: tap sur la carte déclenche maintenant le reverse geocoding Nominatim pour mettre à jour l'adresse affichée
+  - Formatage intelligent des adresses (rue, code postal, ville) pour éviter les noms trop verbeux
+  - Ajout data-testid sur tous les éléments interactifs
+  - 7/7 tests frontend passés
+
 ### P1 (High Priority - Remaining)
 - [x] TagPoint detail screen (/tag-point/[id]) - UI redesign + header bug fix (2026-02-24)
 - [ ] Coach service creation screen (/create-service)
