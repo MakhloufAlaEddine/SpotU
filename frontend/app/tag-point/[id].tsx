@@ -197,6 +197,17 @@ export default function TagPointDetail() {
     }
   };
 
+  const openSimilar = async () => {
+    setShowSimilar(true);
+    if (similar.length > 0) return;
+    setLoadingSimilar(true);
+    try {
+      const data = await api.get(`/tag-points/${id}/similar`);
+      setSimilar(data);
+    } catch {}
+    setLoadingSimilar(false);
+  };
+
   const loadMyVote = async () => {    try {
       const data = await api.get(`/tag-points/${id}/my-vote`);
       if (data.exists) setMyVote({ rating: data.rating, comment: data.comment });
