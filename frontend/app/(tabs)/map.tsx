@@ -336,6 +336,8 @@ export default function HomeScreen() {
                 <ListCard
                   key={pt.point_id + '_r'}
                   point={pt}
+                  userLat={location.lat}
+                  userLng={location.lng}
                   onPress={() => router.push(`/tag-point/${pt.point_id}` as any)}
                 />
               ))}
