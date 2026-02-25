@@ -106,9 +106,10 @@ function HeroCard({ point, onPress }: { point: any; onPress: () => void }) {
 }
 
 // ── Nearby Big Card ──────────────────────────────────────────
-function NearbyCard({ point, onPress }: { point: any; onPress: () => void }) {
+function NearbyCard({ point, userLat, userLng, onPress }: { point: any; userLat: number; userLng: number; onPress: () => void }) {
   const bg = DOMAIN_COLORS[point.domain_id] || '#1A3A3A';
   const icon = DOMAIN_ICONS[point.domain_id] || 'location-outline';
+  const dist = distPipe(userLat, userLng, point);
   return (
     <TouchableOpacity
       style={[styles.nearbyCard, { width: NEARBY_CARD_W }]}
@@ -144,9 +145,7 @@ function NearbyCard({ point, onPress }: { point: any; onPress: () => void }) {
           )}
           <Text style={styles.ownerName} numberOfLines={1}>{point.owner?.name || '—'}</Text>
         </View>
-        {point.distance != null && (
-          <Text style={styles.nearbyDist}>{formatDist(point.distance)}</Text>
-        )}
+        {dist ? <Text style={styles.nearbyDist}>{dist}</Text> : null}
       </View>
     </TouchableOpacity>
   );
