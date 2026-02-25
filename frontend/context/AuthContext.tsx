@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { Linking } from 'react-native';
 import { storage } from '../lib/storage';
 import { api } from '../lib/api';
 import { setLang, Lang } from '../lib/i18n';
