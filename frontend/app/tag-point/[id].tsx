@@ -192,10 +192,23 @@ export default function TagPointDetail() {
     } catch {}
   };
 
-  const handleVoteSuccess = (avgRating: number, voteCount: number) => {
-    setCurrentRating(avgRating);
-    setCurrentVotes(voteCount);
-    loadVotes();
+  const handleVoteSubmit = async () => {
+    if (!user) { Alert.alert('Connexion requise', 'Connectez-vous pour voter.'); return; }
+    if (pendingStar === 0) return;
+    setSubmitting(true);
+    try {
+      const res = await api.post(`/tag-points/${id}/vote`, { rating: pendingStar, comment: comment.trim() || null });
+      setCurrentRating(res.avg_rating);
+      setCurrentVotes(res.vote_count);
+      setVoteSuccess(true);
+      setComment('');
+      setTimeout(() => setVoteSuccess(false), 3000);
+      loadVotes();
+    } catch (e: any) {
+      Alert.alert('Erreur', e.message || 'Impossible d\'envoyer le vote');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const formatTimeAgo = (dateString: string) => {
