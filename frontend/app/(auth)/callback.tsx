@@ -28,6 +28,20 @@ export default function AuthCallback() {
       } else {
         try { sessionId = sessionStorage.getItem('winek_pending_session'); } catch {}
       }
+
+      // Détection contexte natif (?native=1)
+      // Quand la page est chargée depuis Expo Go via SFSafariViewController,
+      // on ne traite PAS la session ici (web). À la place on redirige vers exp://
+      // ce qui ferme automatiquement SFSafariViewController et ouvre Expo Go.
+      const isNativeContext = search.includes('native=1');
+      if (isNativeContext && sessionId) {
+        try { sessionStorage.removeItem('winek_pending_session'); } catch {}
+        const expHost = 'geo-coaching-app.preview.emergentagent.com';
+        const expUrl = `exp://${expHost}/--/auth-callback?session_id=${encodeURIComponent(sessionId)}`;
+        // Redirection vers exp:// → SFSafariViewController se ferme, Expo Go reçoit le deep link
+        window.location.href = expUrl;
+        return;
+      }
     }
 
     if (sessionId) {
