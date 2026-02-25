@@ -1,0 +1,53 @@
+{
+  "summary": "Full navigation guard testing completed for WINEK app. All 7 requested test scenarios PASS after applying a critical fix to NavigationGuard in _layout.tsx. The fix adds useRootNavigationState check to ensure navigation is ready before calling router.replace(), which was necessary for full-page-load (deep link) scenarios.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Register page",
+        "issues": ["Language selector toggle buttons are rendered as hidden inputs at indices [0] and [1], causing playwright input selectors to pick them up as the first inputs. Use type-specific selectors (input[type='text'], input[type='email']) for reliable testing."]
+      }
+    ]
+  },
+  "test_results": {
+    "1_login_to_map": "PASS: Login with email/password → URL changes from /login to /map",
+    "2_url_changes": "PASS: URL correctly changes from /login to /map after successful login",
+    "3_map_tagpoints": "PASS: Map page shows hero carousel (Streetball 3x3), 'Près de vous' section, 'Les plus récents' section with tagPoints",
+    "4_unauth_map_redirect": "PASS (after fix): Unauthenticated /map access → redirected to /login in <8s",
+    "5_logout_redirect": "PASS: Logout from profile → redirected to /login",
+    "6_register_to_map": "PASS: Register new account → redirected to /map (also confirmed: authenticated user accessing /register → redirected to /map)",
+    "7_tab_navigation": "PASS: Chat tab (Messages), Bookings tab (Mes réservations), Profile tab (Thomas Dupont) - all navigate correctly"
+  },
+  "fix_applied": {
+    "file": "/app/frontend/app/_layout.tsx",
+    "change": "Added useRootNavigationState import from expo-router. Added guard check (!navigationState?.key) before loading/user checks in NavigationGuard useEffect. Added navigationState?.key to useEffect dependency array.",
+    "reason": "In expo-router v6, router.replace() called during initial page load (before navigation stack is ready) is silently dropped. useRootNavigationState provides the key that signals when navigation is ready. This fixes full-page-load deep link scenarios (e.g., direct browser navigation to /map or /login).",
+    "root_cause": "expo-router v6 requires navigation state to be initialized before router.replace() works. The original NavigationGuard fired useEffect immediately when loading became false, but at that point the navigation stack might not yet be ready. useRootNavigationState().key is undefined until the stack is initialized, providing the correct gate."
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "NavigationGuard fix is correct for expo-router v6. The useRootNavigationState check is the idiomatic approach for expo-router v6 auth guards.",
+    "CDN caching (Cloudflare) in the preview environment delayed code changes from being testable - required expo supervisor restart to force cache invalidation.",
+    "Register form has 5 inputs including hidden language toggle buttons; playwright tests should use input[type='text']/input[type='email'] selectors not positional index.",
+    "Map page loads tagPoints from public API without auth (good for performance) - the NavigationGuard handles the redirect properly after useRootNavigationState fix."
+  ],
+  "updated_files": ["/app/frontend/app/_layout.tsx"],
+  "success_rate": {"backend": "N/A (frontend only)", "frontend": "100% (7/7 scenarios pass)"},
+  "seed_data_creation": "Registered test user via register form during testing (test_<timestamp>@winek.test)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All 7 NavigationGuard scenarios tested and passing. Key fix: useRootNavigationState in _layout.tsx NavigationGuard. App is a PWA Expo Web with Cloudflare CDN - after code changes, may need supervisor restart (sudo supervisorctl restart expo) to bust CDN cache. Credentials: user@winek.app / WinekUser2024!. Map page shows hero carousel + nearby/recent tagPoints. Profile shows 'Thomas Dupont'. All tabs (chat, bookings, profile) work with authenticated user.",
+  "rca_of_issue": {
+    "bug": "NavigationGuard (useEffect with router.replace) not working for full page loads / deep links",
+    "root_cause": "In expo-router v6, when the app is loaded via direct URL navigation (full page reload), router.replace() calls made inside useEffect may fire BEFORE the navigation stack (react-navigation) is fully initialized. These calls are silently dropped.",
+    "reproduction": "1. Login to get token. 2. Use browser.goto('/login') for full page reload. 3. checkAuth() runs, finds token, sets user. 4. NavigationGuard fires router.replace('/(tabs)/map'). 5. URL stays at /login (replace is dropped).",
+    "fix": "Add const navigationState = useRootNavigationState() and check if (!navigationState?.key) return before executing redirects. This ensures router.replace() is only called after the navigation stack is ready.",
+    "reference": "expo-router v6 docs: 'Use useRootNavigationState to defer navigation until the navigator is mounted'"
+  }
+}
