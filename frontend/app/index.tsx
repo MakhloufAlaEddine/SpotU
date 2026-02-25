@@ -10,9 +10,8 @@ export default function Index() {
 
   useEffect(() => {
     if (!loading) {
-      // Si un session_id OAuth est présent dans l'URL, naviguer vers la page de callback
+      // Si un session_id OAuth est présent, laisser AuthCallback gérer la navigation
       if (typeof window !== 'undefined' && window.location.hash?.includes('session_id=')) {
-        router.replace('/(auth)/callback' as any);
         return;
       }
       if (user) {
