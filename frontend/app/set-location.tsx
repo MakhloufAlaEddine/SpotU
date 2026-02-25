@@ -334,6 +334,50 @@ const styles = StyleSheet.create({
   gpsTitle: { fontSize: 15, fontWeight: '600', color: Colors.foreground },
   gpsSub: { fontSize: 13, color: Colors.muted, marginTop: 2 },
 
+  searchContainer: {
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.md,
+    zIndex: 10,
+  },
+  searchInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.card,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: Colors.foreground,
+    paddingVertical: 4,
+  },
+  resultsDropdown: {
+    backgroundColor: Colors.card,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginTop: 4,
+    overflow: 'hidden',
+  },
+  resultItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  resultText: {
+    flex: 1,
+    fontSize: 13,
+    color: Colors.foreground,
+    lineHeight: 18,
+  },
+
   mapContainer: {
     height: 240,
     marginHorizontal: Spacing.md,
