@@ -336,12 +336,21 @@ export default function TagPointDetail() {
             <Ionicons name="chevron-back" size={24} color={Colors.primary} />
           </TouchableOpacity>
           <Text style={st.headerTitle}>Détails</Text>
-          <View style={{ flexDirection: 'row', gap: Spacing.md }}>
-            <TouchableOpacity onPress={() => router.push('/set-location' as any)} style={st.headerBtn}>
-              <Ionicons name="location" size={22} color={Colors.primary} />
+          <View style={{ flexDirection: 'row', gap: 4 }}>
+            <TouchableOpacity style={st.headerAction} onPress={openSimilar} testID="similar-btn">
+              <Ionicons name="layers-outline" size={20} color={Colors.foreground} />
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => router.push('/(tabs)/search' as any)} style={st.headerBtn}>
-              <Ionicons name="search" size={22} color={Colors.primary} />
+            <TouchableOpacity
+              style={st.headerAction}
+              onPress={async () => { try { await Share.share({ message: `"${point?.title}" sur WINEK !` }); } catch {} }}
+              testID="share-btn"
+            >
+              <Ionicons name="share-social-outline" size={20} color={Colors.foreground} />
+            </TouchableOpacity>
+            <TouchableOpacity style={[st.headerAction, isSaved && st.headerActionSaved]} onPress={toggleSave} disabled={saveLoading} testID="save-btn">
+              {saveLoading
+                ? <ActivityIndicator size="small" color={isSaved ? Colors.primary : Colors.foreground} />
+                : <Ionicons name={isSaved ? 'bookmark' : 'bookmark-outline'} size={20} color={isSaved ? Colors.primary : Colors.foreground} />}
             </TouchableOpacity>
           </View>
         </View>
