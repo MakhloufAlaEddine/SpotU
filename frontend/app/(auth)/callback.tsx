@@ -6,8 +6,17 @@ import { Colors, Spacing } from '../../constants/Colors';
 
 export default function AuthCallback() {
   const router = useRouter();
-  const { processGoogleCallback } = useAuth();
+  const { processGoogleCallback, user } = useAuth();
   const processed = useRef(false);
+  const callbackStarted = useRef(false);
+
+  // Navigation uniquement APRÈS que le user soit confirmé dans le contexte
+  // Ceci garantit que la race condition est évitée
+  useEffect(() => {
+    if (user && callbackStarted.current) {
+      router.replace('/(tabs)/map');
+    }
+  }, [user]);
 
   useEffect(() => {
     if (processed.current) return;
@@ -17,10 +26,8 @@ export default function AuthCallback() {
     let sessionId: string | null = null;
 
     if (typeof window !== 'undefined') {
-      // 1. Chercher dans le hash (#session_id=...)
       const hash = window.location.hash || '';
       const hashMatch = hash.match(/session_id=([^&]+)/);
-      // 2. Chercher dans les query params (?session_id=...)
       const search = window.location.search || '';
       const queryMatch = search.match(/[?&]session_id=([^&]+)/);
 
@@ -29,7 +36,6 @@ export default function AuthCallback() {
         try { sessionId = decodeURIComponent(raw); } catch { sessionId = raw; }
         try { sessionStorage.setItem('winek_pending_session', sessionId); } catch {}
       } else {
-        // Fallback sessionStorage si l'URL a déjà changé
         try { sessionId = sessionStorage.getItem('winek_pending_session'); } catch {}
       }
     }
@@ -37,15 +43,16 @@ export default function AuthCallback() {
     console.log('[AuthCallback] sessionId found:', !!sessionId);
 
     if (sessionId) {
+      callbackStarted.current = true;
       processGoogleCallback(sessionId)
         .then(() => {
           try { sessionStorage.removeItem('winek_pending_session'); } catch {}
-          router.replace('/(tabs)/map');
+          // Navigation gérée par le useEffect sur user (voir ci-dessus)
         })
         .catch((err: any) => {
           console.log('[AuthCallback] error:', err?.message);
           try { sessionStorage.removeItem('winek_pending_session'); } catch {}
-          // Rediriger vers login avec indicateur d'erreur
+          callbackStarted.current = false;
           router.replace('/(auth)/login');
         });
     } else {
