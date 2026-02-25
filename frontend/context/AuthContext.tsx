@@ -136,12 +136,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const refreshUser = async () => {
+  const refreshUser = useCallback(async () => {
     try {
       const me = await api.get<User>('/auth/me');
       applyUser(me);
     } catch {}
-  };
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, token, loading, login, register, loginWithGoogle, processGoogleCallback, logout, updateUser, refreshUser }}>
