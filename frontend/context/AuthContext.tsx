@@ -63,9 +63,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // CRITICAL: If returning from OAuth callback, skip the /me check.
-    // processGoogleCallback will call setLoading(false) when done.
-    if (typeof window !== 'undefined' && window.location.hash?.includes('session_id=')) {
-      return; // Keep loading = true until processGoogleCallback finishes
+    // AuthCallback will exchange the session_id and establish the session first.
+    // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
+    if (typeof window !== 'undefined') {
+      const inHash = window.location.hash?.includes('session_id=');
+      const inSearch = window.location.search?.includes('session_id=');
+      if (inHash || inSearch) {
+        setLoading(false);
+        return;
+      }
     }
     checkAuth();
   }, [checkAuth]);
