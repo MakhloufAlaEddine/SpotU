@@ -7,10 +7,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
-import * as Location from 'expo-location';
 import { api } from '../../lib/api';
 import { useLang } from '../../context/LanguageContext';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
+import { useGlobalLocation } from '../../hooks/useGlobalLocation';
 
 // Star Rating Component
 function StarRating({ rating = 0, maxStars = 5 }: { rating?: number; maxStars?: number }) {
