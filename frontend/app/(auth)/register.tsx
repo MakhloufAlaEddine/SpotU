@@ -13,12 +13,21 @@ import { Colors, Spacing, Radius } from '../../constants/Colors';
 
 export default function RegisterScreen() {
   const router = useRouter();
-  const { register, loginWithGoogle } = useAuth();
+  const { register, loginWithGoogle, user } = useAuth();
   const { t, setLanguage, lang } = useLang();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const pendingNav = useRef(false);
+
+  // Navigation vers la carte UNIQUEMENT après que user soit confirmé dans le contexte
+  useEffect(() => {
+    if (user && pendingNav.current) {
+      pendingNav.current = false;
+      router.replace('/(tabs)/map');
+    }
+  }, [user]);
 
   const handleRegister = async () => {
     if (!name.trim() || !email.trim() || !password) {
@@ -31,9 +40,11 @@ export default function RegisterScreen() {
     }
     setLoading(true);
     try {
+      pendingNav.current = true;
       await register(email.trim(), password, name.trim(), lang);
-      router.replace('/(tabs)/map');
+      // Navigation gérée par le useEffect sur user ci-dessus
     } catch (err: any) {
+      pendingNav.current = false;
       Alert.alert(t('error'), err.message || 'Erreur lors de l\'inscription');
     } finally {
       setLoading(false);
