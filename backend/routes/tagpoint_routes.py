@@ -326,6 +326,33 @@ async def get_similar_tag_points(point_id: str):
     return result
 
 
+@router.post("/tag-points/{point_id}/join")
+async def join_tag_point(point_id: str, request: Request):
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    pid = new_id("part")
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO tag_point_participants (participant_id, point_id, user_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING",
+            pid, point_id, user["user_id"]
+        )
+        count = await conn.fetchval("SELECT COUNT(*) FROM tag_point_participants WHERE point_id=$1", point_id)
+    return {"success": True, "participants_count": count, "is_participant": True}
+
+
+@router.delete("/tag-points/{point_id}/leave")
+async def leave_tag_point(point_id: str, request: Request):
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "DELETE FROM tag_point_participants WHERE point_id=$1 AND user_id=$2",
+            point_id, user["user_id"]
+        )
+        count = await conn.fetchval("SELECT COUNT(*) FROM tag_point_participants WHERE point_id=$1", point_id)
+    return {"success": True, "participants_count": count, "is_participant": False}
+
+
 @router.get("/tag-points/{point_id}/my-vote")
 async def get_my_vote(point_id: str, request: Request):
     pool = get_pool()
