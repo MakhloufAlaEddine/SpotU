@@ -1,0 +1,38 @@
+{
+  "summary": "Frontend testing of WINEK P0 bug fix: LocationContext + Haversine distance pipe. All 4 critical features verified and PASSING. Distances on HomePage and Search page correctly update when user changes location via Set Global Location screen.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "SearchScreen (search.tsx)",
+        "issue": "Location row in search page shows hardcoded text 'Gare Montparnas......75014 Pa...' (line 226) instead of dynamically reading from LocationContext. Distances are computed correctly, but the displayed address string is static.",
+        "selector": "text=Gare Montparnas......75014 Pa...",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "search.tsx line 226: replace hardcoded 'Gare Montparnas......75014 Pa...' with dynamic location.address from useLocation() context so the displayed location label reflects the user's actual location"
+  ],
+  "critical_code_review_comments": [
+    "search.tsx locationRow (line 226): hardcoded address string never updates — should use `location.address` from useLocation() context",
+    "set-location.tsx: router.back() throws 'GO_BACK was not handled' console warning when user navigates directly to /set-location URL (e.g., deep-link or manual URL entry). In normal in-app flow (via icon on map/search header) it works correctly. The setLocation() context call still executes, so the location IS saved. Only the back-navigation fails on direct URL access. This is dev-only warning but could block users who reload the page on /set-location. Mitigation: add router.canGoBack() check and fallback to router.replace('/(tabs)/map')"
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A (frontend-only test)",
+    "frontend": "95% (all critical flows pass; 1 minor hardcoded string UI issue)"
+  },
+  "test_credentials": "email: user@winek.app / password: WinekUser2024!",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "P0 distance bug is FIXED. Full test flow verified: login -> map (shows distances 1.5-9.9km from Paris) -> click location icon -> Set Global Location -> select Home (Montesson 48.9041,2.1499) -> Choisir -> back to map (distances updated to 7.8-18.4km). Search page also updates distances reactively. LocationContext, Haversine pipe, and setLocation() all working correctly. Minor: hardcoded location address string in search.tsx and potential router.back() issue on direct /set-location URL access.",
+  "rca_of_issue": "Original P0 bug: distances were read from AsyncStorage on mount but never updated reactively. Fix implemented: (1) LocationContext.tsx with useState + setLocation() updating both React state and AsyncStorage atomically; (2) map.tsx and search.tsx now depend on location from useLocation() hook — any call to setLocation() triggers immediate re-render of both screens; (3) haversineDistance() pure function calculates distance client-side from tagpoint lat/lng fields. Verified: Before=Paris(1.5-9.9km), After=Montesson(7.8-18.4km) confirming correct ~15km shift."
+}
