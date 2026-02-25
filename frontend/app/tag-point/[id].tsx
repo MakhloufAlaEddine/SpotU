@@ -646,6 +646,8 @@ const st = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm },
   headerBtn: { padding: 4 },
   headerTitle: { fontSize: 18, fontWeight: '700', color: Colors.primary },
+  headerAction: { width: 36, height: 36, borderRadius: Radius.md, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
+  headerActionSaved: { backgroundColor: Colors.primaryLight, borderColor: Colors.primary },
   scroll: { flex: 1, backgroundColor: Colors.background },
 
   ownerBadge: { position: 'absolute', bottom: -16, left: 12, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.card, borderRadius: Radius.full, paddingRight: 12, paddingVertical: 4, paddingLeft: 4, borderWidth: 1, borderColor: Colors.border },
