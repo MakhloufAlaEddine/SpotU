@@ -12,54 +12,35 @@
 **User's preferred language**: French. The next agent MUST respond in **French**.
 
 **what currently exists?**
-The application's Google Authentication flow is critically broken on the native Expo Go platform. After a user authenticates with Google, the in-app browser fails to close automatically, preventing the login from completing and leaving the user stuck. Multiple complex fixes were attempted, but none resolved this fundamental native redirection issue.
-
-**Crucially, the user has explicitly requested to pause all work on the Google Auth bug and has pivoted to a new feature and bug fix on the location selection screen.** The previous agent has acknowledged this and viewed the relevant file, .
+The application has a stable PostgreSQL/PostGIS backend and a feature-rich React Native (Expo) frontend. Key functionalities include: user authentication (email/password), location-based searching, an advanced tag-filtering system, and a highly detailed tagPoint screen. This detail screen now includes a photo gallery, RSVP functionality, a full voting/commenting system, and a feature to find similar tagPoints. The native Google Authentication flow remains broken and is on hold per the user's request. The backend was stabilized by fixing a recurring PostgreSQL SSL connection issue.
 
 **Last working item**:
--   **Last item agent was working**: The user has assigned two new tasks related to the location selection screen ():
-    1.  **New Feature**: Add a text input field to allow users to search for an address.
-    2.  **Bug Fix**: When a user taps a location on the map, the address displayed in the input field does not update.
--   **Status**: NOT STARTED
+-   **Last item agent was working**: Implementing a Save for Later feature. This involves a backend implementation (new  table and API endpoints) and a frontend implementation (a new Saved screen, an updated profile menu, and a functional save/unsave button on the tagPoint detail page).
+-   **Status**: IN PROGRESS
 -   **Agent Testing Done**: N
--   **Which testing method agent to use?**: frontend testing agent. The test should verify: 1) Tapping the map updates the address input. 2) Typing an address moves the map pin.
+-   **Which testing method agent to use?**: both.
+    -   **Backend**: The testing agent should verify the new endpoints: , , and .
+    -   **Frontend**: The testing agent should simulate a full user flow: 1. Navigate to a tagPoint detail. 2. Click the save icon. 3. Navigate to the Profile screen. 4. Click the ENREGISTRÉS button to go to the new  screen. 5. Verify the tagPoint appears in the list. 6. Navigate back and unsave it. 7. Verify it is removed from the  screen.
 -   **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: Address input does not update on map selection (P0)**
--   **Issue 2: Google Auth flow is broken on Expo Go (P2 - ON HOLD)**
+-   **Issue 1: Google Auth flow is broken on Expo Go (P2 - ON HOLD)**
 
 **Issues Detail**:
--   **Issue 1: Address input does not update on map selection**
-    -   **Description**: In , when the user taps on the map to select a new location, the pin moves, but the text input field meant to display the address for that location does not get updated.
-    -   **Attempted fixes**: None. This is a newly assigned task.
-    -   **Next debug checklist**:
-        1.  In , locate the  handler for the .
-        2.  Inside the handler, after getting the new coordinates, use a reverse geocoding service/API to get the corresponding street address.
-        3.  Update the React state variable that holds the value for the address text input with the new address.
-    -   **Why fix this issue and what will be achieved with the fix?**: This is a core part of the user experience for setting a location. Fixing it will make the screen intuitive and functional.
-    -   **Status**: NOT STARTED
-    -   **Is recurring issue?**: N
-    -   **Should Test frontend/backend/both after fix?**: frontend
--   **Issue 2: Google Auth flow is broken on Expo Go (ON HOLD)**
-    -   **Description**: On native (Expo Go), after a user authenticates via the Google-powered in-app browser (), the browser does not close automatically. This is because the final redirect from the Emergent Auth service is a standard  URL, which iOS cannot intercept to return to the app without a full Universal Links configuration. The user is stuck.
-    -   **Attempted fixes**:
-        1.  **Centralized Navigation Guard**: A  was created in  to manage auth state. This fixed web race conditions but not the native issue.
-        2.  **Custom Scheme () Redirect**: An attempt to generate an  URL with  failed as it was overridden by development environment variables.
-        3.  **Two-Step Web Redirect**: A final attempt where the web callback page  would detect  and try to force a redirect to an  URL. This also failed to close the browser.
-    -   **Next debug checklist**:
-        1.  **DO NOT WORK ON THIS.** The user has explicitly paused this task.
-        2.  When resumed, the strategy must change. The root cause is that the Emergent Auth service may not support native app scheme redirects ( or ). The next attempt should be to confirm this capability before writing any code. If not supported, an alternative like  may be required.
+-   **Issue 1: Google Auth flow is broken on Expo Go (ON HOLD)**
+    -   **Description**: On native (Expo Go), the in-app browser used for Google login does not close automatically after authentication, leaving the user stuck. This is due to the authentication provider redirecting to a standard  URL instead of a native app scheme ().
     -   **Status**: BLOCKED (User has deprioritized this task).
     -   **Is recurring issue?**: Y
     -   **Should Test frontend/backend/both after fix?**: frontend (specifically on Expo Go).
+    -   **Blocked on other issue**: None. This is on hold by user decision.
 
 **In progress Task List**:
--   **Task 1: Add Address Search Input (P0)**
-    -   **Where to resume**: .
-    -   **What will be achieved with this?**: Users will be able to search for locations by typing an address, complementing the existing map interaction.
-    -   **Status**: NOT STARTED
-    -   **Should Test frontend/backend/both after fix?**: frontend
+-   **Task 1: Complete and Verify Save for Later Feature (P0)**
+    -   **Where to resume**: The agent has just run parallel tool calls to create  and modify  and . The next step is to verify the file contents are correct, ensure the Metro bundler applies the changes (clearing cache if necessary), and then proceed with the testing plan outlined in Last working item.
+    -   **What will be achieved with this?**: Users will be able to save interesting tagPoints and access them later from a dedicated list on their profile.
+    -   **Status**: IN PROGRESS
+    -   **Should Test frontend/backend/both after fix?**: both
+    -   **Blocked on something**: No.
 
 **Upcoming and Future Tasks**
 -   **Upcoming Tasks (P1)**:
@@ -68,86 +49,140 @@ The application's Google Authentication flow is critically broken on the native 
     -   Bilingual Support (i18n).
     -   Chat Implementation in .
 -   **Future Tasks (P2)**:
-    -   User Reviews & Ratings system.
+    -   User Reviews & Ratings system (The foundation is built with voting, but this could be expanded).
     -   Admin Dashboard.
     -   Fix Google Auth on Expo Go (currently on hold).
 
 **Completed work in this session**
--   **Auth Navigation Refactoring**: Successfully centralized authentication-based navigation logic into a  in , which resolved login race conditions on the web platform.
--   **UI Loading Indicators**: Improved user experience by adding spinners () to  and  during data refresh.
--   **Extensive Debugging of Native Auth**: Thoroughly investigated and documented why the native Google Auth flow fails, identifying the  vs  redirect as the root cause.
+-   **TagPoint Detail Screen Overhaul**: Implemented 9 user-requested enhancements on , including a skeleton loader, image gallery carousel, clickable creator profile, colored tags, schedule display, RSVP functionality (Je participe), vote distribution bars, and a floating action button for voting.
+-   **Full-Stack Voting System**: Created a complete system for users to rate and comment on tagPoints, including a  table, API endpoints, and a modal-based UI that handles keyboard avoidance and pre-fills existing votes for editing.
+-   **Similar TagPoints Feature**: Implemented a backend endpoint using PostGIS and a frontend bottom-sheet to display a grid of similar tagPoints based on shared tags and proximity.
+-   **Advanced Tag Search**: Built a modal-based UI on  for filtering tagPoints by selecting multiple tags, grouped by category.
+-   **Comment Display UX**: Improved the comment section to show a preview of 3 comments with a See all button that opens a bottom sheet for the full list.
+-   **Location-based Features**:
+    -   Implemented address search and fixed a map-tap bug on .
+    -   Modified location persistence logic in  to be session-only, not stored between app launches.
+-   **Backend Stabilization**:
+    -   Fixed a critical PostgreSQL connection error by setting  in .
+    -   Resolved multiple API 404 errors by adding missing FastAPI route decorators.
+    -   Seeded the database with extensive test data for votes, comments, images, and schedules to validate UI features.
 
 **Earlier issues found/mentioned but not fixed**
--   **Issue 1: Google Auth flow is broken on Expo Go.** This is the primary unresolved issue from this session, now intentionally deprioritized by the user.
+-   **Issue 1: Google Auth flow is broken on Expo Go.** This is the primary unresolved issue from the previous session, now intentionally deprioritized by the user.
 
 **Known issue recurrence from previous fork**
--   The underlying theme of authentication/navigation race conditions and platform-specific behavior (Web vs. Native) continues. The current broken state of native Google Auth is the latest manifestation.
+-   **Native vs. Web Divergence**: The broken state of native Google Auth highlights the ongoing challenge of maintaining feature parity and consistent behavior between the web and native (Expo Go) platforms.
+-   **Metro Bundler Cache**: The agent frequently had to clear the Metro cache (yarn run v1.22.22
+$ expo start --clear
+env: load .env
+env: export EXPO_PACKAGER_HOSTNAME EXPO_PUBLIC_BACKEND_URL EXPO_TUNNEL_SUBDOMAIN EXPO_USE_FAST_RESOLVER METRO_CACHE_ROOT
+Starting project at /app/frontend
+Starting Metro Bundler
+
+warning: Bundler cache is empty, rebuilding (this may take a minute)
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.) because UI changes were not appearing in the Expo Go client. This is a recurring operational hurdle.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Expo  vs **: The core of the native auth problem is the failure to bridge the gap between the  session and the  API needed to handle the deep link () back into the app.
--   **Platform-Specific Logic ()**: The codebase now contains divergent logic for 'web' and 'native', which has become a source of bugs.
--   **Reverse Geocoding**: Will be needed to implement the fix for the map selection bug in .
+-   **Full-Stack Feature Implementation**: The agent consistently implemented features across the entire stack: defining a DB schema, creating FastAPI endpoints, and building the React Native UI.
+-   **PostGIS & Complex Queries**: Used spatial functions () and navigated a complex JSONB query issue (a JSON string stored within a JSONB column) to implement the similar items feature.
+-   **React Native UI/UX**:
+    -   Extensive use of bottom sheets () for non-intrusive UI (tag selection, voting, similar items, all reviews).
+    -    to solve keyboard overlap issues in modals.
+    -    for horizontal carousels (image gallery).
+    -    for skeleton loading states.
+    -   Creation of a Floating Action Button (FAB).
+-   **Iterative Development**: The agent demonstrated strong iterative capabilities, changing the voting UI from a modal to inline and back to a modal based on specific user feedback about aesthetics and screen real estate.
 
 **key DB schema**
--   No changes in this session.
+-   **tag_points**: Added columns  (JSONB),  (JSONB).
+-   **tag_point_votes**: uid=0(root) gid=0(root) groups=0(root), , , , , . (UNIQUE constraint on , ).
+-   **tag_point_participants**: uid=0(root) gid=0(root) groups=0(root), , , .
+-   **saves**: uid=0(root) gid=0(root) groups=0(root), , , .
 
 **changes in tech stack**
 -   None.
 
 **All files of reference**
--   **Current Task**:
+-   **In Progress**:
+    -    (New)
+    -    (Modified for save button)
+    -    (Modified for navigation)
+-   **Recently Completed/Modified**:
     -   
--   **Paused Task (Google Auth)**:
     -   
     -   
     -   
     -   
-    -    (for the  definition)
 
 **Areas that need refactoring**:
--   The entire native Google Authentication flow in  needs to be re-architected once the task is un-paused. The current approach is a dead end.
+-   The native Google Authentication flow in  will need a complete re-architecture when the task is resumed.
 
 **key api endpoints**
--   No new endpoints were added.  remains the key endpoint for the broken Google Auth flow.
+-   
+-   
+-   
+-   
+-   
+-   
+-   
+-   
+-   
 
 **Critical Info for New Agent**
 -   **Language**: You MUST respond and communicate in **French**.
--   **PRIORITY SHIFT**: Do NOT work on the Google Auth bug. The user has explicitly instructed to pause it.
--   **Your immediate tasks are in **:
-    1.  Add a new text input for address search.
-    2.  Fix the bug where tapping the map doesn't update the existing address field.
--   **Context on the Paused Bug**: The native Google Auth login is broken because the auth provider redirects to a  URL, which Expo Go cannot intercept. All attempts to force an  redirect have failed. Avoid this topic unless the user brings it up again.
+-   **PRIORITY**: Your immediate task is to finalize and test the Save for Later feature. Verify the three frontend files (, , ) and then execute the testing plan.
+-   **Google Auth**: Do NOT work on the Google Auth bug. This task is explicitly on hold by the user.
+-   **Metro Cache**: The Expo Go client often fails to reflect new changes due to Metro's cache. If your UI changes don't appear, run yarn run v1.22.22
+$ expo start --clear
+env: load .env
+env: export EXPO_PACKAGER_HOSTNAME EXPO_PUBLIC_BACKEND_URL EXPO_TUNNEL_SUBDOMAIN EXPO_USE_FAST_RESOLVER METRO_CACHE_ROOT
+Starting project at /app/frontend
+Starting Metro Bundler
+
+warning: Bundler cache is empty, rebuilding (this may take a minute)
+ ERROR  An unknown error occurred while installing React Native DevTools. Details:
+
+[0225/214628.180701:FATAL:electron/shell/app/electron_main_delegate.cc:290] Running as root without --no-sandbox is not supported. See https://crbug.com/638180.
+
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command. in the  directory.
+-   **User Interaction**: The user is very hands-on and provides frequent, specific feedback on UI/UX. Be prepared to iterate on your designs.
 
 **documents and test reports created in this job**
--    (Note: This report showed success but was a false positive as it only tested the web flow, not the broken native flow).
+-    (This report confirmed the  features were working.)
 
 **Last 10 User Messages and any pending HUMAN messages**
--   User repeatedly reported that Google Login on Expo Go leaves the browser open and the app stuck on the login screen.
--   Agent made multiple attempts to fix this using different redirect strategies (, two-step web redirects), all of which failed.
--   **Final User Message**: The user explicitly stated to stop working on the Google Auth issue (On passe a autre chose, On revient a ce sujet plus tard).
--   **New User Request**: The user provided a screenshot and requested two changes on the location screen: 1. Add an address search field. 2. Fix a bug where selecting an address on the map doesn't update the address text. **This is the current priority.**
+-   **User**: Requested Save for Later functionality and a redesign of the action icons (similar, share, save).
+-   **User**: Requested to place the Participate and Send Message buttons on the same line, with the message button as a compact icon. (Completed)
+-   **User**: Complained that the main action buttons (Je participe, Envoyer un message) were too large. (Completed)
+-   **User**: Approved all 9 suggestions for improving the tagPoint detail screen and requested their implementation. (Completed)
+-   **User**: Asked for suggestions to improve the tagPoint detail screen. (Completed)
+-   **User**: Requested test comments be added to see the new comment section UI. (Completed)
+-   **User**: Requested a better way to handle the display of many comments. (Completed)
+-   **User**: Requested a feature to see similar tagPoints. (Completed)
+-   **User**: Reported two bugs with the voting modal: it doesn't pre-fill for edits, and the keyboard hides it. (Completed)
+-   **User**: Complained the inline voting widget took too much space and requested a return to a modal. (Completed)
 
 **Project Health Check:**
--   **Broken**: Google Authentication on native (Expo Go) is non-functional, blocking that login path.
--   **Partially Functional**: Email/password login works correctly on both web and native. The core application is accessible.
+-   **Broken**: Google Authentication on native (Expo Go) is non-functional.
+-   **Mocked**: None.
 
 **3rd Party Integrations**
--   **Emergent-managed Google Auth**: The integration is the source of the critical, unresolved bug on the native platform.
--   **Stripe**: Not yet implemented.
+-   **Emergent-managed Google Auth**: Integrated but critically broken on the native platform.
+-   **Stripe**: Planned, but not yet implemented.
+-   **OpenStreetMap Nominatim**: Used for reverse geocoding via direct API calls.
 
 **Testing status**
--   **Testing agent used after significant changes**: YES, but it produced a false positive by only testing the web flow and missing the native-specific bug.
+-   **Testing agent used after significant changes**: YES, successfully validated the  screen changes.
 -   **Troubleshoot agent used after agent stuck in loop**: NO
 -   **Test files created**: None
--   **Known regressions**: None from this session, but the main Google Auth bug persists.
+-   **Known regressions**: None.
 
 **Credentials to test flow:**
 -   **Email**: 
 -   **Password**: 
 
 **What agent forgot to execute**
--   The agent failed to validate its fixes on the correct platform (Expo Go), relying on web-only tests which gave a false sense of completion. This led to multiple failed attempts and user frustration.
--   The agent did not confirm the fundamental capabilities of the Emergent Auth service regarding native app redirects before attempting complex workarounds.</analysis>
+-   The agent has been very thorough. No significant tasks were forgotten. It identified and corrected its own minor errors during implementation (e.g., using  instead of , fixing missing route decorators).</analysis>

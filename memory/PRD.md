@@ -139,7 +139,7 @@ The app is bilingual (French / English) with configurable language per user.
 - [ ] Advanced analytics
 
 ## Frontend URL
-https://winek-location.preview.emergentagent.com
+https://geo-coach-hub.preview.emergentagent.com
 
 ## Architecture Notes
 - Backend binding: 0.0.0.0:8001, all routes prefixed /api
