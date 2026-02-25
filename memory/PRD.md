@@ -26,6 +26,8 @@ The app is bilingual (French / English) with configurable language per user.
 - Google OAuth login
 - JWT token management
 - Bilingual signup (FR/EN selection)
+- **FIX (2026-02-25)**: Race condition résolue — navigation post-login via `useEffect` sur `user` dans `login.tsx`, `register.tsx`, `callback.tsx`
+- **FIX (2026-02-25)**: Guards `loading` dans `profile.tsx` + `bookings.tsx` avec fallback `refreshUser`
 
 ### TagPoints (Core Feature)
 - Create geo-located posts with tags, domain, precision (exact/100m/1km)
