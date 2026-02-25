@@ -447,8 +447,12 @@ const st = StyleSheet.create({
   createdRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, marginBottom: Spacing.md },
   createdText: { fontSize: 13, color: Colors.muted },
 
-  rateBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginHorizontal: Spacing.md, marginBottom: Spacing.md, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md, borderRadius: Radius.full, borderWidth: 1.5, borderColor: Colors.primary, alignSelf: 'flex-start' },
-  rateBtnText: { fontSize: 14, fontWeight: '600', color: Colors.primary },
+  voteWidget: { marginHorizontal: Spacing.md, marginBottom: Spacing.md, padding: Spacing.md, backgroundColor: Colors.card, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border, gap: 10 },
+  voteWidgetTitle: { fontSize: 14, fontWeight: '600', color: Colors.muted },
+  starLabel: { fontSize: 13, color: Colors.primary, fontWeight: '600' },
+  commentInput: { backgroundColor: Colors.background, borderRadius: Radius.md, padding: Spacing.sm, color: Colors.foreground, fontSize: 14, minHeight: 60, textAlignVertical: 'top', borderWidth: 1, borderColor: Colors.border },
+  submitBtn: { backgroundColor: Colors.primary, borderRadius: Radius.full, paddingVertical: 10, alignItems: 'center' },
+  submitBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 
   messageBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.header, marginHorizontal: Spacing.md, paddingVertical: Spacing.md, borderRadius: Radius.full, gap: Spacing.sm, marginBottom: Spacing.md },
   messageBtnText: { fontSize: 16, fontWeight: '600', color: Colors.foreground },
