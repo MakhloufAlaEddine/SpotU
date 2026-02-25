@@ -181,7 +181,7 @@ export default function SearchScreen() {
           <Ionicons name="chevron-back" size={24} color={Colors.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Résultats</Text>
-        <TouchableOpacity style={styles.headerAction}>
+        <TouchableOpacity style={styles.headerAction} onPress={() => router.push('/set-location' as any)}>
           <Ionicons name="location" size={24} color={Colors.primary} />
         </TouchableOpacity>
       </View>
