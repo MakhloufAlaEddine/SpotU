@@ -94,10 +94,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginWithGoogle = useCallback(async () => {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      // Web : ouvrir directement dans le même onglet
+      // Web : window.location.assign() est une méthode (fonctionne là où href échoue)
       const redirectUrl = window.location.origin + '/(auth)/callback';
       const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
-      window.open(authUrl, '_self');
+      window.location.assign(authUrl);
     } else {
       // Native (iOS/Android Expo Go) : navigateur intégré in-app
       const redirectUrl = 'https://winek-sports-connect.preview.emergentagent.com/(auth)/callback';
