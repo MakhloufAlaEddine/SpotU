@@ -304,45 +304,20 @@ export default function TagPointDetail() {
           )}
         </View>
 
-        {/* Rating actuel */}
+        {/* Rating actuel + bouton voter */}
         <View style={st.createdRow}>
           <Text style={st.createdText}>{formatTimeAgo(point.created_at)}</Text>
-          <StarDisplay rating={currentRating} votes={currentVotes} />
-        </View>
-
-        {/* Zone de vote inline */}
-        <View style={st.voteWidget} testID="vote-widget">
-          <Text style={st.voteWidgetTitle}>
-            {voteSuccess ? '✓ Vote enregistré !' : 'Donner votre avis'}
-          </Text>
-          <InteractiveStars value={pendingStar} onChange={setPendingStar} size={32} />
-          {pendingStar > 0 && (
-            <>
-              <Text style={st.starLabel}>
-                {['', 'Mauvais', 'Moyen', 'Bien', 'Très bien', 'Excellent'][pendingStar]}
-              </Text>
-              <TextInput
-                style={st.commentInput}
-                placeholder="Commentaire (optionnel)…"
-                placeholderTextColor={Colors.muted}
-                value={comment}
-                onChangeText={setComment}
-                multiline
-                numberOfLines={2}
-                testID="vote-comment-input"
-              />
-              <TouchableOpacity
-                style={[st.submitBtn, submitting && { opacity: 0.6 }]}
-                onPress={handleVoteSubmit}
-                disabled={submitting}
-                testID="vote-submit-btn"
-              >
-                {submitting
-                  ? <ActivityIndicator color="#fff" size="small" />
-                  : <Text style={st.submitBtnText}>Envoyer</Text>}
-              </TouchableOpacity>
-            </>
-          )}
+          <TouchableOpacity
+            style={st.voteRow2}
+            onPress={() => setShowVoteModal(true)}
+            testID="open-vote-modal-btn"
+            activeOpacity={0.7}
+          >
+            <StarDisplay rating={currentRating} votes={currentVotes} />
+            <View style={st.voteChip}>
+              <Text style={st.voteChipText}>Voter</Text>
+            </View>
+          </TouchableOpacity>
         </View>
 
         {/* Send Message */}
