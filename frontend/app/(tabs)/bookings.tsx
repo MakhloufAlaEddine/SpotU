@@ -21,12 +21,20 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function BookingsScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, loading, refreshUser } = useAuth();
   const { t } = useLang();
   const [tab, setTab] = useState<BookingTab>('mine');
   const [bookings, setBookings] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [fetching, setFetching] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Fallback: si le token est en storage mais user pas encore résolu, on rafraîchit
+  useEffect(() => {
+    if (!loading && !user) {
+      refreshUser();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
 
   useEffect(() => {
     loadBookings();
