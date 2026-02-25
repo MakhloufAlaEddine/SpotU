@@ -38,11 +38,11 @@ const SAVED_ADDRESSES = [
 
 export default function SetLocationScreen() {
   const router = useRouter();
-  const { setLocation } = useLocation();
+  const { location, setLocation } = useLocation();
   const [loading, setLoading] = useState(false);
-  const [currentAddress, setCurrentAddress] = useState('Paris, France');
-  const [selectedLat, setSelectedLat] = useState(48.8566);
-  const [selectedLng, setSelectedLng] = useState(2.3522);
+  const [currentAddress, setCurrentAddress] = useState(location.address);
+  const [selectedLat, setSelectedLat] = useState(location.lat);
+  const [selectedLng, setSelectedLng] = useState(location.lng);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -50,10 +50,6 @@ export default function SetLocationScreen() {
   const [searching, setSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    initLocation();
-  }, []);
 
   const formatAddress = (data: { display_name: string; address?: Record<string, string> }) => {
     const a = data.address || {};
