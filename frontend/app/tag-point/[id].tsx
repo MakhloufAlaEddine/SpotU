@@ -328,7 +328,7 @@ export default function TagPointDetail() {
           <Text style={st.createdText}>{formatTimeAgo(point.created_at)}</Text>
           <TouchableOpacity
             style={st.voteRow2}
-            onPress={() => setShowVoteModal(true)}
+            onPress={openVoteModal}
             testID="open-vote-modal-btn"
             activeOpacity={0.7}
           >
