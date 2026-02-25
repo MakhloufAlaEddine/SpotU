@@ -194,6 +194,13 @@ export default function TagPointDetail() {
     }
   };
 
+  const loadMyVote = async () => {
+    try {
+      const data = await api.get(`/tag-points/${id}/my-vote`);
+      if (data.exists) setMyVote({ rating: data.rating, comment: data.comment });
+    } catch {}
+  };
+
   const loadVotes = async () => {
     try {
       const data = await api.get(`/tag-points/${id}/votes`);
