@@ -67,12 +67,13 @@ export default function SetLocationScreen() {
   };
 
   const handleChoose = async () => {
-    try {
-      await storage.set(
-        'winek_global_location',
-        JSON.stringify({ lat: selectedLat, lng: selectedLng, address: currentAddress })
-      );
-    } catch (_) {}
+    // Met à jour le contexte React ET persiste — tous les écrans se rafraîchissent instantanément
+    await setLocation({
+      lat: selectedLat,
+      lng: selectedLng,
+      address: currentAddress,
+      isGPS: false,
+    });
     router.back();
   };
 
