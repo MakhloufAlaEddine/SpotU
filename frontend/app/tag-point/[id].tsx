@@ -160,6 +160,9 @@ export default function TagPointDetail() {
   const [loading, setLoading] = useState(true);
   const [showFullDesc, setShowFullDesc] = useState(false);
   const [showVoteModal, setShowVoteModal] = useState(false);
+  const [showSimilar, setShowSimilar] = useState(false);
+  const [similar, setSimilar] = useState<any[]>([]);
+  const [loadingSimilar, setLoadingSimilar] = useState(false);
   const [votes, setVotes] = useState<any[]>([]);
   const [currentRating, setCurrentRating] = useState(0);
   const [currentVotes, setCurrentVotes] = useState(0);
