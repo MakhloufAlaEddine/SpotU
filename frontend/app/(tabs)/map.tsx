@@ -313,6 +313,8 @@ export default function HomeScreen() {
                 renderItem={({ item }) => (
                   <NearbyCard
                     point={item}
+                    userLat={location.lat}
+                    userLng={location.lng}
                     onPress={() => router.push(`/tag-point/${item.point_id}` as any)}
                   />
                 )}
