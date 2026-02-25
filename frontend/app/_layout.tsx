@@ -1,4 +1,4 @@
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, useRouter, useSegments, useRootNavigationState } from 'expo-router';
 import { useEffect } from 'react';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { LanguageProvider } from '../context/LanguageContext';
@@ -11,26 +11,24 @@ function NavigationGuard() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const segments = useSegments();
+  const navigationState = useRootNavigationState();
 
   useEffect(() => {
-    console.log('[NavigationGuard] fired: loading=', loading, 'user=', user?.email ?? null, 'segments=', JSON.stringify(segments));
+    // Attendre que l'état de navigation soit prêt (nécessaire pour les full page loads)
+    if (!navigationState?.key) return;
     if (loading) return;
 
     const inAuth = segments[0] === '(auth)';
     const atRoot = segments.length === 0;
 
-    console.log('[NavigationGuard] inAuth=', inAuth, 'atRoot=', atRoot, '→ segments[0]=', segments[0]);
-
     if (user && (inAuth || atRoot)) {
       // Connecté mais sur page auth ou racine → aller vers l'app
-      console.log('[NavigationGuard] → replace to /map');
       router.replace('/(tabs)/map');
     } else if (!user && !inAuth) {
       // Non connecté et hors pages auth → aller vers login
-      console.log('[NavigationGuard] → replace to /login');
       router.replace('/(auth)/login');
     }
-  }, [user, loading, segments]);
+  }, [navigationState?.key, user, loading, segments]);
 
   return null;
 }
