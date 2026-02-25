@@ -231,6 +231,7 @@ export default function TagPointDetail() {
       setRatingDist(data.rating_distribution || {});
       setIsParticipant(data.is_participant || false);
       setParticipantsCount(data.participants_count || 0);
+      setIsSaved(data.is_saved || false);
     } catch (e: any) { Alert.alert('Erreur', e.message); }
     finally { setLoading(false); }
   };
