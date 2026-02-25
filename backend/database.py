@@ -185,9 +185,11 @@ async def connect_to_db():
     pool = await asyncpg.create_pool(database_url, min_size=2, max_size=10, init=_init_connection, ssl=False)
     async with pool.acquire() as conn:
         await conn.execute(CREATE_TABLES_SQL)
-        # Migrations — ajout de colonnes manquantes sur les tables existantes
+        # Migrations
         await conn.execute("""
             ALTER TABLE tag_points ADD COLUMN IF NOT EXISTS image_url TEXT;
+            ALTER TABLE tag_points ADD COLUMN IF NOT EXISTS images JSONB DEFAULT '[]'::jsonb;
+            ALTER TABLE tag_points ADD COLUMN IF NOT EXISTS schedule TEXT;
         """)
     logger.info("Connected to PostgreSQL with PostGIS")
 
