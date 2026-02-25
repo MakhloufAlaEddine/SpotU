@@ -216,6 +216,7 @@ export default function TagPointDetail() {
       const res = await api.post(`/tag-points/${id}/vote`, { rating: pendingStar, comment: comment.trim() || null });
       setCurrentRating(res.avg_rating);
       setCurrentVotes(res.vote_count);
+      setMyVote({ rating: pendingStar, comment: comment.trim() || null });
       setVoteSuccess(true);
       setComment('');
       setPendingStar(0);
