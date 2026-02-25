@@ -93,15 +93,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const loginWithGoogle = useCallback(async () => {
-    // Utilise WebBrowser.openAuthSessionAsync pour toutes les plateformes
-    // (évite les problèmes de window.location sur Hermes/React Native)
-    const redirectUrl = (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.origin)
-      ? window.location.origin + '/(auth)/callback'
-      : 'https://winek-sports-connect.preview.emergentagent.com/(auth)/callback';
-
-    const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
-
-    try {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      // Web : utiliser un élément <a> natif — seule méthode sans restriction window.location
+      const redirectUrl = window.location.origin + '/(auth)/callback';
+      const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+      const a = document.createElement('a');
+      a.href = authUrl;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } else {
+      // Native (iOS/Android Expo Go) : navigateur intégré in-app
+      const redirectUrl = 'https://winek-sports-connect.preview.emergentagent.com/(auth)/callback';
+      const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
       const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUrl);
       if (result.type === 'success') {
         const match = result.url.match(/session_id=([^&]+)/);
@@ -109,11 +114,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (sessionId) {
           await processGoogleCallback(sessionId);
         }
-      }
-    } catch (err) {
-      // Fallback pour web si WebBrowser échoue (popup bloqué, etc.)
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        window.location.assign(authUrl);
       }
     }
   }, [processGoogleCallback]);
