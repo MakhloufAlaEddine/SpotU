@@ -30,6 +30,15 @@ export default function RootLayout() {
           <Stack.Screen name="booking/[id]" />
           <Stack.Screen name="booking/success" />
           <Stack.Screen name="admin/index" />
+          <Stack.Screen 
+            name="set-location" 
+            options={{ 
+              headerShown: false,
+              presentation: 'modal',
+              animation: 'slide_from_bottom'
+            }} 
+          />
+          <Stack.Screen name="create-service" />
         </Stack>
       </LanguageProvider>
     </AuthProvider>
