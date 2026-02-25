@@ -273,15 +273,28 @@ async def get_similar_tag_points(point_id: str):
                 WHERE tp.point_id != $1
                   AND tp.active = TRUE
                   AND (
-                      EXISTS (
-                          SELECT 1 FROM jsonb_array_elements_text(tp.tag_ids::jsonb) t(v)
+                      tp.tag_ids IS NOT NULL
+                      AND EXISTS (
+                          SELECT 1
+                          FROM jsonb_array_elements_text(
+                              CASE jsonb_typeof(tp.tag_ids)
+                                  WHEN 'array' THEN tp.tag_ids
+                                  ELSE (tp.tag_ids #>> '{{}}')::jsonb
+                              END
+                          ) t(v)
                           WHERE v = ANY($3::text[])
                       )
                       OR ST_DWithin(tp.location::geography, $2::geography, 10000)
                   )
                 ORDER BY
-                    CASE WHEN EXISTS (
-                        SELECT 1 FROM jsonb_array_elements_text(tp.tag_ids::jsonb) t(v)
+                    CASE WHEN tp.tag_ids IS NOT NULL AND EXISTS (
+                        SELECT 1
+                        FROM jsonb_array_elements_text(
+                            CASE jsonb_typeof(tp.tag_ids)
+                                WHEN 'array' THEN tp.tag_ids
+                                ELSE (tp.tag_ids #>> '{{}}')::jsonb
+                            END
+                        ) t(v)
                         WHERE v = ANY($3::text[])
                     ) THEN 0 ELSE 1 END,
                     dist_m
