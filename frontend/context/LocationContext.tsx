@@ -33,22 +33,12 @@ const LocationContext = createContext<LocationContextValue>({
 export function LocationProvider({ children }: { children: React.ReactNode }) {
   const [location, setLocationState] = useState<GlobalLocation>(DEFAULT);
   const [loading, setLoading] = useState(true);
+  // Vrai si l'utilisateur a manuellement choisi une localisation dans la session
+  const [userOverride, setUserOverride] = useState(false);
 
-  // Charge la localisation sauvegardée au démarrage
+  // Au démarrage : toujours utiliser le GPS (pas de persistance entre sessions)
   useEffect(() => {
-    (async () => {
-      try {
-        const saved = await storage.get('winek_global_location');
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          setLocationState({ ...parsed, isGPS: false });
-          setLoading(false);
-          return;
-        }
-      } catch {}
-      // Fallback GPS
-      await tryGPS();
-    })();
+    tryGPS();
   }, []);
 
   const tryGPS = async () => {
@@ -84,22 +74,22 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
   };
 
   /**
-   * Met à jour la localisation dans le contexte ET dans le stockage persistant.
-   * Appelé depuis SetLocationScreen — met à jour tous les écrans instantanément.
+   * Met à jour la localisation dans le contexte (en mémoire uniquement).
+   * La sélection est conservée pour toute la session, mais pas persistée.
    */
   const setLocation = useCallback(async (loc: GlobalLocation) => {
-    // Mise à jour immédiate de l'état React (réactif)
     setLocationState(loc);
-    // Persistance pour la prochaine session
-    try {
-      await storage.set('winek_global_location', JSON.stringify(loc));
-    } catch {}
+    setUserOverride(true);
   }, []);
 
+  /**
+   * Rafraîchit le GPS — ignoré si l'utilisateur a déjà choisi une localisation manuellement.
+   */
   const refreshGPS = useCallback(async () => {
+    if (userOverride) return;
     setLoading(true);
     await tryGPS();
-  }, []);
+  }, [userOverride]);
 
   return (
     <LocationContext.Provider value={{ location, loading, setLocation, refreshGPS }}>
