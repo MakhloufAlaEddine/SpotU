@@ -42,7 +42,7 @@ def build_point_response(row_dict: dict) -> dict:
     owner_picture = row_dict.pop("owner_picture", None)
     owner_role = row_dict.pop("owner_role", None)
     if owner_name:
-        row_dict["owner"] = {"name": owner_name, "picture": owner_picture, "role": owner_role}
+        row_dict["owner"] = {"user_id": row_dict.get("user_id"), "name": owner_name, "picture": owner_picture, "role": owner_role}
     return row_dict
 
 
