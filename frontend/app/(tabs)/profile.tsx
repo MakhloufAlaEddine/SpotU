@@ -292,12 +292,12 @@ export default function MenuScreen() {
 
         {/* Action Cards */}
         <View style={styles.actionCards}>
-          <TouchableOpacity style={styles.actionCard} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.actionCard} activeOpacity={0.7} onPress={() => router.push('/saved' as any)} testID="saved-nav-btn">
             <Text style={styles.actionCardLabel}>ENREGISTRÉS</Text>
             <Ionicons name="bookmark-outline" size={28} color={Colors.foreground} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionCard} activeOpacity={0.7}>
-            <Text style={styles.actionCardLabel}>EVÉNEMENTS</Text>
+          <TouchableOpacity style={styles.actionCard} activeOpacity={0.7} testID="events-nav-btn">
+            <Text style={styles.actionCardLabel}>ÉVÈNEMENTS</Text>
             <Ionicons name="calendar-outline" size={28} color={Colors.foreground} />
           </TouchableOpacity>
         </View>
