@@ -15,12 +15,22 @@ import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { haversineDistance, formatDistance } from '../../utils/distance';
 
 // ─── Interactive Stars ────────────────────────────────────────────────────────
-function InteractiveStars({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+function InteractiveStars({ value, onChange, size = 30 }: { value: number; onChange: (v: number) => void; size?: number }) {
   return (
-    <View style={{ flexDirection: 'row', gap: 6 }}>
+    <View style={{ flexDirection: 'row', gap: 4 }}>
       {[1, 2, 3, 4, 5].map(i => (
-        <TouchableOpacity key={i} onPress={() => onChange(i)} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }} testID={`star-${i}`}>
-          <Ionicons name={i <= value ? 'star' : 'star-outline'} size={30} color={i <= value ? Colors.star : Colors.muted} />
+        <TouchableOpacity
+          key={i}
+          onPress={() => onChange(i)}
+          activeOpacity={0.6}
+          hitSlop={{ top: 12, bottom: 12, left: 6, right: 6 }}
+          testID={`star-${i}`}
+        >
+          <Ionicons
+            name={i <= value ? 'star' : 'star-outline'}
+            size={size}
+            color={i <= value ? Colors.star : Colors.muted}
+          />
         </TouchableOpacity>
       ))}
     </View>
@@ -32,10 +42,14 @@ function StarDisplay({ rating = 0, votes = 0 }: { rating?: number; votes?: numbe
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
       {[1, 2, 3, 4, 5].map(i => (
-        <Ionicons key={i} name={i <= Math.round(rating) ? 'star' : 'star-outline'} size={16}
+        <Ionicons key={i} name={i <= Math.round(rating) ? 'star' : 'star-outline'} size={14}
           color={i <= Math.round(rating) ? Colors.star : Colors.muted} />
       ))}
-      <Text style={{ fontSize: 13, color: Colors.muted, marginLeft: 6 }}>{votes} vote{votes !== 1 ? 's' : ''}</Text>
+      {votes > 0 && (
+        <Text style={{ fontSize: 12, color: Colors.muted, marginLeft: 4 }}>
+          {rating.toFixed(1)} ({votes})
+        </Text>
+      )}
     </View>
   );
 }
