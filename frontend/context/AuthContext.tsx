@@ -106,6 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginWithGoogle = useCallback(async () => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       // Web : utiliser un élément <a> natif — seule méthode sans restriction window.location
+      // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
       const redirectUrl = window.location.origin + '/(auth)/callback';
       const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
       const a = document.createElement('a');
@@ -115,13 +116,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       a.click();
       document.body.removeChild(a);
     } else {
-      // Native (iOS/Android Expo Go) : navigateur intégré in-app
-      const redirectUrl = 'https://geo-coaching-app.preview.emergentagent.com/(auth)/callback';
+      // Native (iOS/Android Expo Go)
+      // IMPORTANT: On utilise Linking.createURL() pour obtenir l'URL exp:// propre à Expo Go.
+      // ASWebAuthenticationSession (iOS) peut intercepter automatiquement les URLs exp://
+      // mais PAS les URLs https:// sans Universal Links — d'où le navigateur qui ne se fermait pas.
+      // Linking.createURL génère: exp://geo-coaching-app.preview.emergentagent.com/--/(auth)/callback
+      const redirectUrl = Linking.createURL('/(auth)/callback');
       const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
       const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUrl);
       if (result.type === 'success') {
-        const match = result.url.match(/session_id=([^&]+)/);
-        const sessionId = match ? match[1] : null;
+        // session_id peut être dans le hash (#) ou les query params (?)
+        const match = result.url.match(/session_id=([^&#]+)/);
+        const sessionId = match ? decodeURIComponent(match[1]) : null;
         if (sessionId) {
           await processGoogleCallback(sessionId);
         }
