@@ -41,14 +41,14 @@ export default function BookingsScreen() {
   }, [tab, user]);
 
   const loadBookings = async () => {
-    if (!user) { setLoading(false); return; }
+    if (!user) { setFetching(false); return; }
     try {
       const endpoint = tab === 'mine' ? '/bookings/mine' : '/bookings/coach';
       const data = await api.get(endpoint);
       setBookings(data);
     } catch {}
     finally {
-      setLoading(false);
+      setFetching(false);
       setRefreshing(false);
     }
   };
