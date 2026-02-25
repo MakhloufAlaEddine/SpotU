@@ -181,21 +181,20 @@ function ListCard({ point, onPress }: { point: any; onPress: () => void }) {
 export default function HomeScreen() {
   const router = useRouter();
   const { t, lang } = useLang();
+  const { location, loading: locLoading } = useGlobalLocation();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [tagPoints, setTagPoints] = useState<any[]>([]);
-  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   // Carousel state
   const [heroIndex, setHeroIndex] = useState(0);
   const carouselRef = useRef<FlatList>(null);
   const autoScrollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => { init(); }, []);
-
+  // Recharger quand la localisation change (retour de set-location)
   useEffect(() => {
-    if (location) loadData();
-  }, [location]);
+    if (!locLoading) loadData();
+  }, [location.lat, location.lng, locLoading]);
 
   // Auto-scroll hero
   useEffect(() => {
@@ -211,22 +210,7 @@ export default function HomeScreen() {
     return () => { if (autoScrollTimer.current) clearInterval(autoScrollTimer.current); };
   }, [tagPoints]);
 
-  const init = async () => {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === 'granted') {
-        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        setLocation({ lat: loc.coords.latitude, lng: loc.coords.longitude });
-      } else {
-        setLocation({ lat: 48.8566, lng: 2.3522 });
-      }
-    } catch {
-      setLocation({ lat: 48.8566, lng: 2.3522 });
-    }
-  };
-
   const loadData = async () => {
-    if (!location) return;
     try {
       const nearby = await api.get(
         `/tag-points?lat=${location.lat}&lng=${location.lng}&radius=50000`
@@ -239,7 +223,7 @@ export default function HomeScreen() {
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     loadData();
-  }, [location]);
+  }, [location.lat, location.lng]);
 
   const heroPoints = tagPoints.slice(0, 5);
   const nearbyPoints = tagPoints.slice(0, 8);
