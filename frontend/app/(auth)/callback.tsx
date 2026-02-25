@@ -6,23 +6,13 @@ import { Colors, Spacing } from '../../constants/Colors';
 
 export default function AuthCallback() {
   const router = useRouter();
-  const { processGoogleCallback, user } = useAuth();
+  const { processGoogleCallback } = useAuth();
   const processed = useRef(false);
-  const callbackStarted = useRef(false);
-
-  // Navigation uniquement APRÈS que le user soit confirmé dans le contexte
-  // Ceci garantit que la race condition est évitée
-  useEffect(() => {
-    if (user && callbackStarted.current) {
-      router.replace('/(tabs)/map');
-    }
-  }, [user]);
 
   useEffect(() => {
     if (processed.current) return;
     processed.current = true;
 
-    // Lire le session_id depuis l'URL (hash OU query params) OU sessionStorage (backup)
     let sessionId: string | null = null;
 
     if (typeof window !== 'undefined') {
@@ -40,19 +30,15 @@ export default function AuthCallback() {
       }
     }
 
-    console.log('[AuthCallback] sessionId found:', !!sessionId);
-
     if (sessionId) {
-      callbackStarted.current = true;
       processGoogleCallback(sessionId)
         .then(() => {
           try { sessionStorage.removeItem('winek_pending_session'); } catch {}
-          // Navigation gérée par le useEffect sur user (voir ci-dessus)
+          // NavigationGuard dans _layout.tsx détecte user && inAuth et redirige automatiquement
         })
         .catch((err: any) => {
           console.log('[AuthCallback] error:', err?.message);
           try { sessionStorage.removeItem('winek_pending_session'); } catch {}
-          callbackStarted.current = false;
           router.replace('/(auth)/login');
         });
     } else {
