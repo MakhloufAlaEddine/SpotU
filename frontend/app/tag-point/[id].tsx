@@ -217,6 +217,7 @@ export default function TagPointDetail() {
   const [participantsCount, setParticipantsCount] = useState(0);
   const [isSaved, setIsSaved] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
+  const [rsvpLoading, setRsvpLoading] = useState(false);
 
   useEffect(() => {
     if (id) { loadPoint(); loadVotes(); if (user) loadMyVote(); }
