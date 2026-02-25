@@ -364,7 +364,7 @@ export default function TagPointDetail() {
 
         {/* Actions */}
         <View style={st.actionsRow}>
-          <ActionButton icon="copy-outline" label="Similaires" onPress={() => {}} />
+          <ActionButton icon="copy-outline" label="Similaires" onPress={openSimilar} />
           <ActionButton icon="share-social-outline" label="Partager" onPress={async () => {
             try { await Share.share({ message: `Découvrez "${point.title}" sur WINEK!` }); } catch {}
           }} />
