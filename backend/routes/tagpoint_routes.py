@@ -396,23 +396,6 @@ async def unsave_tag_point(point_id: str, request: Request):
     return {"success": True, "is_saved": False}
 
 
-@router.get("/tag-points/saved")
-async def get_saved_tag_points(request: Request):
-    pool = get_pool()
-    user = await require_auth(request, pool)
-    async with pool.acquire() as conn:
-        rows = await conn.fetch(
-            f"""SELECT {TP_FIELDS}, s.saved_at
-                FROM tag_point_saves s
-                JOIN tag_points tp ON s.point_id = tp.point_id
-                LEFT JOIN users u ON tp.user_id = u.user_id
-                WHERE s.user_id = $1
-                ORDER BY s.saved_at DESC""",
-            user["user_id"]
-        )
-    return [build_point_response(row_to_dict(r)) for r in rows]
-
-
 @router.post("/tag-points/{point_id}/join")
 async def join_tag_point(point_id: str, request: Request):
     pool = get_pool()
