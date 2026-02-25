@@ -13,24 +13,36 @@ export default function AuthCallback() {
     if (processed.current) return;
     processed.current = true;
 
-    const hash = typeof window !== 'undefined' ? window.location.hash : '';
-    console.log('[AuthCallback] hash:', hash);
-    const match = hash.match(/session_id=([^&]+)/);
-    const sessionId = match ? match[1] : null;
-    console.log('[AuthCallback] sessionId extrait:', sessionId ? sessionId.substring(0, 20) + '...' : 'NULL');
+    // 1. Lire le session_id depuis l'URL hash OU depuis sessionStorage (backup)
+    let sessionId: string | null = null;
+
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash || '';
+      const match = hash.match(/session_id=([^&]+)/);
+      if (match) {
+        sessionId = match[1];
+        // Stocker en backup et nettoyer l'URL
+        try { sessionStorage.setItem('winek_pending_session', sessionId); } catch {}
+      } else {
+        // Fallback: récupérer depuis sessionStorage si l'URL a déjà changé
+        try { sessionId = sessionStorage.getItem('winek_pending_session'); } catch {}
+      }
+    }
+
+    console.log('[AuthCallback] sessionId found:', !!sessionId);
 
     if (sessionId) {
       processGoogleCallback(sessionId)
         .then(() => {
-          console.log('[AuthCallback] succès → navigation vers map');
+          try { sessionStorage.removeItem('winek_pending_session'); } catch {}
           router.replace('/(tabs)/map');
         })
         .catch((err: any) => {
-          console.log('[AuthCallback] échec:', err?.message || err);
+          console.log('[AuthCallback] error:', err?.message);
+          try { sessionStorage.removeItem('winek_pending_session'); } catch {}
           router.replace('/(auth)/login');
         });
     } else {
-      console.log('[AuthCallback] pas de sessionId → login');
       router.replace('/(auth)/login');
     }
   }, []);
