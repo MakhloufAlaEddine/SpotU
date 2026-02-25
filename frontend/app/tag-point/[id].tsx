@@ -397,7 +397,7 @@ export default function TagPointDetail() {
           </View>
         )}
 
-        {/* 4. RSVP Button */}
+        {/* 4. RSVP + Message sur la même ligne */}
         <View style={st.rsvpRow}>
           <TouchableOpacity
             style={[st.rsvpBtn, isParticipant && st.rsvpBtnActive]}
@@ -409,24 +409,29 @@ export default function TagPointDetail() {
               ? <ActivityIndicator color={isParticipant ? Colors.primary : Colors.background} size="small" />
               : <>
                   <Ionicons name={isParticipant ? 'checkmark-circle' : 'add-circle-outline'}
-                    size={20} color={isParticipant ? Colors.primary : Colors.background} />
+                    size={18} color={isParticipant ? Colors.primary : Colors.background} />
                   <Text style={[st.rsvpText, isParticipant && st.rsvpTextActive]}>
                     {isParticipant ? 'Je participe' : 'Rejoindre'}
                   </Text>
                 </>}
           </TouchableOpacity>
+
           {participantsCount > 0 && (
             <Text style={st.rsvpCount} testID="participants-count">
               {participantsCount} participant{participantsCount > 1 ? 's' : ''}
             </Text>
           )}
-        </View>
 
-        {/* 5. Message + Actions */}
-        <TouchableOpacity style={st.messageBtn} onPress={() => Alert.alert('Chat', 'Bientôt disponible !')}>
-          <Text style={st.messageBtnText}>Envoyer un message</Text>
-          <Ionicons name="send" size={20} color={Colors.background} />
-        </TouchableOpacity>
+          <View style={{ flex: 1 }} />
+
+          <TouchableOpacity
+            style={st.msgBtn}
+            onPress={() => Alert.alert('Chat', 'Bientôt disponible !')}
+            testID="message-button"
+          >
+            <Ionicons name="chatbubble-ellipses-outline" size={20} color={Colors.foreground} />
+          </TouchableOpacity>
+        </View>
 
         <View style={st.actionsRow}>
           {[
