@@ -1,34 +1,14 @@
-import { useEffect } from 'react';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useAuth } from '../context/AuthContext';
+import { View, ActivityIndicator } from 'react-native';
 import { Colors } from '../constants/Colors';
 
+// Le NavigationGuard dans _layout.tsx gère toute la logique de redirection.
+// Cet écran sert uniquement de splash pendant le chargement initial.
 export default function Index() {
-  const router = useRouter();
-  const { user, loading } = useAuth();
-
-  useEffect(() => {
-    if (!loading) {
-      // Si un session_id OAuth est présent, laisser AuthCallback gérer la navigation
-      if (typeof window !== 'undefined' && window.location.hash?.includes('session_id=')) {
-        return;
-      }
-      if (user) {
-        router.replace('/(tabs)/map');
-      } else {
-        router.replace('/(auth)/login');
-      }
-    }
-  }, [user, loading]);
-
   return (
-    <View style={styles.container} testID="loading-screen">
+    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}
+      testID="loading-screen"
+    >
       <ActivityIndicator size="large" color={Colors.primary} />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
-});
