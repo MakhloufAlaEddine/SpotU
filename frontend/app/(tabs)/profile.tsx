@@ -227,7 +227,7 @@ export default function MenuScreen() {
     router.replace('/(auth)/login');
   };
 
-  if (loading) {
+  if (loading || isRefreshingUser) {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.center}>
