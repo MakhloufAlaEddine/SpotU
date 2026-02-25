@@ -36,6 +36,14 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       await loginWithGoogle();
+      // Sur native (Expo Go) : loginWithGoogle() attend que processGoogleCallback
+      // soit entièrement terminé (user défini, token en storage).
+      // On navigue explicitement ici comme garantie car NavigationGuard (useEffect)
+      // peut être retardé par React Native après la fermeture du navigateur OAuth.
+      // Sur web : loginWithGoogle() redirige la page directement, cette ligne n'est jamais atteinte.
+      if (Platform.OS !== 'web') {
+        router.replace('/(tabs)/map');
+      }
     } catch (err: any) {
       Alert.alert(t('error'), 'Connexion Google annulée');
     } finally {
