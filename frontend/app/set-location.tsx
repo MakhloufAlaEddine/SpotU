@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { Colors, Spacing, Radius } from '../constants/Colors';
 import { storage } from '../lib/storage';
-import MapViewComponent from '../components/MapViewComponent';
+import { MapViewComponent } from '../components/MapViewComponent';
 
 const SAVED_ADDRESSES = [
   {
