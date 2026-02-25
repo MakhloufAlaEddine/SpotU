@@ -14,14 +14,23 @@ export default function AuthCallback() {
     processed.current = true;
 
     const hash = typeof window !== 'undefined' ? window.location.hash : '';
+    console.log('[AuthCallback] hash:', hash);
     const match = hash.match(/session_id=([^&]+)/);
     const sessionId = match ? match[1] : null;
+    console.log('[AuthCallback] sessionId extrait:', sessionId ? sessionId.substring(0, 20) + '...' : 'NULL');
 
     if (sessionId) {
       processGoogleCallback(sessionId)
-        .then(() => router.replace('/(tabs)/map'))
-        .catch(() => router.replace('/(auth)/login'));
+        .then(() => {
+          console.log('[AuthCallback] succès → navigation vers map');
+          router.replace('/(tabs)/map');
+        })
+        .catch((err: any) => {
+          console.log('[AuthCallback] échec:', err?.message || err);
+          router.replace('/(auth)/login');
+        });
     } else {
+      console.log('[AuthCallback] pas de sessionId → login');
       router.replace('/(auth)/login');
     }
   }, []);
