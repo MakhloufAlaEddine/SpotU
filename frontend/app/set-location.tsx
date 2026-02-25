@@ -44,14 +44,34 @@ export default function SetLocationScreen() {
   const [selectedLat, setSelectedLat] = useState(48.8566);
   const [selectedLng, setSelectedLng] = useState(2.3522);
 
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<NominatimResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     initLocation();
   }, []);
 
+  const reverseGeocode = async (lat: number, lng: number) => {
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
+        { headers: { 'Accept-Language': 'fr' } }
+      );
+      const data = await res.json();
+      if (data && data.display_name) {
+        setCurrentAddress(data.display_name);
+        setSearchQuery('');
+      }
+    } catch (_) {}
+  };
+
   const initLocation = async () => {
     setLoading(true);
     try {
-      // Dynamic import to avoid web issues
       const Location = await import('expo-location');
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === 'granted') {
@@ -60,22 +80,58 @@ export default function SetLocationScreen() {
         });
         setSelectedLat(loc.coords.latitude);
         setSelectedLng(loc.coords.longitude);
-        const results = await Location.reverseGeocodeAsync({
-          latitude: loc.coords.latitude,
-          longitude: loc.coords.longitude,
-        });
-        if (results[0]) {
-          const g = results[0];
-          const parts = [g.street, g.city, g.postalCode].filter(Boolean);
-          setCurrentAddress(parts.join(', '));
-        }
+        await reverseGeocode(loc.coords.latitude, loc.coords.longitude);
       }
     } catch (_) {}
     setLoading(false);
   };
 
+  const handleMapPress = async (lat: number, lng: number) => {
+    setSelectedLat(lat);
+    setSelectedLng(lng);
+    setShowResults(false);
+    Keyboard.dismiss();
+    await reverseGeocode(lat, lng);
+  };
+
+  const handleSearchChange = (text: string) => {
+    setSearchQuery(text);
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    if (text.length < 3) {
+      setSearchResults([]);
+      setShowResults(false);
+      return;
+    }
+    searchTimeout.current = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(text)}&limit=5`,
+          { headers: { 'Accept-Language': 'fr' } }
+        );
+        const data: NominatimResult[] = await res.json();
+        setSearchResults(data);
+        setShowResults(data.length > 0);
+      } catch (_) {
+        setSearchResults([]);
+      }
+      setSearching(false);
+    }, 500);
+  };
+
+  const handleSelectResult = (result: NominatimResult) => {
+    const lat = parseFloat(result.lat);
+    const lng = parseFloat(result.lon);
+    setSelectedLat(lat);
+    setSelectedLng(lng);
+    setCurrentAddress(result.display_name);
+    setSearchQuery('');
+    setSearchResults([]);
+    setShowResults(false);
+    Keyboard.dismiss();
+  };
+
   const handleChoose = async () => {
-    // Met à jour le contexte React ET persiste — tous les écrans se rafraîchissent instantanément
     await setLocation({
       lat: selectedLat,
       lng: selectedLng,
@@ -93,6 +149,8 @@ export default function SetLocationScreen() {
     setSelectedLat(addr.lat);
     setSelectedLng(addr.lng);
     setCurrentAddress(addr.address);
+    setSearchQuery('');
+    setShowResults(false);
   };
 
   return (
