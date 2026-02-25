@@ -272,7 +272,7 @@ export default function TagPointDetail() {
     setRsvpLoading(true);
     try {
       const res = isParticipant
-        ? await api.delete(`/tag-points/${id}/leave`)
+        ? await api.del(`/tag-points/${id}/leave`)
         : await api.post(`/tag-points/${id}/join`, {});
       setIsParticipant(res.is_participant);
       setParticipantsCount(res.participants_count);
