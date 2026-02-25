@@ -108,7 +108,7 @@ export default function LoginScreen() {
             {/* Google */}
             <TouchableOpacity
               style={styles.googleBtn}
-              onPress={loginWithGoogle}
+              onPress={handleGoogleLogin}
               activeOpacity={0.8}
               testID="google-login-btn"
             >
