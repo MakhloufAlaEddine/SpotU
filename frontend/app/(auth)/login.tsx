@@ -35,7 +35,9 @@ export default function LoginScreen() {
     try {
       pendingNav.current = true;
       await login(email.trim(), password);
-      // Navigation gérée par le useEffect sur user ci-dessus
+      // Navigation directe (fonctionne sur web)
+      // Sur native : si race condition, le useEffect prend le relais
+      router.replace('/(tabs)/map');
     } catch (err: any) {
       pendingNav.current = false;
       Alert.alert(t('error'), err.message || 'Erreur de connexion');
@@ -49,8 +51,9 @@ export default function LoginScreen() {
     try {
       pendingNav.current = true;
       await loginWithGoogle();
-      // Sur web : la page redirige vers Emergent, ce code n'est pas atteint
-      // Sur native : navigation gérée par le useEffect sur user ci-dessus
+      // Sur web : la page redirige via <a>, ce code n'est jamais atteint
+      // Sur native : navigation directe + useEffect comme backup
+      router.replace('/(tabs)/map');
     } catch (err: any) {
       pendingNav.current = false;
       Alert.alert(t('error'), 'Connexion Google annulée');
