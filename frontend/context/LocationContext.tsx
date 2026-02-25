@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import * as Location from 'expo-location';
-import { storage } from '../lib/storage';
 
 export interface GlobalLocation {
   lat: number;
