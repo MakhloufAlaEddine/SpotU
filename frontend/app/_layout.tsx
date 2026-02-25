@@ -27,7 +27,6 @@ export default function RootLayout() {
               animation: 'slide_from_right'
             }} 
           />
-          <Stack.Screen name="(main)" />
           <Stack.Screen name="coach/[id]" />
           <Stack.Screen name="booking/[id]" />
           <Stack.Screen name="booking/success" />
@@ -42,6 +41,7 @@ export default function RootLayout() {
           />
           <Stack.Screen name="create-service" />
         </Stack>
+        </LocationProvider>
       </LanguageProvider>
     </AuthProvider>
   );
