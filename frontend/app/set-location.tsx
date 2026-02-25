@@ -6,8 +6,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../constants/Colors';
-import { storage } from '../lib/storage';
 import { MapViewComponent } from '../components/MapViewComponent';
+import { useLocation } from '../context/LocationContext';
 
 const SAVED_ADDRESSES = [
   {
