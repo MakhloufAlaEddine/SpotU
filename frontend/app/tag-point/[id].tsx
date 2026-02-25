@@ -305,29 +305,46 @@ export default function TagPointDetail() {
           )}
         </View>
 
-        {/* Created + Rating row */}
+        {/* Rating actuel */}
         <View style={st.createdRow}>
           <Text style={st.createdText}>{formatTimeAgo(point.created_at)}</Text>
-          <TouchableOpacity
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
-            onPress={() => user ? setShowVoteModal(true) : Alert.alert('Connexion requise', 'Connectez-vous pour voter.')}
-            testID="open-vote-modal-btn"
-          >
-            <StarDisplay rating={currentRating} votes={currentVotes} />
-          </TouchableOpacity>
+          <StarDisplay rating={currentRating} votes={currentVotes} />
         </View>
 
-        {/* Rate CTA — only if logged in */}
-        {user && (
-          <TouchableOpacity
-            style={st.rateBtn}
-            onPress={() => setShowVoteModal(true)}
-            testID="rate-button"
-          >
-            <Ionicons name="star-outline" size={18} color={Colors.primary} />
-            <Text style={st.rateBtnText}>Donner mon avis</Text>
-          </TouchableOpacity>
-        )}
+        {/* Zone de vote inline */}
+        <View style={st.voteWidget} testID="vote-widget">
+          <Text style={st.voteWidgetTitle}>
+            {voteSuccess ? '✓ Vote enregistré !' : 'Donner votre avis'}
+          </Text>
+          <InteractiveStars value={pendingStar} onChange={setPendingStar} size={32} />
+          {pendingStar > 0 && (
+            <>
+              <Text style={st.starLabel}>
+                {['', 'Mauvais', 'Moyen', 'Bien', 'Très bien', 'Excellent'][pendingStar]}
+              </Text>
+              <TextInput
+                style={st.commentInput}
+                placeholder="Commentaire (optionnel)…"
+                placeholderTextColor={Colors.muted}
+                value={comment}
+                onChangeText={setComment}
+                multiline
+                numberOfLines={2}
+                testID="vote-comment-input"
+              />
+              <TouchableOpacity
+                style={[st.submitBtn, submitting && { opacity: 0.6 }]}
+                onPress={handleVoteSubmit}
+                disabled={submitting}
+                testID="vote-submit-btn"
+              >
+                {submitting
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <Text style={st.submitBtnText}>Envoyer</Text>}
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
 
         {/* Send Message */}
         <TouchableOpacity
