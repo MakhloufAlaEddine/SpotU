@@ -99,6 +99,11 @@ The app is bilingual (French / English) with configurable language per user.
   - Pipe Haversine côté client (utils/distance.ts) — calcul pur sans appel API
   - set-location.tsx utilise setLocation() du contexte pour mise à jour instantanée
   - map.tsx et search.tsx calculent les distances depuis les coords GPS des tagpoints
+- [x] **BUG FIX: Écrans de tabs affichent "Veuillez vous connecter" après login** (2026-02-25)
+  - AuthContext.tsx: OAuth early-return garde loading=true jusqu'à processGoogleCallback
+  - processGoogleCallback gère setLoading(true/false), refreshUser wrappé useCallback
+  - profile.tsx + bookings.tsx: guard loading (ActivityIndicator) + fallback refreshUser
+  - tagpoint_routes.py: fix 500 sur création (alias tp manquant dans SELECT post-insert)
 
 ### P1 (High Priority - Remaining)
 - [x] TagPoint detail screen (/tag-point/[id]) - UI redesign + header bug fix (2026-02-24)
