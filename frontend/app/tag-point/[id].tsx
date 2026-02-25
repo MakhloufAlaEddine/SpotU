@@ -500,6 +500,35 @@ export default function TagPointDetail() {
         )}
       </ScrollView>
 
+      {/* Modal : Tous les avis */}
+      <Modal visible={showAllVotes} animationType="slide" transparent onRequestClose={() => setShowAllVotes(false)}>
+        <View style={st.modalOverlay}>
+          <TouchableOpacity style={st.modalBackdrop} activeOpacity={1} onPress={() => setShowAllVotes(false)} />
+          <View style={[st.modalSheet, { maxHeight: '90%' }]}>
+            <View style={st.modalHeader}>
+              <View>
+                <Text style={st.modalTitle}>{votes.length} avis</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                  <View style={{ flexDirection: 'row', gap: 2 }}>
+                    {[1,2,3,4,5].map(i => (
+                      <Ionicons key={i} name={i <= Math.round(currentRating) ? 'star' : 'star-outline'}
+                        size={14} color={i <= Math.round(currentRating) ? Colors.star : Colors.muted} />
+                    ))}
+                  </View>
+                  <Text style={{ fontSize: 13, color: Colors.muted }}>{currentRating.toFixed(1)} / 5</Text>
+                </View>
+              </View>
+              <TouchableOpacity onPress={() => setShowAllVotes(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="close" size={22} color={Colors.foreground} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: Spacing.md, paddingBottom: 40 }}>
+              {votes.map(v => <VoteCard key={v.vote_id} v={v} />)}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
       {/* Similar TagPoints Bottom Sheet */}
       <Modal visible={showSimilar} animationType="slide" transparent onRequestClose={() => setShowSimilar(false)}>
         <View style={st.modalOverlay}>
