@@ -428,6 +428,83 @@ export default function TagPointDetail() {
         )}
       </ScrollView>
 
+      {/* Similar TagPoints Bottom Sheet */}
+      <Modal visible={showSimilar} animationType="slide" transparent onRequestClose={() => setShowSimilar(false)}>
+        <View style={st.modalOverlay}>
+          <TouchableOpacity style={st.modalBackdrop} activeOpacity={1} onPress={() => setShowSimilar(false)} />
+          <View style={[st.modalSheet, { maxHeight: '80%' }]}>
+            <View style={st.modalHeader}>
+              <Text style={st.modalTitle}>TagPoints similaires</Text>
+              <TouchableOpacity onPress={() => setShowSimilar(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="close" size={22} color={Colors.foreground} />
+              </TouchableOpacity>
+            </View>
+
+            {loadingSimilar ? (
+              <View style={{ alignItems: 'center', paddingVertical: Spacing.xl }}>
+                <ActivityIndicator color={Colors.primary} size="large" />
+              </View>
+            ) : similar.length === 0 ? (
+              <View style={{ alignItems: 'center', paddingVertical: Spacing.xl }}>
+                <Ionicons name="search-outline" size={40} color={Colors.muted} />
+                <Text style={{ color: Colors.muted, marginTop: 8 }}>Aucun résultat similaire</Text>
+              </View>
+            ) : (
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={st.similarGrid}>
+                {similar.reduce<any[][]>((rows, item, i) => {
+                  if (i % 2 === 0) rows.push([item]);
+                  else rows[rows.length - 1].push(item);
+                  return rows;
+                }, []).map((row, rowIdx) => (
+                  <View key={rowIdx} style={st.similarRow}>
+                    {row.map((item: any) => {
+                      const iLat = item.latitude ?? item.location?.coordinates?.[1];
+                      const iLng = item.longitude ?? item.location?.coordinates?.[0];
+                      const dist = item.dist_m != null
+                        ? item.dist_m < 1000 ? `${Math.round(item.dist_m)}m` : `${(item.dist_m / 1000).toFixed(1)}km`
+                        : '---';
+                      return (
+                        <TouchableOpacity
+                          key={item.point_id}
+                          style={st.similarCard}
+                          activeOpacity={0.8}
+                          onPress={() => { setShowSimilar(false); router.replace(`/tag-point/${item.point_id}` as any); }}
+                          testID={`similar-card-${item.point_id}`}
+                        >
+                          <View style={st.similarImg}>
+                            {item.image_url
+                              ? <Image source={{ uri: item.image_url }} style={{ width: '100%', height: '100%', borderRadius: Radius.md }} />
+                              : <View style={[{ width: '100%', height: '100%', backgroundColor: Colors.card, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' }]}>
+                                  <Ionicons name="image-outline" size={28} color={Colors.muted} />
+                                </View>
+                            }
+                          </View>
+                          <Text style={st.similarTitle} numberOfLines={2}>{item.title}</Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                            <Ionicons name="location-outline" size={12} color={Colors.primary} />
+                            <Text style={st.similarDist}>{dist}</Text>
+                          </View>
+                          {(item.rating || 0) > 0 && (
+                            <View style={{ flexDirection: 'row', gap: 2, marginTop: 2 }}>
+                              {[1,2,3,4,5].map(i => (
+                                <Ionicons key={i} name={i <= Math.round(item.rating) ? 'star' : 'star-outline'} size={11}
+                                  color={i <= Math.round(item.rating) ? Colors.star : Colors.muted} />
+                              ))}
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                    {row.length === 1 && <View style={st.similarCard} />}
+                  </View>
+                ))}
+                <View style={{ height: 20 }} />
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
+
       {/* Vote Modal */}
       <Modal visible={showVoteModal} animationType="slide" transparent onRequestClose={() => setShowVoteModal(false)}>
         <KeyboardAvoidingView
