@@ -324,6 +324,9 @@ async def get_similar_tag_points(point_id: str):
         pt["dist_m"] = float(row["dist_m"]) if row["dist_m"] is not None else None
         result.append(pt)
     return result
+
+
+@router.get("/tag-points/{point_id}/my-vote")
 async def get_my_vote(point_id: str, request: Request):
     pool = get_pool()
     user = await require_auth(request, pool)
