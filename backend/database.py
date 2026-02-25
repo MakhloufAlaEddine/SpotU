@@ -138,6 +138,17 @@ CREATE TABLE IF NOT EXISTS payment_transactions (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS tag_point_votes (
+    vote_id TEXT PRIMARY KEY,
+    point_id TEXT REFERENCES tag_points(point_id) ON DELETE CASCADE,
+    user_id TEXT REFERENCES users(user_id) ON DELETE CASCADE,
+    rating INTEGER CHECK (rating >= 1 AND rating <= 5) NOT NULL,
+    comment TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(point_id, user_id)
+);
 """
 
 
