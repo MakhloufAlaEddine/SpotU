@@ -84,14 +84,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     applyUser(data.user);
   };
 
-  const loginWithGoogle = () => {
+  const loginWithGoogle = useCallback(async () => {
     // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
-    const redirectUrl = (typeof window !== 'undefined' ? window.location.origin : process.env.EXPO_PUBLIC_BACKEND_URL) + '/(auth)/callback';
-    const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
-    if (typeof window !== 'undefined') {
-      window.location.href = authUrl;
+    const { Platform } = await import('react-native');
+    const WebBrowser = await import('expo-web-browser');
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      // Web : navigation directe
+      const redirectUrl = window.location.origin + '/(auth)/callback';
+      const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+      // Utiliser window.open pour éviter les restrictions sur certains environnements
+      window.open(authUrl, '_self');
+    } else {
+      // Native (iOS/Android) : navigateur intégré
+      const redirectUrl = 'https://winek-sports-connect.preview.emergentagent.com/(auth)/callback';
+      const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUrl);
+      if (result.type === 'success') {
+        const match = result.url.match(/session_id=([^&]+)/);
+        const sessionId = match ? match[1] : null;
+        if (sessionId) {
+          await processGoogleCallback(sessionId);
+        }
+      }
     }
-  };
+  }, []);
 
   const processGoogleCallback = async (sessionId: string) => {
     const data = await api.post<{ user: User; token: string }>('/auth/google', { session_id: sessionId });
