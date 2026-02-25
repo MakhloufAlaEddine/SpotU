@@ -181,11 +181,19 @@ const menuStyles = StyleSheet.create({
 
 export default function MenuScreen() {
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, logout, loading, refreshUser } = useAuth();
   const { lang, setLang, t } = useLang();
   const [refreshing, setRefreshing] = useState(false);
   const [myTagPoints, setMyTagPoints] = useState<any[]>([]);
   const [showLangModal, setShowLangModal] = useState(false);
+
+  // Fallback: si le token est en storage mais user pas encore résolu, on rafraîchit
+  useEffect(() => {
+    if (!loading && !user) {
+      refreshUser();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
 
   useEffect(() => {
     if (user) loadData();
