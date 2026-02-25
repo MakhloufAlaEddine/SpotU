@@ -138,7 +138,66 @@ const modalSt = StyleSheet.create({
   submitText: { fontSize: 16, fontWeight: '700', color: '#fff' },
 });
 
-// ─── Action Button ────────────────────────────────────────────────────────────
+// ─── Vote Card ────────────────────────────────────────────────────────────────
+function VoteCard({ v }: { v: any }) {
+  const [expanded, setExpanded] = useState(false);
+  const isLong = v.comment && v.comment.length > 100;
+  const formatTimeAgoInner = (d: string) => {
+    const diff = Math.floor((Date.now() - new Date(d).getTime()) / 86400000);
+    if (diff < 1) return "Aujourd'hui";
+    if (diff === 1) return 'Hier';
+    if (diff < 7) return `Il y a ${diff} j`;
+    if (diff < 30) return `Il y a ${Math.floor(diff / 7)} sem`;
+    return `Il y a ${Math.floor(diff / 30)} mois`;
+  };
+  return (
+    <View style={vcSt.card} testID={`vote-item-${v.vote_id}`}>
+      <View style={vcSt.topRow}>
+        <View style={vcSt.avatar}>
+          {v.user_picture
+            ? <Image source={{ uri: v.user_picture }} style={{ width: '100%', height: '100%' }} />
+            : <Text style={vcSt.avatarText}>{v.user_name?.charAt(0)?.toUpperCase() || '?'}</Text>}
+        </View>
+        <View style={{ flex: 1 }}>
+          <View style={vcSt.nameRow}>
+            <Text style={vcSt.name}>{v.user_name}</Text>
+            <Text style={vcSt.date}>{formatTimeAgoInner(v.created_at)}</Text>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 2, marginTop: 2 }}>
+            {[1,2,3,4,5].map(i => (
+              <Ionicons key={i} name={i <= v.rating ? 'star' : 'star-outline'} size={13}
+                color={i <= v.rating ? Colors.star : Colors.muted} />
+            ))}
+          </View>
+        </View>
+      </View>
+      {v.comment && (
+        <>
+          <Text style={vcSt.comment} numberOfLines={expanded ? undefined : 3}>
+            {v.comment}
+          </Text>
+          {isLong && (
+            <TouchableOpacity onPress={() => setExpanded(!expanded)}>
+              <Text style={vcSt.readMore}>{expanded ? 'Réduire' : 'Lire la suite'}</Text>
+            </TouchableOpacity>
+          )}
+        </>
+      )}
+    </View>
+  );
+}
+
+const vcSt = StyleSheet.create({
+  card: { backgroundColor: Colors.card, borderRadius: Radius.lg, padding: Spacing.md, marginBottom: Spacing.sm },
+  topRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.sm },
+  avatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  avatarText: { fontSize: 16, fontWeight: '700', color: Colors.background },
+  nameRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  name: { fontSize: 14, fontWeight: '700', color: Colors.foreground },
+  date: { fontSize: 12, color: Colors.muted },
+  comment: { fontSize: 14, color: Colors.foreground, lineHeight: 20 },
+  readMore: { fontSize: 13, fontWeight: '600', color: Colors.primary, marginTop: 4 },
+});
 function ActionButton({ icon, label, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }) {
   return (
     <TouchableOpacity style={{ alignItems: 'center', gap: 4, flex: 1 }} onPress={onPress} activeOpacity={0.7}>
