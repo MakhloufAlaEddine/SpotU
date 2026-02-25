@@ -73,7 +73,8 @@ CREATE TABLE IF NOT EXISTS tag_points (
     active BOOLEAN DEFAULT TRUE,
     expires_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    image_url TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_tag_points_location ON tag_points USING GIST(location);
