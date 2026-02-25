@@ -448,16 +448,35 @@ export default function TagPointDetail() {
         </View>
 
         <View style={st.actionsRow}>
-          {[
-            { icon: 'copy-outline' as const, label: 'Similaires', onPress: openSimilar },
-            { icon: 'share-social-outline' as const, label: 'Partager', onPress: async () => { try { await Share.share({ message: `"${point.title}" sur WINEK !` }); } catch {} } },
-            { icon: 'bookmark-outline' as const, label: 'Sauvegarder', onPress: () => {} },
-          ].map(a => (
-            <TouchableOpacity key={a.label} style={st.actionBtn} onPress={a.onPress} activeOpacity={0.7}>
-              <Ionicons name={a.icon} size={24} color={Colors.foreground} />
-              <Text style={st.actionLabel}>{a.label}</Text>
-            </TouchableOpacity>
-          ))}
+          <TouchableOpacity style={st.actionBtn} onPress={openSimilar} activeOpacity={0.7} testID="similar-btn">
+            <View style={st.actionIcon}>
+              <Ionicons name="layers-outline" size={26} color={Colors.foreground} />
+            </View>
+            <Text style={st.actionLabel}>Similaires</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={st.actionBtn}
+            onPress={async () => { try { await Share.share({ message: `"${point.title}" sur WINEK !` }); } catch {} }}
+            activeOpacity={0.7}
+            testID="share-btn"
+          >
+            <View style={st.actionIcon}>
+              <Ionicons name="share-social-outline" size={26} color={Colors.foreground} />
+            </View>
+            <Text style={st.actionLabel}>Partager</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={st.actionBtn} onPress={toggleSave} disabled={saveLoading} activeOpacity={0.7} testID="save-btn">
+            <View style={[st.actionIcon, isSaved && st.actionIconSaved]}>
+              {saveLoading
+                ? <ActivityIndicator size="small" color={isSaved ? Colors.primary : Colors.foreground} />
+                : <Ionicons name={isSaved ? 'bookmark' : 'bookmark-outline'} size={26} color={isSaved ? Colors.primary : Colors.foreground} />}
+            </View>
+            <Text style={[st.actionLabel, isSaved && { color: Colors.primary }]}>
+              {isSaved ? 'Enregistré' : 'Sauvegarder'}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* 6. Map */}
@@ -689,9 +708,11 @@ const st = StyleSheet.create({
   messageBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.header, marginHorizontal: Spacing.md, paddingVertical: 10, borderRadius: Radius.full, gap: Spacing.sm, marginBottom: Spacing.sm },
   messageBtnText: { fontSize: 14, fontWeight: '600', color: Colors.foreground },
 
-  actionsRow: { flexDirection: 'row', paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border, marginBottom: Spacing.md },
-  actionBtn: { flex: 1, alignItems: 'center', gap: 4 },
-  actionLabel: { fontSize: 12, color: Colors.foreground },
+  actionsRow: { flexDirection: 'row', paddingHorizontal: Spacing.md, paddingVertical: Spacing.lg, borderBottomWidth: 1, borderBottomColor: Colors.border, marginBottom: Spacing.md, justifyContent: 'space-around' },
+  actionBtn: { flex: 1, alignItems: 'center', gap: 8 },
+  actionIcon: { width: 54, height: 54, borderRadius: Radius.lg, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
+  actionIconSaved: { backgroundColor: Colors.primaryLight, borderColor: Colors.primary },
+  actionLabel: { fontSize: 12, color: Colors.muted, fontWeight: '500' },
 
   mapWrap: { height: 180, marginHorizontal: Spacing.md, borderRadius: Radius.lg, overflow: 'hidden', marginBottom: Spacing.md },
 
