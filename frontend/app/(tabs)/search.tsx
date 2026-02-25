@@ -1,69 +1,53 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, TextInput, ScrollView,
-  TouchableOpacity, ActivityIndicator, Image,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  ActivityIndicator, Image, Modal, FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import { api } from '../../lib/api';
-import { useLang } from '../../context/LanguageContext';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { useLocation } from '../../context/LocationContext';
 import { haversineDistance, formatDistance } from '../../utils/distance';
 
-// Star Rating Component
-function StarRating({ rating = 0, maxStars = 5 }: { rating?: number; maxStars?: number }) {
+// ─── Types ────────────────────────────────────────────────────────────────────
+interface Tag { tag_id: string; label_fr: string; label_en: string; name: string; }
+interface Category { category_id: string; label_fr: string; label_en: string; name: string; tags: Tag[]; }
+
+// ─── Star Rating ──────────────────────────────────────────────────────────────
+function StarRating({ rating = 0 }: { rating?: number }) {
   return (
-    <View style={starStyles.container}>
-      {[...Array(maxStars)].map((_, index) => (
-        <Ionicons
-          key={index}
-          name={index < rating ? 'star' : 'star-outline'}
-          size={14}
-          color={index < rating ? Colors.star : Colors.starEmpty}
-        />
+    <View style={{ flexDirection: 'row', gap: 2 }}>
+      {[...Array(5)].map((_, i) => (
+        <Ionicons key={i} name={i < rating ? 'star' : 'star-outline'} size={14}
+          color={i < rating ? Colors.star : Colors.starEmpty} />
       ))}
     </View>
   );
 }
 
-const starStyles = StyleSheet.create({
-  container: { flexDirection: 'row', gap: 2 },
-});
-
-// Result Item Component
-interface ResultItemProps {
-  image?: string;
-  title: string;
-  author: string;
-  distance: string;
-  rating?: number;
-  onPress: () => void;
-}
-
-function ResultItem({ image, title, author, distance, rating = 0, onPress }: ResultItemProps) {
+// ─── Result Item ──────────────────────────────────────────────────────────────
+function ResultItem({ image, title, author, distance, rating = 0, onPress }:
+  { image?: string; title: string; author: string; distance: string; rating?: number; onPress: () => void }) {
   return (
-    <TouchableOpacity style={itemStyles.container} onPress={onPress} activeOpacity={0.7}>
-      <View style={itemStyles.imageContainer}>
-        {image ? (
-          <Image source={{ uri: image }} style={itemStyles.image} />
-        ) : (
-          <View style={itemStyles.imagePlaceholder}>
-            <Ionicons name="image-outline" size={24} color={Colors.muted} />
-          </View>
-        )}
+    <TouchableOpacity style={itemSt.container} onPress={onPress} activeOpacity={0.7}
+      testID="result-item">
+      <View style={itemSt.imgBox}>
+        {image
+          ? <Image source={{ uri: image }} style={itemSt.img} />
+          : <View style={itemSt.imgPlaceholder}><Ionicons name="image-outline" size={24} color={Colors.muted} /></View>}
       </View>
-      <View style={itemStyles.content}>
-        <Text style={itemStyles.title} numberOfLines={1}>{title}</Text>
-        <Text style={itemStyles.author} numberOfLines={1}>{author}</Text>
-        <Text style={itemStyles.distance}>{distance}</Text>
+      <View style={itemSt.content}>
+        <Text style={itemSt.title} numberOfLines={1}>{title}</Text>
+        <Text style={itemSt.author} numberOfLines={1}>{author}</Text>
+        <Text style={itemSt.distance}>{distance}</Text>
       </View>
-      <View style={itemStyles.right}>
+      <View style={itemSt.right}>
         <StarRating rating={rating} />
-        <View style={itemStyles.viewBtn}>
-          <Text style={itemStyles.viewText}>Voir</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Text style={itemSt.viewText}>Voir</Text>
           <Ionicons name="chevron-forward" size={16} color={Colors.muted} />
         </View>
       </View>
@@ -71,77 +55,113 @@ function ResultItem({ image, title, author, distance, rating = 0, onPress }: Res
   );
 }
 
-const itemStyles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    paddingVertical: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-    gap: Spacing.md,
-  },
-  imageContainer: {
-    width: 80,
-    height: 60,
-    borderRadius: Radius.sm,
-    overflow: 'hidden',
-  },
-  image: {
-    width: '100%',
-    height: '100%',
-  },
-  imagePlaceholder: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: Colors.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  content: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.foreground,
-  },
-  author: {
-    fontSize: 13,
-    color: Colors.muted,
-    marginTop: 2,
-  },
-  distance: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.foreground,
-    marginTop: 4,
-  },
-  right: {
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  viewBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  viewText: {
-    fontSize: 13,
-    color: Colors.muted,
-  },
+const itemSt = StyleSheet.create({
+  container: { flexDirection: 'row', paddingVertical: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border, gap: Spacing.md },
+  imgBox: { width: 80, height: 60, borderRadius: Radius.sm, overflow: 'hidden' },
+  img: { width: '100%', height: '100%' },
+  imgPlaceholder: { width: '100%', height: '100%', backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center' },
+  content: { flex: 1, justifyContent: 'center' },
+  title: { fontSize: 15, fontWeight: '600', color: Colors.foreground },
+  author: { fontSize: 13, color: Colors.muted, marginTop: 2 },
+  distance: { fontSize: 13, fontWeight: '600', color: Colors.foreground, marginTop: 4 },
+  right: { alignItems: 'flex-end', justifyContent: 'center', gap: 8 },
+  viewText: { fontSize: 13, color: Colors.muted },
 });
 
+// ─── Tag Modal ─────────────────────────────────────────────────────────────────
+function TagModal({ visible, categories, selectedTags, onToggle, onClear, onClose }:
+  { visible: boolean; categories: Category[]; selectedTags: string[];
+    onToggle: (id: string) => void; onClear: () => void; onClose: () => void }) {
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={modalSt.overlay}>
+        <View style={modalSt.sheet}>
+          {/* Header */}
+          <View style={modalSt.header}>
+            <TouchableOpacity onPress={onClear} testID="modal-clear-btn">
+              <Text style={modalSt.clearText}>Effacer</Text>
+            </TouchableOpacity>
+            <Text style={modalSt.headerTitle}>Chercher des tags</Text>
+            <TouchableOpacity onPress={onClose} testID="modal-close-btn">
+              <Text style={modalSt.doneText}>Terminer</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Categories + Tags */}
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={modalSt.scroll}>
+            {categories.filter(c => c.tags.length > 0).map(cat => (
+              <View key={cat.category_id} style={modalSt.category}>
+                <Text style={modalSt.catLabel}>{cat.label_fr}</Text>
+                <View style={modalSt.tagRow}>
+                  {cat.tags.map(tag => {
+                    const isSelected = selectedTags.includes(tag.tag_id);
+                    return (
+                      <TouchableOpacity
+                        key={tag.tag_id}
+                        style={[modalSt.tagPill, isSelected && modalSt.tagPillSelected]}
+                        onPress={() => onToggle(tag.tag_id)}
+                        testID={`tag-pill-${tag.tag_id}`}
+                      >
+                        <Text style={[modalSt.tagText, isSelected && modalSt.tagTextSelected]}>
+                          {tag.label_fr}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            ))}
+            <View style={{ height: 40 }} />
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const modalSt = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  sheet: { backgroundColor: Colors.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '85%' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  headerTitle: { fontSize: 16, fontWeight: '700', color: Colors.foreground },
+  clearText: { fontSize: 14, color: Colors.muted },
+  doneText: { fontSize: 14, fontWeight: '600', color: Colors.primary },
+  scroll: { padding: Spacing.md },
+  category: { marginBottom: Spacing.lg },
+  catLabel: { fontSize: 13, fontWeight: '700', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: Spacing.sm },
+  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  tagPill: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: Radius.full, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.card },
+  tagPillSelected: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  tagText: { fontSize: 13, color: Colors.foreground, fontWeight: '500' },
+  tagTextSelected: { color: '#fff', fontWeight: '700' },
+});
+
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function SearchScreen() {
   const router = useRouter();
-  const { t, lang } = useLang();
-  const [query, setQuery] = useState('');
   const [radiusKm, setRadiusKm] = useState(40);
   const [combineMode, setCombineMode] = useState(false);
   const [tagPoints, setTagPoints] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const { location } = useLocation();
-  const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
+  // Tag state
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [showTagModal, setShowTagModal] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [tagsMap, setTagsMap] = useState<Record<string, Tag>>({});
+
+  // Load categories + tags map once
+  useEffect(() => {
+    api.get('/tags/categories').then((cats: Category[]) => {
+      setCategories(cats);
+      const map: Record<string, Tag> = {};
+      cats.forEach(c => c.tags.forEach(t => { map[t.tag_id] = t; }));
+      setTagsMap(map);
+    }).catch(() => {});
+  }, []);
+
+  // Search on location / radius change
   useEffect(() => {
     if (location) doSearch();
   }, [location.lat, location.lng, radiusKm]);
@@ -149,11 +169,10 @@ export default function SearchScreen() {
   const doSearch = useCallback(async () => {
     setLoading(true);
     try {
-      const radius = radiusKm * 1000;
       const params = new URLSearchParams({
         lat: location.lat.toString(),
         lng: location.lng.toString(),
-        radius: radius.toString(),
+        radius: (radiusKm * 1000).toString(),
       });
       const pts = await api.get(`/tag-points?${params.toString()}`);
       setTagPoints(pts);
@@ -161,17 +180,27 @@ export default function SearchScreen() {
     finally { setLoading(false); }
   }, [location.lat, location.lng, radiusKm]);
 
-  // Pipe client : calcule la distance depuis les coordonnées du tagpoint
-  const getDistance = (pt: any): string => {
+  const getDistance = (pt: any) => {
     const lat = pt.latitude ?? pt.location?.coordinates?.[1];
     const lng = pt.longitude ?? pt.location?.coordinates?.[0];
     if (lat == null || lng == null) return '---';
     return formatDistance(haversineDistance(location.lat, location.lng, lat, lng));
   };
 
-  const filteredPoints = query
-    ? tagPoints.filter((p) => p.title?.toLowerCase().includes(query.toLowerCase()))
-    : tagPoints;
+  // Filter by selected tags (OR / AND based on combineMode)
+  const filteredPoints = useMemo(() => {
+    if (selectedTags.length === 0) return tagPoints;
+    return tagPoints.filter(pt => {
+      const ptTags: string[] = pt.tag_ids || [];
+      return combineMode
+        ? selectedTags.every(t => ptTags.includes(t))   // AND
+        : selectedTags.some(t => ptTags.includes(t));    // OR
+    });
+  }, [tagPoints, selectedTags, combineMode]);
+
+  const toggleTag = (id: string) => {
+    setSelectedTags(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]);
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -186,43 +215,50 @@ export default function SearchScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Tag Search Input */}
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        {/* Tag search row */}
         <View style={styles.tagInputRow}>
-          <View style={styles.tagInput}>
-            {selectedTag ? (
-              <TouchableOpacity 
-                style={styles.selectedTagPill}
-                onPress={() => setSelectedTag(null)}
-              >
-                <Text style={styles.selectedTagText}>{selectedTag}</Text>
-                <Ionicons name="close" size={14} color={Colors.foreground} />
-              </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.tagInput}
+            onPress={() => setShowTagModal(true)}
+            testID="tag-search-button"
+            activeOpacity={0.7}
+          >
+            {selectedTags.length === 0 ? (
+              <Text style={styles.tagInputPlaceholder}>Chercher des tags</Text>
             ) : (
-              <TextInput
-                style={styles.tagInputText}
-                placeholder="Chercher des tags"
-                placeholderTextColor={Colors.muted}
-                value={query}
-                onChangeText={setQuery}
-              />
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillsRow}>
+                {selectedTags.map(id => (
+                  <View key={id} style={styles.selectedPill}>
+                    <Text style={styles.selectedPillText} numberOfLines={1}>
+                      {tagsMap[id]?.label_fr || id}
+                    </Text>
+                    <TouchableOpacity onPress={() => toggleTag(id)} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                      <Ionicons name="close" size={13} color="#fff" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </ScrollView>
             )}
-          </View>
+          </TouchableOpacity>
+
+          {/* Combine toggle */}
           <View style={styles.combineRow}>
             <Text style={styles.combineLabel}>Combiner</Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.combineToggle, combineMode && styles.combineToggleActive]}
               onPress={() => setCombineMode(!combineMode)}
+              testID="combine-toggle"
             >
               {combineMode && <View style={styles.combineToggleDot} />}
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Location Row */}
+        {/* Location row */}
         <TouchableOpacity style={styles.locationRow} onPress={() => router.push('/set-location' as any)}>
           <Ionicons name="location" size={20} color={Colors.primary} />
-          <Text style={styles.locationText} numberOfLines={1}>
+          <Text style={styles.locationText} numberOfLines={1} testID="location-text">
             {location.address || 'Paris, France'}
           </Text>
         </TouchableOpacity>
@@ -231,10 +267,7 @@ export default function SearchScreen() {
         <View style={styles.sliderSection}>
           <Text style={styles.sliderValue}>{radiusKm}Km</Text>
           <View style={styles.sliderRow}>
-            <TouchableOpacity 
-              style={styles.sliderEndBtn}
-              onPress={() => setRadiusKm(Math.max(1, radiusKm - 5))}
-            >
+            <TouchableOpacity onPress={() => setRadiusKm(Math.max(1, radiusKm - 5))}>
               <View style={styles.sliderEndCircle} />
             </TouchableOpacity>
             <Slider
@@ -242,15 +275,12 @@ export default function SearchScreen() {
               minimumValue={1}
               maximumValue={100}
               value={radiusKm}
-              onValueChange={(val) => setRadiusKm(Math.round(val))}
+              onValueChange={val => setRadiusKm(Math.round(val))}
               minimumTrackTintColor={Colors.primary}
               maximumTrackTintColor={Colors.border}
               thumbTintColor={Colors.foreground}
             />
-            <TouchableOpacity 
-              style={styles.sliderEndBtnRight}
-              onPress={() => setRadiusKm(Math.min(100, radiusKm + 5))}
-            >
+            <TouchableOpacity onPress={() => setRadiusKm(Math.min(100, radiusKm + 5))}>
               <Ionicons name="radio-button-on" size={24} color={Colors.primary} />
             </TouchableOpacity>
           </View>
@@ -263,6 +293,17 @@ export default function SearchScreen() {
           </View>
         ) : (
           <View style={styles.results}>
+            {/* Active filter badge */}
+            {selectedTags.length > 0 && (
+              <View style={styles.filterBadge} testID="filter-badge">
+                <Text style={styles.filterBadgeText}>
+                  {filteredPoints.length} résultat{filteredPoints.length !== 1 ? 's' : ''} · {selectedTags.length} tag{selectedTags.length !== 1 ? 's' : ''} {combineMode ? '(ET)' : '(OU)'}
+                </Text>
+                <TouchableOpacity onPress={() => setSelectedTags([])} testID="clear-filter-btn">
+                  <Text style={styles.filterClearText}>Effacer</Text>
+                </TouchableOpacity>
+              </View>
+            )}
             {filteredPoints.length === 0 ? (
               <View style={styles.empty}>
                 <Ionicons name="search-outline" size={48} color={Colors.muted} />
@@ -284,154 +325,56 @@ export default function SearchScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Tag Modal */}
+      <TagModal
+        visible={showTagModal}
+        categories={categories}
+        selectedTags={selectedTags}
+        onToggle={toggleTag}
+        onClear={() => setSelectedTags([])}
+        onClose={() => setShowTagModal(false)}
+      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { 
-    flex: 1, 
-    backgroundColor: Colors.header 
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    backgroundColor: Colors.header,
-  },
+  safe: { flex: 1, backgroundColor: Colors.header },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, backgroundColor: Colors.header },
   backBtn: { padding: 4 },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: Colors.primary,
-  },
+  headerTitle: { fontSize: 17, fontWeight: '600', color: Colors.primary },
   headerAction: { padding: 4 },
-  content: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  tagInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
-    gap: Spacing.md,
-  },
-  tagInput: {
-    flex: 1,
-    backgroundColor: Colors.header,
-    borderRadius: Radius.full,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-  },
-  tagInputText: {
-    fontSize: 14,
-    color: Colors.foreground,
-  },
-  selectedTagPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.full,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    gap: 6,
-    alignSelf: 'flex-start',
-  },
-  selectedTagText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.foreground,
-  },
-  combineRow: {
-    alignItems: 'center',
-    gap: 4,
-  },
-  combineLabel: {
-    fontSize: 12,
-    color: Colors.muted,
-  },
-  combineToggle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: Colors.muted,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  combineToggleActive: {
-    borderColor: Colors.primary,
-  },
-  combineToggleDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: Colors.primary,
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.md,
-    gap: 8,
-    marginBottom: Spacing.sm,
-  },
-  locationText: {
-    flex: 1,
-    fontSize: 14,
-    color: Colors.foreground,
-  },
-  sliderSection: {
-    paddingHorizontal: Spacing.md,
-    marginBottom: Spacing.md,
-  },
-  sliderValue: {
-    fontSize: 13,
-    color: Colors.muted,
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  sliderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  sliderEndBtn: {
-    padding: 4,
-  },
-  sliderEndBtnRight: {
-    padding: 4,
-  },
-  sliderEndCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: Colors.muted,
-  },
-  slider: {
-    flex: 1,
-    height: 40,
-  },
-  results: {
-    paddingHorizontal: Spacing.md,
-    paddingBottom: 40,
-  },
-  center: { 
-    flex: 1, 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    padding: Spacing.xxl 
-  },
-  empty: { 
-    alignItems: 'center', 
-    padding: Spacing.xl, 
-    gap: 12 
-  },
-  emptyText: { 
-    fontSize: 15, 
-    color: Colors.muted, 
-    textAlign: 'center' 
-  },
+  content: { flex: 1, backgroundColor: Colors.background },
+
+  tagInputRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, gap: Spacing.md },
+  tagInput: { flex: 1, backgroundColor: Colors.header, borderRadius: Radius.full, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, minHeight: 40, justifyContent: 'center' },
+  tagInputPlaceholder: { fontSize: 14, color: Colors.muted },
+  pillsRow: { flexDirection: 'row', gap: 6, alignItems: 'center' },
+  selectedPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.primary, borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 4, gap: 5 },
+  selectedPillText: { fontSize: 12, fontWeight: '600', color: '#fff', maxWidth: 100 },
+
+  combineRow: { alignItems: 'center', gap: 4 },
+  combineLabel: { fontSize: 12, color: Colors.muted },
+  combineToggle: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: Colors.muted, alignItems: 'center', justifyContent: 'center' },
+  combineToggleActive: { borderColor: Colors.primary },
+  combineToggleDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: Colors.primary },
+
+  locationRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, gap: 8, marginBottom: Spacing.sm },
+  locationText: { flex: 1, fontSize: 14, color: Colors.foreground },
+
+  sliderSection: { paddingHorizontal: Spacing.md, marginBottom: Spacing.md },
+  sliderValue: { fontSize: 13, color: Colors.muted, textAlign: 'center', marginBottom: 4 },
+  sliderRow: { flexDirection: 'row', alignItems: 'center' },
+  sliderEndCircle: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: Colors.muted },
+  slider: { flex: 1, height: 40 },
+
+  results: { paddingHorizontal: Spacing.md, paddingBottom: 40 },
+  filterBadge: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md, backgroundColor: Colors.card, borderRadius: Radius.md, marginBottom: Spacing.md },
+  filterBadgeText: { fontSize: 13, color: Colors.muted },
+  filterClearText: { fontSize: 13, fontWeight: '600', color: Colors.primary },
+
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xxl },
+  empty: { alignItems: 'center', padding: Spacing.xl, gap: 12 },
+  emptyText: { fontSize: 15, color: Colors.muted, textAlign: 'center' },
 });
