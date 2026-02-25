@@ -138,27 +138,14 @@ export default function SearchScreen() {
   const [combineMode, setCombineMode] = useState(false);
   const [tagPoints, setTagPoints] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const { location } = useGlobalLocation();
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
   useEffect(() => {
-    Location.requestForegroundPermissionsAsync().then(({ status }) => {
-      if (status === 'granted') {
-        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }).then((loc) => {
-          setLocation({ lat: loc.coords.latitude, lng: loc.coords.longitude });
-        });
-      } else {
-        setLocation({ lat: 48.8566, lng: 2.3522 });
-      }
-    });
-  }, []);
-
-  useEffect(() => {
     if (location) doSearch();
-  }, [location, radiusKm]);
+  }, [location.lat, location.lng, radiusKm]);
 
   const doSearch = useCallback(async () => {
-    if (!location) return;
     setLoading(true);
     try {
       const radius = radiusKm * 1000;
@@ -167,12 +154,11 @@ export default function SearchScreen() {
         lng: location.lng.toString(),
         radius: radius.toString(),
       });
-
       const pts = await api.get(`/tag-points?${params.toString()}`);
       setTagPoints(pts);
     } catch {}
     finally { setLoading(false); }
-  }, [location, radiusKm]);
+  }, [location.lat, location.lng, radiusKm]);
 
   // Format distance
   const formatDistance = (distanceMeters?: number) => {
