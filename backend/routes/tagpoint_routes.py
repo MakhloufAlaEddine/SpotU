@@ -249,39 +249,66 @@ async def get_tag_point(point_id: str):
 async def get_similar_tag_points(point_id: str):
     pool = get_pool()
     async with pool.acquire() as conn:
-        # Get current point's tags and location
         current = await conn.fetchrow(
-            "SELECT tag_ids, location FROM tag_points WHERE point_id = $1",
-            point_id
+            "SELECT tag_ids, location FROM tag_points WHERE point_id = $1", point_id
         )
         if not current:
             return []
 
-        rows = await conn.fetch(
-            f"""
-            SELECT {TP_FIELDS},
-                   ST_Distance(tp.location::geography, $2::geography) AS dist_m
-            FROM tag_points tp
-            LEFT JOIN users u ON tp.user_id = u.user_id
-            WHERE tp.point_id != $1
-              AND tp.active = TRUE
-              AND (
-                  tp.tag_ids::jsonb ?| ARRAY(SELECT jsonb_array_elements_text($3::jsonb))
-                  OR ST_DWithin(tp.location::geography, $2::geography, 10000)
-              )
-            ORDER BY
-                CASE WHEN tp.tag_ids::jsonb ?| ARRAY(SELECT jsonb_array_elements_text($3::jsonb)) THEN 0 ELSE 1 END,
-                dist_m
-            LIMIT 10
-            """,
-            point_id,
-            current["location"],
-            current["tag_ids"] or "[]"
-        )
+        tag_ids_json = current["tag_ids"] or "[]"
+        # Parse tag_ids into a Python list for the query
+        import json as _json
+        try:
+            tag_ids_list = _json.loads(tag_ids_json) if isinstance(tag_ids_json, str) else tag_ids_json
+        except Exception:
+            tag_ids_list = []
+
+        if tag_ids_list:
+            rows = await conn.fetch(
+                f"""
+                SELECT {TP_FIELDS},
+                       ST_Distance(tp.location::geography, $2::geography) AS dist_m
+                FROM tag_points tp
+                LEFT JOIN users u ON tp.user_id = u.user_id
+                WHERE tp.point_id != $1
+                  AND tp.active = TRUE
+                  AND (
+                      EXISTS (
+                          SELECT 1 FROM jsonb_array_elements_text(tp.tag_ids::jsonb) t(v)
+                          WHERE v = ANY($3::text[])
+                      )
+                      OR ST_DWithin(tp.location::geography, $2::geography, 10000)
+                  )
+                ORDER BY
+                    CASE WHEN EXISTS (
+                        SELECT 1 FROM jsonb_array_elements_text(tp.tag_ids::jsonb) t(v)
+                        WHERE v = ANY($3::text[])
+                    ) THEN 0 ELSE 1 END,
+                    dist_m
+                LIMIT 10
+                """,
+                point_id, current["location"], tag_ids_list
+            )
+        else:
+            rows = await conn.fetch(
+                f"""
+                SELECT {TP_FIELDS},
+                       ST_Distance(tp.location::geography, $2::geography) AS dist_m
+                FROM tag_points tp
+                LEFT JOIN users u ON tp.user_id = u.user_id
+                WHERE tp.point_id != $1
+                  AND tp.active = TRUE
+                  AND ST_DWithin(tp.location::geography, $2::geography, 10000)
+                ORDER BY dist_m
+                LIMIT 10
+                """,
+                point_id, current["location"]
+            )
+
     result = []
     for row in rows:
         pt = build_point_response(row_to_dict(row))
-        pt["dist_m"] = float(row["dist_m"]) if row["dist_m"] else None
+        pt["dist_m"] = float(row["dist_m"]) if row["dist_m"] is not None else None
         result.append(pt)
     return result
 async def get_my_vote(point_id: str, request: Request):
