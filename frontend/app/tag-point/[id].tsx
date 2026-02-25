@@ -163,10 +163,19 @@ export default function TagPointDetail() {
   const [votes, setVotes] = useState<any[]>([]);
   const [currentRating, setCurrentRating] = useState(0);
   const [currentVotes, setCurrentVotes] = useState(0);
+  const [myVote, setMyVote] = useState<{ rating: number; comment: string | null } | null>(null);
   const [pendingStar, setPendingStar] = useState(0);
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [voteSuccess, setVoteSuccess] = useState(false);
+
+  const openVoteModal = () => {
+    // Pré-remplir avec le vote existant
+    setPendingStar(myVote?.rating || 0);
+    setComment(myVote?.comment || '');
+    setVoteSuccess(false);
+    setShowVoteModal(true);
+  };
 
   useEffect(() => {
     if (id) { loadPoint(); loadVotes(); }
