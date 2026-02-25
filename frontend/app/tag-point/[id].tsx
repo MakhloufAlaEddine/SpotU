@@ -336,21 +336,12 @@ export default function TagPointDetail() {
             <Ionicons name="chevron-back" size={24} color={Colors.primary} />
           </TouchableOpacity>
           <Text style={st.headerTitle}>Détails</Text>
-          <View style={{ flexDirection: 'row', gap: 4 }}>
-            <TouchableOpacity style={st.headerAction} onPress={openSimilar} testID="similar-btn">
-              <Ionicons name="layers-outline" size={20} color={Colors.foreground} />
+          <View style={{ flexDirection: 'row', gap: Spacing.md }}>
+            <TouchableOpacity onPress={() => router.push('/set-location' as any)} style={st.headerBtn}>
+              <Ionicons name="location" size={22} color={Colors.primary} />
             </TouchableOpacity>
-            <TouchableOpacity
-              style={st.headerAction}
-              onPress={async () => { try { await Share.share({ message: `"${point?.title}" sur WINEK !` }); } catch {} }}
-              testID="share-btn"
-            >
-              <Ionicons name="share-social-outline" size={20} color={Colors.foreground} />
-            </TouchableOpacity>
-            <TouchableOpacity style={[st.headerAction, isSaved && st.headerActionSaved]} onPress={toggleSave} disabled={saveLoading} testID="save-btn">
-              {saveLoading
-                ? <ActivityIndicator size="small" color={isSaved ? Colors.primary : Colors.foreground} />
-                : <Ionicons name={isSaved ? 'bookmark' : 'bookmark-outline'} size={20} color={isSaved ? Colors.primary : Colors.foreground} />}
+            <TouchableOpacity onPress={() => router.push('/(tabs)/search' as any)} style={st.headerBtn}>
+              <Ionicons name="search" size={22} color={Colors.primary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -421,7 +412,7 @@ export default function TagPointDetail() {
           </View>
         )}
 
-        {/* 4. RSVP + Message */}
+        {/* 4. RSVP + Message sur la même ligne */}
         <View style={st.rsvpRow}>
           <TouchableOpacity
             style={[st.rsvpBtn, isParticipant && st.rsvpBtnActive]}
@@ -435,10 +426,18 @@ export default function TagPointDetail() {
                   <Ionicons name={isParticipant ? 'checkmark-circle' : 'add-circle-outline'}
                     size={18} color={isParticipant ? Colors.primary : Colors.background} />
                   <Text style={[st.rsvpText, isParticipant && st.rsvpTextActive]}>
-                    {isParticipant ? `Je participe${participantsCount > 0 ? ` · ${participantsCount}` : ''}` : `Rejoindre${participantsCount > 0 ? ` · ${participantsCount}` : ''}`}
+                    {isParticipant ? 'Je participe' : 'Rejoindre'}
                   </Text>
                 </>}
           </TouchableOpacity>
+
+          {participantsCount > 0 && (
+            <Text style={st.rsvpCount} testID="participants-count">
+              {participantsCount} participant{participantsCount > 1 ? 's' : ''}
+            </Text>
+          )}
+
+          <View style={{ flex: 1 }} />
 
           <TouchableOpacity
             style={st.msgBtn}
@@ -446,6 +445,38 @@ export default function TagPointDetail() {
             testID="message-button"
           >
             <Ionicons name="chatbubble-ellipses-outline" size={20} color={Colors.foreground} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={st.actionsRow}>
+          <TouchableOpacity style={st.actionBtn} onPress={openSimilar} activeOpacity={0.7} testID="similar-btn">
+            <View style={st.actionIcon}>
+              <Ionicons name="layers-outline" size={26} color={Colors.foreground} />
+            </View>
+            <Text style={st.actionLabel}>Similaires</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={st.actionBtn}
+            onPress={async () => { try { await Share.share({ message: `"${point.title}" sur WINEK !` }); } catch {} }}
+            activeOpacity={0.7}
+            testID="share-btn"
+          >
+            <View style={st.actionIcon}>
+              <Ionicons name="share-social-outline" size={26} color={Colors.foreground} />
+            </View>
+            <Text style={st.actionLabel}>Partager</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={st.actionBtn} onPress={toggleSave} disabled={saveLoading} activeOpacity={0.7} testID="save-btn">
+            <View style={[st.actionIcon, isSaved && st.actionIconSaved]}>
+              {saveLoading
+                ? <ActivityIndicator size="small" color={isSaved ? Colors.primary : Colors.foreground} />
+                : <Ionicons name={isSaved ? 'bookmark' : 'bookmark-outline'} size={26} color={isSaved ? Colors.primary : Colors.foreground} />}
+            </View>
+            <Text style={[st.actionLabel, isSaved && { color: Colors.primary }]}>
+              {isSaved ? 'Enregistré' : 'Sauvegarder'}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -646,8 +677,6 @@ const st = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm },
   headerBtn: { padding: 4 },
   headerTitle: { fontSize: 18, fontWeight: '700', color: Colors.primary },
-  headerAction: { width: 36, height: 36, borderRadius: Radius.md, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
-  headerActionSaved: { backgroundColor: Colors.primaryLight, borderColor: Colors.primary },
   scroll: { flex: 1, backgroundColor: Colors.background },
 
   ownerBadge: { position: 'absolute', bottom: -16, left: 12, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.card, borderRadius: Radius.full, paddingRight: 12, paddingVertical: 4, paddingLeft: 4, borderWidth: 1, borderColor: Colors.border },
@@ -669,13 +698,13 @@ const st = StyleSheet.create({
   scheduleBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginHorizontal: Spacing.md, marginBottom: Spacing.md, backgroundColor: Colors.card, padding: Spacing.md, borderRadius: Radius.lg, borderLeftWidth: 3, borderLeftColor: Colors.primary },
   scheduleText: { flex: 1, fontSize: 14, color: Colors.foreground, lineHeight: 20 },
 
-  rsvpRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.md, marginBottom: Spacing.md },
-  rsvpBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.primary, paddingVertical: 12, borderRadius: Radius.full },
+  rsvpRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.md, marginBottom: Spacing.sm },
+  rsvpBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.primary, paddingHorizontal: Spacing.md, paddingVertical: 7, borderRadius: Radius.full },
   rsvpBtnActive: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: Colors.primary },
-  rsvpText: { fontSize: 14, fontWeight: '700', color: Colors.background },
+  rsvpText: { fontSize: 13, fontWeight: '700', color: Colors.background },
   rsvpTextActive: { color: Colors.primary },
   rsvpCount: { fontSize: 13, color: Colors.muted },
-  msgBtn: { width: 46, height: 46, borderRadius: 23, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
+  msgBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
 
   messageBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.header, marginHorizontal: Spacing.md, paddingVertical: 10, borderRadius: Radius.full, gap: Spacing.sm, marginBottom: Spacing.sm },
   messageBtnText: { fontSize: 14, fontWeight: '600', color: Colors.foreground },
