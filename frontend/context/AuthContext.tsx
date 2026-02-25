@@ -105,7 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       document.body.removeChild(a);
     } else {
       // Native (iOS/Android Expo Go) : navigateur intégré in-app
-      const redirectUrl = 'https://winek-sports-connect.preview.emergentagent.com/(auth)/callback';
+      const redirectUrl = 'https://winek-coaching.preview.emergentagent.com/(auth)/callback';
       const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
       const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUrl);
       if (result.type === 'success') {
