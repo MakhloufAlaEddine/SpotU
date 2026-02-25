@@ -5,12 +5,13 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, Stack } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
 import { useLang } from '../../context/LanguageContext';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
-import { useGlobalLocation } from '../../hooks/useGlobalLocation';
+import { useLocation } from '../../context/LocationContext';
+import { haversineDistance, formatDistance } from '../../utils/distance';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_W = SCREEN_WIDTH - Spacing.md * 2;
