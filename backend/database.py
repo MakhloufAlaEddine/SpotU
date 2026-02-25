@@ -149,6 +149,14 @@ CREATE TABLE IF NOT EXISTS tag_point_votes (
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(point_id, user_id)
 );
+
+CREATE TABLE IF NOT EXISTS tag_point_participants (
+    participant_id TEXT PRIMARY KEY,
+    point_id TEXT REFERENCES tag_points(point_id) ON DELETE CASCADE,
+    user_id TEXT REFERENCES users(user_id) ON DELETE CASCADE,
+    joined_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(point_id, user_id)
+);
 """
 
 
