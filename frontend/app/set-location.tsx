@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, TextInput,
-  ActivityIndicator, ScrollView,
+  View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
 import { Colors, Spacing, Radius } from '../constants/Colors';
 import { storage } from '../lib/storage';
 import { MapViewComponent } from '../components/MapViewComponent';
@@ -17,103 +15,102 @@ const SAVED_ADDRESSES = [
     label: 'Home',
     icon: 'home-outline' as const,
     address: '27 Bis Boulevard de la République, 78360 Montesson',
-    lat: 48.9041, lng: 2.1499,
+    lat: 48.9041,
+    lng: 2.1499,
   },
   {
     id: 'work',
     label: 'work',
     icon: 'briefcase-outline' as const,
     address: '53 Boulevard Brune, 75014 Paris',
-    lat: 48.8232, lng: 2.3214,
+    lat: 48.8232,
+    lng: 2.3214,
   },
 ];
 
 export default function SetLocationScreen() {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [currentAddress, setCurrentAddress] = useState('Localisation en cours...');
+  const [loading, setLoading] = useState(false);
+  const [currentAddress, setCurrentAddress] = useState('Paris, France');
   const [selectedLat, setSelectedLat] = useState(48.8566);
   const [selectedLng, setSelectedLng] = useState(2.3522);
 
-  useEffect(() => { initLocation(); }, []);
+  useEffect(() => {
+    initLocation();
+  }, []);
 
   const initLocation = async () => {
+    setLoading(true);
     try {
+      // Dynamic import to avoid web issues
+      const Location = await import('expo-location');
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === 'granted') {
-        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        const loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
         setSelectedLat(loc.coords.latitude);
         setSelectedLng(loc.coords.longitude);
-        await reverseGeocode(loc.coords.latitude, loc.coords.longitude);
+        const results = await Location.reverseGeocodeAsync({
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+        });
+        if (results[0]) {
+          const g = results[0];
+          const parts = [g.street, g.city, g.postalCode].filter(Boolean);
+          setCurrentAddress(parts.join(', '));
+        }
       }
-    } catch {}
+    } catch (_) {}
     setLoading(false);
   };
 
-  const reverseGeocode = async (lat: number, lng: number) => {
-    try {
-      const [geo] = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
-      if (geo) {
-        const parts = [geo.street, geo.city, geo.postalCode].filter(Boolean);
-        setCurrentAddress(parts.join(', '));
-      }
-    } catch {}
-  };
-
-  const handleMapPress = (lat: number, lng: number) => {
-    setSelectedLat(lat);
-    setSelectedLng(lng);
-    reverseGeocode(lat, lng);
-  };
-
   const handleChoose = async () => {
-    await storage.set('winek_global_location', JSON.stringify({
-      lat: selectedLat,
-      lng: selectedLng,
-      address: currentAddress,
-    }));
+    try {
+      await storage.set(
+        'winek_global_location',
+        JSON.stringify({ lat: selectedLat, lng: selectedLng, address: currentAddress })
+      );
+    } catch (_) {}
     router.back();
   };
 
-  const handleSaved = (addr: typeof SAVED_ADDRESSES[0]) => {
+  const handleSaved = (addr: (typeof SAVED_ADDRESSES)[0]) => {
     setSelectedLat(addr.lat);
     setSelectedLng(addr.lng);
     setCurrentAddress(addr.address);
-  };
-
-  const handleGPS = () => {
-    setLoading(true);
-    initLocation();
   };
 
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      {/* Header */}
       <SafeAreaView edges={['top']} style={styles.safeHeader}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.headerSide}>
             <Text style={styles.headerAction}>Annuler</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Set global location</Text>
-          <TouchableOpacity onPress={handleChoose} style={[styles.headerSide, { alignItems: 'flex-end' }]}>
-            <Text style={[styles.headerAction, { color: Colors.primary }]}>Choisir</Text>
+          <TouchableOpacity
+            onPress={handleChoose}
+            style={[styles.headerSide, { alignItems: 'flex-end' }]}
+          >
+            <Text style={[styles.headerAction, styles.headerChoose]}>Choisir</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
 
       <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
         {/* GPS row */}
-        <TouchableOpacity style={styles.gpsRow} onPress={handleGPS}>
+        <TouchableOpacity style={styles.gpsRow} onPress={initLocation}>
           <View style={styles.gpsIcon}>
             <Ionicons name="locate" size={22} color={Colors.foreground} />
           </View>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={styles.gpsTitle}>Localisation actuelle</Text>
             <Text style={styles.gpsSub}>Using GPS</Text>
           </View>
-          {loading && <ActivityIndicator size="small" color={Colors.primary} style={{ marginLeft: 'auto' }} />}
+          {loading && <ActivityIndicator size="small" color={Colors.primary} />}
         </TouchableOpacity>
 
         {/* Map */}
@@ -124,35 +121,47 @@ export default function SetLocationScreen() {
             zoom={15}
             selectable
             showUserMarker={false}
-            pins={[{
-              id: 'selected',
-              lat: selectedLat,
-              lng: selectedLng,
-              title: 'Position sélectionnée',
-              color: '#E53E3E',
-            }]}
-            onMapPress={handleMapPress}
-            style={{ width: '100%', height: '100%' }}
+            pins={[
+              {
+                id: 'selected',
+                lat: selectedLat,
+                lng: selectedLng,
+                title: 'Position sélectionnée',
+                color: '#E53E3E',
+              },
+            ]}
+            onMapPress={(lat, lng) => {
+              setSelectedLat(lat);
+              setSelectedLng(lng);
+            }}
           />
         </View>
 
-        {/* Current address */}
+        {/* Current address bar */}
         <View style={styles.addressRow}>
           <Ionicons name="location" size={18} color={Colors.primary} />
-          <Text style={styles.addressText} numberOfLines={2}>{currentAddress}</Text>
+          <Text style={styles.addressText} numberOfLines={2}>
+            {currentAddress}
+          </Text>
         </View>
 
         {/* Saved addresses */}
         <View style={styles.savedSection}>
           <Text style={styles.savedTitle}>Adresses enregistrées</Text>
-          {SAVED_ADDRESSES.map(addr => (
-            <TouchableOpacity key={addr.id} style={styles.savedRow} onPress={() => handleSaved(addr)}>
+          {SAVED_ADDRESSES.map((addr) => (
+            <TouchableOpacity
+              key={addr.id}
+              style={styles.savedRow}
+              onPress={() => handleSaved(addr)}
+            >
               <View style={styles.savedIcon}>
                 <Ionicons name={addr.icon} size={20} color={Colors.foreground} />
               </View>
               <View style={styles.savedInfo}>
                 <Text style={styles.savedLabel}>{addr.label}</Text>
-                <Text style={styles.savedAddress} numberOfLines={1}>{addr.address}</Text>
+                <Text style={styles.savedAddress} numberOfLines={1}>
+                  {addr.address}
+                </Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color={Colors.muted} />
             </TouchableOpacity>
@@ -177,8 +186,15 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.header,
   },
   headerSide: { width: 80 },
-  headerTitle: { flex: 1, textAlign: 'center', fontSize: 16, fontWeight: '700', color: Colors.foreground },
+  headerTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.foreground,
+  },
   headerAction: { fontSize: 15, color: Colors.muted, fontWeight: '500' },
+  headerChoose: { color: Colors.primary, textAlign: 'right' },
 
   gpsRow: {
     flexDirection: 'row',
@@ -190,9 +206,13 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.border,
   },
   gpsIcon: {
-    width: 40, height: 40, borderRadius: 20,
-    borderWidth: 1.5, borderColor: Colors.border,
-    alignItems: 'center', justifyContent: 'center',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   gpsTitle: { fontSize: 15, fontWeight: '600', color: Colors.foreground },
   gpsSub: { fontSize: 13, color: Colors.muted, marginTop: 2 },
@@ -220,7 +240,12 @@ const styles = StyleSheet.create({
   addressText: { flex: 1, fontSize: 14, color: Colors.foreground, lineHeight: 20 },
 
   savedSection: { paddingHorizontal: Spacing.md, marginTop: Spacing.lg },
-  savedTitle: { fontSize: 15, fontWeight: '700', color: Colors.foreground, marginBottom: Spacing.sm },
+  savedTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: Colors.foreground,
+    marginBottom: Spacing.sm,
+  },
   savedRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -230,9 +255,12 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   savedIcon: {
-    width: 40, height: 40, borderRadius: Radius.sm,
+    width: 40,
+    height: 40,
+    borderRadius: Radius.sm,
     backgroundColor: Colors.card,
-    alignItems: 'center', justifyContent: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   savedInfo: { flex: 1 },
   savedLabel: { fontSize: 15, fontWeight: '600', color: Colors.foreground },
