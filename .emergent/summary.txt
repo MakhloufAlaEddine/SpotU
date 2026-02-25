@@ -12,63 +12,84 @@
 **User's preferred language**: French. The next agent MUST respond in **French**.
 
 **what currently exists?**
-The application is in a non-functional state due to a critical login bug. The previous agent attempted a series of complex fixes to resolve race conditions between the authentication state update and navigation for both web and native (Expo Go) platforms. While a backend PostgreSQL crash was resolved and error handling for the Google Auth callback was improved, the primary user flow is broken. After a successful login (confirmed by backend logs), the application remains stuck on the login screen instead of redirecting to the main app content.
+The application's Google Authentication flow is critically broken on the native Expo Go platform. After a user authenticates with Google, the in-app browser fails to close automatically, preventing the login from completing and leaving the user stuck. Multiple complex fixes were attempted, but none resolved this fundamental native redirection issue.
+
+**Crucially, the user has explicitly requested to pause all work on the Google Auth bug and has pivoted to a new feature and bug fix on the location selection screen.** The previous agent has acknowledged this and viewed the relevant file, .
 
 **Last working item**:
--   **Last item agent was working**: Fixing a critical regression where the app gets stuck on the login screen after a successful authentication on both web and Expo Go. The agent's last attempt involved a platform-specific hybrid navigation logic which failed to resolve the issue.
--   **Status**: IN PROGRESS
+-   **Last item agent was working**: The user has assigned two new tasks related to the location selection screen ():
+    1.  **New Feature**: Add a text input field to allow users to search for an address.
+    2.  **Bug Fix**: When a user taps a location on the map, the address displayed in the input field does not update.
+-   **Status**: NOT STARTED
 -   **Agent Testing Done**: N
--   **Which testing method agent to use?**: frontend testing agent. The test must verify that after a successful login (both email and Google), the user is automatically redirected from the  screen to the main application view (e.g., ).
--   **User Testing Done**: Y (User has confirmed the latest fix does not work and the issue persists).
+-   **Which testing method agent to use?**: frontend testing agent. The test should verify: 1) Tapping the map updates the address input. 2) Typing an address moves the map pin.
+-   **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: App is stuck on the login screen after successful authentication (P0)**
-    -   **Description**: After a user provides correct credentials (email/password or Google Auth), the backend successfully authenticates them. However, the frontend fails to navigate away from the login/register screen. This blocks all user access to the application.
-    -   **Attempted fixes**:
-        1.  **useEffect-only navigation**: Navigating within a  hook that watches for the  object in the auth context. This fixed the race condition on native but broke navigation on the web.
-        2.  **Hybrid navigation**: An attempt to use direct  for web and the  approach for native. This solution also failed and resulted in the current stuck on login state.
+-   **Issue 1: Address input does not update on map selection (P0)**
+-   **Issue 2: Google Auth flow is broken on Expo Go (P2 - ON HOLD)**
+
+**Issues Detail**:
+-   **Issue 1: Address input does not update on map selection**
+    -   **Description**: In , when the user taps on the map to select a new location, the pin moves, but the text input field meant to display the address for that location does not get updated.
+    -   **Attempted fixes**: None. This is a newly assigned task.
     -   **Next debug checklist**:
-        1.  **Investigate **: The agent was last inspecting this file. It likely contains logic to redirect authenticated users. Verify why this redirection is failing.
-        2.  **Centralize Navigation Logic**: The current approach of handling redirects in multiple files (, , ) is fragile and the source of the recurring race conditions. The logic should be removed from these files.
-        3.  **Implement Centralized Redirect**: The best solution is to implement the navigation logic in a single, top-level component. The root layout  is the ideal place. Implement a  hook there that monitors the  and  states. When  is , if a  object exists, it should redirect to the main app; otherwise, it should redirect to the login screen. This pattern eliminates all race conditions.
-    -   **Why fix this issue and what will be achieved with the fix?**: This is a critical, app-breaking bug. Fixing it is the top priority as it will make the application usable again.
-    -   **Status**: IN PROGRESS
-    -   **Is recurring issue?**: Y
+        1.  In , locate the  handler for the .
+        2.  Inside the handler, after getting the new coordinates, use a reverse geocoding service/API to get the corresponding street address.
+        3.  Update the React state variable that holds the value for the address text input with the new address.
+    -   **Why fix this issue and what will be achieved with the fix?**: This is a core part of the user experience for setting a location. Fixing it will make the screen intuitive and functional.
+    -   **Status**: NOT STARTED
+    -   **Is recurring issue?**: N
     -   **Should Test frontend/backend/both after fix?**: frontend
-    -   **Blocked on other issue**: No, this is the main blocker.
+-   **Issue 2: Google Auth flow is broken on Expo Go (ON HOLD)**
+    -   **Description**: On native (Expo Go), after a user authenticates via the Google-powered in-app browser (), the browser does not close automatically. This is because the final redirect from the Emergent Auth service is a standard  URL, which iOS cannot intercept to return to the app without a full Universal Links configuration. The user is stuck.
+    -   **Attempted fixes**:
+        1.  **Centralized Navigation Guard**: A  was created in  to manage auth state. This fixed web race conditions but not the native issue.
+        2.  **Custom Scheme () Redirect**: An attempt to generate an  URL with  failed as it was overridden by development environment variables.
+        3.  **Two-Step Web Redirect**: A final attempt where the web callback page  would detect  and try to force a redirect to an  URL. This also failed to close the browser.
+    -   **Next debug checklist**:
+        1.  **DO NOT WORK ON THIS.** The user has explicitly paused this task.
+        2.  When resumed, the strategy must change. The root cause is that the Emergent Auth service may not support native app scheme redirects ( or ). The next attempt should be to confirm this capability before writing any code. If not supported, an alternative like  may be required.
+    -   **Status**: BLOCKED (User has deprioritized this task).
+    -   **Is recurring issue?**: Y
+    -   **Should Test frontend/backend/both after fix?**: frontend (specifically on Expo Go).
 
 **In progress Task List**:
--   None.
+-   **Task 1: Add Address Search Input (P0)**
+    -   **Where to resume**: .
+    -   **What will be achieved with this?**: Users will be able to search for locations by typing an address, complementing the existing map interaction.
+    -   **Status**: NOT STARTED
+    -   **Should Test frontend/backend/both after fix?**: frontend
 
 **Upcoming and Future Tasks**
--   **Upcoming Tasks (P0)**:
-    -   **Complete Create Service Flow for Coaches**: Implement the form UI in  and connect it to the  endpoint.
-    -   **Stripe Integration**: Implement the payment flow for booking coach services.
-    -   **Bilingual Support (i18n)**: Integrate an internationalization library to support French and English.
-    -   **Chat Implementation**: Build the chat functionality for the currently blank screen at .
--   **Future Tasks (P1)**:
-    -   **User Reviews & Ratings**: Implement a system for users to review coaches.
-    -   **Admin Dashboard**: Develop the admin panel for platform management.
+-   **Upcoming Tasks (P1)**:
+    -   Complete Create Service Flow for Coaches in .
+    -   Stripe Integration for service payments.
+    -   Bilingual Support (i18n).
+    -   Chat Implementation in .
+-   **Future Tasks (P2)**:
+    -   User Reviews & Ratings system.
+    -   Admin Dashboard.
+    -   Fix Google Auth on Expo Go (currently on hold).
 
 **Completed work in this session**
--   **Auth Race Condition Investigation**: A series of fixes were attempted across , , and  to solve navigation race conditions. While unsuccessful, this laid the groundwork for understanding the core problem.
--   **Google Auth Error Handling**: Improved the backend () and frontend () to better handle and report errors from the Emergent Auth service.
--   **Backend Stability**: Fixed a crash on startup related to the PostgreSQL database.
--   **UI Loading States**: Added  to  and  to handle the auth loading state.
+-   **Auth Navigation Refactoring**: Successfully centralized authentication-based navigation logic into a  in , which resolved login race conditions on the web platform.
+-   **UI Loading Indicators**: Improved user experience by adding spinners () to  and  during data refresh.
+-   **Extensive Debugging of Native Auth**: Thoroughly investigated and documented why the native Google Auth flow fails, identifying the  vs  redirect as the root cause.
 
 **Earlier issues found/mentioned but not fixed**
--   None.
+-   **Issue 1: Google Auth flow is broken on Expo Go.** This is the primary unresolved issue from this session, now intentionally deprioritized by the user.
 
 **Known issue recurrence from previous fork**
--   The core problem is **authentication state propagation and navigation race conditions**. While the specific symptom has changed (from a broken profile page to being stuck on the login page), the underlying cause—decentralized and improperly timed navigation calls—remains the same.
+-   The underlying theme of authentication/navigation race conditions and platform-specific behavior (Web vs. Native) continues. The current broken state of native Google Auth is the latest manifestation.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **React Context**:  is used for global authentication state. The core issue lies in how consumers of this context react to state changes.
--   **Expo Router**: File-based routing is used for navigation. The main challenge has been synchronizing imperative navigation () with React's asynchronous state updates.
--   **Race Condition Debugging**: The entire session was dominated by attempts to fix timing issues between  being called in the context and  being called on the login/register screens.
+-   **Expo  vs **: The core of the native auth problem is the failure to bridge the gap between the  session and the  API needed to handle the deep link () back into the app.
+-   **Platform-Specific Logic ()**: The codebase now contains divergent logic for 'web' and 'native', which has become a source of bugs.
+-   **Reverse Geocoding**: Will be needed to implement the fix for the map selection bug in .
 
 **key DB schema**
 -   No changes in this session.
@@ -77,57 +98,56 @@ The application is in a non-functional state due to a critical login bug. The pr
 -   None.
 
 **All files of reference**
--   **Files for Current Bug**:
-    -    (Recommended location for centralized navigation logic)
-    -    (Current entry point, likely has faulty redirect logic)
-    -    (Contains flawed navigation logic to be removed)
-    -    (Contains flawed navigation logic to be removed)
-    -    (The source of the auth state)
+-   **Current Task**:
+    -   
+-   **Paused Task (Google Auth)**:
+    -   
+    -   
+    -   
+    -   
+    -    (for the  definition)
 
 **Areas that need refactoring**:
--   **Centralize Navigation Logic**: The navigation logic is currently scattered across , , and . This is the direct cause of the recurring bugs. This logic **must be removed** from these files and consolidated into a single  hook in the root layout file (). This hook should be the sole authority on redirecting users based on their authentication status.
+-   The entire native Google Authentication flow in  needs to be re-architected once the task is un-paused. The current approach is a dead end.
 
 **key api endpoints**
--   : Backend endpoint for exchanging the  for a JWT. Error handling was improved for this endpoint.
--   : Standard email/password login.
--   : Standard email/password registration.
+-   No new endpoints were added.  remains the key endpoint for the broken Google Auth flow.
 
 **Critical Info for New Agent**
 -   **Language**: You MUST respond and communicate in **French**.
--   **Priority 1**: The application is completely blocked. Users cannot get past the login screen. You must fix this before doing anything else.
--   **The Bug**: A race condition exists where navigation is attempted before the authentication state is propagated through the React context. The previous agent's attempts to fix this with scattered, platform-specific logic have failed.
--   **Recommended Strategy**: **Do not patch the existing logic**. The correct and robust solution is to **centralize all auth-based navigation**.
-    1.  Remove all  calls from  and .
-    2.  In the root layout file, , implement a  hook that listens to changes in  and .
-    3.  This hook will be the single source of truth: when loading is complete, it will navigate to the main app if  exists, or to the login screen if not.
+-   **PRIORITY SHIFT**: Do NOT work on the Google Auth bug. The user has explicitly instructed to pause it.
+-   **Your immediate tasks are in **:
+    1.  Add a new text input for address search.
+    2.  Fix the bug where tapping the map doesn't update the existing address field.
+-   **Context on the Paused Bug**: The native Google Auth login is broken because the auth provider redirects to a  URL, which Expo Go cannot intercept. All attempts to force an  redirect have failed. Avoid this topic unless the user brings it up again.
 
 **documents and test reports created in this job**
--   
+-    (Note: This report showed success but was a false positive as it only tested the web flow, not the broken native flow).
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User**: Reports Meme problème (Same problem), indicating the app is still stuck on the login screen after the agent's latest fix.
-2.  **User**: La connexion passe sur le lien mais maintenant l’application reste sur l’écran login (Login works on the link, but now the application stays on the login screen).
-3.  **User**: Confirms the fix works on the web link but not on Expo Go.
-4.  **User**: 13h22 la connexion marche. Mais voir pie jointe (1:22 PM the connection works. But see attached image). The image showed the profile screen was not loading correctly, indicating a race condition.
-5.  **User**: Reports Google login results in .
-6.  *The preceding messages were from the agent, debugging the  error and the subsequent race conditions.*
+-   User repeatedly reported that Google Login on Expo Go leaves the browser open and the app stuck on the login screen.
+-   Agent made multiple attempts to fix this using different redirect strategies (, two-step web redirects), all of which failed.
+-   **Final User Message**: The user explicitly stated to stop working on the Google Auth issue (On passe a autre chose, On revient a ce sujet plus tard).
+-   **New User Request**: The user provided a screenshot and requested two changes on the location screen: 1. Add an address search field. 2. Fix a bug where selecting an address on the map doesn't update the address text. **This is the current priority.**
 
 **Project Health Check:**
--   **Broken**: The primary user flow (login and navigation to the main app) is completely broken, making the application unusable.
+-   **Broken**: Google Authentication on native (Expo Go) is non-functional, blocking that login path.
+-   **Partially Functional**: Email/password login works correctly on both web and native. The core application is accessible.
 
 **3rd Party Integrations**
--   **Emergent-managed Google Auth**: The integration is the source of the current critical bugs, specifically in the frontend's handling of the post-login flow.
+-   **Emergent-managed Google Auth**: The integration is the source of the critical, unresolved bug on the native platform.
 -   **Stripe**: Not yet implemented.
 
 **Testing status**
--   **Testing agent used after significant changes**: YES, but it produced a false positive.
+-   **Testing agent used after significant changes**: YES, but it produced a false positive by only testing the web flow and missing the native-specific bug.
 -   **Troubleshoot agent used after agent stuck in loop**: NO
 -   **Test files created**: None
--   **Known regressions**: A critical regression was introduced where the app gets stuck on the login screen, which is worse than the previous state where only some tabs were broken.
+-   **Known regressions**: None from this session, but the main Google Auth bug persists.
 
 **Credentials to test flow:**
 -   **Email**: 
 -   **Password**: 
 
 **What agent forgot to execute**
--   The agent failed to recognize that patching the navigation logic in multiple places was a fragile strategy. It should have refactored to a centralized navigation handler after the first regression, which would have prevented the subsequent failures.</analysis>
+-   The agent failed to validate its fixes on the correct platform (Expo Go), relying on web-only tests which gave a false sense of completion. This led to multiple failed attempts and user frustration.
+-   The agent did not confirm the fundamental capabilities of the Emergent Auth service regarding native app redirects before attempting complex workarounds.</analysis>
