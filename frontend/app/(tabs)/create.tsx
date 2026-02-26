@@ -384,11 +384,15 @@ export default function CreateTagPointScreen() {
         images: uploadedUrls,
         // Always send date fields explicitly so backend can clear them when switching types
         event_date: (scheduleType === 'once' && eventDateTime) ? eventDateTime.toISOString() : null,
+        event_end_date: (scheduleType === 'once' && eventEndDateTime) ? eventEndDateTime.toISOString() : null,
         event_schedule: (scheduleType === 'recurring' && Object.keys(recurringSchedule).length > 0)
           ? {
             type: 'weekly',
             schedule: Object.fromEntries(
-              Object.entries(recurringSchedule).map(([d, times]) => [d, times.map(fmtTime)])
+              Object.entries(recurringSchedule).map(([d, slots]) => [
+                d,
+                slots.map(slot => ({ start: fmtTime(slot.start), end: slot.end ? fmtTime(slot.end) : null }))
+              ])
             ),
           }
           : null,
