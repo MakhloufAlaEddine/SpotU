@@ -377,16 +377,8 @@ export default function CreateTagPointScreen() {
 
       triggerProfileRefresh();
 
-      if (isEditMode) {
-        // In edit mode: go back to the tagPoint detail page (already in the stack)
-        // useFocusEffect in [id].tsx will reload the data automatically
-        setTimeout(() => router.back(), 100);
-      } else {
-        Alert.alert('Publié !', successMsg, [
-          { text: 'Voir', onPress: () => setTimeout(() => router.replace(`/tag-point/${newPointId}` as any), 100) },
-          { text: 'Accueil', onPress: () => setTimeout(() => router.replace('/(tabs)/map' as any), 100) },
-        ]);
-      }
+      // Always navigate directly to the tagPoint detail (edit or create)
+      setTimeout(() => router.replace(`/tag-point/${newPointId}` as any), 100);
     } catch (err: any) {
       Alert.alert('Erreur', err.message || 'Impossible de créer le tagPoint');
     } finally {
