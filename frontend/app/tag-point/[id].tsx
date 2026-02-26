@@ -73,34 +73,55 @@ function formatRecurring(s: any): { summary: string; perDay: Array<{ day: string
 function getNextOccurrence(s: any): { date: Date; startTime: string; endTime: string | null } | null {
   if (!s) return null;
   if (typeof s === 'string') { try { s = JSON.parse(s); } catch { return null; } }
-  if (!s.schedule || typeof s.schedule !== 'object') return null;
   const now = new Date();
   // JS getDay(): 0=Dim..6=Sam → notre idx: 0=Lun..6=Dim
   const todayIdx = now.getDay() === 0 ? 6 : now.getDay() - 1;
-  let earliest: { date: Date; startTime: string; endTime: string | null } | null = null;
-  Object.entries(s.schedule as Record<string, any>).forEach(([dayStr, slots]) => {
-    const dayIdx = parseInt(dayStr);
-    const slotsArr = Array.isArray(slots) ? slots : [];
-    if (slotsArr.length === 0) return;
-    const firstSlot = slotsArr[0];
-    let startTime: string;
-    let endTime: string | null = null;
-    if (typeof firstSlot === 'string') { startTime = firstSlot; }
-    else if (firstSlot?.start) { startTime = firstSlot.start; endTime = firstSlot.end || null; }
-    else { return; }
+
+  const computeNext = (dayIdx: number, startTime: string, endTime: string | null) => {
     const [h, m] = startTime.split(':').map(Number);
     let daysUntil = (dayIdx - todayIdx + 7) % 7;
-    if (daysUntil === 0 && (h * 60 + m) <= (now.getHours() * 60 + now.getMinutes())) {
-      daysUntil = 7;
-    }
-    const nextDate = new Date(now);
-    nextDate.setDate(now.getDate() + daysUntil);
-    nextDate.setHours(h, m, 0, 0);
-    if (!earliest || nextDate < earliest.date) {
-      earliest = { date: nextDate, startTime, endTime };
-    }
-  });
-  return earliest;
+    if (daysUntil === 0 && (h * 60 + m) <= (now.getHours() * 60 + now.getMinutes())) daysUntil = 7;
+    const d = new Date(now);
+    d.setDate(now.getDate() + daysUntil);
+    d.setHours(h, m, 0, 0);
+    return { date: d, startTime, endTime };
+  };
+
+  // Format nouveau: { schedule: {'2': [{start:'19:00', end:'20:00'}]} }
+  if (s.schedule && typeof s.schedule === 'object') {
+    let earliest: { date: Date; startTime: string; endTime: string | null } | null = null;
+    Object.entries(s.schedule as Record<string, any>).forEach(([dayStr, slots]) => {
+      const dayIdx = parseInt(dayStr);
+      const slotsArr = Array.isArray(slots) ? slots : [];
+      if (slotsArr.length === 0) return;
+      const firstSlot = slotsArr[0];
+      let startTime: string;
+      let endTime: string | null = null;
+      if (typeof firstSlot === 'string') { startTime = firstSlot; }
+      else if (firstSlot?.start) { startTime = firstSlot.start; endTime = firstSlot.end || null; }
+      else { return; }
+      const candidate = computeNext(dayIdx, startTime, endTime);
+      if (!earliest || candidate.date < earliest.date) earliest = candidate;
+    });
+    return earliest;
+  }
+  // Format intermédiaire: { days:[3], times:['19:00'] }
+  if (s.days && s.times) {
+    const days: number[] = s.days;
+    const time: string = (s.times as string[])[0];
+    if (!time) return null;
+    let earliest: { date: Date; startTime: string; endTime: string | null } | null = null;
+    days.forEach(dayIdx => {
+      const candidate = computeNext(dayIdx, time, null);
+      if (!earliest || candidate.date < earliest.date) earliest = candidate;
+    });
+    return earliest;
+  }
+  // Format legacy: { day:3, time:'19:00' }
+  if (s.day !== undefined && s.time) {
+    return computeNext(s.day, s.time, null);
+  }
+  return null;
 }
 
 // Formate le label jour relatif pour le prochain événement
