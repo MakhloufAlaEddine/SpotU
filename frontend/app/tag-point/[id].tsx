@@ -56,7 +56,7 @@ function formatRecurring(s: any): { summary: string; perDay: Array<{ day: string
   return { summary: 'Récurrent', perDay: null };
 }
 
-(d: string): string {
+function formatEventDate(d: string): string {
   const date = new Date(d);
   const now = new Date();
   const diff = Math.floor((date.getTime() - now.getTime()) / 86400000);
@@ -74,10 +74,6 @@ function formatRecurring(s: any): { summary: string; perDay: Array<{ day: string
 
 function formatEventDateFull(d: string): string {
   return new Date(d).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-}
-
-function formatRecurring(s: { type: string; day: number; time: string }): string {
-  return `Chaque ${DAYS_FULL[s.day]} à ${s.time}`;
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
