@@ -39,20 +39,21 @@ Build **WINEK** — une plateforme mobile hyperlocale de connexion par tags, foc
 - Persistance de localisation session-only (non stockée entre lancements)
 - Fix SSL PostgreSQL (`ssl=False` dans database.py)
 
-### Phase 4 - Save for Later (Session 6 - Actuel)
+### Phase 4 - Save for Later + Events Display (Sessions 6-7)
 - ✅ **Backend**: Table `tag_point_saves`, endpoints save/unsave/list
 - ✅ **Frontend [id].tsx**: Icônes d'action redessinées (card-style 54x54, spacing amélioré)
   - "Similaires" → icône `layers-outline`
-  - "Partager" → icône `share-social-outline`
+  - "Partager" → `share-social-outline`
   - "Sauvegarder" → `bookmark-outline` / `bookmark` (rempli + couleur primaire quand sauvegardé)
 - ✅ **Frontend saved.tsx**: Nouvel écran `/saved` avec liste des tagPoints sauvegardés
-  - Cards avec image, titre, distance, date de sauvegarde
-  - Bouton unsave par card
-  - État vide avec bouton "Explorer"
-  - Refresh on focus
 - ✅ **Frontend profile.tsx**: Bouton "ENREGISTRÉS" navigue vers `/saved`
 - ✅ **_layout.tsx**: Route `saved` ajoutée au Stack
 - ✅ **Fix Expo Metro**: `typedRoutes: false`, `web.output: "spa"`, stubs `expo-router/internal/*`
+- ✅ **Événements passés**: Affichage muted avec badge "Passé" + label "Événement passé"
+  - Badge teal "Bientôt une nouvelle date" si `new_date_coming=true`
+  - Toggle pour le créateur pour annoncer/retirer "Nouvelle date"
+  - Endpoint `PATCH /api/tag-points/{id}/new-date` (créateur uniquement)
+- ✅ **RÉCURRENT**: Couleur uniformisée avec les dates fixes (teal `Colors.primary`)
 
 ## Tech Architecture
 ```
