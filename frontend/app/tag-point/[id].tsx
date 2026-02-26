@@ -280,6 +280,13 @@ export default function TagPointDetail() {
     if (id) { loadPoint(); loadVotes(); if (user) loadMyVote(); }
   }, [id, user]);
 
+  // Reload data when screen comes back into focus (e.g. after editing)
+  useFocusEffect(
+    useCallback(() => {
+      if (id) { loadPoint(); if (user) loadMyVote(); loadVotes(); }
+    }, [id, user])
+  );
+
   const loadPoint = async () => {
     try {
       const data = await api.get(`/tag-points/${id}`);
