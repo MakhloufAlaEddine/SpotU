@@ -13,48 +13,50 @@
 **User's preferred language**: French. The next agent MUST respond in **French**.
 
 **what currently exists?**
-The application features a PostgreSQL/PostGIS backend and a React Native (Expo) frontend. Core functionalities include user authentication, location-based searching, tag filtering, a detailed tagPoint screen, save for later, and an events/scheduling system.
+The application has a functional PostgreSQL/PostGIS backend and a React Native (Expo) frontend. Key features like user authentication, location-based searching, tag filtering, and a detail screen are in place.
 
-The most recent and significant change was a complete overhaul of the Create TagPoint screen (). It has been transformed from a basic form into a sophisticated multi-step guided wizard. This wizard aims to improve the user experience by providing:
-- A 4-step process (Essentials, Details, Location, Schedule) plus a final Preview step.
-- A real-time quality score that encourages users to create detailed and attractive tagPoints.
-- A progress bar and contextual tips for each step.
-- A reset button to clear the form.
+The Create TagPoint wizard () has been significantly enhanced based on user feedback. It now supports multi-day/multi-time recurring schedules and features a realistic preview modal identical to the tagPoint detail page, complete with mock data for votes and comments to guide the user.
 
-Additionally, markdown support has been added for tagPoint descriptions, and the UI for past events on the detail screen has been enhanced. The critical database seeding bug from the previous session has been resolved, ensuring a stable backend environment.
+A new backend endpoint () has been created to handle image uploads, and the corresponding  directory is now served statically. This was built to address a critical bug where uploaded images were not being saved.
 
 **Last working item**:
--   **Last item agent was working**: Implementing a new, guided, multi-step wizard for the tagPoint creation screen (). This was a complete refactor requested by the user to improve the quality of user-generated content. The wizard includes a progress bar, quality score, contextual tips, a reset button, and a final preview step. The agent completed the full implementation.
--   **Status**: USER VERIFICATION PENDING
--   **Agent Testing Done**: N (The agent only took a screenshot of the first step to confirm the UI loaded. The full wizard flow—navigation, data input, reset, and submission—has not been functionally tested.)
--   **Which testing method agent to use?**: Frontend testing agent. The test should cover the entire wizard flow on , including:
-    1.  Navigating between all 5 steps (4 entry + 1 preview).
-    2.  Verifying the real-time update of the quality score as fields are filled.
-    3.  Testing the Reset button and its confirmation dialog.
-    4.  Filling out the form completely and submitting it on the preview step.
-    5.  Verifying the new tagPoint is successfully created with all data correctly saved.
+-   **Last item agent was working**: Fixing two critical bugs reported by the user after creating a tagPoint:
+    1.  **Image Not Uploaded**: The image selected in the wizard was not appearing on the detail page.
+    2.  **Navigation Error**: The app would crash when navigating to the newly created tagPoint's detail page.
+    
+    The agent diagnosed that the image bug was due to a hardcoded empty  array being sent to the backend. The navigation bug was caused by calling  from within an  callback. The agent has already implemented the backend endpoint for image uploads and was in the process of modifying  to use this endpoint and fix the navigation logic.
+-   **Status**: IN PROGRESS
+-   **Agent Testing Done**: N (The backend upload endpoint was tested via , but the end-to-end frontend fix has not been tested.)
+-   **Which testing method agent to use?**: Frontend testing agent. The test must cover the entire Create TagPoint flow, specifically:
+    1.  Uploading an image during creation.
+    2.  Submitting the form.
+    3.  Verifying the user is correctly navigated to the detail page without crashing.
+    4.  Confirming the uploaded image is displayed on the detail page.
 -   **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: User verification and testing of the new 'Create TagPoint' wizard (P0)**
+-   **Issue 1: Fix post-creation bugs (Image upload & Navigation) (P0)**
 -   **Issue 2: User dissatisfaction with action buttons layout on the tagPoint detail screen (P1)**
 -   **Issue 3: Google Auth flow is broken on Expo Go (P2 - ON HOLD)**
 
 **Issues Detail**:
--   **Issue 1: User verification and testing of the new 'Create TagPoint' wizard**
-    -   **Attempted fixes**: This is a new feature implementation, not a fix. The entire component at  was rewritten.
+-   **Issue 1: Fix post-creation bugs (Image upload & Navigation)**
+    -   **Attempted fixes**:
+        -   **Backend**: A new route  with a  endpoint was created and tested.  was updated to serve the  directory.
+        -   **Frontend**: The agent started modifying the  function in  to first upload the image via the new endpoint and then use the returned URL when creating the tagPoint. The navigation logic was also being adjusted.
     -   **Next debug checklist**:
-        1.  Proactively run the  to perform a full end-to-end test of the wizard functionality.
-        2.  Present the results to the user and ask for their feedback on the new guided experience.
-        3.  Be prepared to fix any bugs found during testing or address UI/UX feedback from the user.
-    -   **Why fix this issue and what will be achieved with the fix?**: This is the core creation flow of the application. Validating it ensures the main feature is robust, user-friendly, and meets the user's explicit request for a guided experience.
-    -   **Status**: USER VERIFICATION PENDING
+        1.  Finalize the changes in the  function within .
+        2.  Ensure the  object is correctly constructed to send the image file.
+        3.  Move the  call to execute safely after the confirmation alert is dismissed.
+        4.  Run the frontend testing agent to perform an end-to-end test of the entire creation flow with an image.
+    -   **Why fix this issue and what will be achieved with the fix?**: This is a critical blocker for the core user journey. Fixing it will make the tagPoint creation feature fully functional, including image uploads.
+    -   **Status**: IN PROGRESS
     -   **Is recurring issue?**: N
-    -   **Should Test frontend/backend/both after fix?**: frontend
+    -   **Should Test frontend/backend/both after fix?**: both
     -   **Blocked on other issue**: No.
 
 -   **Issue 2: User dissatisfaction with action buttons layout**
-    -   **Description**: The user is not satisfied with the current layout of the Similar, Share, and Save buttons on the tagPoint detail screen (). The issue was raised in a previous session and remains unresolved.
+    -   **Description**: The user is not satisfied with the current layout of the Similar, Share, and Save buttons on the tagPoint detail screen ().
     -   **Next debug checklist**: Proactively ask the user if they have a new design in mind or if they would like suggestions for a new layout.
     -   **Status**: NOT STARTED
     -   **Is recurring issue?**: Y
@@ -67,11 +69,11 @@ Additionally, markdown support has been added for tagPoint descriptions, and the
     -   **Should Test frontend/backend/both after fix?**: frontend (specifically on Expo Go).
 
 **In progress Task List**:
--   **Task 1: Finalize the Create TagPoint wizard (P0)**
-    -   **Where to resume**: . The component is built. The next step is comprehensive testing and user verification.
-    -   **What will be achieved with this?**: A complete, user-friendly, and validated flow for creating tagPoints, a core functionality of the application.
+-   **Task 1: Finalize the Create TagPoint bug fixes (P0)**
+    -   **Where to resume**: . The last action was a  call to update the  function. The next step is to verify and test these changes.
+    -   **What will be achieved with this?**: A complete, stable, and fully functional flow for creating tagPoints with images.
     -   **Status**: IN PROGRESS
-    -   **Should Test frontend/backend/both after fix?**: frontend
+    -   **Should Test frontend/backend/both after fix?**: both
     -   **Blocked on something**: No.
 
 **Upcoming and Future Tasks**
@@ -81,86 +83,81 @@ Additionally, markdown support has been added for tagPoint descriptions, and the
     -   Bilingual Support (i18n).
     -   Chat Implementation in .
     -   Revisit and finalize the UI for action buttons on the  screen (see Issue 2).
+    -   Refactor the  component into smaller, more manageable sub-components.
 -   **Future Tasks (P2)**:
     -   User Reviews & Ratings system.
     -   Admin Dashboard.
     -   Fix Google Auth on Expo Go (currently on hold).
 
 **Completed work in this session**
--   **'Create TagPoint' Screen Wizard**: Completely redesigned the creation screen () into a multi-step guided wizard with a quality score, progress bar, and contextual tips.
--   **Rich Text Description**: Implemented markdown support for descriptions, creating a new  component for input and using a markdown renderer for display on .
--   **Past Event UI**: Enhanced the  screen to display a PASSÉ badge for past events and a Bientôt une nouvelle date banner for creators to use.
--   **Multiple Bug Fixes**:
-    -   Resolved a critical backend startup failure by fixing an indentation error in .
-    -   Fixed the empty tag selection modal in  by using dynamic height calculation.
-    -   Fixed the map on  to correctly display location precision circles.
-    -   Created and integrated a new  component.
-    -   Fixed a bug where  and other fields were being double-encoded as JSON when creating a tagPoint.
--   **Backend Enhancements**:
-    -   Added a  boolean column to the  table.
-    -   Created a  endpoint.
-    -   Updated the  endpoint to correctly handle an  array.
+-   **Bug Fixes (User Reported)**:
+    -   Implemented a new recurring schedule system to allow separate time slots for each day of the week in .
+    -   Fixed a bug where the full-preview modal could not be closed.
+    -   Updated the tagPoint detail page () to correctly display the new, complex schedule format.
+-   **Feature Enhancements (User Requested)**:
+    -   Made help tips in the create wizard permanently visible during input.
+    -   Arranged confidentiality buttons on a single line for better layout.
+    -   Rebuilt the  in  to be an exact replica of the  detail page, including mock votes and comments, for a more realistic preview.
+-   **Backend**:
+    -   Resolved initial startup issues with PostgreSQL connection and zombie workers, stabilizing the environment.
+    -   Created a new  endpoint and a static file server for image uploads.
+-   **Testing**: Used the testing agent multiple times to successfully validate all feature enhancements and bug fixes, ensuring no regressions were introduced during the iterative development process.
 
 **Earlier issues found/mentioned but not fixed**
 -   **Google Auth on Expo Go**: Deprioritized by the user.
 -   **Core UX of action buttons**: The user is fundamentally not happy with the design on . This is an open UX problem.
 
 **Known issue recurrence from previous fork**
--   **Database State Persistence**: The solution of running a migration/seeding script on backend startup () has been implemented and fixed, appearing stable for now.
--   **Metro Bundler/Expo Go Instability**: The agent had to restart the frontend service multiple times due to Metro's caching behavior. This remains a fragile part of the development workflow, requiring manual restarts (frontend: ERROR (no such process)
-frontend: ERROR (no such process)) for changes to be reliably reflected.
+-   **Backend Startup Instability**: The agent had to debug and fix PostgreSQL connection issues at the start of the session. The startup sequence may still be fragile.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Multi-step Wizard UI**: Using React state () to manage form steps, conditionally rendering components for each step, and managing a complex form state object.
--   **Real-time UI Feedback**: Calculating a quality score based on form completion to guide the user.
--   **Markdown in React Native**: Using  to render markdown-formatted text from the database.
--   **Custom Form Components**: Building encapsulated, reusable components like  (with calendar and time wheels) and  (with a formatting toolbar).
--   **Dynamic Sizing**: Using the  API to correctly size modal content on different screen sizes.
+-   **File Upload (Backend)**: Using FastAPI's  to stream and save multipart/form-data to a persistent  directory.
+-   **File Upload (Frontend)**: Using the  API in React Native to construct a request to send local image files to the backend.
+-   **State Refactoring**: Evolved the  state from a simple  to a  to support distinct schedules per day, requiring significant logic changes in the component and its children.
+-   **Component Decoupling**: Solved a critical modal bug by moving the  component from being nested inside a  to the top-level return statement of .
+-   **Safe Navigation**: Identifying and fixing a crash caused by triggering  from within an  callback.
 
 **key DB schema**
--   **tag_points**: Added  (BOOLEAN, default: false).
+-   No changes made to the database schema in this session.
 
 **All files of reference**
--   **Primary file for next task**:
-    -    (The new wizard component that needs testing and validation).
--   **Recently Created/Modified**:
-    -   
-    -    (New)
-    -    (New)
-    -   
-    -   
-    -   
+-   **/app/frontend/app/(main)/create.tsx**: Primary file for resuming the current task.
+-   **/app/frontend/app/(main)/[id].tsx**: The destination page for the navigation fix and where the uploaded image will be displayed.
+-   **/app/backend/routes/upload_routes.py**: The new backend route for file uploads.
+-   **/app/backend/server.py**: Contains the configuration for the new upload router and static directory.
 
 **Areas that need refactoring**:
--   The  file is now very large and complex due to the wizard implementation. It should be broken down into smaller sub-components (e.g., one component for each wizard step) to improve readability and maintainability.
+-   The  file has become extremely large and complex. It is managing state, rendering logic, and styles for all 5 wizard steps plus multiple modals. It urgently needs to be broken down into smaller components (e.g., one component per wizard step, separate modal components) to improve maintainability.
 
 **key api endpoints**
--    (New)
--    (Modified to fix JSON encoding and accept an  array)
+-   : (New) Endpoint to upload a single image file. Returns the public URL of the saved file.
+-   : The call to this endpoint is being modified in  to include an array of image URLs obtained from the  endpoint.
 
 **Critical Info for New Agent**
 -   **Language**: You MUST respond and communicate in **French**.
--   **IMMEDIATE TASK**: Your first priority is to test the new Create TagPoint wizard. The user has approved the concept, but the implementation is untested. Use the frontend testing agent to validate the entire flow before asking for user feedback.
--   **Wizard Component**: The file  has been completely rewritten. Familiarize yourself with its new state management and multi-step structure.
--   **Expo Go Instability**: Be aware that Metro bundler caching is aggressive. If your UI changes do not appear on Expo Go, run frontend: ERROR (no such process)
-frontend: ERROR (no such process) and then manually Reload the app on your device.
+-   **IMMEDIATE TASK**: Your first priority is to complete the fix for the two user-reported bugs: image uploads and post-creation navigation crash. The backend work is done. You must resume work on .
+-   **Refactoring is Next**: After the bugs are fixed and verified, the next logical step should be to propose and execute the refactoring of the  component. This technical debt is significant.
 
 **documents and test reports created in this job**
--   /app/test_reports/iteration_1.json
+-   Multiple test reports were generated, located at . The latest reports validate the functionality of the enhanced wizard before the image upload bug was discovered.
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User**: Requests a Reset button and a guided wizard experience for creating tagPoints to improve their quality. (Current task)
-2.  **User**: Reports 3 bugs in the create screen: empty tag modal, location precision circles not showing, and no way to format the description text. (All fixed)
-3.  **User**: Reports 4 issues with the create screen: bug in tag modal, location picker not integrated, missing date/time inputs, and bientôt nouvelle date feature not visible for testing. (All fixed)
-4.  **User**: Asks to start work on the Create TagPoint screen. (Completed)
-5.  **User**: Provides UI requirements for past events (événement terminé) and recurring events on the detail screen. (Completed)
+1.  **User**: Reported two bugs after testing the latest changes: uploaded images are not visible, and the app crashes after clicking view post-creation. (Current task)
+2.  **User**: Requested to make the preview modal an exact replica of the detail page and add fake votes/comments to encourage users. (Completed)
+3.  **User**: Reported several bugs and a new feature request for the recurring schedule: allow separate times for each day, fix the preview modal close button, fix duplicate time slots, and ensure the detail page displays the new schedule format correctly. (Completed)
+4.  **User**: Requested four improvements to the create wizard: keep help text visible, put confidentiality buttons on one line, allow multi-day/time recurring schedules, and add a full preview of the tagPoint before publishing. (Completed)
+5.  **User**: Approved the plan to start testing the new wizard. (Completed)
 
 **Project Health Check:**
--   **Broken**: Google Authentication on native (Expo Go).
--   **Mocked**: The  directory contains stub files to prevent the Metro bundler from crashing.
+-   **Broken**:
+    -   The post-creation flow is currently broken (image upload and navigation).
+    -   Google Authentication on native (Expo Go) remains broken and on hold.
+-   **Mocked**:
+    -   The  directory contains stub files.
+    -   The votes and comments in the  are hardcoded mock data.
 
 **3rd Party Integrations**
 -   **Emergent-managed Google Auth**: Integrated but currently broken on the native platform (ON HOLD).
@@ -168,15 +165,14 @@ frontend: ERROR (no such process) and then manually Reload the app on your devic
 -   **OpenStreetMap Nominatim**: Used for reverse geocoding via direct API calls.
 
 **Testing status**
--   **Testing agent used after significant changes**: YES. Used to test the backend  endpoint, which successfully identified and led to a fix for a double-encoding bug.
+-   **Testing agent used after significant changes**: YES. The agent used the testing agent successfully multiple times to validate all feature enhancements made to the create wizard.
 -   **Troubleshoot agent used after agent stuck in loop**: NO
 -   **Test files created**: None.
--   **Known regressions**: None.
+-   **Known regressions**: The image upload functionality is a regression as it's currently broken, and the post-creation navigation crashes.
 
 **Credentials to test flow:**
 -   **Email**: 
 -   **Password**: 
 
 **What agent forgot to execute**
--   The agent did not perform any functional testing on the newly created multi-step wizard in  after building it.
--   The agent did not refactor the large  file into smaller, more manageable components for each step of the wizard, which would improve code quality.</analysis>
+-   The agent did not address the technical debt of the large  file, which was noted in the previous handoff. Instead, more features were added to it, making the need for refactoring more urgent.</analysis>
