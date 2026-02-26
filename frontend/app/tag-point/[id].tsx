@@ -788,7 +788,7 @@ const st = StyleSheet.create({
 
   // Date card
   dateCard: { marginHorizontal: Spacing.md, marginBottom: Spacing.md, backgroundColor: Colors.card, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
-  dateCardPast: { borderColor: Colors.border, opacity: 0.75 },
+  dateCardPast: { borderColor: Colors.border },
   dateRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md },
   dateIconBox: { width: 44, height: 44, borderRadius: Radius.md, backgroundColor: Colors.primary + '22', borderWidth: 1, borderColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
   dateIconBoxPast: { backgroundColor: Colors.card, borderColor: Colors.border },
