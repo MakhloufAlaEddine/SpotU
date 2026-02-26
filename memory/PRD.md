@@ -97,14 +97,23 @@ Application mobile "WINEK" - plateforme hyperlocale de connexion basée sur des 
 - GET /api/domains
 - GET /api/tags/categories?domain_id=
 
-## Known Issues
-- Google Auth sur Expo Go (mobile): in-app browser ne se ferme pas automatiquement (ON HOLD)
-- Boutons d'action ([id].tsx): layout "Similar/Share/Save" insatisfaisant (P1)
+### Session 5 (2026-02-26) — Fork
+- **Fix P0 Bug: Upload images** — `handleSubmit` appelle désormais `uploadImage()` en parallèle (Promise.all) pour toutes les photos avant POST /api/tag-points. `images: []` hardcodé → remplacé par les URLs réelles
+- **Fix P0 Bug: Navigation crash** — `router.replace` dans `Alert.alert` callback → corrigé via `setTimeout(100ms)` pour différer la navigation après dismiss
+- **Fix Backend: URL upload** — `upload_routes.py` utilise les headers proxy `X-Forwarded-Host/Proto` pour générer l'URL publique correcte
+- **Fix Syntaxe**: caractère Unicode `─` parasite sur ligne 578 de `create.tsx` causait SyntaxError Babel → corrigé
+- APP_URL ajouté dans `backend/.env`
+- **Tests**: 100% (12/12 backend image upload + 5/5 frontend wizard steps)
 
-## Prioritized Backlog
+## Known Issues (Updated)
+- Google Auth sur Expo Go (mobile): in-app browser ne se ferme pas automatiquement (ON HOLD)
+- Boutons d'action ([id].tsx): layout "Similar/Share/Save" insatisfaisant (P1 — PROCHAIN)
+
+## Prioritized Backlog (Updated)
 
 ### P0 - Critique
 - [x] Wizard Créer TagPoint - DONE & TESTED
+- [x] Fix post-création (images upload + navigation crash) - DONE & TESTED
 
 ### P1 - Important
 - [ ] Refonte layout boutons d'action ([id].tsx)
@@ -120,4 +129,3 @@ Application mobile "WINEK" - plateforme hyperlocale de connexion basée sur des 
 - [ ] Système notes & avis utilisateurs
 - [ ] Dashboard Admin
 - [ ] Fix Google Auth Expo Go (natif)
-- [ ] Upload photos réelles (actuellement envoi tableaux vides)
