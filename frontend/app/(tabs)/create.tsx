@@ -145,7 +145,12 @@ export default function CreateTagPointScreen() {
   }, [step]);
 
   const loadDomains = async () => {
-    try { setDomains(await api.get('/domains')); } catch {}
+    try {
+      const data: any[] = await api.get('/domains');
+      // Put dom_sport first (default selection)
+      data.sort((a, b) => (a.domain_id === 'dom_sport' ? -1 : b.domain_id === 'dom_sport' ? 1 : 0));
+      setDomains(data);
+    } catch {}
   };
   const loadCategories = async () => {
     try { setCategories(await api.get(`/tags/categories?domain_id=${domainId}`)); } catch {}
