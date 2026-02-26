@@ -450,16 +450,33 @@ export default function CreateTagPointScreen() {
         initialDate={eventDateTime || undefined} mode="datetime" minDate={new Date()}
       />
       <DateTimePickerModal
-        visible={editingTimeIdx !== null}
-        onClose={() => setEditingTimeIdx(null)}
+        visible={editingDayIdx !== null && editingTimeIdx !== null}
+        onClose={() => { setEditingDayIdx(null); setEditingTimeIdx(null); }}
         onConfirm={d => {
-          if (editingTimeIdx !== null) {
-            setRecurringTimes(p => { const next = [...p]; next[editingTimeIdx] = d; return next; });
+          if (editingDayIdx !== null && editingTimeIdx !== null) {
+            setRecurringSchedule(p => {
+              const next = { ...p };
+              const times = [...(next[editingDayIdx] || [])];
+              times[editingTimeIdx] = d;
+              next[editingDayIdx] = times;
+              return next;
+            });
           }
-          setEditingTimeIdx(null);
+          setEditingDayIdx(null); setEditingTimeIdx(null);
         }}
-        initialDate={(editingTimeIdx !== null && recurringTimes[editingTimeIdx]) || undefined}
+        initialDate={(editingDayIdx !== null && editingTimeIdx !== null && recurringSchedule[editingDayIdx]?.[editingTimeIdx]) || undefined}
         mode="time"
+      />
+
+      {/* ── Full Preview Modal (top-level to avoid ScrollView clipping) ── */}
+      <FullPreviewModal
+        visible={showFullPreview}
+        onClose={() => setShowFullPreview(false)}
+        title={title} description={description} images={images}
+        selectedTags={selectedTags} locationAddress={locationAddress}
+        precision={precision} scheduleType={scheduleType}
+        eventDateTime={eventDateTime} recurringSchedule={recurringSchedule}
+        user={user} lang={lang}
       />
 
       {/* ── Tag Modal ───────────────────────── */}
