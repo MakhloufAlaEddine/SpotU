@@ -1207,14 +1207,21 @@ function StepPreview({ title, description, images, selectedTags, locationAddress
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
-function buildScheduleLabel(scheduleType: string, eventDateTime: Date | null, recurringSchedule: Record<number, Date[]>): string {
+function buildScheduleLabel(scheduleType: string, eventDateTime: Date | null, eventEndDateTime: Date | null, recurringSchedule: Record<number, { start: Date; end: Date | null }[]>): string {
   if (scheduleType === 'none') return 'Sans date';
-  if (scheduleType === 'once') return eventDateTime ? `${fmtDate(eventDateTime)} à ${fmtTime(eventDateTime)}` : 'Non configuré';
+  if (scheduleType === 'once') {
+    if (!eventDateTime) return 'Non configuré';
+    const timeRange = eventEndDateTime
+      ? `${fmtTime(eventDateTime)} → ${fmtTime(eventEndDateTime)}`
+      : fmtTime(eventDateTime);
+    return `${fmtDate(eventDateTime)} · ${timeRange}`;
+  }
   const days = Object.keys(recurringSchedule).map(Number).sort((a, b) => a - b);
   if (days.length === 0) return 'Non configuré';
   return days.map(d => {
-    const times = recurringSchedule[d];
-    return `${DAYS[d]}: ${times.length > 0 ? times.map(fmtTime).join(', ') : '—'}`;
+    const slots = recurringSchedule[d];
+    if (slots.length === 0) return `${DAYS[d]}: —`;
+    return `${DAYS[d]}: ${slots.map(s => s.end ? `${fmtTime(s.start)}-${fmtTime(s.end)}` : fmtTime(s.start)).join(', ')}`;
   }).join(' · ');
 }
 
