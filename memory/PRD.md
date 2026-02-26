@@ -98,12 +98,11 @@ Application mobile "WINEK" - plateforme hyperlocale de connexion basée sur des 
 - GET /api/tags/categories?domain_id=
 
 ### Session 5 (2026-02-26) — Fork
-- **Fix P0 Bug: Upload images** — `handleSubmit` appelle désormais `uploadImage()` en parallèle (Promise.all) pour toutes les photos avant POST /api/tag-points. `images: []` hardcodé → remplacé par les URLs réelles
-- **Fix P0 Bug: Navigation crash** — `router.replace` dans `Alert.alert` callback → corrigé via `setTimeout(100ms)` pour différer la navigation après dismiss
-- **Fix Backend: URL upload** — `upload_routes.py` utilise les headers proxy `X-Forwarded-Host/Proto` pour générer l'URL publique correcte
-- **Fix Syntaxe**: caractère Unicode `─` parasite sur ligne 578 de `create.tsx` causait SyntaxError Babel → corrigé
-- APP_URL ajouté dans `backend/.env`
-- **Tests**: 100% (12/12 backend image upload + 5/5 frontend wizard steps)
+- **Fix P0 Bug: Upload images** — `handleSubmit` appelle `uploadImage()` séquentiellement pour toutes les photos avant POST `/api/tag-points`. `images: []` hardcodé → URLs réelles
+- **Fix P0 Bug: Navigation crash** — `router.replace` dans `Alert.alert` callback → corrigé via `setTimeout(100ms)`
+- **Feature: Barre de progression d'upload** — Upload séquentiel (au lieu de Promise.all) avec tracking. Bouton affiche 3 états: repos / "Envoi des photos… X/N" + barre animée / "Publication…"
+- **Fix Backend: URL upload** — `upload_routes.py` utilise headers proxy `X-Forwarded-Host/Proto` pour URL publique correcte
+- **Tests**: 100% (12/12 backend + 5/5 frontend — iterations 11 et 12)
 
 ## Known Issues (Updated)
 - Google Auth sur Expo Go (mobile): in-app browser ne se ferme pas automatiquement (ON HOLD)
