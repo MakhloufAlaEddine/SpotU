@@ -363,6 +363,7 @@ export default function TagPointDetail() {
         tagIds: JSON.stringify(point.tags?.map((t: any) => t.tag_id) || []),
         images: JSON.stringify(allImages),
         eventDate: point.event_date || '',
+        eventEndDate: point.event_end_date || '',
         eventSchedule: point.event_schedule ? JSON.stringify(point.event_schedule) : '',
         lat: String(point.latitude ?? ''),
         lng: String(point.longitude ?? ''),
