@@ -665,9 +665,29 @@ export default function CreateTagPointScreen() {
                 if (editingTimeIdx >= slots.length) {
                   slots.push({ start: d, end: null });
                 } else {
-                  slots[editingTimeIdx] = { ...slots[editingTimeIdx], start: d };
+                  // If end already set and new start >= end, clear end time
+                  const existingEnd = slots[editingTimeIdx]?.end;
+                  if (existingEnd) {
+                    const newStartMins = d.getHours() * 60 + d.getMinutes();
+                    const endMins = existingEnd.getHours() * 60 + existingEnd.getMinutes();
+                    if (newStartMins >= endMins) {
+                      slots[editingTimeIdx] = { start: d, end: null };
+                    } else {
+                      slots[editingTimeIdx] = { ...slots[editingTimeIdx], start: d };
+                    }
+                  } else {
+                    slots[editingTimeIdx] = { ...slots[editingTimeIdx], start: d };
+                  }
                 }
               } else {
+                const startTime = slots[editingTimeIdx]?.start;
+                const startMins = startTime ? startTime.getHours() * 60 + startTime.getMinutes() : -1;
+                const endMins = d.getHours() * 60 + d.getMinutes();
+                if (endMins <= startMins) {
+                  Alert.alert("Heure invalide", "L'heure de fin doit être après l'heure de début.");
+                  setEditingDayIdx(null); setEditingTimeIdx(null);
+                  return;
+                }
                 slots[editingTimeIdx] = { ...slots[editingTimeIdx], end: d };
               }
               next[editingDayIdx] = slots;
