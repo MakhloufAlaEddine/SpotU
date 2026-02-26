@@ -97,12 +97,12 @@ Application mobile "WINEK" - plateforme hyperlocale de connexion basée sur des 
 - GET /api/domains
 - GET /api/tags/categories?domain_id=
 
-### Session 5 (2026-02-26) — Fork
-- **Fix P0 Bug: Upload images** — `handleSubmit` appelle `uploadImage()` séquentiellement pour toutes les photos avant POST `/api/tag-points`. `images: []` hardcodé → URLs réelles
-- **Fix P0 Bug: Navigation crash** — `router.replace` dans `Alert.alert` callback → corrigé via `setTimeout(100ms)`
-- **Feature: Barre de progression d'upload** — Upload séquentiel (au lieu de Promise.all) avec tracking. Bouton affiche 3 états: repos / "Envoi des photos… X/N" + barre animée / "Publication…"
-- **Fix Backend: URL upload** — `upload_routes.py` utilise headers proxy `X-Forwarded-Host/Proto` pour URL publique correcte
-- **Tests**: 100% (12/12 backend + 5/5 frontend — iterations 11 et 12)
+### Session 6 (2026-02-26) — Suite du fork
+- **Feature: Actions propriétaire sur tagPoint** — Barre d'actions (Modifier / Visible|Masqué / Supprimer) visible uniquement pour le propriétaire sous le header de [id].tsx
+- **Backend**: Colonne `is_public BOOLEAN DEFAULT TRUE` ajoutée sur `tag_points`, `PATCH /api/tag-points/{id}/visibility` (toggle), `PUT /api/tag-points/{id}` existant mis à jour pour `is_public`
+- **Mode édition `create.tsx`**: `useLocalSearchParams` + `useEffect` pré-remplissage + `PUT` au lieu de `POST` quand `editMode=true`
+- **Fix conseil qualité** : Le message "Configurez une date..." ne s'affiche plus quand une date récurrente est déjà configurée. Suppression de la fausse info "apparaître en tête des résultats"
+- **Tests**: 100% (15/15 backend + 11/11 frontend — iteration 13)
 
 ## Known Issues (Updated)
 - Google Auth sur Expo Go (mobile): in-app browser ne se ferme pas automatiquement (ON HOLD)
