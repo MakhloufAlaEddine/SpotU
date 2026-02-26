@@ -237,8 +237,13 @@ export default function CreateTagPointScreen() {
         tag_ids: selectedTagIds, images: [],
       };
       if (scheduleType === 'once' && eventDateTime) payload.event_date = eventDateTime.toISOString();
-      if (scheduleType === 'recurring' && recurringDays.length > 0 && recurringTimes.length > 0)
-        payload.event_schedule = { type: 'weekly', days: recurringDays, times: recurringTimes.map(fmtTime) };
+      if (scheduleType === 'recurring' && Object.keys(recurringSchedule).length > 0)
+        payload.event_schedule = {
+          type: 'weekly',
+          schedule: Object.fromEntries(
+            Object.entries(recurringSchedule).map(([d, times]) => [d, times.map(fmtTime)])
+          ),
+        };
 
       const result = await api.post('/tag-points', payload);
       Alert.alert('Publié !', 'Votre tagPoint est visible !', [
