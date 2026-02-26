@@ -1,0 +1,75 @@
+{
+  "summary": "Full E2E testing of the new 5-step wizard in /app/frontend/app/(tabs)/create.tsx (978 lines). Backend: 56/56 tests pass. Frontend: all wizard steps, navigation, quality score, form submission, and validation verified working correctly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Reset dialog via Alert.alert()",
+        "issue": "The reset confirmation dialog (Alert.alert() from React Native) is a browser-native confirm() dialog on web. Playwright cannot detect it via standard DOM selectors. Functionally it works (title is preserved when cancelled), but automated testing of this specific dialog is limited. Not a real UX bug.",
+        "affected_selectors": ["[data-testid='reset-btn']"]
+      }
+    ],
+    "design_issues": [
+      {
+        "screen": "Step 2 - Le contenu - Domain selector",
+        "issues": ["Default domain 'dom_sport' (Sport & Outdoor) is at the end of the horizontal scroll list and not visible in the initial viewport (390px width). Already noted in iteration_6. Minor UX improvement: scroll to show selected domain on first render or reorder domains."]
+      }
+    ]
+  },
+  "test_results": {
+    "1_login": "PASS: user@winek.app / WinekUser2024! login works, JWT token returned",
+    "2_wizard_opens": "PASS: Clicking + tab button opens wizard at L'essentiel step",
+    "3_step1_essentiel": "PASS: Photos (0/10 · Recommandé), TITRE* with hint (Requis→Trop court→Bien→Excellent), char count (0/80), quality bar (Basique), step indicator (Étape 1 / 4)",
+    "4_title_validation": "PASS: Cannot proceed without title (button disabled/stays on Étape 1). Title hint updates correctly: 'Trop court' (<10), 'Bien' (10-24), 'Excellent' (>=25)",
+    "5_quality_score_realtime": "PASS: Initially 'Basique' (0pts). After title (20pts) stays 'Basique'. After description+3 tags (45pts) shows 'Bien' in orange. Real-time update confirmed.",
+    "6_step2_content": "PASS: Description with RichTextInput (G/I/S/bullet toolbar, 67/500), Domain pills (Coaching clickable, dom_coaching selected), Tags trigger button",
+    "7_tags_modal": "PASS: Modal opens with tag categories and chips. Tag selection works (tag-chip- data-testid). '3 sélectionnés' indicator shown. Close with confirm icon.",
+    "8_step3_localisation": "PASS: Address shows 'Paris, France' with Modifier button. Precision options: Lieu exact (active), ~100m, ~1km all clickable via data-testid. OpenStreetMap preview renders.",
+    "9_step4_date": "PASS: Sans date (active, checkmark badge), Date unique (shows 'Choisir une date et une heure'), Récurrent (shows day buttons Lun-Dim, time picker). schedule-none/once/recurring data-testids work.",
+    "10_step4_button_label": "PASS: Button shows 'Aperçu →' on step 4 (not 'Suivant') - correct per step === 3 condition",
+    "11_step5_preview": "PASS: 'Aperçu' header (no Étape X/4 shown), all 4+eye dots green, quality card (30% Basique), RÉCAPITULATIF checklist (Photos/Titre/Description/Tags/Lieu/Date), improvement tip, 'Publier le TagPoint' button",
+    "12_form_submission": "PASS: POST /api/tag-points returns 200 with point_id (pt_10a2908dfcfc). Full E2E create flow confirmed.",
+    "13_back_button": "PASS: Back button (chevron-back) navigates to previous step. Close button (X) shown on step 0.",
+    "14_progress_bar": "PASS: Shows 'Étape 1/4', 'Étape 2/4', 'Étape 3/4', 'Étape 4/4'. Dots 1-3 show checkmarks when completed, active dot highlighted.",
+    "15_prev_next_buttons": "PASS: Suivant navigates forward, back button navigates backward. No 'Précédent' text shown (uses header arrow button).",
+    "16_backend_post_tagpoints": "PASS: All variations tested - basic, with description, 100m/1000m precision, event_date, recurring schedule, all 4 domains, unauthenticated (401), missing title (422)"
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_tagpoint_create.py",
+    "/app/backend/tests/test_winek_api.py",
+    "/app/backend/tests/test_save_feature.py",
+    "/app/test_reports/pytest/full_results.xml",
+    "/app/test_reports/pytest/tagpoint_create_results.xml"
+  ],
+  "action_items": [
+    "Minor: Reorder domain pills so 'dom_sport' (default) is first/visible on initial render in Step 2 (or auto-scroll to selected domain)",
+    "Minor code quality: In create.tsx line 141, change 'step / 3' to 'Math.min(step, 3) / 3' in progress animation to avoid exceeding inputRange on step 4 (preview step). Currently works fine visually due to container overflow:hidden, but semantically incorrect."
+  ],
+  "critical_code_review_comments": [
+    "create.tsx line 141: progressAnim uses step/3 but step can be 4 (preview). For step=4, toValue=1.33 exceeds inputRange [0,1]. Visually OK (clamped by overflow:hidden) but semantically should be Math.min(step,3)/3.",
+    "create.tsx line 233: api.post('/tag-points', payload) - images is always sent as [] (local URIs not uploaded). This is by design per sprint but worth noting for future upload feature.",
+    "DateTimePicker.tsx: custom calendar component (no browser native picker) - correctly avoids browser default date picker. Well implemented.",
+    "RichTextInput.tsx: Formatting toolbar works on web. Bold/italic/underline/bullet all functional.",
+    "tagpoint_routes.py POST /api/tag-points: location stored with precision-based randomization (randomize_for_storage). Coordinates stored are randomized for 100m/1000m precision - correct behavior."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100% (56/56 tests pass)",
+    "frontend": "100% (all 16 wizard test scenarios verified)"
+  },
+  "seed_data_creation": "Created pt_10a2908dfcfc (TEST tagPoint during submit test). This was soft-deleted by the API test cleanup. Several TEST_ prefixed tagPoints created and cleaned up during backend test runs.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Wizard at /(tabs)/create fully tested and working. Backend 56/56 pass. All wizard steps functional: Step1(L'essentiel), Step2(LeContenu), Step3(LaLocalisation), Step4(LaDate), Step5(Aperçu/Preview). Form submission creates tagPoint via POST /api/tag-points. Quality score calculates correctly. Use data-testid selectors: title-input, description-input, next-btn, reset-btn, submit-btn, back-btn, open-tags-btn, open-location-btn, precision-{exact|100m|1000m}, schedule-{none|once|recurring}, domain-dom_{sport|coaching|service|social}, tag-chip-{tag_id}, close-tag-modal, day-{0-6}. Metro bundler runs in CI mode - clear .metro-cache + restart expo if code changes seem stale.",
+  "rca_of_issues": {
+    "reset_dialog_playwright": {
+      "issue": "Alert.alert() reset dialog cannot be detected by Playwright DOM queries",
+      "root_cause": "React Native Web renders Alert.alert() as a browser-native window.confirm() dialog (or custom modal). Playwright cannot detect window.confirm() dialogs via standard DOM selectors. The dialog does function correctly - title is preserved when 'Annuler' is chosen.",
+      "mitigation": "To test reset dialog: use page.on('dialog', ...) Playwright dialog handler before clicking reset-btn, or replace Alert.alert() with a custom React Native Modal component that Playwright can detect via DOM."
+    }
+  }
+}
