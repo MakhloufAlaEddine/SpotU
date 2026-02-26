@@ -225,7 +225,16 @@ export default function CreateTagPointScreen() {
     } catch {}
   };
   const loadCategories = async () => {
-    try { setCategories(await api.get(`/tags/categories?domain_id=${domainId}`)); } catch {}
+    const version = ++loadCategoriesVersionRef.current;
+    const domain = domainId; // capture current domain to avoid stale closure
+    try {
+      const data = await api.get(`/tags/categories?domain_id=${domain}`);
+      // Only apply if this is still the latest request (prevents race condition
+      // where dom_sport response arrives after dom_coaching and overwrites it)
+      if (version === loadCategoriesVersionRef.current) {
+        setCategories(data);
+      }
+    } catch {}
   };
   const loadGPS = async () => {
     if (isEditMode) return; // Don't override pre-filled coordinates in edit mode
