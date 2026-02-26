@@ -240,6 +240,7 @@ export default function CreateTagPointScreen() {
     } else if (params.eventDate) {
       setScheduleType('once');
       setEventDateTime(new Date(params.eventDate));
+      if (params.eventEndDate) setEventEndDateTime(new Date(params.eventEndDate));
     }
   }, [isEditMode]);
 
