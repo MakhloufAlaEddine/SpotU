@@ -20,7 +20,7 @@ def _load_base_url():
                     return line.split('=', 1)[1].strip().rstrip('/')
     except Exception:
         pass
-    return 'https://coach-connect-geo.preview.emergentagent.com'
+    return 'https://tagpoint-hub.preview.emergentagent.com'
 
 BASE_URL = _load_base_url()
 USER_EMAIL = "user@winek.app"
