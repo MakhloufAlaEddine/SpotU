@@ -598,8 +598,8 @@ export default function TagPointDetail() {
           {point.owner && (
             <TouchableOpacity
               style={st.ownerBadge}
-              onPress={() => point.owner.role === 'coach' && router.push(`/coach/${point.owner.user_id}` as any)}
-              activeOpacity={point.owner.role === 'coach' ? 0.7 : 1}
+              onPress={() => router.push(`/user/${point.owner.user_id}` as any)}
+              activeOpacity={0.7}
               testID="owner-avatar"
             >
               <View style={st.ownerAvatar}>
