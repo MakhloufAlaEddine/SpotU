@@ -34,6 +34,10 @@ const DAYS_SHORT = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
 function formatRecurring(s: any): { summary: string; perDay: Array<{ day: string; times: string[] }> | null } {
   if (!s) return { summary: '', perDay: null };
+  // If s is a string (legacy double-encoded), parse it first
+  if (typeof s === 'string') {
+    try { s = JSON.parse(s); } catch { return { summary: 'Récurrent', perDay: null }; }
+  }
   // New format: { type:'weekly', schedule:{'0':['09:00'],'2':['18:00']} }
   if (s.schedule && typeof s.schedule === 'object') {
     const entries = Object.entries(s.schedule as Record<string, string[]>)
