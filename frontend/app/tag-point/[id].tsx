@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { MapViewComponent } from '../../components/MapViewComponent';
+import { MarkdownText } from '../../components/RichTextInput';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useLocation } from '../../context/LocationContext';
