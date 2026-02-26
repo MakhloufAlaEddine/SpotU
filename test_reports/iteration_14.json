@@ -1,0 +1,57 @@
+{
+  "summary": "Tested edit mode pre-fill for tags and photos (bug fix validation). Found and fixed a race condition in loadCategories that was preventing tags from rendering in Step 2. Also discovered Metro CI mode (CI=true) was serving stale bundles, required service restart to serve updated code. All core edit mode pre-fill features now working.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "CreateTagPoint - Step 2 (Tags close button)",
+        "issue": "Close button (X) in edit mode at step 0 calls router.back() which navigates to /map instead of back to the tagPoint detail page. This is because /(tabs)/create is a TAB route - navigating to it replaces the tab stack rather than pushing to history.",
+        "selector": "[data-testid='back-btn']",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Back navigation from edit mode: router.back() from step 0 goes to /map instead of /tag-point/{pointId}. Fix: use router.replace('/tag-point/' + pointId) when in edit mode instead of router.back().",
+    "CI=true in supervisor expo config disables Metro hot reload - code changes after startup require service restart. Consider removing CI=true from expo supervisor config for development environment."
+  ],
+  "critical_code_review_comments": [
+    "Race condition in loadCategories FIXED: Added loadCategoriesVersionRef (useRef) to discard stale API responses when domain changes. Backend confirmed: dom_sport API (72ms) arrives AFTER dom_coaching (57ms), overwriting coaching categories before the fix.",
+    "CI=true in expo supervisor config disables Metro file watching/hot reload. Any code changes after Expo service starts are NOT picked up until service restart + cache clear. This is a critical dev environment issue.",
+    "The fix for tags (setSelectedTagIds called directly in pre-fill effect) is correct. The fix for images (image_url fallback in handleEdit) is correct."
+  ],
+  "updated_files": [
+    "/app/frontend/app/(tabs)/create.tsx (added loadCategoriesVersionRef + race condition guard in loadCategories)"
+  ],
+  "success_rate": {
+    "backend": "N/A (frontend-only testing)",
+    "frontend": "90%"
+  },
+  "test_credentials": "coach@winek.app / WinekCoach2024! (owns pt_demo011 to pt_demo015)",
+  "seed_data_creation": "No new seed data created",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Edit mode pre-fill for tags and photos is now WORKING. Race condition in loadCategories was fixed with a version counter ref. Two issues remain: (1) Close button in edit mode (step 0) navigates to /map instead of detail page - needs router.replace('/tag-point/'+pointId) when isEditMode; (2) CI=true in expo supervisor config breaks hot reload - requires restart after each code change. Metro was cleared and service restarted 3 times during this iteration.",
+  "rca_of_issue": {
+    "bug_1_photos_not_showing": {
+      "root_cause": "handleEdit in [id].tsx was not using image_url fallback when point.images=[] (empty array). The fix uses allImages = parsedImages.length > 0 ? parsedImages : (point.image_url ? [point.image_url] : []).",
+      "status": "FIXED by E1 (verified working)"
+    },
+    "bug_2_tags_not_showing": {
+      "root_cause": "Two concurrent loadCategories API calls (dom_sport on mount, dom_coaching on pre-fill). dom_sport (72ms) was slower than dom_coaching (57ms), arriving LAST and overwriting coaching categories in React state. This left categories=sport_data while selectedTagIds had coaching tag IDs, resulting in selectedTags=[].",
+      "fix_applied": "Added loadCategoriesVersionRef = useRef(0). In loadCategories(), increment version before API call, only call setCategories if version still matches (discards stale dom_sport response). Also E1's fix of calling setSelectedTagIds directly in pre-fill effect (not via editTagsRef) is correct.",
+      "status": "FIXED by combination of E1's fix + T1's loadCategories race condition fix"
+    },
+    "env_issue_ci_mode": {
+      "root_cause": "CI=true in expo supervisor config disables Metro's file watching. Code changes after Expo startup are served from in-memory cache (old bundle) until service restart + cache clear.",
+      "reproduction": "Modify any .tsx file -> page.goto to app -> old code is served (changes not reflected)",
+      "fix": "Remove CI=true from /etc/supervisor/conf.d/expo.conf or set CI=false"
+    }
+  }
+}
