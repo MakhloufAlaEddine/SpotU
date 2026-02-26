@@ -551,11 +551,14 @@ export default function TagPointDetail() {
 
         {/* 3. Date & Horaire */}
         {(point.event_date || point.event_schedule) && (() => {
-          const isPast = point.event_date ? new Date(point.event_date) < new Date() : false;
+          // Mutual exclusivity: prefer event_schedule (recurring) over event_date (once)
+          const showRecurring = !!point.event_schedule;
+          const showOnce = !showRecurring && !!point.event_date;
+          const isPast = showOnce && point.event_date ? new Date(point.event_date) < new Date() : false;
           const isCreator = user?.user_id === point.user_id;
           return (
             <View style={[st.dateCard, isPast && st.dateCardPast]}>
-              {point.event_date && (
+              {showOnce && (
                 <View style={st.dateRow}>
                   <View style={[st.dateIconBox, isPast && st.dateIconBoxPast]}>
                     <Ionicons name={isPast ? 'calendar-outline' : 'calendar'} size={20} color={isPast ? Colors.muted : Colors.primary} />
@@ -576,8 +579,7 @@ export default function TagPointDetail() {
                   </View>
                 </View>
               )}
-              {point.event_date && point.event_schedule && <View style={st.dateSep} />}
-              {point.event_schedule && (() => {
+              {showRecurring && (() => {
                 const rec = formatRecurring(point.event_schedule);
                 return (
                   <View>
@@ -610,8 +612,6 @@ export default function TagPointDetail() {
                   </View>
                 );
               })()}
-              {/* Banner: bientôt une nouvelle date */}
-              {point.new_date_coming && (
                 <View style={st.newDateBanner}>
                   <Ionicons name="time-outline" size={15} color={Colors.primary} />
                   <Text style={st.newDateBannerText}>Bientôt une nouvelle date</Text>
