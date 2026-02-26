@@ -39,7 +39,23 @@ Build **WINEK** — une plateforme mobile hyperlocale de connexion par tags, foc
 - Persistance de localisation session-only (non stockée entre lancements)
 - Fix SSL PostgreSQL (`ssl=False` dans database.py)
 
-### Phase 4 - Save for Later + Events Display (Sessions 6-7)
+### Phase 5 - Nouveau Create TagPoint Screen (Session 8)
+- ✅ **Frontend create.tsx**: Refonte complète de l'écran de création avec :
+  - Section photos (expo-image-picker, jusqu'à 10 images, avec badge "Principale")
+  - Titre requis (80 chars) + Description (500 chars, multiline)
+  - Sélecteur domaine (4 domaines depuis API, pills horizontales)
+  - Sélecteur tags avec modal bottom sheet (catégories + chips colorés, multi-select)
+  - Précision localisation (Élevé/Moyen/Faible) avec icônes
+  - Carte interactive (OpenStreetMap) + adresse + refresh GPS
+  - Date & Horaire : Sans date / Date unique / Récurrent (avec jours + heure)
+  - Bouton "Publier" en header + bouton "Publier le TagPoint" en bas
+  - Validation : titre requis, formats date, etc.
+- ✅ **Backend models.py**: Ajout de `images: Optional[List[str]] = []` dans `TagPointCreate`
+- ✅ **Backend tagpoint_routes.py**: 
+  - INSERT inclut maintenant la colonne `images`
+  - Fix double encodage JSON : `tag_ids`, `images`, `event_schedule` passés comme objets Python (list/dict) directement à asyncpg (pas via json.dumps)
+- ✅ **lib/api.ts**: Ajout méthode `api.patch()`
+- ✅ **Événements passés** (Session 7): Badge "Passé", label "Événement passé", toggle créateur "Annoncer une nouvelle date", banner "Bientôt une nouvelle date"
 - ✅ **Backend**: Table `tag_point_saves`, endpoints save/unsave/list
 - ✅ **Frontend [id].tsx**: Icônes d'action redessinées (card-style 54x54, spacing amélioré)
   - "Similaires" → icône `layers-outline`
