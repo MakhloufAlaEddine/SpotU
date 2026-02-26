@@ -273,8 +273,12 @@ export default function CreateTagPointScreen() {
         <StepDate
           scheduleType={scheduleType} setScheduleType={setScheduleType}
           eventDateTime={eventDateTime} onOpenDatePicker={() => setShowDateTimePicker(true)}
-          recurringDay={recurringDay} setRecurringDay={setRecurringDay}
-          recurringTime={recurringTime} onOpenTimePicker={() => setShowTimePicker(true)}
+          recurringDays={recurringDays}
+          toggleRecurringDay={(i: number) => setRecurringDays(p => p.includes(i) ? p.filter(x => x !== i) : [...p, i])}
+          recurringTimes={recurringTimes}
+          onEditTime={(idx: number) => setEditingTimeIdx(idx)}
+          onAddTime={() => setEditingTimeIdx(recurringTimes.length)}
+          onRemoveTime={(idx: number) => setRecurringTimes(p => p.filter((_, i) => i !== idx))}
         />
       );
       case 4: return (
@@ -282,8 +286,9 @@ export default function CreateTagPointScreen() {
           title={title} description={description} images={images}
           selectedTags={selectedTags} locationAddress={locationAddress}
           precision={precision} scheduleType={scheduleType}
-          eventDateTime={eventDateTime} recurringDay={recurringDay} recurringTime={recurringTime}
+          eventDateTime={eventDateTime} recurringDays={recurringDays} recurringTimes={recurringTimes}
           quality={quality} lang={lang}
+          user={user} selectedLat={selectedLat} selectedLng={selectedLng}
         />
       );
     }
