@@ -76,13 +76,8 @@ export default function RootLayout() {
               }}
             />
             <Stack.Screen name="create-service" />
-            <Stack.Screen
-              name="saved"
-              options={{
-                headerShown: false,
-                animation: 'slide_from_right'
-              }}
-            />
+            <Stack.Screen name="saved" options={{ headerShown: false, animation: 'slide_from_right' }} />
+            <Stack.Screen name="events" options={{ headerShown: false, animation: 'slide_from_right' }} />
           </Stack>
         </LocationProvider>
       </LanguageProvider>
