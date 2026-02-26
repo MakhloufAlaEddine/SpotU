@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -7,22 +7,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
 import { Colors, Spacing, Radius } from '../constants/Colors';
-
-function formatDistance(d: number | null): string {
-  if (d == null) return '---';
-  if (d < 1000) return `${Math.round(d)} m`;
-  return `${(d / 1000).toFixed(1)} km`;
-}
-
-function Stars({ rating }: { rating: number }) {
-  return (
-    <View style={{ flexDirection: 'row', gap: 2 }}>
-      {[1, 2, 3, 4, 5].map(i => (
-        <Ionicons key={i} name={i <= Math.round(rating) ? 'star' : 'star-outline'} size={12} color="#F59E0B" />
-      ))}
-    </View>
-  );
-}
 
 export default function MyTagPointsScreen() {
   const router = useRouter();
@@ -50,22 +34,18 @@ export default function MyTagPointsScreen() {
       activeOpacity={0.75}
       testID={`my-tp-${item.point_id}`}
     >
-      <View style={styles.cardLeft}>
-        {item.images?.[0] || item.image_url ? (
-          <View style={[styles.thumb, { backgroundColor: Colors.card }]}>
-            {/* Image from React Native */}
-            <Text style={styles.thumbPlaceholder}>{item.title?.[0]?.toUpperCase()}</Text>
-          </View>
+      <View style={styles.thumbWrap}>
+        {item.images?.[0] ? (
+          <Image source={{ uri: item.images[0] }} style={styles.thumb} />
         ) : (
-          <View style={[styles.thumb, { backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center' }]}>
-            <Ionicons name="image-outline" size={22} color={Colors.muted} />
+          <View style={[styles.thumb, { alignItems: 'center', justifyContent: 'center' }]}>
+            <Ionicons name="location-outline" size={22} color={Colors.muted} />
           </View>
         )}
       </View>
       <View style={styles.cardBody}>
         <Text style={styles.cardTitle} numberOfLines={1}>{item.title || 'Sans titre'}</Text>
-        <Stars rating={item.rating || 0} />
-        <View style={{ flexDirection: 'row', gap: 6, marginTop: 4 }}>
+        <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
           {item.is_public === false && (
             <View style={styles.badge}>
               <Ionicons name="eye-off-outline" size={11} color={Colors.muted} />
@@ -75,7 +55,15 @@ export default function MyTagPointsScreen() {
           {item.event_date && (
             <View style={styles.badge}>
               <Ionicons name="calendar-outline" size={11} color={Colors.muted} />
-              <Text style={styles.badgeText}>{new Date(item.event_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</Text>
+              <Text style={styles.badgeText}>
+                {new Date(item.event_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+              </Text>
+            </View>
+          )}
+          {item.participants_count > 0 && (
+            <View style={styles.badge}>
+              <Ionicons name="people-outline" size={11} color={Colors.muted} />
+              <Text style={styles.badgeText}>{item.participants_count}</Text>
             </View>
           )}
         </View>
@@ -86,13 +74,12 @@ export default function MyTagPointsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.headerBack}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn} testID="back-btn">
           <Ionicons name="chevron-back" size={24} color={Colors.foreground} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Mes TagPoints</Text>
-        <TouchableOpacity onPress={() => router.push('/(tabs)/create' as any)} style={styles.headerAdd} testID="add-tagpoint-btn">
+        <TouchableOpacity onPress={() => router.push('/(tabs)/create' as any)} style={styles.headerBtn} testID="add-tagpoint-btn">
           <Ionicons name="add" size={24} color={Colors.primary} />
         </TouchableOpacity>
       </View>
@@ -109,7 +96,8 @@ export default function MyTagPointsScreen() {
           ListEmptyComponent={
             <View style={styles.empty}>
               <Ionicons name="location-outline" size={48} color={Colors.muted} />
-              <Text style={styles.emptyText}>Vous n'avez pas encore créé de tagPoint</Text>
+              <Text style={styles.emptyTitle}>Aucun tagPoint</Text>
+              <Text style={styles.emptyText}>Vous n'avez pas encore créé de tagPoint.</Text>
               <TouchableOpacity style={styles.createBtn} onPress={() => router.push('/(tabs)/create' as any)}>
                 <Text style={styles.createBtnText}>Créer mon premier TagPoint</Text>
               </TouchableOpacity>
@@ -123,20 +111,34 @@ export default function MyTagPointsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  headerBack: { padding: 4 },
+  header: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm,
+    borderBottomWidth: 1, borderBottomColor: Colors.border,
+  },
+  headerBtn: { padding: 4 },
   headerTitle: { flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '700', color: Colors.foreground },
-  headerAdd: { padding: 4 },
-  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.card, borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.sm },
-  cardLeft: {},
-  thumb: { width: 56, height: 56, borderRadius: Radius.md, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
-  thumbPlaceholder: { fontSize: 22, fontWeight: '700', color: Colors.muted },
-  cardBody: { flex: 1, gap: 3 },
+  card: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: Colors.card, borderRadius: Radius.lg,
+    padding: Spacing.md, gap: Spacing.sm,
+  },
+  thumbWrap: {},
+  thumb: { width: 56, height: 56, borderRadius: Radius.md, backgroundColor: Colors.card },
+  cardBody: { flex: 1 },
   cardTitle: { fontSize: 15, fontWeight: '700', color: Colors.foreground },
-  badge: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: Colors.background, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2 },
+  badge: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    backgroundColor: Colors.background, borderRadius: 4,
+    paddingHorizontal: 5, paddingVertical: 2,
+  },
   badgeText: { fontSize: 11, color: Colors.muted },
   empty: { alignItems: 'center', paddingTop: 80, gap: 12 },
-  emptyText: { fontSize: 15, color: Colors.muted, textAlign: 'center' },
-  createBtn: { backgroundColor: Colors.primary, borderRadius: Radius.full, paddingHorizontal: 20, paddingVertical: 10, marginTop: 8 },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: Colors.foreground },
+  emptyText: { fontSize: 14, color: Colors.muted, textAlign: 'center' },
+  createBtn: {
+    backgroundColor: Colors.primary, borderRadius: Radius.full,
+    paddingHorizontal: 20, paddingVertical: 10, marginTop: 8,
+  },
   createBtnText: { color: Colors.background, fontWeight: '700', fontSize: 14 },
 });
