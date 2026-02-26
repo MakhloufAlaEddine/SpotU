@@ -101,7 +101,8 @@ class TagPointCreate(BaseModel):
     domain_id: str
     expires_hours: Optional[int] = None
     event_date: Optional[datetime] = None
-    event_schedule: Optional[dict] = None  # { type: "weekly", day: 0-6, time: "HH:MM" }
+    event_end_date: Optional[datetime] = None
+    event_schedule: Optional[dict] = None  # { type: "weekly", schedule: {dayIdx: [{start:'HH:MM', end:'HH:MM'}]} }
     images: Optional[List[str]] = []
 
 
