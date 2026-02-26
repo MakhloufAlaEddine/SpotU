@@ -1235,9 +1235,11 @@ const ms = StyleSheet.create({
 
 // Full Preview Modal styles
 const fpSt = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.sm, paddingVertical: Spacing.sm, backgroundColor: Colors.header, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  closeBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.sm, paddingTop: Platform.OS === 'ios' ? 50 : 32, paddingBottom: Spacing.sm, backgroundColor: Colors.header, borderBottomWidth: 1, borderBottomColor: Colors.border, zIndex: 10 },
+  closeBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { flex: 1, fontSize: 16, fontWeight: '700', color: Colors.foreground, textAlign: 'center' },
+  previewBadge: { backgroundColor: Colors.primary + '20', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6 },
+  previewBadgeText: { fontSize: 11, color: Colors.primary, fontWeight: '700' },
   heroWrap: { height: 230, backgroundColor: Colors.card, position: 'relative' },
   heroImage: { width: '100%', height: '100%' },
   heroPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.card },
@@ -1246,14 +1248,23 @@ const fpSt = StyleSheet.create({
   title: { fontSize: 22, fontWeight: '800', color: Colors.foreground, lineHeight: 28 },
   tagChip: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: Radius.full, borderWidth: 1.5, marginRight: 8 },
   tagChipText: { fontSize: 12, fontWeight: '600' },
-  infoCard: { backgroundColor: Colors.card, borderRadius: Radius.lg, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border },
-  infoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  infoCard: { backgroundColor: Colors.card, borderRadius: Radius.lg, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border, gap: 0 },
+  infoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 2 },
   infoText: { flex: 1, fontSize: 14, color: Colors.foreground, lineHeight: 20 },
   precisionBadge: { backgroundColor: Colors.primary + '18', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 },
   precisionBadgeText: { fontSize: 11, color: Colors.primary, fontWeight: '700' },
   section: { gap: 8 },
   sectionTitle: { fontSize: 12, fontWeight: '700', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.6 },
   descText: { fontSize: 14, color: Colors.foreground, lineHeight: 21 },
+  // Per-day schedule table
+  scheduleTable: { backgroundColor: Colors.card, borderRadius: Radius.lg, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border },
+  scheduleRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.border + '80' },
+  scheduleDayCol: { width: 44 },
+  scheduleDayText: { fontSize: 13, fontWeight: '800', color: Colors.foreground },
+  scheduleTimesCol: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  timeChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 4, borderRadius: Radius.full, backgroundColor: Colors.primary + '15', borderWidth: 1, borderColor: Colors.primary + '40' },
+  timeChipText: { fontSize: 12, fontWeight: '700', color: Colors.primary },
+  // Author
   authorCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.card, borderRadius: Radius.lg, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border },
   authorAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   authorAvatarText: { fontSize: 18, fontWeight: '700', color: Colors.background },
@@ -1261,6 +1272,4 @@ const fpSt = StyleSheet.create({
   authorSub: { fontSize: 12, color: Colors.muted, marginTop: 2 },
   newBadge: { backgroundColor: Colors.primary, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   newBadgeText: { fontSize: 10, color: Colors.background, fontWeight: '800', letterSpacing: 0.5 },
-  timeChip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6, borderRadius: Radius.full, backgroundColor: Colors.primary + '15', borderWidth: 1, borderColor: Colors.primary + '40' },
-  timeChipText: { fontSize: 13, fontWeight: '700', color: Colors.primary },
 });
