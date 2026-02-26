@@ -187,10 +187,8 @@ export default function CreateTagPointScreen() {
       setSelectedLng(lng);
       reverseGeocode(lat, lng);
     }
-    if (params.eventDate) {
-      setScheduleType('once');
-      setEventDateTime(new Date(params.eventDate));
-    } else if (params.eventSchedule) {
+    // Prefer event_schedule (recurring) over event_date (once) — mutual exclusivity
+    if (params.eventSchedule) {
       try {
         const sched = JSON.parse(params.eventSchedule);
         if (sched?.schedule) {
@@ -205,6 +203,9 @@ export default function CreateTagPointScreen() {
           setRecurringSchedule(rec);
         }
       } catch {}
+    } else if (params.eventDate) {
+      setScheduleType('once');
+      setEventDateTime(new Date(params.eventDate));
     }
   }, [isEditMode]);
 
