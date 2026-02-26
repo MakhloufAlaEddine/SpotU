@@ -245,6 +245,7 @@ export default function TagPointDetail() {
   const { user } = useAuth();
   const { location } = useLocation();
   const { lang } = useLang();
+  const { triggerProfileRefresh } = useRefresh();
 
   const [point, setPoint] = useState<any>(null);
   const [loading, setLoading] = useState(true);
