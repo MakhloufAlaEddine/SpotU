@@ -283,12 +283,25 @@ export default function CreateTagPointScreen() {
         <StepDate
           scheduleType={scheduleType} setScheduleType={setScheduleType}
           eventDateTime={eventDateTime} onOpenDatePicker={() => setShowDateTimePicker(true)}
-          recurringDays={recurringDays}
-          toggleRecurringDay={(i: number) => setRecurringDays(p => p.includes(i) ? p.filter(x => x !== i) : [...p, i])}
-          recurringTimes={recurringTimes}
-          onEditTime={(idx: number) => setEditingTimeIdx(idx)}
-          onAddTime={() => setEditingTimeIdx(recurringTimes.length)}
-          onRemoveTime={(idx: number) => setRecurringTimes(p => p.filter((_, i) => i !== idx))}
+          recurringSchedule={recurringSchedule}
+          toggleDay={(i: number) => setRecurringSchedule(p => {
+            const next = { ...p };
+            if (next[i] !== undefined) { delete next[i]; } else { next[i] = []; }
+            return next;
+          })}
+          addTimeToDay={(dayIdx: number) => {
+            setEditingDayIdx(dayIdx);
+            setEditingTimeIdx(recurringSchedule[dayIdx]?.length ?? 0);
+          }}
+          removeTimeFromDay={(dayIdx: number, timeIdx: number) => setRecurringSchedule(p => {
+            const next = { ...p };
+            next[dayIdx] = next[dayIdx].filter((_, i) => i !== timeIdx);
+            return next;
+          })}
+          editTimeForDay={(dayIdx: number, timeIdx: number) => {
+            setEditingDayIdx(dayIdx);
+            setEditingTimeIdx(timeIdx);
+          }}
         />
       );
       case 4: return (
@@ -296,9 +309,9 @@ export default function CreateTagPointScreen() {
           title={title} description={description} images={images}
           selectedTags={selectedTags} locationAddress={locationAddress}
           precision={precision} scheduleType={scheduleType}
-          eventDateTime={eventDateTime} recurringDays={recurringDays} recurringTimes={recurringTimes}
+          eventDateTime={eventDateTime} recurringSchedule={recurringSchedule}
           quality={quality} lang={lang}
-          user={user} selectedLat={selectedLat} selectedLng={selectedLng}
+          onOpenFullPreview={() => setShowFullPreview(true)}
         />
       );
     }
