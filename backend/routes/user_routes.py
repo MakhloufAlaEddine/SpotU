@@ -83,4 +83,14 @@ async def get_public_profile(user_id: str):
                 user_id
             )
             user["services"] = rows_to_list(svcs)
+
+        # Public tagpoints
+        tp_rows = await conn.fetch(
+            """SELECT point_id, title, images, event_date, event_schedule, domain_id, tag_ids
+               FROM tag_points
+               WHERE user_id = $1 AND active = TRUE AND is_public = TRUE
+               ORDER BY created_at DESC LIMIT 20""",
+            user_id
+        )
+        user["tag_points"] = rows_to_list(tp_rows)
     return user
