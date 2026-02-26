@@ -193,16 +193,24 @@ export default function CreateTagPointScreen() {
         let sched = JSON.parse(params.eventSchedule);
         // Handle legacy double-encoded string
         if (typeof sched === 'string') sched = JSON.parse(sched);
-        if (sched?.schedule) {
+
+        if (sched?.schedule && typeof sched.schedule === 'object') {
+          // NEW format: {type:'weekly', schedule:{'2':['18:00']}}
           setScheduleType('recurring');
           const rec: Record<number, Date[]> = {};
           Object.entries(sched.schedule).forEach(([day, times]: [string, any]) => {
-            rec[parseInt(day)] = (times as string[]).map(t => {
+            rec[parseInt(day)] = (times as string[]).map((t: string) => {
               const [h, m] = t.split(':').map(Number);
               const d = new Date(); d.setHours(h, m, 0, 0); return d;
             });
           });
           setRecurringSchedule(rec);
+        } else if (typeof sched?.day === 'number' && sched?.time) {
+          // LEGACY format: {day:2, time:'18:30', type:'weekly'}
+          setScheduleType('recurring');
+          const [h, m] = (sched.time as string).split(':').map(Number);
+          const t = new Date(); t.setHours(h, m, 0, 0);
+          setRecurringSchedule({ [sched.day]: [t] });
         }
       } catch {}
     } else if (params.eventDate) {
