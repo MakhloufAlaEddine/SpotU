@@ -93,8 +93,9 @@ function calcQuality(form: any): { score: number; label: string; color: string }
 // ─── Main Component ─────────────────────────────────────────────────────────────
 export default function CreateTagPointScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const { lang } = useLang();
+  const createdPointId = useRef<string | null>(null);
 
   // Step state
   const [step, setStep] = useState(0); // 0-3 = steps, 4 = preview
