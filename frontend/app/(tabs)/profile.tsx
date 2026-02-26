@@ -202,6 +202,11 @@ export default function MenuScreen() {
     if (user) loadData();
   }, [user]);
 
+  // Reload list when screen comes back into focus (e.g. after deletion)
+  useFocusEffect(useCallback(() => {
+    if (user) loadData();
+  }, [user]));
+
   const loadData = async () => {
     try {
       const points = await api.get('/tag-points/mine');
