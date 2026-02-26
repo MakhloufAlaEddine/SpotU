@@ -38,10 +38,18 @@ function formatRecurring(s: any): { summary: string; perDay: Array<{ day: string
   if (typeof s === 'string') {
     try { s = JSON.parse(s); } catch { return { summary: 'Récurrent', perDay: null }; }
   }
-  // New format: { type:'weekly', schedule:{'0':['09:00'],'2':['18:00']} }
+// New format: { type:'weekly', schedule:{'0': [...slots], '2': [...slots]} }
+// Slots can be old format (string: '18:00') or new format ({start:'18:00', end:'19:00'})
   if (s.schedule && typeof s.schedule === 'object') {
-    const entries = Object.entries(s.schedule as Record<string, string[]>)
-      .map(([d, times]) => ({ dayIdx: parseInt(d), times }))
+    const entries = Object.entries(s.schedule as Record<string, any[]>)
+      .map(([d, slots]) => {
+        const times = (slots as any[]).map((slot: any) => {
+          if (typeof slot === 'string') return slot;
+          if (slot?.start) return slot.end ? `${slot.start} → ${slot.end}` : slot.start;
+          return String(slot);
+        });
+        return { dayIdx: parseInt(d), times };
+      })
       .sort((a, b) => a.dayIdx - b.dayIdx);
     if (entries.length === 0) return { summary: 'Récurrent', perDay: null };
     const summary = entries.map(e => `${DAYS_SHORT[e.dayIdx]}: ${e.times.join(', ')}`).join(' · ');
