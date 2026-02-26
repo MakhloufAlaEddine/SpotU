@@ -723,15 +723,15 @@ export default function TagPointDetail() {
                   </View>
                 );
               })()}
-              {/* Banner: bientôt une nouvelle date */}
-              {point.new_date_coming && (
+              {/* Banner: bientôt une nouvelle date — masqué pour les récurrents */}
+              {point.new_date_coming && !showRecurring && (
                 <View style={st.newDateBanner}>
                   <Ionicons name="time-outline" size={15} color={Colors.primary} />
                   <Text style={st.newDateBannerText}>Bientôt une nouvelle date</Text>
                 </View>
               )}
-              {/* Creator toggle (only visible when event is past) */}
-              {isPast && isCreator && (
+              {/* Creator toggle — masqué pour les récurrents (toujours une prochaine date) */}
+              {isPast && isCreator && !showRecurring && (
                 <TouchableOpacity style={st.newDateToggle} onPress={toggleNewDateComing} testID="new-date-toggle">
                   <Ionicons
                     name={point.new_date_coming ? 'checkmark-circle' : 'add-circle-outline'}
