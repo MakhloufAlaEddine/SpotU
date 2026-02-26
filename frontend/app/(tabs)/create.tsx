@@ -563,7 +563,14 @@ function StepEssentiel({ images, title, setTitle, onPickImages, onRemoveImage }:
         <Text style={sc.charCount}>{title.length}/80</Text>
         {title.length === 0 && (
           <View style={sc.fieldTip}>
+            <Ionicons name="bulb-outline" size={13} color={Colors.muted} />
             <Text style={sc.fieldTipText}>Un bon titre : activité + lieu/ambiance + niveau</Text>
+          </View>
+        )}
+        {title.length > 0 && title.length < 25 && (
+          <View style={[sc.fieldTip, { opacity: 0.7 }]}>
+            <Ionicons name="bulb-outline" size={13} color={Colors.primary} />
+            <Text style={[sc.fieldTipText, { color: Colors.primary }]}>Ex : "Footing Parc Monceau · Déb. bienvenus"</Text>
           </View>
         )}
       </View>
