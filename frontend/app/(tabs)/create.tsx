@@ -100,7 +100,7 @@ export default function CreateTagPointScreen() {
   const params = useLocalSearchParams<{
     editMode?: string; pointId?: string; title?: string; description?: string;
     domainId?: string; precision?: string; tagIds?: string; images?: string;
-    eventDate?: string; eventSchedule?: string; lat?: string; lng?: string;
+    eventDate?: string; eventEndDate?: string; eventSchedule?: string; lat?: string; lng?: string;
   }>();
   const isEditMode = params.editMode === 'true';
   // Prevents domainId-effect from clearing tags on the initial edit pre-fill
