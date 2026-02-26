@@ -311,7 +311,10 @@ export default function TagPointDetail() {
           onPress: () => {
             setOwnerActionLoading(true);
             api.del(`/tag-points/${id}`)
-              .then(() => setTimeout(() => router.replace('/(tabs)/map' as any), 100))
+              .then(() => {
+                triggerProfileRefresh();
+                setTimeout(() => router.replace('/(tabs)/map' as any), 100);
+              })
               .catch((e: any) => Alert.alert('Erreur', e.message))
               .finally(() => setOwnerActionLoading(false));
           },
