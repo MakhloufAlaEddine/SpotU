@@ -427,10 +427,16 @@ export default function CreateTagPointScreen() {
         initialDate={eventDateTime || undefined} mode="datetime" minDate={new Date()}
       />
       <DateTimePickerModal
-        visible={showTimePicker}
-        onClose={() => setShowTimePicker(false)}
-        onConfirm={d => { setRecurringTime(d); setShowTimePicker(false); }}
-        initialDate={recurringTime || undefined} mode="time"
+        visible={editingTimeIdx !== null}
+        onClose={() => setEditingTimeIdx(null)}
+        onConfirm={d => {
+          if (editingTimeIdx !== null) {
+            setRecurringTimes(p => { const next = [...p]; next[editingTimeIdx] = d; return next; });
+          }
+          setEditingTimeIdx(null);
+        }}
+        initialDate={(editingTimeIdx !== null && recurringTimes[editingTimeIdx]) || undefined}
+        mode="time"
       />
 
       {/* ── Tag Modal ───────────────────────── */}
