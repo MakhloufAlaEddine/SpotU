@@ -444,6 +444,9 @@ export default function CreateTagPointScreen() {
         <StepDate
           scheduleType={scheduleType} setScheduleType={setScheduleType}
           eventDateTime={eventDateTime} onOpenDatePicker={() => setShowDateTimePicker(true)}
+          eventEndDateTime={eventEndDateTime}
+          onOpenEndTimePicker={() => setShowEndDateTimePicker(true)}
+          onClearEndTime={() => setEventEndDateTime(null)}
           recurringSchedule={recurringSchedule}
           toggleDay={(i: number) => setRecurringSchedule(p => {
             const next = { ...p };
@@ -453,15 +456,17 @@ export default function CreateTagPointScreen() {
           addTimeToDay={(dayIdx: number) => {
             setEditingDayIdx(dayIdx);
             setEditingTimeIdx(recurringSchedule[dayIdx]?.length ?? 0);
+            setEditingTimeType('start');
           }}
           removeTimeFromDay={(dayIdx: number, timeIdx: number) => setRecurringSchedule(p => {
             const next = { ...p };
             next[dayIdx] = next[dayIdx].filter((_, i) => i !== timeIdx);
             return next;
           })}
-          editTimeForDay={(dayIdx: number, timeIdx: number) => {
+          editTimeForDay={(dayIdx: number, timeIdx: number, type: 'start' | 'end') => {
             setEditingDayIdx(dayIdx);
             setEditingTimeIdx(timeIdx);
+            setEditingTimeType(type);
           }}
         />
       );
