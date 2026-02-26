@@ -547,6 +547,7 @@ export default function TagPointDetail() {
         })()}
 
         {/* 4. RSVP + Message sur la même ligne */}
+        {!isOwner && (
         <View style={st.rsvpRow}>
           <TouchableOpacity
             style={[st.rsvpBtn, isParticipant && st.rsvpBtnActive]}
@@ -581,6 +582,7 @@ export default function TagPointDetail() {
             <Ionicons name="chatbubble-ellipses-outline" size={20} color={Colors.foreground} />
           </TouchableOpacity>
         </View>
+        )}
 
         <View style={st.actionsRow}>
           <TouchableOpacity style={st.actionBtn} onPress={openSimilar} activeOpacity={0.7} testID="similar-btn">
