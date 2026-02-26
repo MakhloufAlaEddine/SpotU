@@ -69,18 +69,20 @@ Application mobile "WINEK" - plateforme hyperlocale de connexion basée sur des 
 
 ### Session 4 (2026-02-26)
 - **Wizard "Créer TagPoint" (create.tsx)**: 4 étapes + aperçu
-  - Étape 1: Essentiel (photos + titre)
+  - Étape 1: Essentiel (photos + titre) — messages d'aide toujours visibles
   - Étape 2: Contenu (description, domaine, tags)
-  - Étape 3: Localisation (GPS, précision)
-  - Étape 4: Date (sans date / unique / récurrente)
-  - Étape 5: Aperçu + publication
+  - Étape 3: Localisation — 3 boutons confidentialité sur même ligne
+  - Étape 4: Date — jours multiples + multi-créneaux horaires pour récurrent
+  - Étape 5: Aperçu + bouton "Voir l'aperçu complet" (modal détail)
 - **Score de qualité** en temps réel (Basique → Bien → Très bien → Excellent)
+- **FullPreviewModal**: Modal plein écran montrant le tagPoint comme il apparaîtra
 - **RichTextInput.tsx**: Éditeur markdown (gras, italique, souligné, listes)
 - **DateTimePicker.tsx**: Calendrier custom + sélecteur heure
 - **Markdown display** dans [id].tsx
 - Backend: colonne `new_date_coming`, endpoint PATCH toggle-new-date
 - Fix double-encoding JSON au POST /api/tag-points
-- **Tests**: 100% (Backend 56/56, Frontend 16/16 scénarios wizard)
+- Payload récurrent: {type:'weekly', days:[0,2,4], times:['09:00','17:00']}
+- **Tests**: 100% (Backend 62/62, Frontend 24/24 scénarios)
 
 ## Credentials de Test
 - user@winek.app / WinekUser2024!
