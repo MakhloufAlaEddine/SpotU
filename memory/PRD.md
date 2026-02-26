@@ -104,7 +104,18 @@ Application mobile "WINEK" - plateforme hyperlocale de connexion basée sur des 
 - **Fix conseil qualité** : Le message "Configurez une date..." ne s'affiche plus quand une date récurrente est déjà configurée. Suppression de la fausse info "apparaître en tête des résultats"
 - **Tests**: 100% (15/15 backend + 11/11 frontend — iteration 13)
 
-## Known Issues (Updated)
+### Session 7 (2026-02-26) — Fork continuité
+- **Fix critique: Crash écran profil** — Remplacement de `useFocusEffect` (incompatible Expo Router) par un `RefreshContext` custom. `profileKey` s'incrémente pour déclencher un rechargement dans `profile.tsx`
+- **Fix RefreshContext manquant** — `triggerProfileRefresh()` n'était jamais appelé. Ajout dans `create.tsx` (après création/édition) et `tag-point/[id].tsx` (après suppression)
+- **Fix useFocusEffect dans my-tag-points.tsx** — Même crash corrigé (remplacé par `useEffect`)
+- **Fix mode édition - TAGS** — `setSelectedTagIds()` maintenant appelé DIRECTEMENT dans le pre-fill effect (plus via `editTagsRef` qui ne fonctionnait pas si `domainId` n'avait pas changé). Race condition `loadCategories` corrigée avec `loadCategoriesVersionRef`
+- **Fix mode édition - PHOTOS** — `handleEdit` utilise maintenant `image_url` comme fallback quand `images=[]` (les points de démo n'ont que `image_url`)
+- **Fix mode édition - GPS** — `loadGPS` retourne early si `isEditMode=true` (évitait l'écrasement des coordonnées pré-remplies)
+- **Fix mode édition - Adresse** — `reverseGeocode()` appelé avec les coordonnées pré-remplies pour afficher l'adresse correcte
+- **Fix navigation retour mode édition** — Bouton ✕ à l'étape 0 redirige vers `/tag-point/{pointId}` en mode édition (au lieu de `/map`)
+- **Tests**: 90%+ (iteration 14)
+
+## Known Issues (Updated 2026-02-26)
 - Google Auth sur Expo Go (mobile): in-app browser ne se ferme pas automatiquement (ON HOLD)
 - Boutons d'action ([id].tsx): layout "Similar/Share/Save" insatisfaisant (P1 — PROCHAIN)
 
