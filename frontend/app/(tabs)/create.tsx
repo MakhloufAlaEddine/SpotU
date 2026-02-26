@@ -946,138 +946,272 @@ function buildScheduleLabel(scheduleType: string, eventDateTime: Date | null, re
   }).join(' · ');
 }
 
+// ─── Fake votes data for preview encouragement ──────────────────────────────
+const FAKE_VOTES_DATA = [
+  { initials: 'ML', color: '#2196F3', name: 'Marie L.', stars: 5, comment: 'Super activité ! Bien organisée, ambiance parfaite. Je reviendrai sans hésiter !', time: 'il y a 2 jours' },
+  { initials: 'PT', color: '#FF5722', name: 'Pierre T.', stars: 4, comment: 'Belle initiative et bonne ambiance. Je recommande à tous ceux qui cherchent un groupe motivé.', time: 'il y a 5 jours' },
+  { initials: 'CD', color: '#9C27B0', name: 'Camille D.', stars: 5, comment: 'Accueil top, encadrement parfait pour les débutants. 5 étoiles mérités !', time: 'il y a 1 semaine' },
+];
+const FAKE_RATING = 4.7;
+const FAKE_VOTES_COUNT = 12;
+const FAKE_DIST = [8, 3, 1, 0, 0]; // [5★, 4★, 3★, 2★, 1★]
+
 // ─── Full Preview Modal (rendered at root level) ─────────────────────────────
-function FullPreviewModal({ visible, onClose, title, description, images, selectedTags, locationAddress, precision, scheduleType, eventDateTime, recurringSchedule, user, lang }: any) {
+function FullPreviewModal({ visible, onClose, title, description, images, selectedTags, locationAddress, precision, scheduleType, eventDateTime, recurringSchedule, user, lang, selectedLat, selectedLng }: any) {
   const scheduleLabel = buildScheduleLabel(scheduleType, eventDateTime, recurringSchedule);
   const days = Object.keys(recurringSchedule || {}).map(Number).sort((a, b) => a - b);
+  const precisionRadius = precision === 'exact' ? 0 : precision === '100m' ? 100 : 1000;
+  const precisionLabel = precision === 'exact' ? 'Exact' : precision === '100m' ? '~100m' : '~1km';
 
   return (
     <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose} statusBarTranslucent>
       <View style={{ flex: 1, backgroundColor: Colors.background }}>
-        {/* Fixed header with high zIndex */}
+        {/* Fixed header */}
         <View style={fpSt.header}>
           <TouchableOpacity onPress={onClose} style={fpSt.closeBtn} testID="close-full-preview" hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-            <Ionicons name="close" size={24} color={Colors.foreground} />
+            <Ionicons name="chevron-back" size={24} color={Colors.primary} />
           </TouchableOpacity>
-          <Text style={fpSt.headerTitle}>Aperçu du tagPoint</Text>
+          <Text style={fpSt.headerTitle}>Détails</Text>
           <View style={fpSt.previewBadge}>
             <Text style={fpSt.previewBadgeText}>Aperçu</Text>
           </View>
         </View>
 
-        <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-          {/* Hero */}
-          <View style={fpSt.heroWrap}>
-            {images.length > 0
-              ? <Image source={{ uri: images[0] }} style={fpSt.heroImage} resizeMode="cover" />
-              : <View style={fpSt.heroPlaceholder}>
-                  <Ionicons name="image-outline" size={60} color={Colors.muted} />
-                  <Text style={{ color: Colors.muted, fontSize: 13, marginTop: 8 }}>Aucune photo ajoutée</Text>
-                </View>
-            }
-            {images.length > 1 && (
-              <View style={fpSt.imgCount}>
-                <Ionicons name="images-outline" size={12} color="#fff" />
-                <Text style={fpSt.imgCountText}>{images.length} photos</Text>
-              </View>
-            )}
-          </View>
+        <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
 
-          <View style={{ padding: Spacing.md, gap: Spacing.md }}>
-            {/* Title & tags */}
-            <View>
-              <Text style={fpSt.title}>{title || 'Sans titre'}</Text>
-              {selectedTags.length > 0 && (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
-                  {selectedTags.map((t: any) => {
-                    const c = tagColor(t.category_id);
-                    return (
-                      <View key={t.tag_id} style={[fpSt.tagChip, { backgroundColor: c + '22', borderColor: c }]}>
-                        <Text style={[fpSt.tagChipText, { color: c }]}>{lang === 'fr' ? t.label_fr : t.label_en}</Text>
-                      </View>
-                    );
-                  })}
-                </ScrollView>
-              )}
-            </View>
-
-            {/* Location */}
-            <View style={fpSt.infoCard}>
-              <View style={fpSt.infoRow}>
-                <Ionicons name="location-outline" size={16} color={Colors.primary} />
-                <Text style={fpSt.infoText} numberOfLines={2}>{locationAddress}</Text>
-                <View style={fpSt.precisionBadge}>
-                  <Text style={fpSt.precisionBadgeText}>{precision === 'exact' ? 'Exact' : precision === '100m' ? '~100m' : '~1km'}</Text>
-                </View>
-              </View>
-
-              {/* Schedule */}
-              {scheduleType === 'once' && eventDateTime && (
-                <View style={[fpSt.infoRow, { borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: 10 }]}>
-                  <Ionicons name="calendar-outline" size={16} color={Colors.primary} />
-                  <Text style={fpSt.infoText}>{scheduleLabel}</Text>
+          {/* 1. Image hero + owner overlay */}
+          <View style={{ marginHorizontal: Spacing.md, marginTop: Spacing.md }}>
+            <View style={fpSt.heroWrap}>
+              {images.length > 0
+                ? <Image source={{ uri: images[0] }} style={fpSt.heroImage} resizeMode="cover" />
+                : <View style={fpSt.heroPlaceholder}>
+                    <Ionicons name="image-outline" size={60} color={Colors.muted} />
+                    <Text style={{ color: Colors.muted, fontSize: 13, marginTop: 8 }}>Aucune photo ajoutée</Text>
+                  </View>
+              }
+              {images.length > 1 && (
+                <View style={fpSt.imgCount}>
+                  <Ionicons name="images-outline" size={12} color="#fff" />
+                  <Text style={fpSt.imgCountText}>{images.length} photos</Text>
                 </View>
               )}
             </View>
-
-            {/* Per-day recurring schedule */}
-            {scheduleType === 'recurring' && days.length > 0 && (
-              <View style={fpSt.section}>
-                <Text style={fpSt.sectionTitle}>Horaires récurrents</Text>
-                <View style={fpSt.scheduleTable}>
-                  {days.map((dayIdx: number) => {
-                    const times: Date[] = recurringSchedule[dayIdx] || [];
-                    return (
-                      <View key={dayIdx} style={fpSt.scheduleRow}>
-                        <View style={fpSt.scheduleDayCol}>
-                          <Text style={fpSt.scheduleDayText}>{DAYS[dayIdx]}</Text>
-                        </View>
-                        <View style={fpSt.scheduleTimesCol}>
-                          {times.length > 0
-                            ? times.map((t: Date, i: number) => (
-                                <View key={i} style={fpSt.timeChip}>
-                                  <Text style={fpSt.timeChipText}>{fmtTime(t)}</Text>
-                                </View>
-                              ))
-                            : <Text style={{ fontSize: 12, color: Colors.muted, fontStyle: 'italic' }}>Aucun créneau</Text>
-                          }
-                        </View>
-                      </View>
-                    );
-                  })}
-                </View>
-              </View>
-            )}
-
-            {/* Description */}
-            {description ? (
-              <View style={fpSt.section}>
-                <Text style={fpSt.sectionTitle}>Description</Text>
-                <MarkdownText style={fpSt.descText}>{description}</MarkdownText>
-              </View>
-            ) : (
-              <View style={[fpSt.section, { alignItems: 'center', paddingVertical: 20 }]}>
-                <Ionicons name="document-text-outline" size={32} color={Colors.muted} />
-                <Text style={{ color: Colors.muted, fontSize: 13, marginTop: 8 }}>Aucune description</Text>
-              </View>
-            )}
-
-            {/* Author */}
-            <View style={fpSt.authorCard}>
-              <View style={fpSt.authorAvatar}>
+            {/* Owner badge overlay (like [id].tsx) */}
+            <View style={fpSt.ownerBadge}>
+              <View style={fpSt.ownerAvatar}>
                 {user?.picture
                   ? <Image source={{ uri: user.picture }} style={{ width: '100%', height: '100%' }} />
-                  : <Text style={fpSt.authorAvatarText}>{user?.name?.charAt(0)?.toUpperCase() || '?'}</Text>
+                  : <Text style={fpSt.ownerInitial}>{user?.name?.charAt(0)?.toUpperCase() || '?'}</Text>
                 }
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={fpSt.authorName}>{user?.name || 'Vous'}</Text>
-                <Text style={fpSt.authorSub}>Créateur · Maintenant</Text>
+              <View>
+                <Text style={fpSt.ownerName}>{user?.name || 'Vous'}</Text>
+                <Text style={fpSt.ownerRole}>Créateur</Text>
               </View>
-              <View style={fpSt.newBadge}><Text style={fpSt.newBadgeText}>NOUVEAU</Text></View>
             </View>
           </View>
+
+          {/* 2. Title + fake rating + tags */}
+          <View style={fpSt.titleSection}>
+            <Text style={fpSt.title}>{title || 'Sans titre'}</Text>
+            <View style={fpSt.metaRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Ionicons name="location-outline" size={15} color={Colors.primary} />
+                <Text style={fpSt.distText}>{locationAddress || 'Localisation'}</Text>
+              </View>
+              <View style={fpSt.ratingRow}>
+                {[1,2,3,4,5].map(i => (
+                  <Ionicons key={i} name={i <= Math.round(FAKE_RATING) ? 'star' : 'star-outline'}
+                    size={14} color={i <= Math.round(FAKE_RATING) ? Colors.star || '#FFD700' : Colors.muted} />
+                ))}
+                <Text style={fpSt.ratingCount}>{FAKE_RATING} ({FAKE_VOTES_COUNT})</Text>
+              </View>
+            </View>
+            {selectedTags.length > 0 && (
+              <View style={fpSt.tagsRow}>
+                {selectedTags.map((t: any) => {
+                  const c = tagColor(t.category_id);
+                  return (
+                    <View key={t.tag_id} style={[fpSt.tagPill, { backgroundColor: c + '22', borderColor: c }]}>
+                      <Text style={[fpSt.tagText, { color: c }]}>{lang === 'fr' ? t.label_fr : t.label_en}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+
+          {/* 3. Date card */}
+          {(scheduleType === 'once' || scheduleType === 'recurring') && (
+            <View style={fpSt.dateCard}>
+              {scheduleType === 'once' && eventDateTime && (
+                <View style={fpSt.dateRow}>
+                  <View style={fpSt.dateIconBox}>
+                    <Ionicons name="calendar" size={20} color={Colors.primary} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={fpSt.dateLabel}>Prochain événement</Text>
+                    <Text style={fpSt.dateValue}>{scheduleLabel}</Text>
+                  </View>
+                </View>
+              )}
+              {scheduleType === 'recurring' && days.length > 0 && (
+                <View>
+                  <View style={fpSt.dateRow}>
+                    <View style={fpSt.dateIconBox}>
+                      <Ionicons name="repeat-outline" size={20} color={Colors.primary} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={fpSt.dateLabel}>Récurrent</Text>
+                      <Text style={fpSt.dateValue}>{days.map(d => DAYS[d]).join(', ')}</Text>
+                    </View>
+                  </View>
+                  {/* Per-day table */}
+                  <View style={fpSt.scheduleTable}>
+                    {days.map((dayIdx: number, idx: number) => {
+                      const times: Date[] = recurringSchedule[dayIdx] || [];
+                      return (
+                        <View key={dayIdx} style={[fpSt.scheduleRow, idx < days.length - 1 && { borderBottomWidth: 1, borderBottomColor: Colors.border + '60' }]}>
+                          <Text style={fpSt.scheduleDayText}>{DAYS[dayIdx]}</Text>
+                          <View style={fpSt.scheduleTimesRow}>
+                            {times.length > 0
+                              ? times.map((t: Date, i: number) => (
+                                  <View key={i} style={fpSt.scheduleTimeChip}>
+                                    <Text style={fpSt.scheduleTimeChipText}>{fmtTime(t)}</Text>
+                                  </View>
+                                ))
+                              : <Text style={{ fontSize: 12, color: Colors.muted }}>—</Text>
+                            }
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* 4. RSVP row (preview — disabled) */}
+          <View style={fpSt.rsvpRow}>
+            <View style={fpSt.rsvpBtn}>
+              <Ionicons name="add-circle-outline" size={18} color={Colors.background} />
+              <Text style={fpSt.rsvpText}>Rejoindre</Text>
+            </View>
+            <Text style={fpSt.rsvpCount}>4 participants</Text>
+            <View style={{ flex: 1 }} />
+            <View style={fpSt.msgBtn}>
+              <Ionicons name="chatbubble-ellipses-outline" size={20} color={Colors.muted} />
+            </View>
+          </View>
+
+          {/* 5. Actions row (preview — disabled) */}
+          <View style={fpSt.actionsRow}>
+            {([
+              { icon: 'layers-outline', label: 'Similaires' },
+              { icon: 'share-social-outline', label: 'Partager' },
+              { icon: 'bookmark-outline', label: 'Sauvegarder' },
+            ] as const).map(a => (
+              <View key={a.label} style={fpSt.actionBtn}>
+                <View style={fpSt.actionIcon}>
+                  <Ionicons name={a.icon} size={26} color={Colors.muted} />
+                </View>
+                <Text style={fpSt.actionLabel}>{a.label}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* 6. Map */}
+          {selectedLat != null && selectedLng != null && (
+            <View style={fpSt.mapWrap}>
+              <MapViewComponent
+                centerLat={selectedLat} centerLng={selectedLng}
+                zoom={precisionRadius > 500 ? 14 : 16}
+                precisionRadius={precisionRadius}
+                selectedLat={selectedLat} selectedLng={selectedLng}
+                pins={precisionRadius === 0 ? [{ id: 'pin', lat: selectedLat, lng: selectedLng, title: locationAddress, color: Colors.primary }] : []}
+              />
+            </View>
+          )}
+
+          {/* 7. Description */}
+          {description ? (
+            <View style={fpSt.section}>
+              <Text style={fpSt.sectionTitle}>Description</Text>
+              <MarkdownText style={fpSt.descText}>{description}</MarkdownText>
+            </View>
+          ) : (
+            <View style={[fpSt.section, { alignItems: 'center', paddingVertical: 20 }]}>
+              <Ionicons name="document-text-outline" size={32} color={Colors.muted} />
+              <Text style={{ color: Colors.muted, fontSize: 13, marginTop: 8 }}>Aucune description</Text>
+            </View>
+          )}
+
+          {/* 8. Fake votes section — encouragement */}
+          <View style={fpSt.section}>
+            {/* Preview note */}
+            <View style={fpSt.exampleBanner}>
+              <Ionicons name="sparkles-outline" size={14} color={Colors.primary} />
+              <Text style={fpSt.exampleBannerText}>
+                Exemples d'avis — publiez pour recevoir de vrais votes !
+              </Text>
+            </View>
+
+            {/* Rating summary */}
+            <View style={fpSt.reviewsHeader}>
+              <View style={fpSt.reviewsBig}>
+                <Text style={fpSt.reviewsNum}>{FAKE_RATING}</Text>
+                <View>
+                  <View style={{ flexDirection: 'row', gap: 2 }}>
+                    {[1,2,3,4,5].map(i => (
+                      <Ionicons key={i} name={i <= Math.round(FAKE_RATING) ? 'star' : 'star-outline'}
+                        size={16} color={i <= Math.round(FAKE_RATING) ? Colors.star || '#FFD700' : Colors.muted} />
+                    ))}
+                  </View>
+                  <Text style={fpSt.reviewsCountTxt}>{FAKE_VOTES_COUNT} avis</Text>
+                </View>
+              </View>
+              <View style={{ flex: 1, paddingLeft: Spacing.md }}>
+                {FAKE_DIST.map((count, i) => (
+                  <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                    <Text style={{ fontSize: 11, color: Colors.muted, width: 10 }}>{5 - i}</Text>
+                    <View style={{ flex: 1, height: 6, backgroundColor: Colors.border, borderRadius: 3, overflow: 'hidden' }}>
+                      <View style={{ width: `${(count / FAKE_VOTES_COUNT) * 100}%` as any, height: '100%', backgroundColor: Colors.primary + 'CC', borderRadius: 3 }} />
+                    </View>
+                    <Text style={{ fontSize: 11, color: Colors.muted, width: 14 }}>{count}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            {/* Fake vote cards */}
+            {FAKE_VOTES_DATA.map((v, i) => (
+              <View key={i} style={fpSt.voteCard}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                  <View style={[fpSt.voteAvatar, { backgroundColor: v.color }]}>
+                    <Text style={fpSt.voteAvatarText}>{v.initials}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={fpSt.voteName}>{v.name}</Text>
+                    <Text style={fpSt.voteTime}>{v.time}</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 2 }}>
+                    {[1,2,3,4,5].map(s => (
+                      <Ionicons key={s} name={s <= v.stars ? 'star' : 'star-outline'}
+                        size={13} color={s <= v.stars ? Colors.star || '#FFD700' : Colors.muted} />
+                    ))}
+                  </View>
+                </View>
+                <Text style={fpSt.voteComment}>{v.comment}</Text>
+              </View>
+            ))}
+          </View>
         </ScrollView>
+
+        {/* FAB Voter (disabled preview) */}
+        <View style={[fpSt.fab, { opacity: 0.4 }]}>
+          <Ionicons name="star" size={22} color={Colors.background} />
+        </View>
       </View>
     </Modal>
   );
