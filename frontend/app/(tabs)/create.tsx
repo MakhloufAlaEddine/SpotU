@@ -575,7 +575,9 @@ async function uploadImage(uri: string, token: string): Promise<string | null> {
     console.warn('Image upload failed:', e);
     return null;
   }
-}────
+}
+
+// ─── Step 1: L'essentiel ────────────────────────────────────────────────────────
 function StepEssentiel({ images, title, setTitle, onPickImages, onRemoveImage }: any) {
   const IMG = Math.floor((Math.min(SW, 500) - Spacing.md * 2 - 8 * 2) / 3);
   return (
