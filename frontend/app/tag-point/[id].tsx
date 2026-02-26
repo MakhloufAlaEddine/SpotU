@@ -325,6 +325,13 @@ export default function TagPointDetail() {
 
   const handleEdit = () => {
     if (!point) return;
+    // Merge images array + fallback image_url (for points with only a single image_url)
+    const parsedImages: string[] = (() => {
+      try { return Array.isArray(point.images) ? point.images : JSON.parse(point.images || '[]'); } catch { return []; }
+    })();
+    const allImages = parsedImages.length > 0
+      ? parsedImages
+      : (point.image_url ? [point.image_url] : []);
     router.push({
       pathname: '/(tabs)/create' as any,
       params: {
@@ -335,7 +342,7 @@ export default function TagPointDetail() {
         domainId: point.domain_id || '',
         precision: point.precision || 'exact',
         tagIds: JSON.stringify(point.tags?.map((t: any) => t.tag_id) || []),
-        images: JSON.stringify(point.images || []),
+        images: JSON.stringify(allImages),
         eventDate: point.event_date || '',
         eventSchedule: point.event_schedule ? JSON.stringify(point.event_schedule) : '',
         lat: String(point.latitude ?? ''),
