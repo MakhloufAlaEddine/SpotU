@@ -442,7 +442,7 @@ async def get_my_events(request: Request):
     result = []
     for row in rows:
         d = row_to_dict(row)
-        d["joined_at"] = d.get("joined_at").isoformat() if d.get("joined_at") else None
+        d["joined_at"] = d.get("joined_at").isoformat() if d.get("joined_at") and hasattr(d.get("joined_at"), 'isoformat') else d.get("joined_at")
         d.pop("sort_date", None)
         result.append(build_point_response(d))
     return result
