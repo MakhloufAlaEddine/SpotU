@@ -265,6 +265,81 @@ export default function CreateTagPointScreen() {
             testID="create-price-input"
           />
 
+          {/* Date & Horaire */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Date & Horaire</Text>
+            <View style={styles.scheduleTypeRow}>
+              {(['none', 'once', 'recurring'] as const).map((type) => (
+                <TouchableOpacity
+                  key={type}
+                  style={[styles.scheduleTypeBtn, scheduleType === type && styles.scheduleTypeBtnActive]}
+                  onPress={() => setScheduleType(type)}
+                  testID={`schedule-type-${type}`}
+                >
+                  <Text style={[styles.scheduleTypeText, scheduleType === type && styles.scheduleTypeTextActive]}>
+                    {type === 'none' ? 'Aucun' : type === 'once' ? 'Date unique' : 'Récurrent'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {scheduleType === 'once' && (
+              <View style={styles.scheduleInputs}>
+                <View style={styles.scheduleInputRow}>
+                  <Ionicons name="calendar-outline" size={18} color={Colors.primary} />
+                  <WInput
+                    label=""
+                    placeholder="JJ/MM/AAAA"
+                    value={eventDate}
+                    onChangeText={setEventDate}
+                    keyboardType="numeric"
+                    style={styles.scheduleInput}
+                    testID="event-date-input"
+                  />
+                  <Ionicons name="time-outline" size={18} color={Colors.primary} />
+                  <WInput
+                    label=""
+                    placeholder="HH:MM"
+                    value={eventTime}
+                    onChangeText={setEventTime}
+                    keyboardType="numeric"
+                    style={styles.scheduleInput}
+                    testID="event-time-input"
+                  />
+                </View>
+              </View>
+            )}
+
+            {scheduleType === 'recurring' && (
+              <View style={styles.scheduleInputs}>
+                <View style={styles.daysRow}>
+                  {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map((day, idx) => (
+                    <TouchableOpacity
+                      key={day}
+                      style={[styles.dayBtn, recurringDay === idx && styles.dayBtnActive]}
+                      onPress={() => setRecurringDay(idx)}
+                      testID={`day-btn-${idx}`}
+                    >
+                      <Text style={[styles.dayText, recurringDay === idx && styles.dayTextActive]}>{day}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <View style={styles.scheduleInputRow}>
+                  <Ionicons name="time-outline" size={18} color={Colors.primary} />
+                  <WInput
+                    label=""
+                    placeholder="HH:MM (ex: 18:00)"
+                    value={recurringTime}
+                    onChangeText={setRecurringTime}
+                    keyboardType="numeric"
+                    style={{ flex: 1 }}
+                    testID="recurring-time-input"
+                  />
+                </View>
+              </View>
+            )}
+          </View>
+
           {/* Communication Toggle */}
           <View style={styles.toggleRow}>
             <View style={styles.toggleLabel}>
