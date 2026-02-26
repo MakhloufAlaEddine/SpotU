@@ -198,14 +198,35 @@ export default function CreateTagPointScreen() {
         if (typeof sched === 'string') sched = JSON.parse(sched);
 
         if (sched?.schedule && typeof sched.schedule === 'object') {
-          // NEW format: {type:'weekly', schedule:{'2':['18:00']}}
+          // Format: {type:'weekly', schedule:{'2': [...slots]}}
+          // Slots can be strings (old: '18:00') or objects (new: {start:'18:00', end:'19:00'})
           setScheduleType('recurring');
-          const rec: Record<number, Date[]> = {};
-          Object.entries(sched.schedule).forEach(([day, times]: [string, any]) => {
-            rec[parseInt(day)] = (times as string[]).map((t: string) => {
-              const [h, m] = t.split(':').map(Number);
-              const d = new Date(); d.setHours(h, m, 0, 0); return d;
-            });
+          const rec: Record<number, { start: Date; end: Date | null }[]> = {};
+          Object.entries(sched.schedule).forEach(([day, slots]: [string, any]) => {
+            if (Array.isArray(slots)) {
+              rec[parseInt(day)] = slots.map((slot: any) => {
+                if (typeof slot === 'string') {
+                  // OLD format: string time — treat as start only
+                  const [h, m] = slot.split(':').map(Number);
+                  const d = new Date(); d.setHours(h, m, 0, 0);
+                  return { start: d, end: null };
+                }
+                if (slot?.start) {
+                  // NEW format: {start, end}
+                  const [sh, sm] = slot.start.split(':').map(Number);
+                  const start = new Date(); start.setHours(sh, sm, 0, 0);
+                  let end: Date | null = null;
+                  if (slot.end) {
+                    const [eh, em] = slot.end.split(':').map(Number);
+                    end = new Date(); end.setHours(eh, em, 0, 0);
+                  }
+                  return { start, end };
+                }
+                return { start: new Date(), end: null };
+              });
+            } else {
+              rec[parseInt(day)] = [];
+            }
           });
           setRecurringSchedule(rec);
         } else if (typeof sched?.day === 'number' && sched?.time) {
@@ -213,7 +234,7 @@ export default function CreateTagPointScreen() {
           setScheduleType('recurring');
           const [h, m] = (sched.time as string).split(':').map(Number);
           const t = new Date(); t.setHours(h, m, 0, 0);
-          setRecurringSchedule({ [sched.day]: [t] });
+          setRecurringSchedule({ [sched.day]: [{ start: t, end: null }] });
         }
       } catch {}
     } else if (params.eventDate) {
