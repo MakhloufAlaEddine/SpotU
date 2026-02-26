@@ -12,12 +12,13 @@ import * as Location from 'expo-location';
 import { MapViewComponent } from '../../components/MapViewComponent';
 import { LocationPicker } from '../../components/LocationPicker';
 import { DateTimePickerModal } from '../../components/DateTimePicker';
+import { RichTextInput } from '../../components/RichTextInput';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/LanguageContext';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 
-const { width: SW } = Dimensions.get('window');
+const { width: SW, height: SH } = Dimensions.get('window');
 const IMG_SIZE = Math.floor((SW - Spacing.md * 2 - 10 * 2) / 3);
 
 const PRECISION_OPTIONS = [
