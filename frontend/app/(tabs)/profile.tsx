@@ -202,12 +202,10 @@ export default function MenuScreen() {
     if (user) loadData();
   }, [user]);
 
-  // Reload when screen comes back into focus (e.g. after deletion)
-  const navigation = useNavigation();
-  useEffect(() => {
-    const unsub = navigation.addListener('focus', () => { if (user) loadData(); });
-    return unsub;
-  }, [navigation, user]);
+  // Reload when tab comes into focus (after deletion or update)
+  useFocusEffect(useCallback(() => {
+    if (user) loadData();
+  }, [user]));
 
   const loadData = async () => {
     try {
