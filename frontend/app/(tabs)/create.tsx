@@ -147,7 +147,16 @@ export default function CreateTagPointScreen() {
   const selectedTags = allTags.filter(t => selectedTagIds.includes(t.tag_id));
 
   useEffect(() => { loadGPS(); loadDomains(); }, []);
-  useEffect(() => { loadCategories(); setSelectedTagIds([]); }, [domainId]);
+  useEffect(() => {
+    loadCategories();
+    // In edit mode, restore the original tags instead of clearing them
+    if (editTagsRef.current !== null) {
+      setSelectedTagIds(editTagsRef.current);
+      editTagsRef.current = null;
+    } else if (!isEditMode) {
+      setSelectedTagIds([]);
+    }
+  }, [domainId]);
 
   // Pre-fill form in edit mode
   useEffect(() => {
