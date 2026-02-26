@@ -135,7 +135,7 @@ async def search_tag_points(
     except Exception:
         pass
 
-    conditions = ["active = TRUE"]
+    conditions = ["active = TRUE", f"(tp.is_public = TRUE OR tp.user_id = '{current_user_id or ''}')"]
     params = []
     param_idx = 1
 
