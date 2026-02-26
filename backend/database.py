@@ -209,6 +209,94 @@ async def connect_to_db():
             ALTER TABLE tag_points ADD COLUMN IF NOT EXISTS event_date TIMESTAMPTZ;
             ALTER TABLE tag_points ADD COLUMN IF NOT EXISTS event_schedule JSONB DEFAULT NULL;
         """)
+
+        # Seed event dates & schedules (réinitialisés à chaque démarrage)
+        await conn.execute("""
+            UPDATE tag_points SET event_date = NOW() + INTERVAL '1 day 9 hours 30 minutes'  WHERE point_id = 'pt_demo001';
+            UPDATE tag_points SET event_date = NOW() + INTERVAL '2 days 7 hours'             WHERE point_id = 'pt_demo014';
+            UPDATE tag_points SET event_date = NOW() + INTERVAL '3 days 18 hours 30 minutes' WHERE point_id = 'pt_demo002';
+            UPDATE tag_points SET event_date = NOW() + INTERVAL '5 days 14 hours'            WHERE point_id = 'pt_demo008';
+            UPDATE tag_points SET event_date = NOW() + INTERVAL '7 days 10 hours'            WHERE point_id = 'pt_demo004';
+            UPDATE tag_points SET event_date = NOW() - INTERVAL '2 days 17 hours'            WHERE point_id = 'pt_demo013';
+            UPDATE tag_points SET event_date = NOW() - INTERVAL '5 days 9 hours'             WHERE point_id = 'pt_demo006';
+            UPDATE tag_points SET event_schedule = '{"type":"weekly","day":0,"time":"07:00"}' WHERE point_id = 'pt_demo005';
+            UPDATE tag_points SET event_schedule = '{"type":"weekly","day":2,"time":"18:30"}' WHERE point_id = 'pt_demo007';
+            UPDATE tag_points SET event_schedule = '{"type":"weekly","day":5,"time":"09:00"}' WHERE point_id = 'pt_demo010';
+            UPDATE tag_points SET event_schedule = '{"type":"weekly","day":6,"time":"08:00"}' WHERE point_id = 'pt_demo009';
+            UPDATE tag_points SET event_schedule = '{"type":"weekly","day":1,"time":"12:30"}' WHERE point_id = 'pt_demo003';
+            UPDATE tag_points SET event_schedule = '{"type":"weekly","day":4,"time":"19:00"}' WHERE point_id = 'pt_demo012';
+        """)
+
+        # Seed participants
+        await conn.execute("""
+            INSERT INTO tag_point_participants (participant_id, point_id, user_id, joined_at) VALUES
+              ('part_001','pt_demo001','user_demo001', NOW()-INTERVAL '1 hour'),
+              ('part_002','pt_demo005','user_demo001', NOW()-INTERVAL '30 minutes'),
+              ('part_003','pt_demo007','user_demo001', NOW()-INTERVAL '2 hours'),
+              ('part_004','pt_demo014','user_demo001', NOW()-INTERVAL '3 hours'),
+              ('part_005','pt_demo013','user_demo001', NOW()-INTERVAL '6 days'),
+              ('part_006','pt_demo001','user_demo002', NOW()-INTERVAL '45 minutes'),
+              ('part_007','pt_demo002','user_demo002', NOW()-INTERVAL '1 day'),
+              ('part_008','pt_demo007','user_demo002', NOW()-INTERVAL '3 hours'),
+              ('part_009','pt_demo010','user_demo002', NOW()-INTERVAL '2 days'),
+              ('part_010','pt_demo003','user_demo003', NOW()-INTERVAL '1 day'),
+              ('part_011','pt_demo009','user_demo003', NOW()-INTERVAL '2 hours'),
+              ('part_012','pt_demo010','user_demo003', NOW()-INTERVAL '1 day'),
+              ('part_013','pt_demo014','user_demo003', NOW()-INTERVAL '4 hours'),
+              ('part_014','pt_demo004','user_coach001', NOW()-INTERVAL '2 days'),
+              ('part_015','pt_demo012','user_coach001', NOW()-INTERVAL '1 day')
+            ON CONFLICT (point_id, user_id) DO NOTHING;
+        """)
+
+        # Seed votes & commentaires
+        await conn.execute("""
+            INSERT INTO tag_point_votes (vote_id, point_id, user_id, rating, comment, created_at) VALUES
+              ('vote_001','pt_demo001','user_demo002',5,'Super groupe, ambiance top ! On était une quinzaine ce matin 💪', NOW()-INTERVAL '2 days'),
+              ('vote_002','pt_demo001','user_demo003',4,'Bon rythme, accessible à tous. Le tracé longe le canal, vraiment sympa.', NOW()-INTERVAL '1 day'),
+              ('vote_003','pt_demo001','user_coach001',5,'Organisateur très motivant. J''ai découvert ce spot grâce à WINEK !', NOW()-INTERVAL '3 hours'),
+              ('vote_004','pt_demo002','user_demo001',5,'Terrain en bon état, bon niveau global. On a joué 3x3 en attendant.', NOW()-INTERVAL '3 days'),
+              ('vote_005','pt_demo002','user_demo003',4,'Bonne organisation, les équipes étaient bien équilibrées. À refaire !', NOW()-INTERVAL '1 day'),
+              ('vote_006','pt_demo002','user_coach001',3,'Match sympa mais il manquait un peu d''arbitrage. L''endroit est parfait.', NOW()-INTERVAL '5 hours'),
+              ('vote_007','pt_demo003','user_demo001',5,'Vue imprenable sur la Tour Eiffel, séance vraiment ressourçante. Merci !', NOW()-INTERVAL '4 days'),
+              ('vote_008','pt_demo003','user_demo002',5,'Instructeur patient et bienveillant, parfait pour les débutants 🧘', NOW()-INTERVAL '2 days'),
+              ('vote_009','pt_demo003','user_coach001',4,'Belle séance, bon niveau. J''aurais aimé 15 min de plus pour la relaxation.', NOW()-INTERVAL '6 hours'),
+              ('vote_010','pt_demo004','user_demo002',4,'Workout intense ! Les WOD étaient bien construits. Le bois de Vincennes est parfait.', NOW()-INTERVAL '1 day'),
+              ('vote_011','pt_demo004','user_demo003',5,'Niveau costaud mais le coach adapte bien. J''ai progressé en 2 séances !', NOW()-INTERVAL '8 hours'),
+              ('vote_012','pt_demo005','user_demo001',4,'Bonne ambiance, terrain synthé nickel. On a eu 3 équipes, super soirée.', NOW()-INTERVAL '2 days'),
+              ('vote_013','pt_demo005','user_demo002',5,'Organisé à la perfection, tout le monde à l''heure. Niveau accessible.', NOW()-INTERVAL '1 day'),
+              ('vote_014','pt_demo005','user_demo003',4,'Fun et convivial. Le terrain est petit mais ça donne du rythme !', NOW()-INTERVAL '3 hours'),
+              ('vote_015','pt_demo006','user_demo001',5,'Parcours magnifique le long du canal, on a terminé par un café 😄', NOW()-INTERVAL '6 days'),
+              ('vote_016','pt_demo006','user_demo003',4,'Rythme modéré, parfait pour une sortie détente. Guide au top.', NOW()-INTERVAL '4 days'),
+              ('vote_017','pt_demo007','user_demo001',5,'Coach au top, très pédagogue. On apprend vite les bases tout en se défoulant.', NOW()-INTERVAL '5 days'),
+              ('vote_018','pt_demo007','user_demo002',4,'Bonne initiation à la boxe thaï. Les gants et protèges-dents sont fournis.', NOW()-INTERVAL '3 days'),
+              ('vote_019','pt_demo007','user_demo003',5,'Meilleure séance de sport de l''année ! On repart vidé mais heureux.', NOW()-INTERVAL '1 day'),
+              ('vote_020','pt_demo008','user_demo001',4,'Courts bien entretenus, bon partenaire d''entraînement. Niveau intermédiaire.', NOW()-INTERVAL '3 days'),
+              ('vote_021','pt_demo008','user_coach001',5,'Excellente session, l''organisateur donne de bons conseils techniques.', NOW()-INTERVAL '1 day'),
+              ('vote_022','pt_demo009','user_demo002',5,'Circuit impeccable dans le bois de Boulogne. 8km, parfait pour un 10km.', NOW()-INTERVAL '1 week'),
+              ('vote_023','pt_demo009','user_demo003',4,'Groupe de 8 personnes, très bonne ambiance. Le briefing est très utile.', NOW()-INTERVAL '4 days'),
+              ('vote_024','pt_demo009','user_coach001',5,'Pace régulier et bien expliqué. J''ai adoré le sprint final !', NOW()-INTERVAL '2 days'),
+              ('vote_025','pt_demo010','user_demo001',5,'Séance de yoga en plein air au parc Monceau, c''est magique !', NOW()-INTERVAL '3 days'),
+              ('vote_026','pt_demo010','user_demo002',4,'Super encadrante, très attentive à la posture de chacun.', NOW()-INTERVAL '1 day'),
+              ('vote_027','pt_demo014','user_demo002',5,'Le meilleur HIIT outdoor. 45 min non-stop, ça met en forme pour la journée.', NOW()-INTERVAL '2 days'),
+              ('vote_028','pt_demo014','user_demo003',5,'Super coach, exercices variés et bien expliqués. Circuit au top 🔥', NOW()-INTERVAL '1 day'),
+              ('vote_029','pt_demo014','user_coach001',4,'Intensité au rendez-vous, bonne progression sur 4 semaines.', NOW()-INTERVAL '5 hours'),
+              ('vote_030','pt_demo015','user_demo001',5,'Approche très professionnelle. Elle m''a aidé à surmonter mon blocage.', NOW()-INTERVAL '4 days'),
+              ('vote_031','pt_demo015','user_demo002',5,'Session très enrichissante. Les techniques de visualisation sont bluffantes.', NOW()-INTERVAL '2 days'),
+              ('vote_032','pt_demo015','user_demo003',4,'Très bien pour la gestion du stress en compétition. Je reviendrai.', NOW()-INTERVAL '6 hours')
+            ON CONFLICT (point_id, user_id) DO UPDATE SET rating=EXCLUDED.rating, comment=EXCLUDED.comment;
+        """)
+
+        # Seed saves
+        await conn.execute("""
+            INSERT INTO tag_point_saves (save_id, point_id, user_id, saved_at) VALUES
+              ('save_001','pt_demo003','user_demo001', NOW()-INTERVAL '2 days'),
+              ('save_002','pt_demo007','user_demo001', NOW()-INTERVAL '1 day'),
+              ('save_003','pt_demo014','user_demo001', NOW()-INTERVAL '3 hours'),
+              ('save_004','pt_demo001','user_demo002', NOW()-INTERVAL '1 day'),
+              ('save_005','pt_demo010','user_demo002', NOW()-INTERVAL '5 hours'),
+              ('save_006','pt_demo005','user_demo003', NOW()-INTERVAL '2 days')
+            ON CONFLICT (point_id, user_id) DO NOTHING;
+        """)
     logger.info("Connected to PostgreSQL with PostGIS")
 
 
