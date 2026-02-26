@@ -335,15 +335,17 @@ export default function CreateTagPointScreen() {
         precision, domain_id: domainId,
         tag_ids: selectedTagIds,
         images: uploadedUrls,
+        // Always send date fields explicitly so backend can clear them when switching types
+        event_date: (scheduleType === 'once' && eventDateTime) ? eventDateTime.toISOString() : null,
+        event_schedule: (scheduleType === 'recurring' && Object.keys(recurringSchedule).length > 0)
+          ? {
+            type: 'weekly',
+            schedule: Object.fromEntries(
+              Object.entries(recurringSchedule).map(([d, times]) => [d, times.map(fmtTime)])
+            ),
+          }
+          : null,
       };
-      if (scheduleType === 'once' && eventDateTime) payload.event_date = eventDateTime.toISOString();
-      if (scheduleType === 'recurring' && Object.keys(recurringSchedule).length > 0)
-        payload.event_schedule = {
-          type: 'weekly',
-          schedule: Object.fromEntries(
-            Object.entries(recurringSchedule).map(([d, times]) => [d, times.map(fmtTime)])
-          ),
-        };
 
       const result = isEditMode && params.pointId
         ? await api.put(`/tag-points/${params.pointId}`, payload)
