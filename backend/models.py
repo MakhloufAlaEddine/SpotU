@@ -110,6 +110,10 @@ class TagPointUpdate(BaseModel):
     description: Optional[str] = None
     precision: Optional[Precision] = None
     tag_ids: Optional[List[str]] = None
+    images: Optional[List[str]] = None
+    domain_id: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     active: Optional[bool] = None
     is_public: Optional[bool] = None
     event_date: Optional[datetime] = None
