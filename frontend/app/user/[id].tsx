@@ -229,6 +229,13 @@ const st = StyleSheet.create({
   },
   backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 17, fontWeight: '700', color: Colors.foreground },
+  editBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: 'rgba(0,191,165,0.12)', borderRadius: Radius.full,
+    paddingHorizontal: 12, paddingVertical: 6,
+    borderWidth: 1, borderColor: 'rgba(0,191,165,0.3)',
+  },
+  editBtnText: { fontSize: 13, fontWeight: '700', color: Colors.primary },
   scroll: { paddingBottom: 20 },
   hero: { alignItems: 'center', paddingVertical: Spacing.xl, paddingHorizontal: Spacing.lg },
   avatarWrap: { position: 'relative', marginBottom: Spacing.md },
