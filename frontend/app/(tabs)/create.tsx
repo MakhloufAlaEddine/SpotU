@@ -66,7 +66,7 @@ const STEPS = [
     id: 4, title: 'La date',
     subtitle: 'Quand ça commence ?',
     icon: 'calendar-outline' as const,
-    tip: 'Les tagPoints avec une date apparaissent en priorité dans les résultats. Configurez une récurrence pour fidéliser vos participants.',
+    tip: 'Les tagPoints récurrents fidélisent davantage de participants sur la durée. Configurez un créneau régulier pour créer une communauté.',
     tipIcon: 'trending-up-outline' as const,
   },
 ];
