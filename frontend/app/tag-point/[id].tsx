@@ -329,6 +329,14 @@ export default function TagPointDetail() {
     finally { setSaveLoading(false); }
   };
 
+  const toggleNewDateComing = async () => {
+    if (!user) return;
+    try {
+      const res = await api.patch(`/tag-points/${id}/new-date`, {});
+      setPoint((prev: any) => ({ ...prev, new_date_coming: res.new_date_coming }));
+    } catch (e: any) { Alert.alert('Erreur', e.message); }
+  };
+
   const getPrecisionRadius = (p: string) => p === '100m' ? 100 : p === '1000m' ? 1000 : 0;
 
   if (loading) return (
