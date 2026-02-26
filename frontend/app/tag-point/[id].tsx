@@ -332,6 +332,7 @@ export default function TagPointDetail() {
     const allImages = parsedImages.length > 0
       ? parsedImages
       : (point.image_url ? [point.image_url] : []);
+    console.log('[handleEdit] point.images:', JSON.stringify(point.images), '| point.image_url:', point.image_url, '| allImages:', JSON.stringify(allImages));
     router.push({
       pathname: '/(tabs)/create' as any,
       params: {
