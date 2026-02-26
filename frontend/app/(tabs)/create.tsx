@@ -545,7 +545,25 @@ export default function CreateTagPointScreen() {
   );
 }
 
-// ─── Step 1: L'essentiel ────────────────────────────────────────────────────────
+// ─── Image upload helper ──────────────────────────────────────────────────────
+async function uploadImage(uri: string, token: string): Promise<string | null> {
+  try {
+    const formData = new FormData();
+    formData.append('file', { uri, name: 'photo.jpg', type: 'image/jpeg' } as any);
+    const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+    const res = await fetch(`${BASE_URL}/api/upload-image`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.url || null;
+  } catch (e) {
+    console.warn('Image upload failed:', e);
+    return null;
+  }
+}────
 function StepEssentiel({ images, title, setTitle, onPickImages, onRemoveImage }: any) {
   const IMG = Math.floor((Math.min(SW, 500) - Spacing.md * 2 - 8 * 2) / 3);
   return (
