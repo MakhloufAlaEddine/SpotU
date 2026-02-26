@@ -475,7 +475,8 @@ export default function CreateTagPointScreen() {
           title={title} description={description} images={images}
           selectedTags={selectedTags} locationAddress={locationAddress}
           precision={precision} scheduleType={scheduleType}
-          eventDateTime={eventDateTime} recurringSchedule={recurringSchedule}
+          eventDateTime={eventDateTime} eventEndDateTime={eventEndDateTime}
+          recurringSchedule={recurringSchedule}
           quality={quality} lang={lang}
           onOpenFullPreview={() => setShowFullPreview(true)}
         />
