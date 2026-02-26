@@ -660,15 +660,34 @@ export default function CreateTagPointScreen() {
           if (editingDayIdx !== null && editingTimeIdx !== null) {
             setRecurringSchedule(p => {
               const next = { ...p };
-              const times = [...(next[editingDayIdx] || [])];
-              times[editingTimeIdx] = d;
-              next[editingDayIdx] = times;
+              const slots = [...(next[editingDayIdx] || [])];
+              if (editingTimeType === 'start') {
+                if (editingTimeIdx >= slots.length) {
+                  slots.push({ start: d, end: null });
+                } else {
+                  slots[editingTimeIdx] = { ...slots[editingTimeIdx], start: d };
+                }
+              } else {
+                slots[editingTimeIdx] = { ...slots[editingTimeIdx], end: d };
+              }
+              next[editingDayIdx] = slots;
               return next;
             });
           }
           setEditingDayIdx(null); setEditingTimeIdx(null);
         }}
-        initialDate={(editingDayIdx !== null && editingTimeIdx !== null && recurringSchedule[editingDayIdx]?.[editingTimeIdx]) || undefined}
+        initialDate={(editingDayIdx !== null && editingTimeIdx !== null && recurringSchedule[editingDayIdx]?.[editingTimeIdx])
+          ? (editingTimeType === 'start'
+              ? recurringSchedule[editingDayIdx][editingTimeIdx].start
+              : recurringSchedule[editingDayIdx][editingTimeIdx].end || undefined)
+          : undefined}
+        mode="time"
+      />
+      <DateTimePickerModal
+        visible={showEndDateTimePicker}
+        onClose={() => setShowEndDateTimePicker(false)}
+        onConfirm={d => { setEventEndDateTime(d); setShowEndDateTimePicker(false); }}
+        initialDate={eventEndDateTime || undefined}
         mode="time"
       />
 
