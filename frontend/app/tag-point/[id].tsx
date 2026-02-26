@@ -390,7 +390,7 @@ export default function TagPointDetail() {
       {/* Header */}
       <SafeAreaView edges={['top']} style={{ backgroundColor: Colors.header }}>
         <View style={st.header}>
-          <TouchableOpacity onPress={() => router.back()} style={st.headerBtn}>
+          <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/map' as any)} style={st.headerBtn}>
             <Ionicons name="chevron-back" size={24} color={Colors.primary} />
           </TouchableOpacity>
           <Text style={st.headerTitle}>Détails</Text>
