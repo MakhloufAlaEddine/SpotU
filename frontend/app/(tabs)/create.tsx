@@ -1348,15 +1348,17 @@ function FullPreviewModal({ visible, onClose, title, description, images, select
                   {/* Per-day table */}
                   <View style={fpSt.scheduleTable}>
                     {days.map((dayIdx: number, idx: number) => {
-                      const times: Date[] = recurringSchedule[dayIdx] || [];
+                      const slots: { start: Date; end: Date | null }[] = recurringSchedule[dayIdx] || [];
                       return (
                         <View key={dayIdx} style={[fpSt.scheduleRow, idx < days.length - 1 && { borderBottomWidth: 1, borderBottomColor: Colors.border + '60' }]}>
                           <Text style={fpSt.scheduleDayText}>{DAYS[dayIdx]}</Text>
                           <View style={fpSt.scheduleTimesRow}>
-                            {times.length > 0
-                              ? times.map((t: Date, i: number) => (
+                            {slots.length > 0
+                              ? slots.map((s: { start: Date; end: Date | null }, i: number) => (
                                   <View key={i} style={fpSt.scheduleTimeChip}>
-                                    <Text style={fpSt.scheduleTimeChipText}>{fmtTime(t)}</Text>
+                                    <Text style={fpSt.scheduleTimeChipText}>
+                                      {s.end ? `${fmtTime(s.start)} → ${fmtTime(s.end)}` : fmtTime(s.start)}
+                                    </Text>
                                   </View>
                                 ))
                               : <Text style={{ fontSize: 12, color: Colors.muted }}>—</Text>
