@@ -1007,7 +1007,7 @@ function StepLocalisation({ selectedLat, selectedLng, locationAddress, precision
 }
 
 // ─── Step 4: Date ───────────────────────────────────────────────────────────────
-function StepDate({ scheduleType, setScheduleType, eventDateTime, onOpenDatePicker, recurringSchedule, toggleDay, addTimeToDay, removeTimeFromDay, editTimeForDay }: any) {
+function StepDate({ scheduleType, setScheduleType, eventDateTime, onOpenDatePicker, eventEndDateTime, onOpenEndTimePicker, onClearEndTime, recurringSchedule, toggleDay, addTimeToDay, removeTimeFromDay, editTimeForDay }: any) {
   const selectedDays = Object.keys(recurringSchedule).map(Number).sort((a, b) => a - b);
 
   return (
@@ -1034,16 +1034,35 @@ function StepDate({ scheduleType, setScheduleType, eventDateTime, onOpenDatePick
       </View>
 
       {scheduleType === 'once' && (
-        <TouchableOpacity style={sc.dateBtn} onPress={onOpenDatePicker} testID="open-datetime-picker">
-          <Ionicons name="calendar" size={22} color={eventDateTime ? Colors.primary : Colors.muted} />
-          <View style={{ flex: 1 }}>
-            {eventDateTime
-              ? <><Text style={sc.dateBtnValue}>{fmtDate(eventDateTime)}</Text><Text style={sc.dateBtnSub}>à {fmtTime(eventDateTime)}</Text></>
-              : <Text style={sc.dateBtnPlaceholder}>Choisir une date et une heure</Text>
-            }
-          </View>
-          <Ionicons name="chevron-forward" size={16} color={Colors.muted} />
-        </TouchableOpacity>
+        <View style={{ gap: 8 }}>
+          <TouchableOpacity style={sc.dateBtn} onPress={onOpenDatePicker} testID="open-datetime-picker">
+            <Ionicons name="calendar" size={22} color={eventDateTime ? Colors.primary : Colors.muted} />
+            <View style={{ flex: 1 }}>
+              {eventDateTime
+                ? <><Text style={sc.dateBtnValue}>{fmtDate(eventDateTime)}</Text><Text style={sc.dateBtnSub}>Début : {fmtTime(eventDateTime)}</Text></>
+                : <Text style={sc.dateBtnPlaceholder}>Choisir date et heure de début</Text>
+              }
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={Colors.muted} />
+          </TouchableOpacity>
+          {eventDateTime && (
+            <TouchableOpacity style={sc.dateBtn} onPress={onOpenEndTimePicker} testID="open-end-time-picker">
+              <Ionicons name="time-outline" size={22} color={eventEndDateTime ? Colors.primary : Colors.muted} />
+              <View style={{ flex: 1 }}>
+                {eventEndDateTime
+                  ? <><Text style={sc.dateBtnValue}>{fmtTime(eventEndDateTime)}</Text><Text style={sc.dateBtnSub}>Fin</Text></>
+                  : <Text style={sc.dateBtnPlaceholder}>Heure de fin (optionnel)</Text>
+                }
+              </View>
+              {eventEndDateTime
+                ? <TouchableOpacity onPress={onClearEndTime} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} testID="clear-end-time">
+                    <Ionicons name="close-circle" size={20} color={Colors.muted} />
+                  </TouchableOpacity>
+                : <Ionicons name="chevron-forward" size={16} color={Colors.muted} />
+              }
+            </TouchableOpacity>
+          )}
+        </View>
       )}
 
       {scheduleType === 'recurring' && (
@@ -1086,14 +1105,22 @@ function StepDate({ scheduleType, setScheduleType, eventDateTime, onOpenDatePick
                 </Text>
               </View>
               <View style={{ gap: 8 }}>
-                {recurringSchedule[dayIdx].map((time: Date, tIdx: number) => (
+                {recurringSchedule[dayIdx].map((slot: { start: Date; end: Date | null }, tIdx: number) => (
                   <View key={tIdx} style={sc.timeSlotRow}>
-                    <TouchableOpacity style={[sc.dateBtn, { flex: 1 }]}
-                      onPress={() => editTimeForDay(dayIdx, tIdx)} testID={`time-${dayIdx}-${tIdx}`}>
-                      <Ionicons name="time-outline" size={18} color={Colors.primary} />
-                      <Text style={sc.dateBtnValue}>{fmtTime(time)}</Text>
-                      <Ionicons name="pencil-outline" size={13} color={Colors.muted} />
-                    </TouchableOpacity>
+                    <View style={{ flex: 1, flexDirection: 'row', gap: 6 }}>
+                      <TouchableOpacity style={[sc.dateBtn, { flex: 1 }]}
+                        onPress={() => editTimeForDay(dayIdx, tIdx, 'start')} testID={`time-start-${dayIdx}-${tIdx}`}>
+                        <Ionicons name="play-circle-outline" size={16} color={Colors.primary} />
+                        <Text style={sc.dateBtnValue}>{fmtTime(slot.start)}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={[sc.dateBtn, { flex: 1 }]}
+                        onPress={() => editTimeForDay(dayIdx, tIdx, 'end')} testID={`time-end-${dayIdx}-${tIdx}`}>
+                        <Ionicons name="stop-circle-outline" size={16} color={slot.end ? Colors.primary : Colors.muted} />
+                        <Text style={[sc.dateBtnValue, !slot.end && { color: Colors.muted, fontSize: 13, fontWeight: '500' }]}>
+                          {slot.end ? fmtTime(slot.end) : 'Fin ?'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
                     <TouchableOpacity onPress={() => removeTimeFromDay(dayIdx, tIdx)}
                       style={sc.removeTimeBtn} testID={`remove-time-${dayIdx}-${tIdx}`}>
                       <Ionicons name="close-circle" size={22} color={Colors.muted} />
