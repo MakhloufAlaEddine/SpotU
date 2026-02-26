@@ -12,7 +12,7 @@ UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 @router.post("/upload-image")
-async def upload_image(file: UploadFile = File(...)):
+async def upload_image(request: Request, file: UploadFile = File(...)):
     """Upload an image file and return its public URL."""
     content = await file.read()
 
@@ -25,7 +25,8 @@ async def upload_image(file: UploadFile = File(...)):
     filepath = UPLOADS_DIR / filename
     filepath.write_bytes(content)
 
-    backend_url = os.environ.get("APP_URL", os.environ.get("EXPO_PUBLIC_BACKEND_URL", ""))
-    url = f"{backend_url}/api/uploads/{filename}"
+    # Build URL from the incoming request to work in any environment
+    base = str(request.base_url).rstrip("/")
+    url = f"{base}/api/uploads/{filename}"
     logger.info(f"Image uploaded: {filename} ({len(content)} bytes)")
     return {"url": url, "filename": filename}
