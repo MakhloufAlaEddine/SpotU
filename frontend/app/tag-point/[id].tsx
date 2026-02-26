@@ -895,6 +895,10 @@ const st = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.header },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm },
   headerBtn: { padding: 4 },
+  ownerBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.header, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  ownerBarBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10 },
+  ownerBarBtnText: { fontSize: 13, fontWeight: '600', color: Colors.foreground },
+  ownerBarDivider: { width: 1, height: 20, backgroundColor: Colors.border },
   headerTitle: { fontSize: 18, fontWeight: '700', color: Colors.primary },
   scroll: { flex: 1, backgroundColor: Colors.background },
 
