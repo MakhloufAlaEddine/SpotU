@@ -1,154 +1,121 @@
 # WINEK - Product Requirements Document
 
 ## Original Problem Statement
-Build **WINEK** — une plateforme mobile hyperlocale de connexion par tags, focalisée sur les sports et le coaching. Les utilisateurs peuvent créer et rechercher des activités géolocalisées ("tagPoints"). Les coachs peuvent proposer des services payants (Stripe). Architecture scalable avec PostgreSQL/PostGIS + React Native (Expo) + FastAPI. Application bilingue (Français/Anglais).
+Application mobile "WINEK" - plateforme hyperlocale de connexion basée sur des tags. V1 focalisée sur le sport et le coaching. Les utilisateurs peuvent poster et rechercher des activités géolocalisées ("tagPoints"). Tier payant pour coachs avec Stripe. Backend PostgreSQL/PostGIS, Frontend React Native (Expo). App bilingue FR/EN.
+
+## Tech Stack
+- Frontend: React Native (Expo), TypeScript
+- Backend: FastAPI, PostgreSQL + PostGIS, asyncpg
+- Auth: JWT (custom) + Google OAuth (Emergent-managed, ON HOLD mobile)
+- Payments: Stripe (planned)
+
+## User Personas
+- **User standard**: Cherche et rejoins des activités sportives
+- **Coach**: Crée des services payants, profil vérifié
+- **Admin**: Gestion de la plateforme
 
 ## Core Requirements
-- **TagPoints**: Créer/chercher des activités géolocalisées
-- **Géolocalisation**: Recherche par rayon avec PostGIS
-- **Services de coaching**: Profils coachs + sessions payantes
-- **Paiements**: Stripe
-- **Rôles**: Utilisateur standard, Coach, Admin
-- **Tech Stack**: React Native (Expo), TypeScript, FastAPI, PostgreSQL/PostGIS
-- **Auth**: Email/password + Google OAuth (web only - natif en attente)
-- **Bilingue**: Français/Anglais
+- Créer/rechercher/gérer des tagPoints géolocalisés
+- Géolocalisation avec PostGIS (rayon ajustable)
+- Services coaching payants
+- Rôles: User / Coach / Admin
+- Bilingue FR/EN (i18n - à implémenter)
+- Auth: login/password + Google (natif ON HOLD)
+
+## Architecture
+```
+/app
+├── backend/
+│   ├── server.py
+│   ├── database.py        # PostGIS, migrations, seed
+│   ├── seed.py
+│   └── routes/
+│       ├── auth_routes.py
+│       ├── user_routes.py
+│       ├── tagpoint_routes.py  # POST/PATCH endpoints
+│       ├── domain_routes.py
+│       ├── service_routes.py
+│       ├── booking_routes.py
+│       ├── payment_routes.py
+│       └── admin_routes.py
+├── frontend/
+│   ├── app/
+│   │   ├── (tabs)/
+│   │   │   ├── create.tsx     # Wizard multi-étapes (978 lignes)
+│   │   │   ├── search.tsx
+│   │   │   ├── map.tsx
+│   │   │   ├── chat.tsx
+│   │   │   ├── profile.tsx
+│   │   │   └── bookings.tsx
+│   │   ├── tag-point/[id].tsx  # Détail tagPoint
+│   │   └── (auth)/
+│   ├── components/
+│   │   ├── custom/
+│   │   │   ├── DateTimePicker.tsx  # Sélecteur date/heure custom
+│   │   │   └── RichTextInput.tsx   # Éditeur markdown
+│   │   └── ui/ (shadcn)
+│   └── lib/api.ts
+```
 
 ## What's Been Implemented
 
-### Phase 1 - Foundation
-- PostgreSQL/PostGIS backend avec schéma complet
-- Authentification JWT (email/password) + Google OAuth (web)
-- CRUD TagPoints avec géolocalisation
-- Recherche par tags et par rayon
+### Session 1-3 (prior)
+- Auth complète (JWT + Google OAuth partiel)
+- Recherche géolocalisée avec filtres tags
+- Écran détail tagPoint ([id].tsx)
+- Sauvegarde tagPoints
+- Système d'événements/planning
+- Backend complet (tagpoints, domains, tags, services, bookings, payments)
 
-### Phase 2 - TagPoint Detail Screen (Session 1-4)
-- Galerie photos carousel
-- Système de votes/commentaires complet (`tag_point_votes` table)
-- Fonctionnalité RSVP "Je participe" (`tag_point_participants` table)
-- TagPoints similaires (PostGIS + tags)
-- Squelette de chargement (shimmer)
-- Profil créateur cliquable
-- Tags colorés par catégorie
-- Affichage des horaires
-- FAB pour voter
-- Affichage des commentaires avec bottom sheet "Voir tout"
+### Session 4 (2026-02-26)
+- **Wizard "Créer TagPoint" (create.tsx)**: 4 étapes + aperçu
+  - Étape 1: Essentiel (photos + titre)
+  - Étape 2: Contenu (description, domaine, tags)
+  - Étape 3: Localisation (GPS, précision)
+  - Étape 4: Date (sans date / unique / récurrente)
+  - Étape 5: Aperçu + publication
+- **Score de qualité** en temps réel (Basique → Bien → Très bien → Excellent)
+- **RichTextInput.tsx**: Éditeur markdown (gras, italique, souligné, listes)
+- **DateTimePicker.tsx**: Calendrier custom + sélecteur heure
+- **Markdown display** dans [id].tsx
+- Backend: colonne `new_date_coming`, endpoint PATCH toggle-new-date
+- Fix double-encoding JSON au POST /api/tag-points
+- **Tests**: 100% (Backend 56/56, Frontend 16/16 scénarios wizard)
 
-### Phase 3 - UX Améliorations (Session 4-5)
-- Recherche avancée par tags (modal multi-sélection)
-- Recherche d'adresse avec Nominatim dans `set-location.tsx`
-- Persistance de localisation session-only (non stockée entre lancements)
-- Fix SSL PostgreSQL (`ssl=False` dans database.py)
+## Credentials de Test
+- user@winek.app / WinekUser2024!
+- coach@winek.app / WinekCoach2024!
+- admin@winek.app / WinekAdmin2024!
 
-### Phase 5 - Formulaire Create TagPoint v2 (Session 9)
-- ✅ **Tags modal** : Fix layout (hauteur fixe 80% + ScrollView avec flex:1) + filtre catégories vides + couleur par catégorie + compteur tags sélectionnés
-- ✅ **Location modal** : Refonte `LocationPicker.tsx` - Nominatim search, GPS, reverse geocoding, carte interactive. Click sur "Localisation" dans le create form ouvre le modal
-- ✅ **Date/Time pickers** : Nouveau composant `DateTimePicker.tsx` - calendrier mensuel (navigation mois/an, grille jours, today dot) + roue heure/min avec presets + mode datetime/date/time
-- ✅ **"Bientôt une nouvelle date"** : Visible sur pt_demo013 (event passé + `new_date_coming=true` dans seed) + banner teal + toggle créateur
-- ✅ **seed.py** : Updates toujours exécutés (hors `if count == 0`) pour event_date, event_schedule, new_date_coming
-- ✅ **expo-image-picker** : Fix dépréciation `MediaTypeOptions` → `'images'`
-- ✅ **Frontend create.tsx**: Refonte complète de l'écran de création avec :
-  - Section photos (expo-image-picker, jusqu'à 10 images, avec badge "Principale")
-  - Titre requis (80 chars) + Description (500 chars, multiline)
-  - Sélecteur domaine (4 domaines depuis API, pills horizontales)
-  - Sélecteur tags avec modal bottom sheet (catégories + chips colorés, multi-select)
-  - Précision localisation (Élevé/Moyen/Faible) avec icônes
-  - Carte interactive (OpenStreetMap) + adresse + refresh GPS
-  - Date & Horaire : Sans date / Date unique / Récurrent (avec jours + heure)
-  - Bouton "Publier" en header + bouton "Publier le TagPoint" en bas
-  - Validation : titre requis, formats date, etc.
-- ✅ **Backend models.py**: Ajout de `images: Optional[List[str]] = []` dans `TagPointCreate`
-- ✅ **Backend tagpoint_routes.py**: 
-  - INSERT inclut maintenant la colonne `images`
-  - Fix double encodage JSON : `tag_ids`, `images`, `event_schedule` passés comme objets Python (list/dict) directement à asyncpg (pas via json.dumps)
-- ✅ **lib/api.ts**: Ajout méthode `api.patch()`
-- ✅ **Événements passés** (Session 7): Badge "Passé", label "Événement passé", toggle créateur "Annoncer une nouvelle date", banner "Bientôt une nouvelle date"
-- ✅ **Backend**: Table `tag_point_saves`, endpoints save/unsave/list
-- ✅ **Frontend [id].tsx**: Icônes d'action redessinées (card-style 54x54, spacing amélioré)
-  - "Similaires" → icône `layers-outline`
-  - "Partager" → `share-social-outline`
-  - "Sauvegarder" → `bookmark-outline` / `bookmark` (rempli + couleur primaire quand sauvegardé)
-- ✅ **Frontend saved.tsx**: Nouvel écran `/saved` avec liste des tagPoints sauvegardés
-- ✅ **Frontend profile.tsx**: Bouton "ENREGISTRÉS" navigue vers `/saved`
-- ✅ **_layout.tsx**: Route `saved` ajoutée au Stack
-- ✅ **Fix Expo Metro**: `typedRoutes: false`, `web.output: "spa"`, stubs `expo-router/internal/*`
-- ✅ **Événements passés**: Affichage muted avec badge "Passé" + label "Événement passé"
-  - Badge teal "Bientôt une nouvelle date" si `new_date_coming=true`
-  - Toggle pour le créateur pour annoncer/retirer "Nouvelle date"
-  - Endpoint `PATCH /api/tag-points/{id}/new-date` (créateur uniquement)
-- ✅ **RÉCURRENT**: Couleur uniformisée avec les dates fixes (teal `Colors.primary`)
-
-## Tech Architecture
-```
-/app
-├── backend
-│   ├── routes
-│   │   ├── domain_routes.py    # /tags/categories
-│   │   └── tagpoint_routes.py  # TagPoints CRUD + votes + saves + rsvp + similar
-│   ├── database.py             # PostgreSQL/PostGIS connection (ssl=False)
-│   └── server.py
-├── frontend
-│   ├── app
-│   │   ├── (auth)/             # Login, Register, Callback
-│   │   ├── (main)/             # Screens: search, set-location, create-service
-│   │   ├── (tabs)/             # Tabs: index, search, create, bookings, profile
-│   │   ├── tag-point/[id].tsx  # Detail screen complet
-│   │   ├── saved.tsx           # NEW: Saved tagpoints list
-│   │   └── _layout.tsx         # Stack avec route "saved"
-│   ├── context/
-│   │   ├── AuthContext.tsx     # JWT Auth + Google OAuth
-│   │   └── LocationContext.tsx # Session-only location
-│   ├── constants/Colors.ts
-│   └── lib/api.ts
-└── memory/PRD.md
-```
-
-## Key DB Schema
-```sql
-tag_points: point_id, user_id, title, description, latitude, longitude, 
-            tags (JSONB), images (JSONB), schedule (JSONB), domain_id
-tag_point_votes: id, tag_point_id, user_id, rating, comment, created_at
-tag_point_participants: id, tag_point_id, user_id, joined_at
-tag_point_saves: id, user_id, tag_point_id, saved_at
-```
-
-## Key API Endpoints
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | /api/tag-points/{id}/vote | Voter sur un tagpoint |
-| GET | /api/tag-points/{id}/my-vote | Mon vote |
-| GET | /api/tag-points/{id}/votes | Tous les votes |
-| GET | /api/tag-points/{id}/similar | TagPoints similaires |
-| POST | /api/tag-points/{id}/join | Rejoindre (RSVP) |
-| DELETE | /api/tag-points/{id}/leave | Se retirer |
-| POST | /api/tag-points/{id}/save | Sauvegarder |
-| DELETE | /api/tag-points/{id}/unsave | Retirer sauvegarde |
-| GET | /api/tag-points/saved | Liste des sauvegardés |
-
-## Test Credentials
-- Email: `user@winek.app`
-- Password: `WinekUser2024!`
+## API Endpoints Clés
+- POST /api/auth/login → { user, token }
+- GET /api/tag-points?lat=&lng=&radius=
+- POST /api/tag-points (auth required)
+- PATCH /api/tag-points/{id}/toggle-new-date
+- GET /api/domains
+- GET /api/tags/categories?domain_id=
 
 ## Known Issues
-- **Google Auth natif (Expo Go)**: Non fonctionnel sur Expo Go (déprioritisé par l'utilisateur)
-- **PostgreSQL**: Le mot de passe doit être réinitialisé si la DB redémarre: `ALTER USER winek WITH PASSWORD 'winek2024'`
+- Google Auth sur Expo Go (mobile): in-app browser ne se ferme pas automatiquement (ON HOLD)
+- Boutons d'action ([id].tsx): layout "Similar/Share/Save" insatisfaisant (P1)
 
 ## Prioritized Backlog
 
-### P0 (Critical)
-- [x] Save for Later (terminé)
+### P0 - Critique
+- [x] Wizard Créer TagPoint - DONE & TESTED
 
-### P1 (High)
-- [ ] Flux création de service pour coachs (`create-service.tsx`)
+### P1 - Important
+- [ ] Refonte layout boutons d'action ([id].tsx)
+- [ ] Flux "Create Service" pour coachs (create-service.tsx)
 - [ ] Intégration Stripe pour paiements
-- [ ] Support bilingue i18n complet (FR/EN)
-- [ ] Chat (`chat.tsx`)
 
-### P2 (Medium)
-- [ ] Système d'avis et notes étendu
-- [ ] Dashboard administrateur
-- [ ] Fix Google Auth sur Expo Go
+### P2 - Moyen terme
+- [ ] Support bilingue (i18n) FR/EN
+- [ ] Implémentation Chat (chat.tsx)
+- [ ] Refactoring create.tsx en sous-composants
 
-## 3rd Party Integrations
-- **Emergent Google Auth**: Web ✅ / Natif ❌ (on hold)
-- **OpenStreetMap Nominatim**: Reverse geocoding ✅
-- **Stripe**: Planifié (non implémenté)
+### P3 - Futur
+- [ ] Système notes & avis utilisateurs
+- [ ] Dashboard Admin
+- [ ] Fix Google Auth Expo Go (natif)
+- [ ] Upload photos réelles (actuellement envoi tableaux vides)
