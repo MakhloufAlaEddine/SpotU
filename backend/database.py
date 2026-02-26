@@ -210,6 +210,10 @@ async def connect_to_db():
             ALTER TABLE tag_points ADD COLUMN IF NOT EXISTS event_schedule JSONB DEFAULT NULL;
         """)
 
+    # Seed données de base (users, tagpoints, tags...)
+    from seed import seed_initial_data
+    await seed_initial_data()
+
         # Seed event dates & schedules (réinitialisés à chaque démarrage)
         await conn.execute("""
             UPDATE tag_points SET event_date = NOW() + INTERVAL '1 day 9 hours 30 minutes'  WHERE point_id = 'pt_demo001';
