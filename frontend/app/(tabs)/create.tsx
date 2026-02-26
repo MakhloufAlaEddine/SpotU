@@ -213,6 +213,7 @@ export default function CreateTagPointScreen() {
     try { setCategories(await api.get(`/tags/categories?domain_id=${domainId}`)); } catch {}
   };
   const loadGPS = async () => {
+    if (isEditMode) return; // Don't override pre-filled coordinates in edit mode
     try {
       const Loc = await import('expo-location');
       const { status } = await Loc.requestForegroundPermissionsAsync();
