@@ -1182,6 +1182,15 @@ const sc = StyleSheet.create({
   removeTimeBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   addTimeBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 12, paddingHorizontal: Spacing.md, borderRadius: Radius.md, borderWidth: 1.5, borderStyle: 'dashed', borderColor: Colors.primary + '60', backgroundColor: Colors.primary + '08' },
   addTimeBtnText: { fontSize: 14, color: Colors.primary, fontWeight: '600' },
+  // Per-day schedule card
+  dayScheduleCard: { backgroundColor: Colors.card, borderRadius: Radius.lg, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border },
+  dayScheduleHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  dayScheduleDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.primary },
+  dayScheduleTitle: { fontSize: 14, fontWeight: '800', color: Colors.foreground, flex: 1 },
+  dayScheduleCount: { fontSize: 11, color: Colors.muted },
+  // Day badge (time count on day button)
+  dayTimeBadge: { position: 'absolute', top: -4, right: -4, width: 15, height: 15, borderRadius: 8, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
+  dayTimeBadgeText: { fontSize: 9, color: Colors.background, fontWeight: '800' },
 
   // Preview
   fullPreviewBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.primary + '12', borderRadius: Radius.lg, padding: Spacing.md, borderWidth: 1.5, borderColor: Colors.primary + '40' },
