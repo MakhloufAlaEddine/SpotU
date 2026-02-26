@@ -381,6 +381,7 @@ export default function TagPointDetail() {
   })();
   const distanceStr = (lat != null && lng != null)
     ? formatDistance(haversineDistance(location.lat, location.lng, lat, lng)) : '---';
+  const isOwner = !!(user && point.owner && user.user_id === point.owner.user_id);
 
   return (
     <View style={st.screen}>
