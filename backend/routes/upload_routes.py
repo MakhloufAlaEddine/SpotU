@@ -25,8 +25,14 @@ async def upload_image(request: Request, file: UploadFile = File(...)):
     filepath = UPLOADS_DIR / filename
     filepath.write_bytes(content)
 
-    # Build URL from the incoming request to work in any environment
-    base = str(request.base_url).rstrip("/")
+    # Use forwarded headers from proxy if present, otherwise fall back to env var
+    forwarded_host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
+    forwarded_proto = request.headers.get("x-forwarded-proto", "https")
+    if forwarded_host:
+        base = f"{forwarded_proto}://{forwarded_host}"
+    else:
+        base = os.environ.get("APP_URL", str(request.base_url).rstrip("/"))
+
     url = f"{base}/api/uploads/{filename}"
-    logger.info(f"Image uploaded: {filename} ({len(content)} bytes)")
+    logger.info(f"Image uploaded: {filename} ({len(content)} bytes) → {url}")
     return {"url": url, "filename": filename}
