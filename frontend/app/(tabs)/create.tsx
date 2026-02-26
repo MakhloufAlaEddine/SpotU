@@ -302,11 +302,14 @@ export default function CreateTagPointScreen() {
           ),
         };
 
-      const result = await api.post('/tag-points', payload);
-      const newPointId = result.point_id;
+      const result = isEditMode && params.pointId
+        ? await api.put(`/tag-points/${params.pointId}`, payload)
+        : await api.post('/tag-points', payload);
+      const newPointId = isEditMode ? params.pointId! : result.point_id;
+      const successMsg = isEditMode ? 'TagPoint mis à jour !' : 'Votre tagPoint est visible !';
 
       // 3. Show alert — use setTimeout to defer navigation until alert is fully dismissed
-      Alert.alert('Publié !', 'Votre tagPoint est visible !', [
+      Alert.alert(isEditMode ? 'Modifié !' : 'Publié !', successMsg, [
         { text: 'Voir', onPress: () => setTimeout(() => router.replace(`/tag-point/${newPointId}` as any), 100) },
         { text: 'Accueil', onPress: () => setTimeout(() => router.replace('/(tabs)/map' as any), 100) },
       ]);
