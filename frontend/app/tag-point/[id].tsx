@@ -493,17 +493,39 @@ export default function TagPointDetail() {
                 </View>
               )}
               {point.event_date && point.event_schedule && <View style={st.dateSep} />}
-              {point.event_schedule && (
-                <View style={st.dateRow}>
-                  <View style={st.dateIconBox}>
-                    <Ionicons name="repeat-outline" size={20} color={Colors.primary} />
+              {point.event_schedule && (() => {
+                const rec = formatRecurring(point.event_schedule);
+                return (
+                  <View>
+                    <View style={st.dateRow}>
+                      <View style={st.dateIconBox}>
+                        <Ionicons name="repeat-outline" size={20} color={Colors.primary} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={st.dateLabel}>Récurrent</Text>
+                        <Text style={st.dateValue}>{rec.summary}</Text>
+                      </View>
+                    </View>
+                    {/* Per-day schedule table */}
+                    {rec.perDay && rec.perDay.length > 0 && (
+                      <View style={st.scheduleTable}>
+                        {rec.perDay.map((entry, idx) => (
+                          <View key={idx} style={[st.scheduleRow, idx < rec.perDay!.length - 1 && { borderBottomWidth: 1, borderBottomColor: Colors.border + '60' }]}>
+                            <Text style={st.scheduleDayText}>{entry.day}</Text>
+                            <View style={st.scheduleTimesRow}>
+                              {entry.times.map((t, ti) => (
+                                <View key={ti} style={st.scheduleTimeChip}>
+                                  <Text style={st.scheduleTimeChipText}>{t}</Text>
+                                </View>
+                              ))}
+                            </View>
+                          </View>
+                        ))}
+                      </View>
+                    )}
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={st.dateLabel}>Récurrent</Text>
-                    <Text style={st.dateValue}>{formatRecurring(point.event_schedule)}</Text>
-                  </View>
-                </View>
-              )}
+                );
+              })()}
               {/* Banner: bientôt une nouvelle date */}
               {point.new_date_coming && (
                 <View style={st.newDateBanner}>
