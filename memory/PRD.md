@@ -75,7 +75,7 @@ Application mobile "WINEK" - plateforme hyperlocale de connexion basée sur des 
   - Étape 4: Date — jours multiples + multi-créneaux horaires pour récurrent
   - Étape 5: Aperçu + bouton "Voir l'aperçu complet" (modal détail)
 - **Score de qualité** en temps réel (Basique → Bien → Très bien → Excellent)
-- **FullPreviewModal**: Modal plein écran montrant le tagPoint comme il apparaîtra
+- **FullPreviewModal** (2026-02-26): Refactorisé pour refléter exactement [id].tsx — hero+badge propriétaire, titre+étoiles, tags, date card, RSVP row, actions row (désactivés), carte, description markdown, section faux avis (4.7★, 12 votes MOCKED, 3 commentaires fictifs pour encourager la publication), FAB désactivé
 - **RichTextInput.tsx**: Éditeur markdown (gras, italique, souligné, listes)
 - **DateTimePicker.tsx**: Calendrier custom + sélecteur heure
 - **Markdown display** dans [id].tsx
