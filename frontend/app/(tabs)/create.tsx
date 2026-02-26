@@ -680,24 +680,22 @@ function StepLocalisation({ selectedLat, selectedLng, locationAddress, precision
       {/* Precision */}
       <View>
         <Text style={sc.label}>Niveau de confidentialité</Text>
-        <View style={{ gap: 8 }}>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
           {PRECISION_OPTIONS.map(p => {
             const active = precision === p.value;
             return (
               <TouchableOpacity
                 key={p.value}
-                style={[sc.precisionCard, active && sc.precisionCardActive]}
+                style={[sc.precisionCompact, active && sc.precisionCompactActive]}
                 onPress={() => setPrecision(p.value)}
                 testID={`precision-${p.value}`}
               >
-                <View style={[sc.precisionIconBox, active && { backgroundColor: Colors.primary + '22', borderColor: Colors.primary }]}>
+                <View style={[sc.precisionCompactIcon, active && { backgroundColor: Colors.primary + '22' }]}>
                   <Ionicons name={p.icon} size={22} color={active ? Colors.primary : Colors.muted} />
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[sc.precisionLabel, active && { color: Colors.primary }]}>{p.label}</Text>
-                  <Text style={sc.precisionDesc}>{p.desc}</Text>
-                </View>
-                {active && <Ionicons name="checkmark-circle" size={22} color={Colors.primary} />}
+                <Text style={[sc.precisionCompactLabel, active && { color: Colors.primary }]}>{p.label}</Text>
+                <Text style={sc.precisionCompactDesc} numberOfLines={2}>{p.desc}</Text>
+                {active && <View style={sc.precisionCheck}><Ionicons name="checkmark" size={10} color={Colors.background} /></View>}
               </TouchableOpacity>
             );
           })}
