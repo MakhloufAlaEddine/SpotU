@@ -232,8 +232,8 @@ export default function CreateTagPointScreen() {
         tag_ids: selectedTagIds, images: [],
       };
       if (scheduleType === 'once' && eventDateTime) payload.event_date = eventDateTime.toISOString();
-      if (scheduleType === 'recurring' && recurringDay !== null && recurringTime)
-        payload.event_schedule = { type: 'weekly', day: recurringDay, time: fmtTime(recurringTime) };
+      if (scheduleType === 'recurring' && recurringDays.length > 0 && recurringTimes.length > 0)
+        payload.event_schedule = { type: 'weekly', days: recurringDays, times: recurringTimes.map(fmtTime) };
 
       const result = await api.post('/tag-points', payload);
       Alert.alert('Publié !', 'Votre tagPoint est visible !', [
