@@ -27,6 +27,32 @@ function timeAgo(d: string) {
   return `${Math.floor(diff / 30)} mois`;
 }
 
+const DAYS_FULL = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+
+function formatEventDate(d: string): string {
+  const date = new Date(d);
+  const now = new Date();
+  const diff = Math.floor((date.getTime() - now.getTime()) / 86400000);
+  const time = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  if (diff === 0) return `Aujourd'hui à ${time}`;
+  if (diff === 1) return `Demain à ${time}`;
+  if (diff === -1) return `Hier à ${time}`;
+  if (diff > 1 && diff < 7) {
+    const day = date.toLocaleDateString('fr-FR', { weekday: 'long' });
+    return `${day.charAt(0).toUpperCase() + day.slice(1)} à ${time}`;
+  }
+  const dateStr = date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+  return `${dateStr} à ${time}`;
+}
+
+function formatEventDateFull(d: string): string {
+  return new Date(d).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function formatRecurring(s: { type: string; day: number; time: string }): string {
+  return `Chaque ${DAYS_FULL[s.day]} à ${s.time}`;
+}
+
 const CATEGORY_COLORS: Record<string, string> = {
   cat_running: '#00BFA5', cat_football: '#4CAF50', cat_basketball: '#FF9800',
   cat_tennis: '#E91E63', cat_yoga: '#9C27B0', cat_cycling: '#2196F3',
