@@ -5,7 +5,7 @@ import {
   TextInput, Modal, KeyboardAvoidingView, Platform, Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import { useLocalSearchParams, useRouter, Stack, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { MapViewComponent } from '../../components/MapViewComponent';
 import { MarkdownText } from '../../components/RichTextInput';
