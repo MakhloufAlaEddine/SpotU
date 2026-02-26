@@ -833,12 +833,15 @@ function StepDate({ scheduleType, setScheduleType, eventDateTime, onOpenDatePick
 }
 
 // ─── Step 5: Preview ────────────────────────────────────────────────────────────
-function StepPreview({ title, description, images, selectedTags, locationAddress, precision, scheduleType, eventDateTime, recurringDay, recurringTime, quality, lang }: any) {
-  const scheduleLabel = scheduleType === 'none' ? 'Sans date' : scheduleType === 'once' && eventDateTime
-    ? `${fmtDate(eventDateTime)} à ${fmtTime(eventDateTime)}`
-    : scheduleType === 'recurring' && recurringDay !== null && recurringTime
-      ? `Chaque ${DAYS[recurringDay]} à ${fmtTime(recurringTime)}`
-      : 'Non configuré';
+function StepPreview({ title, description, images, selectedTags, locationAddress, precision, scheduleType, eventDateTime, recurringDays, recurringTimes, quality, lang, user, selectedLat, selectedLng }: any) {
+  const [showFullPreview, setShowFullPreview] = useState(false);
+
+  const scheduleLabel = scheduleType === 'none' ? 'Sans date'
+    : scheduleType === 'once' && eventDateTime
+      ? `${fmtDate(eventDateTime)} à ${fmtTime(eventDateTime)}`
+      : scheduleType === 'recurring' && recurringDays.length > 0 && recurringTimes.length > 0
+        ? `Chaque ${recurringDays.map((i: number) => DAYS[i]).join(', ')} · ${recurringTimes.map(fmtTime).join(', ')}`
+        : 'Non configuré';
 
   const items = [
     { icon: 'camera-outline', label: 'Photos', value: images.length > 0 ? `${images.length} photo${images.length > 1 ? 's' : ''}` : null, tip: 'Aucune photo', done: images.length > 0 },
@@ -866,6 +869,13 @@ function StepPreview({ title, description, images, selectedTags, locationAddress
           </View>
         </View>
       </View>
+
+      {/* Full preview button */}
+      <TouchableOpacity style={sc.fullPreviewBtn} onPress={() => setShowFullPreview(true)} testID="full-preview-btn">
+        <Ionicons name="eye-outline" size={20} color={Colors.primary} />
+        <Text style={sc.fullPreviewBtnText}>Voir l'aperçu complet</Text>
+        <Ionicons name="chevron-forward" size={16} color={Colors.primary} />
+      </TouchableOpacity>
 
       {/* Checklist */}
       <View style={sc.previewCard}>
@@ -897,6 +907,122 @@ function StepPreview({ title, description, images, selectedTags, locationAddress
           </Text>
         </View>
       )}
+
+      {/* Full Detail Preview Modal */}
+      <Modal visible={showFullPreview} animationType="slide" transparent={false} onRequestClose={() => setShowFullPreview(false)}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }} edges={['top']}>
+          {/* Modal header */}
+          <View style={fpSt.header}>
+            <TouchableOpacity onPress={() => setShowFullPreview(false)} style={fpSt.closeBtn} testID="close-full-preview">
+              <Ionicons name="close" size={24} color={Colors.foreground} />
+            </TouchableOpacity>
+            <Text style={fpSt.headerTitle}>Aperçu du tagPoint</Text>
+            <View style={[fpSt.closeBtn, { backgroundColor: Colors.primary + '20', borderRadius: 20 }]}>
+              <Text style={{ fontSize: 11, color: Colors.primary, fontWeight: '700', paddingHorizontal: 8 }}>Aperçu</Text>
+            </View>
+          </View>
+
+          <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+            {/* Hero image */}
+            <View style={fpSt.heroWrap}>
+              {images.length > 0
+                ? <Image source={{ uri: images[0] }} style={fpSt.heroImage} resizeMode="cover" />
+                : <View style={fpSt.heroPlaceholder}>
+                    <Ionicons name="image-outline" size={60} color={Colors.muted} />
+                    <Text style={{ color: Colors.muted, fontSize: 13, marginTop: 8 }}>Aucune photo ajoutée</Text>
+                  </View>
+              }
+              {images.length > 1 && (
+                <View style={fpSt.imgCount}>
+                  <Ionicons name="images-outline" size={12} color="#fff" />
+                  <Text style={fpSt.imgCountText}>{images.length} photos</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={{ padding: Spacing.md, gap: Spacing.md }}>
+              {/* Title & tags row */}
+              <View>
+                <Text style={fpSt.title}>{title || 'Sans titre'}</Text>
+                {selectedTags.length > 0 && (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
+                    {selectedTags.map((t: any) => {
+                      const c = tagColor(t.category_id);
+                      return (
+                        <View key={t.tag_id} style={[fpSt.tagChip, { backgroundColor: c + '22', borderColor: c }]}>
+                          <Text style={[fpSt.tagChipText, { color: c }]}>{lang === 'fr' ? t.label_fr : t.label_en}</Text>
+                        </View>
+                      );
+                    })}
+                  </ScrollView>
+                )}
+              </View>
+
+              {/* Info row: location + date */}
+              <View style={fpSt.infoCard}>
+                <View style={fpSt.infoRow}>
+                  <Ionicons name="location-outline" size={16} color={Colors.primary} />
+                  <Text style={fpSt.infoText} numberOfLines={2}>{locationAddress}</Text>
+                  <View style={fpSt.precisionBadge}>
+                    <Text style={fpSt.precisionBadgeText}>
+                      {precision === 'exact' ? 'Exact' : precision === '100m' ? '~100m' : '~1km'}
+                    </Text>
+                  </View>
+                </View>
+                {scheduleType !== 'none' && (
+                  <View style={[fpSt.infoRow, { borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: 10 }]}>
+                    <Ionicons name="calendar-outline" size={16} color={Colors.primary} />
+                    <Text style={fpSt.infoText}>{scheduleLabel}</Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Description */}
+              {description ? (
+                <View style={fpSt.section}>
+                  <Text style={fpSt.sectionTitle}>Description</Text>
+                  <MarkdownText style={fpSt.descText}>{description}</MarkdownText>
+                </View>
+              ) : (
+                <View style={[fpSt.section, { alignItems: 'center', paddingVertical: 24 }]}>
+                  <Ionicons name="document-text-outline" size={32} color={Colors.muted} />
+                  <Text style={{ color: Colors.muted, fontSize: 13, marginTop: 8 }}>Aucune description ajoutée</Text>
+                </View>
+              )}
+
+              {/* Author card */}
+              <View style={fpSt.authorCard}>
+                <View style={fpSt.authorAvatar}>
+                  {user?.picture
+                    ? <Image source={{ uri: user.picture }} style={{ width: '100%', height: '100%' }} />
+                    : <Text style={fpSt.authorAvatarText}>{user?.name?.charAt(0)?.toUpperCase() || '?'}</Text>
+                  }
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={fpSt.authorName}>{user?.name || 'Vous'}</Text>
+                  <Text style={fpSt.authorSub}>Créateur · Maintenant</Text>
+                </View>
+                <View style={fpSt.newBadge}><Text style={fpSt.newBadgeText}>NOUVEAU</Text></View>
+              </View>
+
+              {/* Multiple time slots display */}
+              {scheduleType === 'recurring' && recurringTimes.length > 1 && (
+                <View style={fpSt.section}>
+                  <Text style={fpSt.sectionTitle}>Créneaux horaires</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                    {recurringTimes.map((t: Date, i: number) => (
+                      <View key={i} style={fpSt.timeChip}>
+                        <Ionicons name="time-outline" size={13} color={Colors.primary} />
+                        <Text style={fpSt.timeChipText}>{fmtTime(t)}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </View>
   );
 }
