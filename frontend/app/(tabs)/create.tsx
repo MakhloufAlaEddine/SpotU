@@ -202,7 +202,7 @@ export default function CreateTagPointScreen() {
             setTitle(''); setDescription(''); setPrecision('exact');
             setSelectedTagIds([]); setImages([]); setStep(0);
             setScheduleType('none'); setEventDateTime(null);
-            setRecurringDays([]); setRecurringTimes([]);
+            setRecurringSchedule({});
           },
         },
       ]
