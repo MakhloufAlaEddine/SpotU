@@ -118,6 +118,7 @@ class TagPointUpdate(BaseModel):
     active: Optional[bool] = None
     is_public: Optional[bool] = None
     event_date: Optional[datetime] = None
+    event_end_date: Optional[datetime] = None
     event_schedule: Optional[dict] = None
 
 
