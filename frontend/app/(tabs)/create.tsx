@@ -138,7 +138,7 @@ export default function CreateTagPointScreen() {
 
   useEffect(() => {
     Animated.spring(progressAnim, {
-      toValue: step / 3,
+      toValue: Math.min(step, 3) / 3,
       useNativeDriver: false,
       tension: 60, friction: 10,
     }).start();
