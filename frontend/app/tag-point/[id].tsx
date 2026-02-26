@@ -677,9 +677,11 @@ export default function TagPointDetail() {
       </ScrollView>
 
       {/* FAB Voter */}
+      {!isOwner && (
       <TouchableOpacity style={st.fab} onPress={openVoteModal} testID="fab-vote">
         <Ionicons name="star" size={22} color={Colors.background} />
       </TouchableOpacity>
+      )}
 
       {/* ── Modals ── */}
 
