@@ -71,6 +71,7 @@ CREATE TABLE IF NOT EXISTS tag_points (
     tag_ids JSONB DEFAULT '[]',
     domain_id TEXT,
     active BOOLEAN DEFAULT TRUE,
+    is_public BOOLEAN DEFAULT TRUE,
     expires_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),

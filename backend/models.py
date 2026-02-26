@@ -111,6 +111,7 @@ class TagPointUpdate(BaseModel):
     precision: Optional[Precision] = None
     tag_ids: Optional[List[str]] = None
     active: Optional[bool] = None
+    is_public: Optional[bool] = None
     event_date: Optional[datetime] = None
     event_schedule: Optional[dict] = None
 
