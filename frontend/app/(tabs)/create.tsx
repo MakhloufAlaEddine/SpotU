@@ -870,20 +870,12 @@ function StepDate({ scheduleType, setScheduleType, eventDateTime, onOpenDatePick
 }
 
 // ─── Step 5: Preview ────────────────────────────────────────────────────────────
-function StepPreview({ title, description, images, selectedTags, locationAddress, precision, scheduleType, eventDateTime, recurringDays, recurringTimes, quality, lang, user, selectedLat, selectedLng }: any) {
-  const [showFullPreview, setShowFullPreview] = useState(false);
-
-  const scheduleLabel = scheduleType === 'none' ? 'Sans date'
-    : scheduleType === 'once' && eventDateTime
-      ? `${fmtDate(eventDateTime)} à ${fmtTime(eventDateTime)}`
-      : scheduleType === 'recurring' && recurringDays.length > 0 && recurringTimes.length > 0
-        ? `Chaque ${recurringDays.map((i: number) => DAYS[i]).join(', ')} · ${recurringTimes.map(fmtTime).join(', ')}`
-        : 'Non configuré';
-
+function StepPreview({ title, description, images, selectedTags, locationAddress, precision, scheduleType, eventDateTime, recurringSchedule, quality, lang, onOpenFullPreview }: any) {
+  const scheduleLabel = buildScheduleLabel(scheduleType, eventDateTime, recurringSchedule);
   const items = [
     { icon: 'camera-outline', label: 'Photos', value: images.length > 0 ? `${images.length} photo${images.length > 1 ? 's' : ''}` : null, tip: 'Aucune photo', done: images.length > 0 },
     { icon: 'text-outline', label: 'Titre', value: title || null, tip: 'Manquant', done: !!title },
-    { icon: 'document-text-outline', label: 'Description', value: description ? `${description.length} caractères` : null, tip: 'Non renseignée', done: !!description },
+    { icon: 'document-text-outline', label: 'Description', value: description ? `${description.length} car.` : null, tip: 'Non renseignée', done: !!description },
     { icon: 'pricetags-outline', label: 'Tags', value: selectedTags.length > 0 ? `${selectedTags.length} tag${selectedTags.length > 1 ? 's' : ''}` : null, tip: 'Aucun tag', done: selectedTags.length > 0 },
     { icon: 'location-outline', label: 'Lieu', value: locationAddress, tip: 'Non défini', done: true },
     { icon: 'calendar-outline', label: 'Date', value: scheduleType !== 'none' ? scheduleLabel : null, tip: 'Sans date', done: scheduleType !== 'none' },
@@ -891,7 +883,6 @@ function StepPreview({ title, description, images, selectedTags, locationAddress
 
   return (
     <View style={{ gap: Spacing.lg }}>
-      {/* Quality score card */}
       <View style={[sc.qualityCard, { borderColor: quality.color + '44' }]}>
         <View style={sc.qualityCardHeader}>
           <Text style={[sc.qualityCardScore, { color: quality.color }]}>{quality.score}%</Text>
@@ -907,14 +898,12 @@ function StepPreview({ title, description, images, selectedTags, locationAddress
         </View>
       </View>
 
-      {/* Full preview button */}
-      <TouchableOpacity style={sc.fullPreviewBtn} onPress={() => setShowFullPreview(true)} testID="full-preview-btn">
+      <TouchableOpacity style={sc.fullPreviewBtn} onPress={onOpenFullPreview} testID="full-preview-btn">
         <Ionicons name="eye-outline" size={20} color={Colors.primary} />
         <Text style={sc.fullPreviewBtnText}>Voir l'aperçu complet</Text>
         <Ionicons name="chevron-forward" size={16} color={Colors.primary} />
       </TouchableOpacity>
 
-      {/* Checklist */}
       <View style={sc.previewCard}>
         <Text style={sc.previewCardTitle}>Récapitulatif</Text>
         {items.map((item, i) => (
@@ -924,11 +913,7 @@ function StepPreview({ title, description, images, selectedTags, locationAddress
             <Text style={[sc.previewRowValue, !item.done && { color: Colors.muted, fontStyle: 'italic' }]} numberOfLines={1}>
               {item.value || item.tip}
             </Text>
-            <Ionicons
-              name={item.done ? 'checkmark-circle' : 'ellipse-outline'}
-              size={16}
-              color={item.done ? Colors.primary : Colors.muted}
-            />
+            <Ionicons name={item.done ? 'checkmark-circle' : 'ellipse-outline'} size={16} color={item.done ? Colors.primary : Colors.muted} />
           </View>
         ))}
       </View>
@@ -937,130 +922,163 @@ function StepPreview({ title, description, images, selectedTags, locationAddress
         <View style={sc.improveTip}>
           <Ionicons name="sparkles-outline" size={16} color={Colors.primary} />
           <Text style={sc.improveTipText}>
-            {!images.length ? 'Ajoutez des photos pour booster l\'attractivité.' :
+            {!images.length ? "Ajoutez des photos pour booster l'attractivité." :
              !description ? 'Une description complète fidélise les participants.' :
              !selectedTags.length ? 'Des tags améliorent la découverte de votre tagPoint.' :
              'Configurez une date pour apparaître en tête des résultats.'}
           </Text>
         </View>
       )}
+    </View>
+  );
+}
 
-      {/* Full Detail Preview Modal */}
-      <Modal visible={showFullPreview} animationType="slide" transparent={false} onRequestClose={() => setShowFullPreview(false)}>
-        <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }} edges={['top']}>
-          {/* Modal header */}
-          <View style={fpSt.header}>
-            <TouchableOpacity onPress={() => setShowFullPreview(false)} style={fpSt.closeBtn} testID="close-full-preview">
-              <Ionicons name="close" size={24} color={Colors.foreground} />
-            </TouchableOpacity>
-            <Text style={fpSt.headerTitle}>Aperçu du tagPoint</Text>
-            <View style={[fpSt.closeBtn, { backgroundColor: Colors.primary + '20', borderRadius: 20 }]}>
-              <Text style={{ fontSize: 11, color: Colors.primary, fontWeight: '700', paddingHorizontal: 8 }}>Aperçu</Text>
-            </View>
+// ─── Helpers ────────────────────────────────────────────────────────────────────
+function buildScheduleLabel(scheduleType: string, eventDateTime: Date | null, recurringSchedule: Record<number, Date[]>): string {
+  if (scheduleType === 'none') return 'Sans date';
+  if (scheduleType === 'once') return eventDateTime ? `${fmtDate(eventDateTime)} à ${fmtTime(eventDateTime)}` : 'Non configuré';
+  const days = Object.keys(recurringSchedule).map(Number).sort((a, b) => a - b);
+  if (days.length === 0) return 'Non configuré';
+  return days.map(d => {
+    const times = recurringSchedule[d];
+    return `${DAYS[d]}: ${times.length > 0 ? times.map(fmtTime).join(', ') : '—'}`;
+  }).join(' · ');
+}
+
+// ─── Full Preview Modal (rendered at root level) ─────────────────────────────
+function FullPreviewModal({ visible, onClose, title, description, images, selectedTags, locationAddress, precision, scheduleType, eventDateTime, recurringSchedule, user, lang }: any) {
+  const scheduleLabel = buildScheduleLabel(scheduleType, eventDateTime, recurringSchedule);
+  const days = Object.keys(recurringSchedule || {}).map(Number).sort((a, b) => a - b);
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose} statusBarTranslucent>
+      <View style={{ flex: 1, backgroundColor: Colors.background }}>
+        {/* Fixed header with high zIndex */}
+        <View style={fpSt.header}>
+          <TouchableOpacity onPress={onClose} style={fpSt.closeBtn} testID="close-full-preview" hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+            <Ionicons name="close" size={24} color={Colors.foreground} />
+          </TouchableOpacity>
+          <Text style={fpSt.headerTitle}>Aperçu du tagPoint</Text>
+          <View style={fpSt.previewBadge}>
+            <Text style={fpSt.previewBadgeText}>Aperçu</Text>
+          </View>
+        </View>
+
+        <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+          {/* Hero */}
+          <View style={fpSt.heroWrap}>
+            {images.length > 0
+              ? <Image source={{ uri: images[0] }} style={fpSt.heroImage} resizeMode="cover" />
+              : <View style={fpSt.heroPlaceholder}>
+                  <Ionicons name="image-outline" size={60} color={Colors.muted} />
+                  <Text style={{ color: Colors.muted, fontSize: 13, marginTop: 8 }}>Aucune photo ajoutée</Text>
+                </View>
+            }
+            {images.length > 1 && (
+              <View style={fpSt.imgCount}>
+                <Ionicons name="images-outline" size={12} color="#fff" />
+                <Text style={fpSt.imgCountText}>{images.length} photos</Text>
+              </View>
+            )}
           </View>
 
-          <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-            {/* Hero image */}
-            <View style={fpSt.heroWrap}>
-              {images.length > 0
-                ? <Image source={{ uri: images[0] }} style={fpSt.heroImage} resizeMode="cover" />
-                : <View style={fpSt.heroPlaceholder}>
-                    <Ionicons name="image-outline" size={60} color={Colors.muted} />
-                    <Text style={{ color: Colors.muted, fontSize: 13, marginTop: 8 }}>Aucune photo ajoutée</Text>
-                  </View>
-              }
-              {images.length > 1 && (
-                <View style={fpSt.imgCount}>
-                  <Ionicons name="images-outline" size={12} color="#fff" />
-                  <Text style={fpSt.imgCountText}>{images.length} photos</Text>
-                </View>
-              )}
-            </View>
-
-            <View style={{ padding: Spacing.md, gap: Spacing.md }}>
-              {/* Title & tags row */}
-              <View>
-                <Text style={fpSt.title}>{title || 'Sans titre'}</Text>
-                {selectedTags.length > 0 && (
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
-                    {selectedTags.map((t: any) => {
-                      const c = tagColor(t.category_id);
-                      return (
-                        <View key={t.tag_id} style={[fpSt.tagChip, { backgroundColor: c + '22', borderColor: c }]}>
-                          <Text style={[fpSt.tagChipText, { color: c }]}>{lang === 'fr' ? t.label_fr : t.label_en}</Text>
-                        </View>
-                      );
-                    })}
-                  </ScrollView>
-                )}
-              </View>
-
-              {/* Info row: location + date */}
-              <View style={fpSt.infoCard}>
-                <View style={fpSt.infoRow}>
-                  <Ionicons name="location-outline" size={16} color={Colors.primary} />
-                  <Text style={fpSt.infoText} numberOfLines={2}>{locationAddress}</Text>
-                  <View style={fpSt.precisionBadge}>
-                    <Text style={fpSt.precisionBadgeText}>
-                      {precision === 'exact' ? 'Exact' : precision === '100m' ? '~100m' : '~1km'}
-                    </Text>
-                  </View>
-                </View>
-                {scheduleType !== 'none' && (
-                  <View style={[fpSt.infoRow, { borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: 10 }]}>
-                    <Ionicons name="calendar-outline" size={16} color={Colors.primary} />
-                    <Text style={fpSt.infoText}>{scheduleLabel}</Text>
-                  </View>
-                )}
-              </View>
-
-              {/* Description */}
-              {description ? (
-                <View style={fpSt.section}>
-                  <Text style={fpSt.sectionTitle}>Description</Text>
-                  <MarkdownText style={fpSt.descText}>{description}</MarkdownText>
-                </View>
-              ) : (
-                <View style={[fpSt.section, { alignItems: 'center', paddingVertical: 24 }]}>
-                  <Ionicons name="document-text-outline" size={32} color={Colors.muted} />
-                  <Text style={{ color: Colors.muted, fontSize: 13, marginTop: 8 }}>Aucune description ajoutée</Text>
-                </View>
-              )}
-
-              {/* Author card */}
-              <View style={fpSt.authorCard}>
-                <View style={fpSt.authorAvatar}>
-                  {user?.picture
-                    ? <Image source={{ uri: user.picture }} style={{ width: '100%', height: '100%' }} />
-                    : <Text style={fpSt.authorAvatarText}>{user?.name?.charAt(0)?.toUpperCase() || '?'}</Text>
-                  }
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={fpSt.authorName}>{user?.name || 'Vous'}</Text>
-                  <Text style={fpSt.authorSub}>Créateur · Maintenant</Text>
-                </View>
-                <View style={fpSt.newBadge}><Text style={fpSt.newBadgeText}>NOUVEAU</Text></View>
-              </View>
-
-              {/* Multiple time slots display */}
-              {scheduleType === 'recurring' && recurringTimes.length > 1 && (
-                <View style={fpSt.section}>
-                  <Text style={fpSt.sectionTitle}>Créneaux horaires</Text>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                    {recurringTimes.map((t: Date, i: number) => (
-                      <View key={i} style={fpSt.timeChip}>
-                        <Ionicons name="time-outline" size={13} color={Colors.primary} />
-                        <Text style={fpSt.timeChipText}>{fmtTime(t)}</Text>
+          <View style={{ padding: Spacing.md, gap: Spacing.md }}>
+            {/* Title & tags */}
+            <View>
+              <Text style={fpSt.title}>{title || 'Sans titre'}</Text>
+              {selectedTags.length > 0 && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
+                  {selectedTags.map((t: any) => {
+                    const c = tagColor(t.category_id);
+                    return (
+                      <View key={t.tag_id} style={[fpSt.tagChip, { backgroundColor: c + '22', borderColor: c }]}>
+                        <Text style={[fpSt.tagChipText, { color: c }]}>{lang === 'fr' ? t.label_fr : t.label_en}</Text>
                       </View>
-                    ))}
-                  </View>
+                    );
+                  })}
+                </ScrollView>
+              )}
+            </View>
+
+            {/* Location */}
+            <View style={fpSt.infoCard}>
+              <View style={fpSt.infoRow}>
+                <Ionicons name="location-outline" size={16} color={Colors.primary} />
+                <Text style={fpSt.infoText} numberOfLines={2}>{locationAddress}</Text>
+                <View style={fpSt.precisionBadge}>
+                  <Text style={fpSt.precisionBadgeText}>{precision === 'exact' ? 'Exact' : precision === '100m' ? '~100m' : '~1km'}</Text>
+                </View>
+              </View>
+
+              {/* Schedule */}
+              {scheduleType === 'once' && eventDateTime && (
+                <View style={[fpSt.infoRow, { borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: 10 }]}>
+                  <Ionicons name="calendar-outline" size={16} color={Colors.primary} />
+                  <Text style={fpSt.infoText}>{scheduleLabel}</Text>
                 </View>
               )}
             </View>
-          </ScrollView>
-        </SafeAreaView>
-      </Modal>
-    </View>
+
+            {/* Per-day recurring schedule */}
+            {scheduleType === 'recurring' && days.length > 0 && (
+              <View style={fpSt.section}>
+                <Text style={fpSt.sectionTitle}>Horaires récurrents</Text>
+                <View style={fpSt.scheduleTable}>
+                  {days.map((dayIdx: number) => {
+                    const times: Date[] = recurringSchedule[dayIdx] || [];
+                    return (
+                      <View key={dayIdx} style={fpSt.scheduleRow}>
+                        <View style={fpSt.scheduleDayCol}>
+                          <Text style={fpSt.scheduleDayText}>{DAYS[dayIdx]}</Text>
+                        </View>
+                        <View style={fpSt.scheduleTimesCol}>
+                          {times.length > 0
+                            ? times.map((t: Date, i: number) => (
+                                <View key={i} style={fpSt.timeChip}>
+                                  <Text style={fpSt.timeChipText}>{fmtTime(t)}</Text>
+                                </View>
+                              ))
+                            : <Text style={{ fontSize: 12, color: Colors.muted, fontStyle: 'italic' }}>Aucun créneau</Text>
+                          }
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+
+            {/* Description */}
+            {description ? (
+              <View style={fpSt.section}>
+                <Text style={fpSt.sectionTitle}>Description</Text>
+                <MarkdownText style={fpSt.descText}>{description}</MarkdownText>
+              </View>
+            ) : (
+              <View style={[fpSt.section, { alignItems: 'center', paddingVertical: 20 }]}>
+                <Ionicons name="document-text-outline" size={32} color={Colors.muted} />
+                <Text style={{ color: Colors.muted, fontSize: 13, marginTop: 8 }}>Aucune description</Text>
+              </View>
+            )}
+
+            {/* Author */}
+            <View style={fpSt.authorCard}>
+              <View style={fpSt.authorAvatar}>
+                {user?.picture
+                  ? <Image source={{ uri: user.picture }} style={{ width: '100%', height: '100%' }} />
+                  : <Text style={fpSt.authorAvatarText}>{user?.name?.charAt(0)?.toUpperCase() || '?'}</Text>
+                }
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={fpSt.authorName}>{user?.name || 'Vous'}</Text>
+                <Text style={fpSt.authorSub}>Créateur · Maintenant</Text>
+              </View>
+              <View style={fpSt.newBadge}><Text style={fpSt.newBadgeText}>NOUVEAU</Text></View>
+            </View>
+          </View>
+        </ScrollView>
+      </View>
+    </Modal>
   );
 }
 
