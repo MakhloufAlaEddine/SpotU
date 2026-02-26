@@ -439,34 +439,66 @@ export default function TagPointDetail() {
         </View>
 
         {/* 3. Date & Horaire */}
-        {(point.event_date || point.event_schedule) && (
-          <View style={st.dateCard}>
-            {point.event_date && (
-              <View style={st.dateRow}>
-                <View style={st.dateIconBox}>
-                  <Ionicons name="calendar" size={20} color={Colors.primary} />
+        {(point.event_date || point.event_schedule) && (() => {
+          const isPast = point.event_date ? new Date(point.event_date) < new Date() : false;
+          const isCreator = user?.user_id === point.user_id;
+          return (
+            <View style={[st.dateCard, isPast && st.dateCardPast]}>
+              {point.event_date && (
+                <View style={st.dateRow}>
+                  <View style={[st.dateIconBox, isPast && st.dateIconBoxPast]}>
+                    <Ionicons name={isPast ? 'calendar-outline' : 'calendar'} size={20} color={isPast ? Colors.muted : Colors.primary} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={[st.dateLabel, isPast && { color: Colors.muted }]}>
+                        {isPast ? 'Événement passé' : 'Prochain événement'}
+                      </Text>
+                      {isPast && (
+                        <View style={st.pastBadge}>
+                          <Text style={st.pastBadgeText}>Passé</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={[st.dateValue, isPast && { color: Colors.muted }]}>{formatEventDate(point.event_date)}</Text>
+                    <Text style={st.dateSub}>{formatEventDateFull(point.event_date)}</Text>
+                  </View>
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={st.dateLabel}>Prochain événement</Text>
-                  <Text style={st.dateValue}>{formatEventDate(point.event_date)}</Text>
-                  <Text style={st.dateSub}>{formatEventDateFull(point.event_date)}</Text>
+              )}
+              {point.event_date && point.event_schedule && <View style={st.dateSep} />}
+              {point.event_schedule && (
+                <View style={st.dateRow}>
+                  <View style={st.dateIconBox}>
+                    <Ionicons name="repeat-outline" size={20} color={Colors.primary} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={st.dateLabel}>Récurrent</Text>
+                    <Text style={st.dateValue}>{formatRecurring(point.event_schedule)}</Text>
+                  </View>
                 </View>
-              </View>
-            )}
-            {point.event_date && point.event_schedule && <View style={st.dateSep} />}
-            {point.event_schedule && (
-              <View style={st.dateRow}>
-                <View style={[st.dateIconBox, { backgroundColor: Colors.primaryLight + '22', borderColor: Colors.primaryLight }]}>
-                  <Ionicons name="repeat-outline" size={20} color={Colors.primaryLight} />
+              )}
+              {/* Banner: bientôt une nouvelle date */}
+              {point.new_date_coming && (
+                <View style={st.newDateBanner}>
+                  <Ionicons name="time-outline" size={15} color={Colors.primary} />
+                  <Text style={st.newDateBannerText}>Bientôt une nouvelle date</Text>
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[st.dateLabel, { color: Colors.primaryLight }]}>Récurrent</Text>
-                  <Text style={[st.dateValue, { color: Colors.primaryLight }]}>{formatRecurring(point.event_schedule)}</Text>
-                </View>
-              </View>
-            )}
-          </View>
-        )}
+              )}
+              {/* Creator toggle (only visible when event is past) */}
+              {isPast && isCreator && (
+                <TouchableOpacity style={st.newDateToggle} onPress={toggleNewDateComing} testID="new-date-toggle">
+                  <Ionicons
+                    name={point.new_date_coming ? 'checkmark-circle' : 'add-circle-outline'}
+                    size={16} color={Colors.primary}
+                  />
+                  <Text style={st.newDateToggleText}>
+                    {point.new_date_coming ? 'Retirer "Nouvelle date"' : 'Annoncer une nouvelle date'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          );
+        })()}
 
         {/* 4. RSVP + Message sur la même ligne */}
         <View style={st.rsvpRow}>
