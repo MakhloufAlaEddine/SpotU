@@ -83,6 +83,7 @@ export default function RootLayout() {
           </Stack>
         </LocationProvider>
       </LanguageProvider>
+      </RefreshProvider>
     </AuthProvider>
   );
 }
