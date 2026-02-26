@@ -1368,43 +1368,89 @@ const ms = StyleSheet.create({
   tagChipText: { fontSize: 13, fontWeight: '500', color: Colors.foreground },
 });
 
-// Full Preview Modal styles
+// Full Preview Modal styles (mirrors [id].tsx)
 const fpSt = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.sm, paddingTop: Platform.OS === 'ios' ? 50 : 32, paddingBottom: Spacing.sm, backgroundColor: Colors.header, borderBottomWidth: 1, borderBottomColor: Colors.border, zIndex: 10 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingTop: Platform.OS === 'ios' ? 54 : 32, paddingBottom: Spacing.sm, backgroundColor: Colors.header, borderBottomWidth: 1, borderBottomColor: Colors.border },
   closeBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { flex: 1, fontSize: 16, fontWeight: '700', color: Colors.foreground, textAlign: 'center' },
-  previewBadge: { backgroundColor: Colors.primary + '20', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6 },
+  headerTitle: { flex: 1, fontSize: 18, fontWeight: '700', color: Colors.primary, textAlign: 'center' },
+  previewBadge: { backgroundColor: Colors.primary + '20', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
   previewBadgeText: { fontSize: 11, color: Colors.primary, fontWeight: '700' },
-  heroWrap: { height: 230, backgroundColor: Colors.card, position: 'relative' },
+
+  // Image
+  heroWrap: { height: 240, backgroundColor: Colors.card, borderRadius: Radius.lg, overflow: 'hidden', position: 'relative' },
   heroImage: { width: '100%', height: '100%' },
   heroPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.card },
   imgCount: { position: 'absolute', bottom: 12, right: 12, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
   imgCountText: { fontSize: 11, color: '#fff', fontWeight: '600' },
-  title: { fontSize: 22, fontWeight: '800', color: Colors.foreground, lineHeight: 28 },
-  tagChip: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: Radius.full, borderWidth: 1.5, marginRight: 8 },
-  tagChipText: { fontSize: 12, fontWeight: '600' },
-  infoCard: { backgroundColor: Colors.card, borderRadius: Radius.lg, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border, gap: 0 },
-  infoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 2 },
-  infoText: { flex: 1, fontSize: 14, color: Colors.foreground, lineHeight: 20 },
-  precisionBadge: { backgroundColor: Colors.primary + '18', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 },
-  precisionBadgeText: { fontSize: 11, color: Colors.primary, fontWeight: '700' },
-  section: { gap: 8 },
+
+  // Owner badge (like [id].tsx ownerBadge)
+  ownerBadge: { position: 'absolute', bottom: -16, left: 12, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.card, borderRadius: Radius.full, paddingRight: 12, paddingVertical: 4, paddingLeft: 4, borderWidth: 1, borderColor: Colors.border },
+  ownerAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.primary, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  ownerInitial: { fontSize: 15, fontWeight: '700', color: Colors.background },
+  ownerName: { fontSize: 13, fontWeight: '600', color: Colors.foreground },
+  ownerRole: { fontSize: 11, color: Colors.primary },
+
+  // Title section
+  titleSection: { paddingHorizontal: Spacing.md, paddingTop: 28, paddingBottom: Spacing.md },
+  title: { fontSize: 22, fontWeight: '800', color: Colors.foreground, marginBottom: Spacing.sm },
+  metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.sm },
+  distText: { fontSize: 13, fontWeight: '600', color: Colors.primary },
+  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  ratingCount: { fontSize: 12, color: Colors.muted, marginLeft: 4 },
+  tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+  tagPill: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: Radius.full, borderWidth: 1.5 },
+  tagText: { fontSize: 13, fontWeight: '600' },
+
+  // Date card
+  dateCard: { marginHorizontal: Spacing.md, marginBottom: Spacing.md, backgroundColor: Colors.card, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
+  dateRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md },
+  dateIconBox: { width: 44, height: 44, borderRadius: Radius.md, backgroundColor: Colors.primary + '22', borderWidth: 1, borderColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
+  dateLabel: { fontSize: 11, color: Colors.muted, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
+  dateValue: { fontSize: 15, fontWeight: '700', color: Colors.primary },
+
+  // Schedule table
+  scheduleTable: { marginHorizontal: Spacing.md, marginTop: 8, marginBottom: Spacing.md, backgroundColor: Colors.background, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
+  scheduleRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: 9 },
+  scheduleDayText: { fontSize: 12, fontWeight: '800', color: Colors.foreground, width: 44 },
+  scheduleTimesRow: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  scheduleTimeChip: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 12, backgroundColor: Colors.primary + '18', borderWidth: 1, borderColor: Colors.primary + '40' },
+  scheduleTimeChipText: { fontSize: 12, fontWeight: '700', color: Colors.primary },
+
+  // RSVP row
+  rsvpRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.md, marginBottom: Spacing.sm },
+  rsvpBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.primary, paddingHorizontal: Spacing.md, paddingVertical: 7, borderRadius: Radius.full },
+  rsvpText: { fontSize: 13, fontWeight: '700', color: Colors.background },
+  rsvpCount: { fontSize: 13, color: Colors.muted },
+  msgBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
+
+  // Actions row
+  actionsRow: { flexDirection: 'row', paddingHorizontal: Spacing.md, marginBottom: Spacing.md, gap: 0 },
+  actionBtn: { flex: 1, alignItems: 'center', gap: 4, paddingVertical: Spacing.sm },
+  actionIcon: { width: 50, height: 50, borderRadius: 25, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
+  actionLabel: { fontSize: 12, color: Colors.muted, fontWeight: '500' },
+
+  // Map
+  mapWrap: { height: 200, marginHorizontal: Spacing.md, marginBottom: Spacing.md, borderRadius: Radius.lg, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border },
+
+  // Section
+  section: { paddingHorizontal: Spacing.md, marginBottom: Spacing.md, gap: 8 },
   sectionTitle: { fontSize: 12, fontWeight: '700', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.6 },
   descText: { fontSize: 14, color: Colors.foreground, lineHeight: 21 },
-  // Per-day schedule table
-  scheduleTable: { backgroundColor: Colors.card, borderRadius: Radius.lg, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border },
-  scheduleRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.border + '80' },
-  scheduleDayCol: { width: 44 },
-  scheduleDayText: { fontSize: 13, fontWeight: '800', color: Colors.foreground },
-  scheduleTimesCol: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  timeChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 4, borderRadius: Radius.full, backgroundColor: Colors.primary + '15', borderWidth: 1, borderColor: Colors.primary + '40' },
-  timeChipText: { fontSize: 12, fontWeight: '700', color: Colors.primary },
-  // Author
-  authorCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.card, borderRadius: Radius.lg, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border },
-  authorAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  authorAvatarText: { fontSize: 18, fontWeight: '700', color: Colors.background },
-  authorName: { fontSize: 15, fontWeight: '700', color: Colors.foreground },
-  authorSub: { fontSize: 12, color: Colors.muted, marginTop: 2 },
-  newBadge: { backgroundColor: Colors.primary, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
-  newBadgeText: { fontSize: 10, color: Colors.background, fontWeight: '800', letterSpacing: 0.5 },
+
+  // Reviews
+  exampleBanner: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.primary + '12', borderRadius: Radius.md, padding: Spacing.sm, borderWidth: 1, borderColor: Colors.primary + '30' },
+  exampleBannerText: { flex: 1, fontSize: 12, color: Colors.primary, fontWeight: '600' },
+  reviewsHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.md },
+  reviewsBig: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  reviewsNum: { fontSize: 40, fontWeight: '900', color: Colors.foreground, lineHeight: 44 },
+  reviewsCountTxt: { fontSize: 12, color: Colors.muted, marginTop: 2 },
+  voteCard: { backgroundColor: Colors.card, borderRadius: Radius.lg, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border, marginBottom: 8 },
+  voteAvatar: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  voteAvatarText: { fontSize: 13, fontWeight: '700', color: '#fff' },
+  voteName: { fontSize: 14, fontWeight: '700', color: Colors.foreground },
+  voteTime: { fontSize: 11, color: Colors.muted, marginTop: 1 },
+  voteComment: { fontSize: 14, color: Colors.foreground, lineHeight: 20 },
+
+  // FAB
+  fab: { position: 'absolute', bottom: 24, right: 24, width: 52, height: 52, borderRadius: 26, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
 });
