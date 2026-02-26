@@ -560,22 +560,45 @@ async def update_tag_point(point_id: str, data: TagPointUpdate, request: Request
         if existing["user_id"] != user["user_id"] and user["role"] != "admin":
             raise HTTPException(status_code=403, detail="Not authorized")
 
-        update_dict = {k: v for k, v in data.model_dump().items() if v is not None}
-        if not update_dict:
+        # exclude_unset=True: only update fields explicitly sent (allows null to clear)
+        raw = data.model_dump(exclude_unset=True)
+        if not raw:
             row = await conn.fetchrow(f"SELECT {TP_FIELDS} FROM tag_points tp LEFT JOIN users u ON tp.user_id = u.user_id WHERE tp.point_id = $1", point_id)
             return build_point_response(row_to_dict(row))
 
+        JSONB_FIELDS = {'tag_ids', 'images', 'event_schedule'}
         set_clauses = []
         values = []
         i = 1
-        for key, val in update_dict.items():
-            if key == "tag_ids":
-                set_clauses.append(f"tag_ids = ${i}::jsonb")
-                values.append(json.dumps(val))
+
+        # lat/lng → PostGIS geometry
+        lat = raw.pop('latitude', None)
+        lng = raw.pop('longitude', None)
+        if lat is not None and lng is not None:
+            set_clauses.append(f"location = ST_SetSRID(ST_MakePoint(${i}, ${i+1}), 4326)")
+            values.extend([lng, lat])
+            i += 2
+
+        for key, val in raw.items():
+            if key in JSONB_FIELDS:
+                if val is None:
+                    set_clauses.append(f"{key} = NULL")
+                else:
+                    set_clauses.append(f"{key} = ${i}::jsonb")
+                    values.append(json.dumps(val))
+                    i += 1
             else:
-                set_clauses.append(f"{key} = ${i}")
-                values.append(val)
-            i += 1
+                if val is None:
+                    set_clauses.append(f"{key} = NULL")
+                else:
+                    set_clauses.append(f"{key} = ${i}")
+                    values.append(val)
+                    i += 1
+
+        if not set_clauses:
+            row = await conn.fetchrow(f"SELECT {TP_FIELDS} FROM tag_points tp LEFT JOIN users u ON tp.user_id = u.user_id WHERE tp.point_id = $1", point_id)
+            return build_point_response(row_to_dict(row))
+
         values.append(point_id)
         set_clauses.append("updated_at = NOW()")
         query = f"UPDATE tag_points SET {', '.join(set_clauses)} WHERE point_id = ${i}"
