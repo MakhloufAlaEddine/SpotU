@@ -96,6 +96,7 @@ export default function CreateTagPointScreen() {
   const router = useRouter();
   const { user, token } = useAuth();
   const { lang } = useLang();
+  const { triggerProfileRefresh } = useRefresh();
   const params = useLocalSearchParams<{
     editMode?: string; pointId?: string; title?: string; description?: string;
     domainId?: string; precision?: string; tagIds?: string; images?: string;
@@ -325,7 +326,10 @@ export default function CreateTagPointScreen() {
       const newPointId = isEditMode ? params.pointId! : result.point_id;
       const successMsg = isEditMode ? 'TagPoint mis à jour !' : 'Votre tagPoint est visible !';
 
-      // 3. Show alert — use setTimeout to defer navigation until alert is fully dismissed
+      // 3. Trigger profile refresh so "My TagPoints" list updates
+      triggerProfileRefresh();
+
+      // 4. Show alert — use setTimeout to defer navigation until alert is fully dismissed
       Alert.alert(isEditMode ? 'Modifié !' : 'Publié !', successMsg, [
         { text: 'Voir', onPress: () => setTimeout(() => router.replace(`/tag-point/${newPointId}` as any), 100) },
         { text: 'Accueil', onPress: () => setTimeout(() => router.replace('/(tabs)/map' as any), 100) },
