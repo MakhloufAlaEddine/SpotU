@@ -459,6 +459,28 @@ export default function TagPointDetail() {
         </View>
       </SafeAreaView>
 
+      {/* Barre d'actions propriétaire */}
+      {isOwner && (
+        <View style={st.ownerBar} testID="owner-action-bar">
+          <TouchableOpacity style={st.ownerBarBtn} onPress={handleEdit} testID="edit-btn" disabled={ownerActionLoading}>
+            <Ionicons name="create-outline" size={18} color={Colors.primary} />
+            <Text style={st.ownerBarBtnText}>Modifier</Text>
+          </TouchableOpacity>
+          <View style={st.ownerBarDivider} />
+          <TouchableOpacity style={st.ownerBarBtn} onPress={handleToggleVisibility} testID="visibility-btn" disabled={ownerActionLoading}>
+            <Ionicons name={isPublic ? 'eye-outline' : 'eye-off-outline'} size={18} color={isPublic ? Colors.foreground : Colors.muted} />
+            <Text style={[st.ownerBarBtnText, !isPublic && { color: Colors.muted }]}>
+              {isPublic ? 'Visible' : 'Masqué'}
+            </Text>
+          </TouchableOpacity>
+          <View style={st.ownerBarDivider} />
+          <TouchableOpacity style={[st.ownerBarBtn, { gap: 4 }]} onPress={handleDelete} testID="delete-btn" disabled={ownerActionLoading}>
+            <Ionicons name="trash-outline" size={18} color="#EF4444" />
+            <Text style={[st.ownerBarBtnText, { color: '#EF4444' }]}>Supprimer</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <ScrollView style={st.scroll} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
 
         {/* 1. Image Carousel */}
