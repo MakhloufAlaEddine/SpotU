@@ -511,4 +511,19 @@ const styles = StyleSheet.create({
     borderColor: Colors.primary,
   },
   submitBtn: { marginTop: Spacing.md },
+
+  // Schedule styles
+  scheduleTypeRow: { flexDirection: 'row', borderRadius: Radius.lg, overflow: 'hidden', backgroundColor: Colors.card, marginBottom: Spacing.md },
+  scheduleTypeBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', backgroundColor: Colors.card },
+  scheduleTypeBtnActive: { backgroundColor: Colors.header },
+  scheduleTypeText: { fontSize: 13, fontWeight: '600', color: Colors.muted },
+  scheduleTypeTextActive: { color: Colors.primary },
+  scheduleInputs: { gap: Spacing.sm },
+  scheduleInputRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  scheduleInput: { flex: 1 },
+  daysRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: Spacing.sm },
+  dayBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
+  dayBtnActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  dayText: { fontSize: 12, fontWeight: '600', color: Colors.muted },
+  dayTextActive: { color: Colors.background },
 });
