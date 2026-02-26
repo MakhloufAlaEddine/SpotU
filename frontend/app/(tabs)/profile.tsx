@@ -327,7 +327,11 @@ export default function MenuScreen() {
                 />
               ))}
               {myTagPoints.length > 3 && (
-                <TouchableOpacity style={styles.seeMore}>
+                <TouchableOpacity
+                  style={styles.seeMore}
+                  onPress={() => router.push('/my-tag-points' as any)}
+                  testID="see-more-tagpoints-btn"
+                >
                   <Text style={styles.seeMoreText}>Voir plus</Text>
                   <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
                 </TouchableOpacity>
