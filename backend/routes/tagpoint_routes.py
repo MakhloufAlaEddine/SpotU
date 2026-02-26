@@ -423,6 +423,31 @@ async def leave_tag_point(point_id: str, request: Request):
     return {"success": True, "participants_count": count, "is_participant": False}
 
 
+@router.get("/users/me/events")
+async def get_my_events(request: Request):
+    """Retourne tous les tagPoints auxquels l'utilisateur participe (son planning)."""
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            f"""SELECT {TP_FIELDS}, p.joined_at,
+                COALESCE(tp.event_date, tp.created_at) as sort_date
+                FROM tag_points tp
+                JOIN tag_point_participants p ON tp.point_id = p.point_id
+                LEFT JOIN users u ON tp.user_id = u.user_id
+                WHERE p.user_id = $1 AND tp.active = TRUE
+                ORDER BY sort_date DESC""",
+            user["user_id"]
+        )
+    result = []
+    for row in rows:
+        d = row_to_dict(row)
+        d["joined_at"] = d.get("joined_at").isoformat() if d.get("joined_at") else None
+        d.pop("sort_date", None)
+        result.append(build_point_response(d))
+    return result
+
+
 @router.get("/tag-points/{point_id}/my-vote")
 async def get_my_vote(point_id: str, request: Request):
     pool = get_pool()
