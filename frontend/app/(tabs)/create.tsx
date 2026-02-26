@@ -163,12 +163,13 @@ export default function CreateTagPointScreen() {
     if (!isEditMode) return;
     if (params.title) setTitle(params.title);
     if (params.description) setDescription(params.description);
-    if (params.domainId) setDomainId(params.domainId);
     if (params.precision) setPrecision(params.precision as any);
     if (params.lat) setSelectedLat(parseFloat(params.lat));
     if (params.lng) setSelectedLng(parseFloat(params.lng));
-    if (params.tagIds) { try { setSelectedTagIds(JSON.parse(params.tagIds)); } catch {} }
     if (params.images) { try { setImages(JSON.parse(params.images)); } catch {} }
+    // Store tags in ref BEFORE changing domainId (domainId effect would clear them)
+    if (params.tagIds) { try { editTagsRef.current = JSON.parse(params.tagIds); } catch {} }
+    if (params.domainId) setDomainId(params.domainId);
     if (params.eventDate) {
       setScheduleType('once');
       setEventDateTime(new Date(params.eventDate));
