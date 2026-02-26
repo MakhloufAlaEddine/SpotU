@@ -593,7 +593,12 @@ export default function TagPointDetail() {
                         </View>
                       )}
                     </View>
-                    <Text style={[st.dateValue, isPast && { color: Colors.muted }]}>{formatEventDate(point.event_date)}</Text>
+                    <Text style={[st.dateValue, isPast && { color: Colors.muted }]}>
+                      {formatEventDate(point.event_date)}
+                      {point.event_end_date && (
+                        ` → ${new Date(point.event_end_date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+                      )}
+                    </Text>
                     <Text style={st.dateSub}>{formatEventDateFull(point.event_date)}</Text>
                   </View>
                 </View>
