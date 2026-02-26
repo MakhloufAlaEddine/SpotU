@@ -258,28 +258,118 @@ async def seed_initial_data():
                 )
             logger.info("Seeded demo tag points")
 
-        # Always update event dates and new_date_coming (relative to current time)
-        await conn.execute(
-            "UPDATE tag_points SET event_date = NOW() - INTERVAL '3 days', new_date_coming = TRUE WHERE point_id = 'pt_demo013'"
-        )
-        await conn.execute(
-            "UPDATE tag_points SET event_date = NOW() - INTERVAL '5 days', new_date_coming = FALSE WHERE point_id = 'pt_demo006'"
-        )
-        await conn.execute(
-            "UPDATE tag_points SET event_date = NOW() + INTERVAL '2 days' WHERE point_id = 'pt_demo001'"
-        )
-        await conn.execute(
-            "UPDATE tag_points SET event_date = NOW() + INTERVAL '5 days' WHERE point_id = 'pt_demo002'"
-        )
-        await conn.execute(
-            "UPDATE tag_points SET event_schedule = '{\"type\":\"weekly\",\"day\":1,\"time\":\"07:00\"}'::jsonb WHERE point_id = 'pt_demo003'"
-        )
-        await conn.execute(
-            "UPDATE tag_points SET event_schedule = '{\"type\":\"weekly\",\"day\":3,\"time\":\"19:00\"}'::jsonb WHERE point_id = 'pt_demo005'"
-        )
-        await conn.execute(
-            "UPDATE tag_points SET event_date = NOW() + INTERVAL '1 day', event_schedule = '{\"type\":\"weekly\",\"day\":2,\"time\":\"18:30\"}'::jsonb WHERE point_id = 'pt_demo014'"
-        )
+        # ── Always update: dates, schedules, images (relative to NOW) ──────────
+        # Format nouveau: schedule = {type:'weekly', schedule:{dayIdx:[{start,end}]}}
+
+        # pt_demo001 – Footing Villette : dans 2 jours à 7h30 → 8h30
+        await conn.execute("""UPDATE tag_points SET
+            event_date     = DATE_TRUNC('day', NOW() + INTERVAL '2 days') + INTERVAL '7 hours 30 minutes',
+            event_end_date = DATE_TRUNC('day', NOW() + INTERVAL '2 days') + INTERVAL '8 hours 30 minutes',
+            event_schedule = NULL,
+            images = '["https://images.pexels.com/photos/5038834/pexels-photo-5038834.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"]'::jsonb
+            WHERE point_id = 'pt_demo001'""")
+
+        # pt_demo002 – Basket Oberkampf : dans 3 jours 15h → 17h
+        await conn.execute("""UPDATE tag_points SET
+            event_date     = DATE_TRUNC('day', NOW() + INTERVAL '3 days') + INTERVAL '15 hours',
+            event_end_date = DATE_TRUNC('day', NOW() + INTERVAL '3 days') + INTERVAL '17 hours',
+            event_schedule = NULL,
+            images = '["https://images.pexels.com/photos/5274806/pexels-photo-5274806.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"]'::jsonb
+            WHERE point_id = 'pt_demo002'""")
+
+        # pt_demo003 – Yoga Trocadéro : récurrent Lun+Mer+Ven 7h30→8h30
+        await conn.execute("""UPDATE tag_points SET
+            event_date = NULL, event_end_date = NULL,
+            event_schedule = '{"type":"weekly","schedule":{"0":[{"start":"07:30","end":"08:30"}],"2":[{"start":"07:30","end":"08:30"}],"4":[{"start":"07:30","end":"08:30"}]}}'::jsonb,
+            images = '["https://images.unsplash.com/photo-1758274536083-b821befda77c?crop=entropy&cs=srgb&fm=jpg&ixlib=rb-4.1.0&q=85"]'::jsonb
+            WHERE point_id = 'pt_demo003'""")
+
+        # pt_demo004 – CrossFit Vincennes : récurrent Dim 9h→10h30
+        await conn.execute("""UPDATE tag_points SET
+            event_date = NULL, event_end_date = NULL,
+            event_schedule = '{"type":"weekly","schedule":{"6":[{"start":"09:00","end":"10:30"}]}}'::jsonb,
+            images = '["https://images.unsplash.com/photo-1760331840426-027b269d0af2?crop=entropy&cs=srgb&fm=jpg&ixlib=rb-4.1.0&q=85"]'::jsonb
+            WHERE point_id = 'pt_demo004'""")
+
+        # pt_demo005 – Foot Buttes Chaumont : récurrent Mer 19h→20h30
+        await conn.execute("""UPDATE tag_points SET
+            event_date = NULL, event_end_date = NULL,
+            event_schedule = '{"type":"weekly","schedule":{"2":[{"start":"19:00","end":"20:30"}]}}'::jsonb,
+            images = '["https://images.unsplash.com/photo-1759210720456-c9814f721479?crop=entropy&cs=srgb&fm=jpg&ixlib=rb-4.1.0&q=85"]'::jsonb
+            WHERE point_id = 'pt_demo005'""")
+
+        # pt_demo006 – Vélo Canal : dans 4 jours 9h → 12h
+        await conn.execute("""UPDATE tag_points SET
+            event_date     = DATE_TRUNC('day', NOW() + INTERVAL '4 days') + INTERVAL '9 hours',
+            event_end_date = DATE_TRUNC('day', NOW() + INTERVAL '4 days') + INTERVAL '12 hours',
+            event_schedule = NULL,
+            images = '["https://images.pexels.com/photos/19835454/pexels-photo-19835454.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"]'::jsonb
+            WHERE point_id = 'pt_demo006'""")
+
+        # pt_demo007 – Boxe Belleville : récurrent Mar+Jeu 19h30→21h
+        await conn.execute("""UPDATE tag_points SET
+            event_date = NULL, event_end_date = NULL,
+            event_schedule = '{"type":"weekly","schedule":{"1":[{"start":"19:30","end":"21:00"}],"3":[{"start":"19:30","end":"21:00"}]}}'::jsonb,
+            images = '["https://images.pexels.com/photos/6295997/pexels-photo-6295997.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"]'::jsonb
+            WHERE point_id = 'pt_demo007'""")
+
+        # pt_demo008 – Tennis Montmartre : dans 5 jours 10h → 12h
+        await conn.execute("""UPDATE tag_points SET
+            event_date     = DATE_TRUNC('day', NOW() + INTERVAL '5 days') + INTERVAL '10 hours',
+            event_end_date = DATE_TRUNC('day', NOW() + INTERVAL '5 days') + INTERVAL '12 hours',
+            event_schedule = NULL,
+            images = '["https://images.unsplash.com/photo-1766675122854-28fc70f50132?crop=entropy&cs=srgb&fm=jpg&ixlib=rb-4.1.0&q=85"]'::jsonb
+            WHERE point_id = 'pt_demo008'""")
+
+        # pt_demo009 – Running Boulogne : récurrent Mar+Jeu 6h45→8h
+        await conn.execute("""UPDATE tag_points SET
+            event_date = NULL, event_end_date = NULL,
+            event_schedule = '{"type":"weekly","schedule":{"1":[{"start":"06:45","end":"08:00"}],"3":[{"start":"06:45","end":"08:00"}]}}'::jsonb,
+            images = '["https://images.unsplash.com/photo-1750089440020-58fcbd0f0d89?crop=entropy&cs=srgb&fm=jpg&ixlib=rb-4.1.0&q=85"]'::jsonb
+            WHERE point_id = 'pt_demo009'""")
+
+        # pt_demo010 – Yoga Monceau : récurrent Lun+Mer 8h→9h
+        await conn.execute("""UPDATE tag_points SET
+            event_date = NULL, event_end_date = NULL,
+            event_schedule = '{"type":"weekly","schedule":{"0":[{"start":"08:00","end":"09:00"}],"2":[{"start":"08:00","end":"09:00"}]}}'::jsonb,
+            images = '["https://images.pexels.com/photos/8539083/pexels-photo-8539083.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"]'::jsonb
+            WHERE point_id = 'pt_demo010'""")
+
+        # pt_demo011 – Coach fitness Bercy : sans date (permanent)
+        await conn.execute("""UPDATE tag_points SET
+            event_date = NULL, event_end_date = NULL, event_schedule = NULL,
+            images = '["https://images.pexels.com/photos/1552242/pexels-photo-1552242.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"]'::jsonb
+            WHERE point_id = 'pt_demo011'""")
+
+        # pt_demo012 – Prépa physique Charléty : récurrent Lun+Ven 18h→19h30
+        await conn.execute("""UPDATE tag_points SET
+            event_date = NULL, event_end_date = NULL,
+            event_schedule = '{"type":"weekly","schedule":{"0":[{"start":"18:00","end":"19:30"}],"4":[{"start":"18:00","end":"19:30"}]}}'::jsonb,
+            images = '["https://images.unsplash.com/photo-1760331840426-027b269d0af2?crop=entropy&cs=srgb&fm=jpg&ixlib=rb-4.1.0&q=85"]'::jsonb
+            WHERE point_id = 'pt_demo012'""")
+
+        # pt_demo013 – Streetball République : récurrent Lun-Ven 18h→21h
+        await conn.execute("""UPDATE tag_points SET
+            event_date = NULL, event_end_date = NULL,
+            event_schedule = '{"type":"weekly","schedule":{"0":[{"start":"18:00","end":"21:00"}],"1":[{"start":"18:00","end":"21:00"}],"2":[{"start":"18:00","end":"21:00"}],"3":[{"start":"18:00","end":"21:00"}],"4":[{"start":"18:00","end":"21:00"}]}}'::jsonb,
+            images = '["https://images.pexels.com/photos/1905009/pexels-photo-1905009.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"]'::jsonb
+            WHERE point_id = 'pt_demo013'""")
+
+        # pt_demo014 – HIIT Sceaux : récurrent Lun+Mer+Ven 7h→7h45
+        await conn.execute("""UPDATE tag_points SET
+            event_date = NULL, event_end_date = NULL,
+            event_schedule = '{"type":"weekly","schedule":{"0":[{"start":"07:00","end":"07:45"}],"2":[{"start":"07:00","end":"07:45"}],"4":[{"start":"07:00","end":"07:45"}]}}'::jsonb,
+            images = '["https://images.pexels.com/photos/13993895/pexels-photo-13993895.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"]'::jsonb
+            WHERE point_id = 'pt_demo014'""")
+
+        # pt_demo015 – Coaching mental Neuilly : dans 4 jours 14h → 15h30
+        await conn.execute("""UPDATE tag_points SET
+            event_date     = DATE_TRUNC('day', NOW() + INTERVAL '4 days') + INTERVAL '14 hours',
+            event_end_date = DATE_TRUNC('day', NOW() + INTERVAL '4 days') + INTERVAL '15 hours 30 minutes',
+            event_schedule = NULL,
+            images = '["https://images.unsplash.com/photo-1602520628350-fbf9db1f02ae?crop=entropy&cs=srgb&fm=jpg&ixlib=rb-4.1.0&q=85"]'::jsonb
+            WHERE point_id = 'pt_demo015'""")
+
         logger.info("Updated event dates and schedules")
 
         # Services
