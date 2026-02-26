@@ -201,10 +201,12 @@ export default function MenuScreen() {
     if (user) loadData();
   }, [user]);
 
-  // Reload list when screen comes back into focus (e.g. after deletion)
-  useFocusEffect(useCallback(() => {
-    if (user) loadData();
-  }, [user]));
+  // Reload when screen comes back into focus (e.g. after deletion)
+  const navigation = useNavigation();
+  useEffect(() => {
+    const unsub = navigation.addListener('focus', () => { if (user) loadData(); });
+    return unsub;
+  }, [navigation, user]);
 
   const loadData = async () => {
     try {
