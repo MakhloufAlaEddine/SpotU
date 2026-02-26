@@ -1142,8 +1142,8 @@ function StepDate({ scheduleType, setScheduleType, eventDateTime, onOpenDatePick
 }
 
 // ─── Step 5: Preview ────────────────────────────────────────────────────────────
-function StepPreview({ title, description, images, selectedTags, locationAddress, precision, scheduleType, eventDateTime, recurringSchedule, quality, lang, onOpenFullPreview }: any) {
-  const scheduleLabel = buildScheduleLabel(scheduleType, eventDateTime, recurringSchedule);
+function StepPreview({ title, description, images, selectedTags, locationAddress, precision, scheduleType, eventDateTime, eventEndDateTime, recurringSchedule, quality, lang, onOpenFullPreview }: any) {
+  const scheduleLabel = buildScheduleLabel(scheduleType, eventDateTime, eventEndDateTime, recurringSchedule);
   const items = [
     { icon: 'camera-outline', label: 'Photos', value: images.length > 0 ? `${images.length} photo${images.length > 1 ? 's' : ''}` : null, tip: 'Aucune photo', done: images.length > 0 },
     { icon: 'text-outline', label: 'Titre', value: title || null, tip: 'Manquant', done: !!title },
