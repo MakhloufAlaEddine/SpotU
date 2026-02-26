@@ -284,8 +284,60 @@ export default function TagPointDetail() {
       setIsParticipant(data.is_participant || false);
       setParticipantsCount(data.participants_count || 0);
       setIsSaved(data.is_saved || false);
+      setIsPublic(data.is_public !== false);
     } catch (e: any) { Alert.alert('Erreur', e.message); }
     finally { setLoading(false); }
+  };
+
+  const handleToggleVisibility = async () => {
+    setOwnerActionLoading(true);
+    try {
+      const res = await api.patch(`/tag-points/${id}/visibility`, {});
+      setIsPublic(res.is_public);
+    } catch (e: any) { Alert.alert('Erreur', e.message); }
+    finally { setOwnerActionLoading(false); }
+  };
+
+  const handleDelete = () => {
+    Alert.alert(
+      'Supprimer ce tagPoint ?',
+      'Cette action est irréversible. Le tagPoint sera définitivement supprimé.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer', style: 'destructive',
+          onPress: async () => {
+            setOwnerActionLoading(true);
+            try {
+              await api.del(`/tag-points/${id}`);
+              setTimeout(() => router.replace('/(tabs)/map' as any), 100);
+            } catch (e: any) { Alert.alert('Erreur', e.message); }
+            finally { setOwnerActionLoading(false); }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleEdit = () => {
+    if (!point) return;
+    router.push({
+      pathname: '/(tabs)/create' as any,
+      params: {
+        editMode: 'true',
+        pointId: id,
+        title: point.title || '',
+        description: point.description || '',
+        domainId: point.domain_id || '',
+        precision: point.precision || 'exact',
+        tagIds: JSON.stringify(point.tags?.map((t: any) => t.tag_id) || []),
+        images: JSON.stringify(point.images || []),
+        eventDate: point.event_date || '',
+        eventSchedule: point.event_schedule ? JSON.stringify(point.event_schedule) : '',
+        lat: String(point.latitude ?? ''),
+        lng: String(point.longitude ?? ''),
+      },
+    });
   };
 
   const loadMyVote = async () => {
