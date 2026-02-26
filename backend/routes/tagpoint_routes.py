@@ -604,6 +604,27 @@ async def toggle_new_date_coming(point_id: str, request: Request):
     return {"new_date_coming": new_val}
 
 
+@router.patch("/tag-points/{point_id}/visibility")
+async def toggle_visibility(point_id: str, request: Request):
+    """Owner can toggle public/private visibility."""
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    async with pool.acquire() as conn:
+        existing = await conn.fetchrow(
+            "SELECT user_id, is_public FROM tag_points WHERE point_id = $1 AND active = TRUE", point_id
+        )
+        if not existing:
+            raise HTTPException(status_code=404, detail="TagPoint not found")
+        if existing["user_id"] != user["user_id"] and user["role"] != "admin":
+            raise HTTPException(status_code=403, detail="Not authorized")
+        new_val = not (existing["is_public"] if existing["is_public"] is not None else True)
+        await conn.execute(
+            "UPDATE tag_points SET is_public = $1, updated_at = NOW() WHERE point_id = $2",
+            new_val, point_id
+        )
+    return {"is_public": new_val}
+
+
 @router.delete("/tag-points/{point_id}")
 async def delete_tag_point(point_id: str, request: Request):
     pool = get_pool()
