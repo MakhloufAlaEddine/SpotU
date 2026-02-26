@@ -659,15 +659,19 @@ export default function TagPointDetail() {
               )}
               {showRecurring && (() => {
                 const rec = formatRecurring(point.event_schedule);
+                const next = getNextOccurrence(point.event_schedule);
+                const nextLabel = next
+                  ? `${formatDayLabel(next.date)} · ${next.startTime}${next.endTime ? ` → ${next.endTime}` : ''}`
+                  : rec.summary;
                 return (
                   <View>
                     <View style={st.dateRow}>
                       <View style={st.dateIconBox}>
-                        <Ionicons name="repeat-outline" size={20} color={Colors.primary} />
+                        <Ionicons name="calendar" size={20} color={Colors.primary} />
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text style={st.dateLabel}>Récurrent</Text>
-                        <Text style={st.dateValue}>{rec.summary}</Text>
+                        <Text style={st.dateLabel}>Prochain événement</Text>
+                        <Text style={st.dateValue}>{nextLabel}</Text>
                       </View>
                     </View>
                     {/* Per-day schedule table */}
