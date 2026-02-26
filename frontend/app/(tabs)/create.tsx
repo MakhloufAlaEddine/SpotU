@@ -1236,8 +1236,8 @@ const FAKE_VOTES_COUNT = 12;
 const FAKE_DIST = [8, 3, 1, 0, 0]; // [5★, 4★, 3★, 2★, 1★]
 
 // ─── Full Preview Modal (rendered at root level) ─────────────────────────────
-function FullPreviewModal({ visible, onClose, title, description, images, selectedTags, locationAddress, precision, scheduleType, eventDateTime, recurringSchedule, user, lang, selectedLat, selectedLng }: any) {
-  const scheduleLabel = buildScheduleLabel(scheduleType, eventDateTime, recurringSchedule);
+function FullPreviewModal({ visible, onClose, title, description, images, selectedTags, locationAddress, precision, scheduleType, eventDateTime, eventEndDateTime, recurringSchedule, user, lang, selectedLat, selectedLng }: any) {
+  const scheduleLabel = buildScheduleLabel(scheduleType, eventDateTime, eventEndDateTime, recurringSchedule);
   const days = Object.keys(recurringSchedule || {}).map(Number).sort((a, b) => a - b);
   const precisionRadius = precision === 'exact' ? 0 : precision === '100m' ? 100 : 1000;
   const precisionLabel = precision === 'exact' ? 'Exact' : precision === '100m' ? '~100m' : '~1km';
