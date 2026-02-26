@@ -100,6 +100,8 @@ class TagPointCreate(BaseModel):
     tag_ids: List[str] = []
     domain_id: str
     expires_hours: Optional[int] = None
+    event_date: Optional[datetime] = None
+    event_schedule: Optional[dict] = None  # { type: "weekly", day: 0-6, time: "HH:MM" }
 
 
 class TagPointUpdate(BaseModel):
@@ -108,6 +110,8 @@ class TagPointUpdate(BaseModel):
     precision: Optional[Precision] = None
     tag_ids: Optional[List[str]] = None
     active: Optional[bool] = None
+    event_date: Optional[datetime] = None
+    event_schedule: Optional[dict] = None
 
 
 # --- SERVICE ---
