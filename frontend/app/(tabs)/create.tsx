@@ -369,7 +369,9 @@ export default function CreateTagPointScreen() {
                 zoom={precisionRadius >= 1000 ? 14 : precisionRadius >= 100 ? 16 : 17}
                 selectable={false}
                 showUserMarker={false}
-                pins={[{ id: 'pin', lat: selectedLat, lng: selectedLng, title: locationAddress, color: Colors.primary }]}
+                selectedLat={selectedLat}
+                selectedLng={selectedLng}
+                pins={precisionRadius === 0 ? [{ id: 'pin', lat: selectedLat, lng: selectedLng, title: locationAddress, color: Colors.primary }] : []}
                 precisionRadius={precisionRadius}
               />
             </View>
