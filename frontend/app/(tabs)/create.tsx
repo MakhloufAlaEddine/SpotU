@@ -190,7 +190,9 @@ export default function CreateTagPointScreen() {
     // Prefer event_schedule (recurring) over event_date (once) — mutual exclusivity
     if (params.eventSchedule) {
       try {
-        const sched = JSON.parse(params.eventSchedule);
+        let sched = JSON.parse(params.eventSchedule);
+        // Handle legacy double-encoded string
+        if (typeof sched === 'string') sched = JSON.parse(sched);
         if (sched?.schedule) {
           setScheduleType('recurring');
           const rec: Record<number, Date[]> = {};
