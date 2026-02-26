@@ -22,7 +22,11 @@ export default function MyTagPointsScreen() {
     finally { setLoading(false); setRefreshing(false); }
   };
 
-  useFocusEffect(useCallback(() => { loadPoints(); }, []));
+  const navigation = useNavigation();
+  useEffect(() => {
+    const unsub = navigation.addListener('focus', () => loadPoints());
+    return unsub;
+  }, [navigation]);
 
   const onRefresh = useCallback(() => { setRefreshing(true); loadPoints(); }, []);
 
