@@ -477,6 +477,7 @@ export default function CreateTagPointScreen() {
         precision={precision} scheduleType={scheduleType}
         eventDateTime={eventDateTime} recurringSchedule={recurringSchedule}
         user={user} lang={lang}
+        selectedLat={selectedLat} selectedLng={selectedLng}
       />
 
       {/* ── Tag Modal ───────────────────────── */}
