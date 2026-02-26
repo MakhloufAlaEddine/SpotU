@@ -102,6 +102,7 @@ class TagPointCreate(BaseModel):
     expires_hours: Optional[int] = None
     event_date: Optional[datetime] = None
     event_schedule: Optional[dict] = None  # { type: "weekly", day: 0-6, time: "HH:MM" }
+    images: Optional[List[str]] = []
 
 
 class TagPointUpdate(BaseModel):
