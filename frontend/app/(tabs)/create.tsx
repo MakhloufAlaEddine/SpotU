@@ -95,6 +95,12 @@ export default function CreateTagPointScreen() {
   const router = useRouter();
   const { user, token } = useAuth();
   const { lang } = useLang();
+  const params = useLocalSearchParams<{
+    editMode?: string; pointId?: string; title?: string; description?: string;
+    domainId?: string; precision?: string; tagIds?: string; images?: string;
+    eventDate?: string; eventSchedule?: string; lat?: string; lng?: string;
+  }>();
+  const isEditMode = params.editMode === 'true';
 
   // Step state
   const [step, setStep] = useState(0); // 0-3 = steps, 4 = preview
