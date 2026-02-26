@@ -113,7 +113,9 @@ class TestCreateTagPoint:
         assert resp.status_code == 200
         data = resp.json()
         assert "point_id" in data
-        assert data.get("images") == [] or data.get("images") is None, f"images should be [] or None, got {data.get('images')}"
+        # images returned as string '[]' (JSONB double-encoded) or empty list or None
+        images_val = data.get("images")
+        assert images_val in [[], None, "[]", '[]'], f"images should be empty array/string, got {images_val!r}"
         # Cleanup
         cleanup_id = data["point_id"]
         api.delete(f"{BASE_URL}/api/tag-points/{cleanup_id}", headers=auth_headers)
