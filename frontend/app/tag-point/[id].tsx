@@ -306,13 +306,12 @@ export default function TagPointDetail() {
         { text: 'Annuler', style: 'cancel' },
         {
           text: 'Supprimer', style: 'destructive',
-          onPress: async () => {
+          onPress: () => {
             setOwnerActionLoading(true);
-            try {
-              await api.del(`/tag-points/${id}`);
-              setTimeout(() => router.replace('/(tabs)/map' as any), 100);
-            } catch (e: any) { Alert.alert('Erreur', e.message); }
-            finally { setOwnerActionLoading(false); }
+            api.del(`/tag-points/${id}`)
+              .then(() => setTimeout(() => router.replace('/(tabs)/map' as any), 100))
+              .catch((e: any) => Alert.alert('Erreur', e.message))
+              .finally(() => setOwnerActionLoading(false));
           },
         },
       ]
