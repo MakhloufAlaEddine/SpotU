@@ -1320,6 +1320,10 @@ const st = StyleSheet.create({
   nextBtnText: { fontSize: 16, fontWeight: '700', color: Colors.background },
   publishBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.primary, borderRadius: Radius.full, paddingVertical: 15 },
   publishBtnText: { fontSize: 16, fontWeight: '800', color: Colors.background },
+  uploadProgressContainer: { width: '100%', paddingHorizontal: 4, gap: 8 },
+  uploadProgressHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  uploadProgressTrack: { height: 4, backgroundColor: 'rgba(255,255,255,0.3)', borderRadius: 2, overflow: 'hidden', width: '100%' },
+  uploadProgressFill: { height: 4, backgroundColor: Colors.background, borderRadius: 2 },
 });
 
 // Shared sub-component styles
