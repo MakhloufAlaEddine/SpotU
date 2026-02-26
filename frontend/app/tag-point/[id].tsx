@@ -13,6 +13,7 @@ import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useLocation } from '../../context/LocationContext';
 import { useLang } from '../../context/LanguageContext';
+import { useRefresh } from '../../context/RefreshContext';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { haversineDistance, formatDistance } from '../../utils/distance';
 
