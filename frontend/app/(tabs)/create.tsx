@@ -296,8 +296,8 @@ export default function CreateTagPointScreen() {
       Alert.alert('Titre requis', 'Ajoutez un titre pour continuer.');
       return;
     }
-    // Step 2 = date step: validate before proceeding
-    if (step === 2) {
+    // Step 3 = bouton "Aperçu": valider les dates avant la preview
+    if (step === 3) {
       if (scheduleType === 'once' && !eventDateTime) {
         Alert.alert('Date requise', 'Vous avez choisi "Date unique", sélectionnez une date et heure.');
         return;
