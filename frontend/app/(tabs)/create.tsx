@@ -105,6 +105,8 @@ export default function CreateTagPointScreen() {
   const isEditMode = params.editMode === 'true';
   // Prevents domainId-effect from clearing tags on the initial edit pre-fill
   const editTagsRef = useRef<string[] | null>(null);
+  // Race-condition guard: ensures stale loadCategories responses are discarded
+  const loadCategoriesVersionRef = useRef(0);
 
   // Step state
   const [step, setStep] = useState(0); // 0-3 = steps, 4 = preview
