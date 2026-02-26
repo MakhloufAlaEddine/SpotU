@@ -5,8 +5,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/core';
 import { Ionicons } from '@expo/vector-icons';
+import { useRefresh } from '../../context/RefreshContext';
 import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/LanguageContext';
 import { api } from '../../lib/api';
