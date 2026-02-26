@@ -1000,7 +1000,8 @@ function StepPreview({ title, description, images, selectedTags, locationAddress
             {!images.length ? "Ajoutez des photos pour booster l'attractivité." :
              !description ? 'Une description complète fidélise les participants.' :
              !selectedTags.length ? 'Des tags améliorent la découverte de votre tagPoint.' :
-             'Configurez une date pour apparaître en tête des résultats.'}
+             scheduleType === 'none' ? 'Une date aide les participants à planifier leur venue.' :
+             'Complétez le titre pour un meilleur impact.'}
           </Text>
         </View>
       )}
