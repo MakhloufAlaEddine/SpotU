@@ -537,12 +537,12 @@ async def create_tag_point(data: TagPointCreate, request: Request):
     async with pool.acquire() as conn:
         await conn.execute(
             """INSERT INTO tag_points
-               (point_id, user_id, title, description, location, precision, tag_ids, domain_id, active, expires_at, event_date, event_schedule)
-               VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($5, $6), 4326), $7, $8, $9, TRUE, $10, $11, $12)""",
+               (point_id, user_id, title, description, location, precision, tag_ids, domain_id, active, expires_at, event_date, event_schedule, images)
+               VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($5, $6), 4326), $7, $8, $9, TRUE, $10, $11, $12, $13)""",
             pid, user["user_id"], data.title, data.description,
             stored_lng, stored_lat,
             data.precision, json.dumps(data.tag_ids), data.domain_id, expires_at,
-            data.event_date, event_schedule_json
+            data.event_date, event_schedule_json, json.dumps(data.images or [])
         )
         row = await conn.fetchrow(f"SELECT {TP_FIELDS} FROM tag_points tp LEFT JOIN users u ON tp.user_id = u.user_id WHERE tp.point_id = $1", pid)
     return build_point_response(row_to_dict(row))
