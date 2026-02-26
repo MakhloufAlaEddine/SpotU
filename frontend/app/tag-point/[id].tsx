@@ -612,6 +612,8 @@ export default function TagPointDetail() {
                   </View>
                 );
               })()}
+              {/* Banner: bientôt une nouvelle date */}
+              {point.new_date_coming && (
                 <View style={st.newDateBanner}>
                   <Ionicons name="time-outline" size={15} color={Colors.primary} />
                   <Text style={st.newDateBannerText}>Bientôt une nouvelle date</Text>
