@@ -267,6 +267,8 @@ export default function TagPointDetail() {
   const [isSaved, setIsSaved] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
   const [rsvpLoading, setRsvpLoading] = useState(false);
+  const [isPublic, setIsPublic] = useState(true);
+  const [ownerActionLoading, setOwnerActionLoading] = useState(false);
 
   useEffect(() => {
     if (id) { loadPoint(); loadVotes(); if (user) loadMyVote(); }
