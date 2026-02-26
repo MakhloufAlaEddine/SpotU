@@ -83,7 +83,13 @@ export default function UserProfileScreen() {
           <Ionicons name="chevron-back" size={24} color={Colors.foreground} />
         </TouchableOpacity>
         <Text style={st.headerTitle}>Profil</Text>
-        <View style={{ width: 40 }} />
+        {me && me.user_id === id
+          ? <TouchableOpacity style={st.editBtn} onPress={() => router.push('/edit-profile' as any)} testID="edit-profile-btn">
+              <Ionicons name="pencil-outline" size={16} color={Colors.primary} />
+              <Text style={st.editBtnText}>Modifier</Text>
+            </TouchableOpacity>
+          : <View style={{ width: 40 }} />
+        }
       </View>
 
       <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false}>
