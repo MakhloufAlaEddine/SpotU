@@ -583,7 +583,10 @@ export default function TagPointDetail() {
         {point.description && (
           <View style={st.section}>
             <Text style={st.sectionTitle}>Description</Text>
-            <Text style={st.descText} numberOfLines={showFullDesc ? undefined : 3}>{point.description}</Text>
+            <MarkdownText
+              text={showFullDesc ? point.description : point.description.slice(0, 150) + (point.description.length > 150 ? '…' : '')}
+              style={st.descText}
+            />
             {point.description.length > 150 && (
               <TouchableOpacity onPress={() => setShowFullDesc(!showFullDesc)}>
                 <Text style={st.showMore}>{showFullDesc ? 'Réduire' : 'Voir plus'}</Text>
