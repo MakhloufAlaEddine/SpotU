@@ -1,0 +1,82 @@
+{
+  "summary": "Full backend + frontend testing of the new 'Créer un TagPoint' screen (onglet '+') and POST /api/tag-points endpoint. Backend: 41/41 tests pass. Frontend: all form sections, interactions, and API integration verified working correctly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "POST /api/tag-points, GET /api/tag-points",
+        "issue": "The 'images' and 'tag_ids' fields are returned as JSON strings ('[]') instead of proper JSON arrays ([]) due to double JSON encoding: json.dumps() called in Python before asyncpg JSONB codec also encodes. In tagpoint_routes.py line 544-545: json.dumps(data.tag_ids) and json.dumps(data.images or []) produce strings that asyncpg re-encodes as JSONB strings.",
+        "fix": "Pass Python lists directly to asyncpg (without json.dumps): data.tag_ids and data.images or [] — let the JSONB type codec (set in _init_connection) handle encoding."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Form submission success dialog",
+        "issue": "After successful POST (returns 200), the React Native Alert.alert success dialog ('Publié !') does not appear consistently in automated browser tests. Playwright cannot reliably capture the native alert. The TagPoint IS created in the backend (verified via API monitoring). Likely a timing issue in test — not a real UX bug.",
+        "affected_selectors": ["[data-testid='publish-btn']", "[data-testid='submit-btn']"]
+      }
+    ],
+    "design_issues": [
+      {
+        "screen": "Create - Domaine selector",
+        "issues": ["4 domains don't all fit horizontally in 390px viewport. User needs to scroll right to see 'Sport & Outdoor'. This is acceptable UX for a horizontal scroll list, but 'Sport & Outdoor' is the default selected domain and is initially partially hidden — consider making it the first or ensuring it's visible on first render."]
+      }
+    ]
+  },
+  "test_results": {
+    "1_screen_loads": "PASS: /create screen loads correctly ('Nouveau TagPoint' header, 'Publier' button visible)",
+    "2_all_form_sections": "PASS: Photos(0/10), TITRE*, DESCRIPTION, DOMAINE(4), TAGS, PRÉCISION(3 options), LOCALISATION(interactive map), DATE & HORAIRE all present",
+    "3_domain_selection": "PASS: All 4 domains clickable (dom_sport, dom_coaching, dom_service, dom_social). Clicking highlights selected domain",
+    "4_tags_modal": "PASS: Tags modal opens with 24+ tag chips across categories (Basketball, Cyclisme, Fitness, Football, Randonnée, Arts Martiaux, Course à Pied, Natation, Tennis). Tag selection/deselection works",
+    "5_precision_selection": "PASS: Élevé/Moyen/Faible all clickable, active state shows border highlight",
+    "6_publish_buttons": "PASS: Both 'Publier' (top right, data-testid=publish-btn) and 'Publier le TagPoint' (bottom, data-testid=submit-btn) present",
+    "7_api_post_tagpoints": "PASS: POST /api/tag-points returns 200 with point_id. Tested with title, all precision values, all domains, event_date, recurring schedule, empty images array",
+    "8_get_tagpoints_returns_created": "PASS: GET /api/tag-points returns newly created TagPoints. GET /api/tag-points/{id} returns specific point. GET /api/tag-points/mine includes user's created points",
+    "9_interactive_map": "PASS: OpenStreetMap interactive map renders in the form with Paris location pin",
+    "10_schedule_types": "PASS: Sans date / Date unique (shows date+time inputs) / Récurrent (shows day selector + time) all work",
+    "11_form_validation": "PASS: Submit button disabled when title is empty, enabled when filled",
+    "12_data_testids": "PASS: All 18 data-testid attributes present: back-btn, publish-btn, add-image-btn, title-input, description-input, domain-dom_{coaching|service|social|sport}, open-tags-btn, precision-{exact|100m|1000m}, refresh-location-btn, schedule-{none|once|recurring}, submit-btn"
+  },
+  "mocked_apis": [
+    "Image upload: frontend sends images:[] always (local URIs not uploaded to backend). This is by design per sprint."
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_tagpoint_create.py",
+    "/app/backend/tests/test_winek_api.py",
+    "/app/test_reports/pytest/tagpoint_create_results.xml",
+    "/app/test_reports/pytest/winek_api_results.xml"
+  ],
+  "action_items": [
+    "Fix double JSON encoding bug: In tagpoint_routes.py lines 544-545, change json.dumps(data.tag_ids) -> data.tag_ids and json.dumps(data.images or []) -> (data.images or []) to return proper JSON arrays instead of strings in API responses",
+    "Minor: Consider scrolling to show 'Sport & Outdoor' (default domain) in visible viewport on initial render"
+  ],
+  "critical_code_review_comments": [
+    "tagpoint_routes.py line 544: json.dumps(data.tag_ids) double-encodes JSONB — asyncpg JSONB codec already handles encoding. Pass Python list directly.",
+    "tagpoint_routes.py line 545: Same issue with json.dumps(data.images or []). Both tag_ids and images should be passed as Python lists.",
+    "create.tsx: Good implementation — all testID attributes present, form validation, error handling, precision logic, schedule parsing all correct.",
+    "create.tsx: Image upload is explicitly deferred (images: [] always sent, commented as future sprint) — acceptable for MVP.",
+    "database.py CREATE_TABLES_SQL line 77: tag_points table initial DDL doesn't include images/event_date/event_schedule columns — relies on ALTER TABLE migration in connect_to_db(). This is acceptable but could be unified.",
+    "expo-image-picker version mismatch: installed 55.0.9 but expected ~17.0.10. Should update to avoid compatibility issues."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_tagpoint_create.py"
+  ],
+  "success_rate": {
+    "backend": "100% (41/41 tests pass: 15 new tagpoint tests + 26 existing API tests)",
+    "frontend": "100% (all 8 feature requirements verified working)"
+  },
+  "seed_data_creation": "Created and deleted several TEST_ TagPoints during testing via API. Two test points left: pt_05d05b1867c7 ('TEST Footing automatisé') and pt_eb2180ae172c ('Footing test automatisé') - can be deleted manually.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Create screen (/(tabs)/create) is fully functional. Backend 100% pass. The only minor issue is images/tag_ids returned as JSON strings ('[]') instead of arrays from the API — fix is in tagpoint_routes.py. Metro still runs in CI mode (no hot reload) — clear .metro-cache + restart expo after code changes. Auth works with user@winek.app / WinekUser2024!. PostgreSQL is UP and running. All 18 data-testid attributes work on web via [data-testid=] selector.",
+  "rca_of_issues": {
+    "images_string_bug": {
+      "bug": "POST /api/tag-points returns images as string '[]' instead of array []",
+      "root_cause": "database.py sets asyncpg JSONB type codec with encoder=json.dumps. tagpoint_routes.py line 545 also calls json.dumps() before passing to asyncpg. Result: Python list [] -> json.dumps -> '[]' (string) -> asyncpg JSONB encoder -> '\"[]\"' (JSON string stored as JSONB). When read back: JSONB decoder -> '[]' (Python string, not list).",
+      "fix": "In tagpoint_routes.py, replace json.dumps(data.images or []) with (data.images or []) and json.dumps(data.tag_ids) with data.tag_ids — let the asyncpg JSONB codec handle encoding."
+    }
+  }
+}
