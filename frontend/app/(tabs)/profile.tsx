@@ -73,7 +73,7 @@ export default function MenuScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
       >
         {/* ── HERO PROFILE CARD ─────────────────────────────── */}
-        <TouchableOpacity style={st.hero} onPress={() => router.push(`/user/${user.user_id}` as any)} activeOpacity={0.9} testID="profile-hero">
+        <TouchableOpacity style={st.hero} onPress={() => router.push('/edit-profile' as any)} activeOpacity={0.9} testID="profile-hero">
           {/* Accent bar top */}
           <View style={st.heroAccentBar} />
 
