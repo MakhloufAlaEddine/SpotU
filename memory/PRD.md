@@ -39,7 +39,13 @@ Build **WINEK** — une plateforme mobile hyperlocale de connexion par tags, foc
 - Persistance de localisation session-only (non stockée entre lancements)
 - Fix SSL PostgreSQL (`ssl=False` dans database.py)
 
-### Phase 5 - Nouveau Create TagPoint Screen (Session 8)
+### Phase 5 - Formulaire Create TagPoint v2 (Session 9)
+- ✅ **Tags modal** : Fix layout (hauteur fixe 80% + ScrollView avec flex:1) + filtre catégories vides + couleur par catégorie + compteur tags sélectionnés
+- ✅ **Location modal** : Refonte `LocationPicker.tsx` - Nominatim search, GPS, reverse geocoding, carte interactive. Click sur "Localisation" dans le create form ouvre le modal
+- ✅ **Date/Time pickers** : Nouveau composant `DateTimePicker.tsx` - calendrier mensuel (navigation mois/an, grille jours, today dot) + roue heure/min avec presets + mode datetime/date/time
+- ✅ **"Bientôt une nouvelle date"** : Visible sur pt_demo013 (event passé + `new_date_coming=true` dans seed) + banner teal + toggle créateur
+- ✅ **seed.py** : Updates toujours exécutés (hors `if count == 0`) pour event_date, event_schedule, new_date_coming
+- ✅ **expo-image-picker** : Fix dépréciation `MediaTypeOptions` → `'images'`
 - ✅ **Frontend create.tsx**: Refonte complète de l'écran de création avec :
   - Section photos (expo-image-picker, jusqu'à 10 images, avec badge "Principale")
   - Titre requis (80 chars) + Description (500 chars, multiline)
