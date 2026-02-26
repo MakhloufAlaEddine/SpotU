@@ -202,10 +202,11 @@ export default function MenuScreen() {
     if (user) loadData();
   }, [user]);
 
-  // Reload when tab comes into focus (after deletion or update)
-  useFocusEffect(useCallback(() => {
-    if (user) loadData();
-  }, [user]));
+  // Reload when profileKey changes (triggered by delete/update in [id].tsx)
+  const { profileKey } = useRefresh();
+  useEffect(() => {
+    if (user && profileKey > 0) loadData();
+  }, [profileKey]);
 
   const loadData = async () => {
     try {
