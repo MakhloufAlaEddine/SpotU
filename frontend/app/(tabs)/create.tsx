@@ -316,7 +316,7 @@ export default function CreateTagPointScreen() {
           onPress: () => {
             setTitle(''); setDescription(''); setPrecision('exact');
             setSelectedTagIds([]); setImages([]); setStep(0);
-            setScheduleType('none'); setEventDateTime(null);
+            setScheduleType('none'); setEventDateTime(null); setEventEndDateTime(null);
             setRecurringSchedule({});
           },
         },
