@@ -269,16 +269,20 @@ export default function CreateTagPointScreen() {
 
     setSubmitting(true);
     try {
-      // 1. Upload images sequentially to track progress
+      // 1. Upload ONLY new local images (skip existing HTTP URLs)
       const uploadedUrls: string[] = [];
-      if (images.length > 0 && token) {
-        setUploadProgress({ current: 0, total: images.length });
+      const newImages = images.filter(uri => !uri.startsWith('http'));
+      const existingUrls = images.filter(uri => uri.startsWith('http'));
+      existingUrls.forEach(url => uploadedUrls.push(url));
+
+      if (newImages.length > 0 && token) {
+        setUploadProgress({ current: 0, total: newImages.length });
         Animated.timing(uploadBarAnim, { toValue: 0, duration: 0, useNativeDriver: false }).start();
-        for (let i = 0; i < images.length; i++) {
-          const url = await uploadImage(images[i], token);
+        for (let i = 0; i < newImages.length; i++) {
+          const url = await uploadImage(newImages[i], token);
           if (url) uploadedUrls.push(url);
-          const progress = (i + 1) / images.length;
-          setUploadProgress({ current: i + 1, total: images.length });
+          const progress = (i + 1) / newImages.length;
+          setUploadProgress({ current: i + 1, total: newImages.length });
           Animated.timing(uploadBarAnim, { toValue: progress, duration: 250, useNativeDriver: false }).start();
         }
         setUploadProgress(null);
