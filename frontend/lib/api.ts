@@ -36,3 +36,4 @@ export const api = {
   put: <T = any>(path: string, data?: unknown) => request<T>('PUT', path, data),
   delete: <T = any>(path: string) => request<T>('DELETE', path),
 };
+
