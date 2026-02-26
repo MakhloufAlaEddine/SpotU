@@ -41,7 +41,12 @@ export default function CreateTagPointScreen() {
   const [selectedLng, setSelectedLng] = useState<number>(2.3522);
   const [locationAddress, setLocationAddress] = useState('Chargement...');
 
-  // Get current precision radius
+  // Schedule state
+  const [scheduleType, setScheduleType] = useState<'none' | 'once' | 'recurring'>('none');
+  const [eventDate, setEventDate] = useState(''); // DD/MM/YYYY
+  const [eventTime, setEventTime] = useState(''); // HH:MM
+  const [recurringDay, setRecurringDay] = useState<number | null>(null); // 0=Lun..6=Dim
+  const [recurringTime, setRecurringTime] = useState(''); // HH:MM
   const currentPrecision = PRECISION_OPTIONS.find(p => p.value === precision);
   const precisionRadius = currentPrecision?.radius || 0;
 
