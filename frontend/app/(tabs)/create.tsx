@@ -147,6 +147,38 @@ export default function CreateTagPointScreen() {
   useEffect(() => { loadGPS(); loadDomains(); }, []);
   useEffect(() => { loadCategories(); setSelectedTagIds([]); }, [domainId]);
 
+  // Pre-fill form in edit mode
+  useEffect(() => {
+    if (!isEditMode) return;
+    if (params.title) setTitle(params.title);
+    if (params.description) setDescription(params.description);
+    if (params.domainId) setDomainId(params.domainId);
+    if (params.precision) setPrecision(params.precision as any);
+    if (params.lat) setSelectedLat(parseFloat(params.lat));
+    if (params.lng) setSelectedLng(parseFloat(params.lng));
+    if (params.tagIds) { try { setSelectedTagIds(JSON.parse(params.tagIds)); } catch {} }
+    if (params.images) { try { setImages(JSON.parse(params.images)); } catch {} }
+    if (params.eventDate) {
+      setScheduleType('once');
+      setEventDateTime(new Date(params.eventDate));
+    } else if (params.eventSchedule) {
+      try {
+        const sched = JSON.parse(params.eventSchedule);
+        if (sched?.schedule) {
+          setScheduleType('recurring');
+          const rec: Record<number, Date[]> = {};
+          Object.entries(sched.schedule).forEach(([day, times]: [string, any]) => {
+            rec[parseInt(day)] = (times as string[]).map(t => {
+              const [h, m] = t.split(':').map(Number);
+              const d = new Date(); d.setHours(h, m, 0, 0); return d;
+            });
+          });
+          setRecurringSchedule(rec);
+        }
+      } catch {}
+    }
+  }, [isEditMode]);
+
   useEffect(() => {
     Animated.spring(progressAnim, {
       toValue: Math.min(step, 3) / 3,
