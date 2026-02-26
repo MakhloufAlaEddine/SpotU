@@ -15,6 +15,7 @@ import { RichTextInput, MarkdownText } from '../../components/RichTextInput';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/LanguageContext';
+import { useRefresh } from '../../context/RefreshContext';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 
 const { width: SW, height: SH } = Dimensions.get('window');
