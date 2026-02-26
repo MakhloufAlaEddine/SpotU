@@ -296,6 +296,24 @@ export default function CreateTagPointScreen() {
       Alert.alert('Titre requis', 'Ajoutez un titre pour continuer.');
       return;
     }
+    // Step 2 = date step: validate before proceeding
+    if (step === 2) {
+      if (scheduleType === 'once' && !eventDateTime) {
+        Alert.alert('Date requise', 'Vous avez choisi "Date unique", sélectionnez une date et heure.');
+        return;
+      }
+      if (scheduleType === 'recurring') {
+        const days = Object.keys(recurringSchedule).map(Number);
+        if (days.length === 0) {
+          Alert.alert('Horaires requis', 'Vous avez choisi "Récurrent", sélectionnez au moins un jour.');
+          return;
+        }
+        if (days.some(d => recurringSchedule[d].length === 0)) {
+          Alert.alert('Horaires incomplets', 'Chaque jour doit avoir au moins un créneau horaire.');
+          return;
+        }
+      }
+    }
     if (step < 4) setStep(s => s + 1);
   };
   const goPrev = () => { if (step > 0) setStep(s => s - 1); };
