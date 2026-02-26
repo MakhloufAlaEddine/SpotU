@@ -25,7 +25,7 @@ async def upload_image(file: UploadFile = File(...)):
     filepath = UPLOADS_DIR / filename
     filepath.write_bytes(content)
 
-    backend_url = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "")
+    backend_url = os.environ.get("APP_URL", os.environ.get("EXPO_PUBLIC_BACKEND_URL", ""))
     url = f"{backend_url}/api/uploads/{filename}"
     logger.info(f"Image uploaded: {filename} ({len(content)} bytes)")
     return {"url": url, "filename": filename}
