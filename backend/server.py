@@ -35,7 +35,14 @@ api_router.include_router(booking_router, tags=["bookings"])
 api_router.include_router(payment_router, tags=["payments"])
 api_router.include_router(admin_router, prefix="/admin", tags=["admin"])
 
+api_router.include_router(upload_router)
+
 app.include_router(api_router)
+
+# Serve uploaded images at /api/uploads/*
+_uploads_dir = ROOT_DIR / "uploads"
+_uploads_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/api/uploads", StaticFiles(directory=str(_uploads_dir)), name="uploads")
 
 app.add_middleware(
     CORSMiddleware,
