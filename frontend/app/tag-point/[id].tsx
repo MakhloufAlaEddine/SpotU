@@ -29,8 +29,34 @@ function timeAgo(d: string) {
 }
 
 const DAYS_FULL = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+const DAYS_SHORT = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
-function formatEventDate(d: string): string {
+function formatRecurring(s: any): { summary: string; perDay: Array<{ day: string; times: string[] }> | null } {
+  if (!s) return { summary: '', perDay: null };
+  // New format: { type:'weekly', schedule:{'0':['09:00'],'2':['18:00']} }
+  if (s.schedule && typeof s.schedule === 'object') {
+    const entries = Object.entries(s.schedule as Record<string, string[]>)
+      .map(([d, times]) => ({ dayIdx: parseInt(d), times }))
+      .sort((a, b) => a.dayIdx - b.dayIdx);
+    if (entries.length === 0) return { summary: 'Récurrent', perDay: null };
+    const summary = entries.map(e => `${DAYS_SHORT[e.dayIdx]}: ${e.times.join(', ')}`).join(' · ');
+    const perDay = entries.map(e => ({ day: DAYS_FULL[e.dayIdx], times: e.times }));
+    return { summary, perDay };
+  }
+  // Intermediate format: { type:'weekly', days:[0,2], times:['09:00'] }
+  if (s.days && s.times) {
+    const perDay = (s.days as number[]).map(d => ({ day: DAYS_FULL[d], times: s.times as string[] }));
+    const summary = (s.days as number[]).map(d => DAYS_SHORT[d]).join(', ') + ` · ${(s.times as string[]).join(', ')}`;
+    return { summary, perDay };
+  }
+  // Legacy format: { type:'weekly', day:0, time:'09:00' }
+  if (s.day !== undefined && s.time) {
+    return { summary: `Chaque ${DAYS_FULL[s.day]} à ${s.time}`, perDay: [{ day: DAYS_FULL[s.day], times: [s.time] }] };
+  }
+  return { summary: 'Récurrent', perDay: null };
+}
+
+(d: string): string {
   const date = new Date(d);
   const now = new Date();
   const diff = Math.floor((date.getTime() - now.getTime()) / 86400000);
