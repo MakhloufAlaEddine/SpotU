@@ -658,6 +658,18 @@ export default function CreateTagPointScreen() {
         onClose={() => { setEditingDayIdx(null); setEditingTimeIdx(null); }}
         onConfirm={d => {
           if (editingDayIdx !== null && editingTimeIdx !== null) {
+            // Validation AVANT setRecurringSchedule (le return à l'intérieur du callback setState retourne undefined → crash)
+            if (editingTimeType === 'end') {
+              const currentSlots = recurringSchedule[editingDayIdx] || [];
+              const startTime = currentSlots[editingTimeIdx]?.start;
+              const startMins = startTime ? startTime.getHours() * 60 + startTime.getMinutes() : -1;
+              const endMins = d.getHours() * 60 + d.getMinutes();
+              if (endMins <= startMins) {
+                Alert.alert("Heure invalide", "L'heure de fin doit être après l'heure de début.");
+                setEditingDayIdx(null); setEditingTimeIdx(null);
+                return;
+              }
+            }
             setRecurringSchedule(p => {
               const next = { ...p };
               const slots = [...(next[editingDayIdx] || [])];
@@ -665,7 +677,7 @@ export default function CreateTagPointScreen() {
                 if (editingTimeIdx >= slots.length) {
                   slots.push({ start: d, end: null });
                 } else {
-                  // If end already set and new start >= end, clear end time
+                  // Si la nouvelle heure de début >= heure de fin existante → effacer la fin
                   const existingEnd = slots[editingTimeIdx]?.end;
                   if (existingEnd) {
                     const newStartMins = d.getHours() * 60 + d.getMinutes();
@@ -680,14 +692,6 @@ export default function CreateTagPointScreen() {
                   }
                 }
               } else {
-                const startTime = slots[editingTimeIdx]?.start;
-                const startMins = startTime ? startTime.getHours() * 60 + startTime.getMinutes() : -1;
-                const endMins = d.getHours() * 60 + d.getMinutes();
-                if (endMins <= startMins) {
-                  Alert.alert("Heure invalide", "L'heure de fin doit être après l'heure de début.");
-                  setEditingDayIdx(null); setEditingTimeIdx(null);
-                  return;
-                }
                 slots[editingTimeIdx] = { ...slots[editingTimeIdx], end: d };
               }
               next[editingDayIdx] = slots;
