@@ -101,6 +101,8 @@ export default function CreateTagPointScreen() {
     eventDate?: string; eventSchedule?: string; lat?: string; lng?: string;
   }>();
   const isEditMode = params.editMode === 'true';
+  // Prevents domainId-effect from clearing tags on the initial edit pre-fill
+  const editTagsRef = useRef<string[] | null>(null);
 
   // Step state
   const [step, setStep] = useState(0); // 0-3 = steps, 4 = preview
