@@ -404,11 +404,33 @@ export default function TagPointDetail() {
           )}
         </View>
 
-        {/* 3. Horaires */}
-        {point.schedule && (
-          <View style={st.scheduleBox}>
-            <Ionicons name="calendar-outline" size={18} color={Colors.primary} />
-            <Text style={st.scheduleText}>{point.schedule}</Text>
+        {/* 3. Date & Horaire */}
+        {(point.event_date || point.event_schedule) && (
+          <View style={st.dateCard}>
+            {point.event_date && (
+              <View style={st.dateRow}>
+                <View style={st.dateIconBox}>
+                  <Ionicons name="calendar" size={20} color={Colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={st.dateLabel}>Prochain événement</Text>
+                  <Text style={st.dateValue}>{formatEventDate(point.event_date)}</Text>
+                  <Text style={st.dateSub}>{formatEventDateFull(point.event_date)}</Text>
+                </View>
+              </View>
+            )}
+            {point.event_date && point.event_schedule && <View style={st.dateSep} />}
+            {point.event_schedule && (
+              <View style={st.dateRow}>
+                <View style={[st.dateIconBox, { backgroundColor: Colors.primaryLight + '22', borderColor: Colors.primaryLight }]}>
+                  <Ionicons name="repeat-outline" size={20} color={Colors.primaryLight} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[st.dateLabel, { color: Colors.primaryLight }]}>Récurrent</Text>
+                  <Text style={[st.dateValue, { color: Colors.primaryLight }]}>{formatRecurring(point.event_schedule)}</Text>
+                </View>
+              </View>
+            )}
           </View>
         )}
 
