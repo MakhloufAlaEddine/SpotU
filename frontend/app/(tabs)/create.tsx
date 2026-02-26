@@ -261,15 +261,10 @@ export default function CreateTagPointScreen() {
           {/* ── 3. Description ──────────────────────────── */}
           <View style={st.section}>
             <Text style={st.label}>Description</Text>
-            <TextInput
-              style={[st.input, st.inputMulti]}
-              placeholder="Décrivez l'activité, le niveau requis…"
-              placeholderTextColor={Colors.muted}
+            <RichTextInput
               value={description}
               onChangeText={setDescription}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
+              placeholder="Décrivez l'activité, le niveau requis…"
               maxLength={500}
               testID="description-input"
             />
