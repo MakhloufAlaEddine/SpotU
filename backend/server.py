@@ -1,5 +1,6 @@
 from fastapi import FastAPI, APIRouter
 from starlette.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 from pathlib import Path
 import os
@@ -17,6 +18,7 @@ from routes.service_routes import router as service_router
 from routes.booking_routes import router as booking_router
 from routes.payment_routes import router as payment_router
 from routes.admin_routes import router as admin_router
+from routes.upload_routes import router as upload_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
