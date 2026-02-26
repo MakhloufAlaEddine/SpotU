@@ -394,7 +394,7 @@ export default function CreateTagPointScreen() {
           <Ionicons name={step === 0 ? 'close' : 'chevron-back'} size={24} color={Colors.foreground} />
         </TouchableOpacity>
         <View style={st.headerCenter}>
-          <Text style={st.headerTitle}>{step < 4 ? STEPS[step].title : 'Aperçu'}</Text>
+          <Text style={st.headerTitle}>{isEditMode ? 'Modifier le TagPoint' : (step < 4 ? STEPS[step].title : 'Aperçu')}</Text>
           {step < 4 && <Text style={st.headerSub}>Étape {step + 1} / 4</Text>}
         </View>
         <TouchableOpacity onPress={resetForm} style={st.headerSideBtn} testID="reset-btn">
