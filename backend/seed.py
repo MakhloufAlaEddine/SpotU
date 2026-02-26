@@ -258,29 +258,29 @@ async def seed_initial_data():
                 )
             logger.info("Seeded demo tag points")
 
-            # Set event dates and schedules for demo points
-            await conn.execute(
-                "UPDATE tag_points SET event_date = NOW() - INTERVAL '3 days', new_date_coming = TRUE WHERE point_id = 'pt_demo013'"
-            )
-            await conn.execute(
-                "UPDATE tag_points SET event_date = NOW() - INTERVAL '5 days', new_date_coming = FALSE WHERE point_id = 'pt_demo006'"
-            )
-            await conn.execute(
-                "UPDATE tag_points SET event_date = NOW() + INTERVAL '2 days' WHERE point_id = 'pt_demo001'"
-            )
-            await conn.execute(
-                "UPDATE tag_points SET event_date = NOW() + INTERVAL '5 days' WHERE point_id = 'pt_demo002'"
-            )
-            await conn.execute(
-                "UPDATE tag_points SET event_schedule = '{\"type\":\"weekly\",\"day\":1,\"time\":\"07:00\"}'::jsonb WHERE point_id = 'pt_demo003'"
-            )
-            await conn.execute(
-                "UPDATE tag_points SET event_schedule = '{\"type\":\"weekly\",\"day\":3,\"time\":\"19:00\"}'::jsonb WHERE point_id = 'pt_demo005'"
-            )
-            await conn.execute(
-                "UPDATE tag_points SET event_date = NOW() + INTERVAL '1 day', event_schedule = '{\"type\":\"weekly\",\"day\":2,\"time\":\"18:30\"}'::jsonb WHERE point_id = 'pt_demo014'"
-            )
-            logger.info("Seeded event dates and schedules")
+        # Always update event dates and new_date_coming (relative to current time)
+        await conn.execute(
+            "UPDATE tag_points SET event_date = NOW() - INTERVAL '3 days', new_date_coming = TRUE WHERE point_id = 'pt_demo013'"
+        )
+        await conn.execute(
+            "UPDATE tag_points SET event_date = NOW() - INTERVAL '5 days', new_date_coming = FALSE WHERE point_id = 'pt_demo006'"
+        )
+        await conn.execute(
+            "UPDATE tag_points SET event_date = NOW() + INTERVAL '2 days' WHERE point_id = 'pt_demo001'"
+        )
+        await conn.execute(
+            "UPDATE tag_points SET event_date = NOW() + INTERVAL '5 days' WHERE point_id = 'pt_demo002'"
+        )
+        await conn.execute(
+            "UPDATE tag_points SET event_schedule = '{\"type\":\"weekly\",\"day\":1,\"time\":\"07:00\"}'::jsonb WHERE point_id = 'pt_demo003'"
+        )
+        await conn.execute(
+            "UPDATE tag_points SET event_schedule = '{\"type\":\"weekly\",\"day\":3,\"time\":\"19:00\"}'::jsonb WHERE point_id = 'pt_demo005'"
+        )
+        await conn.execute(
+            "UPDATE tag_points SET event_date = NOW() + INTERVAL '1 day', event_schedule = '{\"type\":\"weekly\",\"day\":2,\"time\":\"18:30\"}'::jsonb WHERE point_id = 'pt_demo014'"
+        )
+        logger.info("Updated event dates and schedules")
 
         # Services
         count = await conn.fetchval("SELECT COUNT(*) FROM services")
