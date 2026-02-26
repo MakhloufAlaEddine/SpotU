@@ -446,17 +446,47 @@ export default function CreateTagPointScreen() {
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
-            style={[st.publishBtn, submitting && { opacity: 0.5 }]}
+            style={[st.publishBtn, submitting && { opacity: 0.85 }]}
             onPress={handleSubmit}
             disabled={submitting}
             testID="submit-btn"
           >
-            {submitting
-              ? <ActivityIndicator color={Colors.background} />
-              : <>
-                  <Ionicons name="checkmark-circle" size={20} color={Colors.background} />
-                  <Text style={st.publishBtnText}>Publier le TagPoint</Text>
-                </>}
+            {submitting ? (
+              uploadProgress ? (
+                <View style={st.uploadProgressContainer}>
+                  <View style={st.uploadProgressHeader}>
+                    <ActivityIndicator color={Colors.background} size="small" />
+                    <Text style={st.publishBtnText}>
+                      Envoi des photos… {uploadProgress.current}/{uploadProgress.total}
+                    </Text>
+                  </View>
+                  <View style={st.uploadProgressTrack}>
+                    <Animated.View
+                      style={[
+                        st.uploadProgressFill,
+                        {
+                          width: uploadBarAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: ['0%', '100%'],
+                          }),
+                        },
+                      ]}
+                    />
+                  </View>
+                </View>
+              ) : (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <ActivityIndicator color={Colors.background} size="small" />
+                  <Text style={st.publishBtnText}>Publication…</Text>
+                </View>
+              )
+            ) : (
+              <>
+                <Ionicons name="checkmark-circle" size={20} color={Colors.background} />
+                <Text style={st.publishBtnText}>Publier le TagPoint</Text>
+              </>
+            )}
+          </TouchableOpacity>
           </TouchableOpacity>
         )}
       </View>
