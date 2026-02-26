@@ -604,6 +604,7 @@ export default function TagPointDetail() {
             <Text style={st.actionLabel}>Partager</Text>
           </TouchableOpacity>
 
+          {!isOwner && (
           <TouchableOpacity style={st.actionBtn} onPress={toggleSave} disabled={saveLoading} activeOpacity={0.7} testID="save-btn">
             <View style={[st.actionIcon, isSaved && st.actionIconSaved]}>
               {saveLoading
@@ -614,6 +615,7 @@ export default function TagPointDetail() {
               {isSaved ? 'Enregistré' : 'Sauvegarder'}
             </Text>
           </TouchableOpacity>
+          )}
         </View>
 
         {/* 6. Map */}
