@@ -367,14 +367,17 @@ export default function CreateTagPointScreen() {
       const newPointId = isEditMode ? params.pointId! : result.point_id;
       const successMsg = isEditMode ? 'TagPoint mis à jour !' : 'Votre tagPoint est visible !';
 
-      // 3. Trigger profile refresh so "My TagPoints" list updates
       triggerProfileRefresh();
 
-      // 4. Show alert — use setTimeout to defer navigation until alert is fully dismissed
-      Alert.alert(isEditMode ? 'Modifié !' : 'Publié !', successMsg, [
-        { text: 'Voir', onPress: () => setTimeout(() => router.replace(`/tag-point/${newPointId}` as any), 100) },
-        { text: 'Accueil', onPress: () => setTimeout(() => router.replace('/(tabs)/map' as any), 100) },
-      ]);
+      if (isEditMode) {
+        // In edit mode: go straight back to the tagPoint detail page, no dialog
+        setTimeout(() => router.replace(`/tag-point/${newPointId}` as any), 100);
+      } else {
+        Alert.alert('Publié !', successMsg, [
+          { text: 'Voir', onPress: () => setTimeout(() => router.replace(`/tag-point/${newPointId}` as any), 100) },
+          { text: 'Accueil', onPress: () => setTimeout(() => router.replace('/(tabs)/map' as any), 100) },
+        ]);
+      }
     } catch (err: any) {
       Alert.alert('Erreur', err.message || 'Impossible de créer le tagPoint');
     } finally {
