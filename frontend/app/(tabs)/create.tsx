@@ -113,16 +113,33 @@ export default function CreateTagPointScreen() {
 
     setSubmitting(true);
     try {
-      const payload = {
-        title: title.trim(),
-        description: price ? `Prix: ${price}€` : '',
-        latitude: selectedLat,
-        longitude: selectedLng,
-        precision,
-        domain_id: 'dom_sport',
-        tag_ids: [],
-        open_to_communication: openToCommunication,
-      };
+    const DAYS_SHORT = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+
+    // Build event_date ISO string from DD/MM/YYYY + HH:MM
+    let parsedEventDate: string | null = null;
+    if (scheduleType === 'once' && eventDate && eventTime) {
+      const [d, m, y] = eventDate.split('/');
+      const iso = `${y}-${m}-${d}T${eventTime}:00`;
+      if (!isNaN(new Date(iso).getTime())) parsedEventDate = new Date(iso).toISOString();
+    }
+
+    let parsedSchedule: any = null;
+    if (scheduleType === 'recurring' && recurringDay !== null && recurringTime) {
+      parsedSchedule = { type: 'weekly', day: recurringDay, time: recurringTime };
+    }
+
+    const payload = {
+      title: title.trim(),
+      description: price ? `Prix: ${price}€` : '',
+      latitude: selectedLat,
+      longitude: selectedLng,
+      precision,
+      domain_id: 'dom_sport',
+      tag_ids: [],
+      open_to_communication: openToCommunication,
+      ...(parsedEventDate && { event_date: parsedEventDate }),
+      ...(parsedSchedule && { event_schedule: parsedSchedule }),
+    };
 
       await api.post('/tag-points', payload);
       Alert.alert('Succès', 'Tag point créé !', [
