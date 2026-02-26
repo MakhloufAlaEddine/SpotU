@@ -439,7 +439,7 @@ export default function TagPointDetail() {
               <Ionicons name="location-outline" size={15} color={Colors.primary} />
               <Text style={st.distText} testID="tagpoint-distance">{distanceStr}</Text>
             </View>
-            <TouchableOpacity style={st.ratingTap} onPress={openVoteModal} testID="open-vote-modal-btn">
+            <TouchableOpacity style={st.ratingTap} onPress={!isOwner ? openVoteModal : undefined} testID="open-vote-modal-btn" disabled={isOwner}>
               {[1,2,3,4,5].map(i => (
                 <Ionicons key={i} name={i <= Math.round(currentRating) ? 'star' : 'star-outline'}
                   size={14} color={i <= Math.round(currentRating) ? Colors.star : Colors.muted} />
