@@ -1,229 +1,370 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
+  TextInput, Image, FlatList, Modal, Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import { MapViewComponent } from '../../components/MapViewComponent';
-import { WButton } from '../../components/WButton';
-import { WInput } from '../../components/WInput';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/LanguageContext';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
-import * as Location from 'expo-location';
 
-// Precision options with radius in meters
+const { width: SW } = Dimensions.get('window');
+const IMG_SIZE = (SW - Spacing.md * 2 - 10 * 3) / 4;
+
 const PRECISION_OPTIONS = [
-  { value: 'exact', label: 'Elevé', radius: 0 },      // Exact location - no circle
-  { value: '100m', label: 'Moyen', radius: 100 },     // 100m radius circle
-  { value: '1000m', label: 'Faible', radius: 1000 },  // 1000m radius circle
+  { value: 'exact', label: 'Élevé', desc: 'Lieu exact', icon: 'locate' as const },
+  { value: '100m', label: 'Moyen', desc: '100m', icon: 'radio-button-on' as const },
+  { value: '1000m', label: 'Faible', desc: '1 km', icon: 'radio-button-off' as const },
 ];
+
+const DAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+
+const CATEGORY_COLORS: Record<string, string> = {
+  cat_running: '#00BFA5', cat_football: '#4CAF50', cat_basketball: '#FF9800',
+  cat_tennis: '#E91E63', cat_yoga: '#9C27B0', cat_cycling: '#2196F3',
+  cat_fitness: '#F44336', cat_swimming: '#00BCD4', cat_boxing: '#FF5722',
+  cat_hiking: '#8BC34A', cat_volleyball: '#FF9500', default: '#00BFA5',
+};
+const tagColor = (cat?: string) => cat ? (CATEGORY_COLORS[cat] || CATEGORY_COLORS.default) : CATEGORY_COLORS.default;
 
 export default function CreateTagPointScreen() {
   const router = useRouter();
-  const { user, token } = useAuth();
-  const { t, lang } = useLang();
+  const { user } = useAuth();
+  const { lang } = useLang();
 
   // Form state
   const [title, setTitle] = useState('');
-  const [price, setPrice] = useState('');
+  const [description, setDescription] = useState('');
   const [precision, setPrecision] = useState('exact');
-  const [openToCommunication, setOpenToCommunication] = useState(true);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [domainId, setDomainId] = useState('dom_sport');
+  const [images, setImages] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
-  // Location state - initialize with Paris coordinates
+  // Location
   const [centerLat, setCenterLat] = useState(48.8566);
   const [centerLng, setCenterLng] = useState(2.3522);
-  const [selectedLat, setSelectedLat] = useState<number>(48.8566);
-  const [selectedLng, setSelectedLng] = useState<number>(2.3522);
-  const [locationAddress, setLocationAddress] = useState('Chargement...');
+  const [selectedLat, setSelectedLat] = useState(48.8566);
+  const [selectedLng, setSelectedLng] = useState(2.3522);
+  const [locationAddress, setLocationAddress] = useState('Paris, France');
 
-  // Schedule state
+  // Schedule
   const [scheduleType, setScheduleType] = useState<'none' | 'once' | 'recurring'>('none');
-  const [eventDate, setEventDate] = useState(''); // DD/MM/YYYY
-  const [eventTime, setEventTime] = useState(''); // HH:MM
-  const [recurringDay, setRecurringDay] = useState<number | null>(null); // 0=Lun..6=Dim
-  const [recurringTime, setRecurringTime] = useState(''); // HH:MM
-  const currentPrecision = PRECISION_OPTIONS.find(p => p.value === precision);
-  const precisionRadius = currentPrecision?.radius || 0;
+  const [eventDate, setEventDate] = useState('');
+  const [eventTime, setEventTime] = useState('');
+  const [recurringDay, setRecurringDay] = useState<number | null>(null);
+  const [recurringTime, setRecurringTime] = useState('');
+
+  // Domain & Tag data
+  const [domains, setDomains] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [showTagModal, setShowTagModal] = useState(false);
+
+  const precisionRadius = PRECISION_OPTIONS.find(p => p.value === precision)?.value === 'exact'
+    ? 0 : PRECISION_OPTIONS.find(p => p.value === precision)?.value === '100m' ? 100 : 1000;
 
   useEffect(() => {
     getUserLocation();
+    loadDomains();
   }, []);
+
+  useEffect(() => {
+    loadCategories();
+    setSelectedTagIds([]);
+  }, [domainId]);
+
+  const loadDomains = async () => {
+    try { setDomains(await api.get('/domains')); } catch {}
+  };
+
+  const loadCategories = async () => {
+    try { setCategories(await api.get(`/tags/categories?domain_id=${domainId}`)); } catch {}
+  };
 
   const getUserLocation = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === 'granted') {
         const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        setCenterLat(loc.coords.latitude);
-        setCenterLng(loc.coords.longitude);
-        setSelectedLat(loc.coords.latitude);
-        setSelectedLng(loc.coords.longitude);
-        
-        // Reverse geocode to get address
-        try {
-          const addresses = await Location.reverseGeocodeAsync({
-            latitude: loc.coords.latitude,
-            longitude: loc.coords.longitude,
-          });
-          if (addresses.length > 0) {
-            const addr = addresses[0];
-            setLocationAddress(`${addr.street || ''} ${addr.streetNumber || ''}...${addr.postalCode || ''} ${addr.city || ''}`);
-          }
-        } catch {}
-      }
-    } catch {
-      // Default to Paris
-      setCenterLat(48.8566);
-      setCenterLng(2.3522);
-    }
-  };
-
-  const handleMapPress = async (lat: number, lng: number) => {
-    setSelectedLat(lat);
-    setSelectedLng(lng);
-    
-    // Reverse geocode
-    try {
-      const addresses = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
-      if (addresses.length > 0) {
-        const addr = addresses[0];
-        setLocationAddress(`${addr.street || ''} ${addr.streetNumber || ''}...${addr.postalCode || ''} ${addr.city || ''}`);
+        const { latitude, longitude } = loc.coords;
+        setCenterLat(latitude); setCenterLng(longitude);
+        setSelectedLat(latitude); setSelectedLng(longitude);
+        reverseGeocode(latitude, longitude);
       }
     } catch {}
   };
 
-  const handleSubmit = async () => {
-    if (!title.trim()) {
-      Alert.alert('Erreur', 'Veuillez entrer un titre');
-      return;
-    }
-    if (!selectedLat || !selectedLng) {
-      Alert.alert('Erreur', 'Veuillez sélectionner un emplacement sur la carte');
-      return;
-    }
-    if (!token) {
-      Alert.alert('Erreur', 'Vous devez être connecté');
-      return;
-    }
-
-    setSubmitting(true);
+  const reverseGeocode = async (lat: number, lng: number) => {
     try {
-    const DAYS_SHORT = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+      const data = await res.json();
+      const addr = data.address;
+      const parts = [addr.road, addr.house_number, addr.postcode, addr.city || addr.town].filter(Boolean);
+      setLocationAddress(parts.join(' ') || data.display_name?.split(',').slice(0, 2).join(',') || 'Position sélectionnée');
+    } catch {}
+  };
 
-    // Build event_date ISO string from DD/MM/YYYY + HH:MM
+  const handleMapPress = (lat: number, lng: number) => {
+    setSelectedLat(lat); setSelectedLng(lng);
+    reverseGeocode(lat, lng);
+  };
+
+  const pickImages = async () => {
+    if (images.length >= 10) { Alert.alert('Maximum', '10 images maximum'); return; }
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') { Alert.alert('Permission', 'Accès à la galerie requis'); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      quality: 0.8,
+      selectionLimit: 10 - images.length,
+    });
+    if (!result.canceled) {
+      setImages(prev => [...prev, ...result.assets.map(a => a.uri)].slice(0, 10));
+    }
+  };
+
+  const removeImage = (idx: number) => setImages(prev => prev.filter((_, i) => i !== idx));
+
+  const toggleTag = (tagId: string) => {
+    setSelectedTagIds(prev =>
+      prev.includes(tagId) ? prev.filter(id => id !== tagId) : [...prev, tagId]
+    );
+  };
+
+  const allTags = categories.flatMap(c => c.tags || []);
+  const selectedTags = allTags.filter(t => selectedTagIds.includes(t.tag_id));
+
+  const handleSubmit = async () => {
+    if (!title.trim()) { Alert.alert('Titre requis', 'Veuillez entrer un titre pour ce tagPoint.'); return; }
+    if (!user) { Alert.alert('Erreur', 'Vous devez être connecté.'); return; }
+
     let parsedEventDate: string | null = null;
     if (scheduleType === 'once' && eventDate && eventTime) {
       const [d, m, y] = eventDate.split('/');
       const iso = `${y}-${m}-${d}T${eventTime}:00`;
       if (!isNaN(new Date(iso).getTime())) parsedEventDate = new Date(iso).toISOString();
+      else { Alert.alert('Date invalide', 'Format: JJ/MM/AAAA et HH:MM'); return; }
     }
 
     let parsedSchedule: any = null;
-    if (scheduleType === 'recurring' && recurringDay !== null && recurringTime) {
+    if (scheduleType === 'recurring') {
+      if (recurringDay === null) { Alert.alert('Jour requis', 'Sélectionnez un jour de récurrence.'); return; }
+      if (!recurringTime) { Alert.alert('Heure requise', 'Entrez l\'heure de récurrence.'); return; }
       parsedSchedule = { type: 'weekly', day: recurringDay, time: recurringTime };
     }
 
-    const payload = {
-      title: title.trim(),
-      description: price ? `Prix: ${price}€` : '',
-      latitude: selectedLat,
-      longitude: selectedLng,
-      precision,
-      domain_id: 'dom_sport',
-      tag_ids: [],
-      open_to_communication: openToCommunication,
-      ...(parsedEventDate && { event_date: parsedEventDate }),
-      ...(parsedSchedule && { event_schedule: parsedSchedule }),
-    };
+    setSubmitting(true);
+    try {
+      const payload: any = {
+        title: title.trim(),
+        description: description.trim() || null,
+        latitude: selectedLat,
+        longitude: selectedLng,
+        precision,
+        domain_id: domainId,
+        tag_ids: selectedTagIds,
+        images: [], // Note: local URIs not uploadable yet — future sprint
+      };
+      if (parsedEventDate) payload.event_date = parsedEventDate;
+      if (parsedSchedule) payload.event_schedule = parsedSchedule;
 
-      await api.post('/tag-points', payload);
-      Alert.alert('Succès', 'Tag point créé !', [
-        { text: 'OK', onPress: () => router.replace('/(tabs)/map') }
+      const result = await api.post('/tag-points', payload);
+      Alert.alert('Publié !', 'Votre tagPoint est maintenant visible.', [
+        { text: 'Voir', onPress: () => router.replace(`/tag-point/${result.point_id}` as any) },
+        { text: 'Accueil', onPress: () => router.replace('/(tabs)/map' as any) },
       ]);
     } catch (err: any) {
-      Alert.alert('Erreur', err.message || 'Impossible de créer le tag point');
+      Alert.alert('Erreur', err.message || 'Impossible de créer le tagPoint');
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={st.safe} edges={['top']}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+      <View style={st.header}>
+        <TouchableOpacity onPress={() => router.back()} style={st.headerBtn} testID="back-btn">
           <Ionicons name="chevron-back" size={24} color={Colors.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Créer un point tag</Text>
-        <TouchableOpacity style={styles.headerAction}>
-          <Text style={styles.headerActionText}>Choisir</Text>
+        <Text style={st.headerTitle}>Nouveau TagPoint</Text>
+        <TouchableOpacity
+          style={[st.publishBtn, submitting && { opacity: 0.5 }]}
+          onPress={handleSubmit}
+          disabled={submitting}
+          testID="publish-btn"
+        >
+          {submitting
+            ? <ActivityIndicator size="small" color={Colors.background} />
+            : <Text style={st.publishBtnText}>Publier</Text>}
         </TouchableOpacity>
       </View>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.kav}
-      >
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView
-          contentContainerStyle={styles.scroll}
+          style={st.scroll}
+          contentContainerStyle={st.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Search label */}
-          <Text style={styles.searchLabel}>Rechercher</Text>
 
-          {/* Image Upload Area */}
-          <TouchableOpacity style={styles.imageUploadArea} activeOpacity={0.7}>
-            <View style={styles.uploadContent}>
-              <Ionicons name="cloud-upload-outline" size={24} color={Colors.muted} />
-              <Text style={styles.uploadText}>Télécharger une image 1/10</Text>
+          {/* ── 1. Images ─────────────────────────────────────── */}
+          <View style={st.section}>
+            <View style={st.sectionHeader}>
+              <Text style={st.sectionTitle}>Photos</Text>
+              <Text style={st.sectionHint}>{images.length}/10</Text>
             </View>
-          </TouchableOpacity>
-
-          {/* Precision selector */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Précision d'emplacement</Text>
-            <View style={styles.precisionRow}>
-              {PRECISION_OPTIONS.map((p, index) => (
-                <TouchableOpacity
-                  key={p.value}
-                  style={[
-                    styles.precisionBtn,
-                    precision === p.value && styles.precisionBtnActive,
-                    index === 0 && styles.precisionBtnFirst,
-                    index === PRECISION_OPTIONS.length - 1 && styles.precisionBtnLast,
-                  ]}
-                  onPress={() => setPrecision(p.value)}
-                  testID={`precision-${p.value}`}
-                >
-                  <Text style={[
-                    styles.precisionText,
-                    precision === p.value && styles.precisionTextActive
-                  ]}>
-                    {p.label}
-                  </Text>
-                </TouchableOpacity>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={st.imgScroll}>
+              {/* Add button */}
+              <TouchableOpacity style={st.imgAdd} onPress={pickImages} testID="add-image-btn">
+                <Ionicons name="add" size={28} color={Colors.primary} />
+                <Text style={st.imgAddText}>Ajouter</Text>
+              </TouchableOpacity>
+              {/* Thumbnails */}
+              {images.map((uri, idx) => (
+                <View key={idx} style={st.imgThumb}>
+                  <Image source={{ uri }} style={st.imgThumbImg} />
+                  {idx === 0 && (
+                    <View style={st.imgMainBadge}>
+                      <Text style={st.imgMainBadgeText}>Principale</Text>
+                    </View>
+                  )}
+                  <TouchableOpacity style={st.imgRemove} onPress={() => removeImage(idx)} testID={`remove-img-${idx}`}>
+                    <Ionicons name="close-circle" size={20} color={Colors.destructive} />
+                  </TouchableOpacity>
+                </View>
               ))}
+            </ScrollView>
+          </View>
+
+          {/* ── 2. Titre ──────────────────────────────────────── */}
+          <View style={st.section}>
+            <Text style={st.label}>Titre <Text style={st.required}>*</Text></Text>
+            <TextInput
+              style={st.input}
+              placeholder="Ex : Footing matinal au bois de Vincennes"
+              placeholderTextColor={Colors.muted}
+              value={title}
+              onChangeText={setTitle}
+              maxLength={80}
+              testID="title-input"
+            />
+            <Text style={st.charCount}>{title.length}/80</Text>
+          </View>
+
+          {/* ── 3. Description ────────────────────────────────── */}
+          <View style={st.section}>
+            <Text style={st.label}>Description</Text>
+            <TextInput
+              style={[st.input, st.inputMulti]}
+              placeholder="Décrivez l'activité, le niveau requis, ce qu'il faut apporter…"
+              placeholderTextColor={Colors.muted}
+              value={description}
+              onChangeText={setDescription}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+              maxLength={500}
+              testID="description-input"
+            />
+            <Text style={st.charCount}>{description.length}/500</Text>
+          </View>
+
+          {/* ── 4. Domaine ────────────────────────────────────── */}
+          <View style={st.section}>
+            <Text style={st.label}>Domaine</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={st.domainsScroll}>
+              {domains.map(d => {
+                const isSelected = domainId === d.domain_id;
+                return (
+                  <TouchableOpacity
+                    key={d.domain_id}
+                    style={[st.domainPill, isSelected && { backgroundColor: d.color || Colors.primary, borderColor: d.color || Colors.primary }]}
+                    onPress={() => setDomainId(d.domain_id)}
+                    testID={`domain-${d.domain_id}`}
+                  >
+                    <Text style={[st.domainText, isSelected && st.domainTextActive]}>
+                      {lang === 'fr' ? d.label_fr : d.label_en}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          {/* ── 5. Tags ───────────────────────────────────────── */}
+          <View style={st.section}>
+            <View style={st.sectionHeader}>
+              <Text style={st.label}>Tags</Text>
+              {selectedTagIds.length > 0 && (
+                <Text style={st.sectionHint}>{selectedTagIds.length} sélectionné{selectedTagIds.length > 1 ? 's' : ''}</Text>
+              )}
+            </View>
+            <TouchableOpacity style={st.tagTrigger} onPress={() => setShowTagModal(true)} testID="open-tags-btn">
+              {selectedTags.length === 0 ? (
+                <>
+                  <Ionicons name="pricetags-outline" size={18} color={Colors.muted} />
+                  <Text style={st.tagTriggerText}>Choisir les tags</Text>
+                </>
+              ) : (
+                <View style={st.tagRow}>
+                  {selectedTags.slice(0, 4).map(tag => (
+                    <View key={tag.tag_id} style={[st.tagPill, { backgroundColor: tagColor(tag.category_id) + '22', borderColor: tagColor(tag.category_id) }]}>
+                      <Text style={[st.tagPillText, { color: tagColor(tag.category_id) }]}>
+                        {lang === 'fr' ? tag.label_fr : tag.label_en}
+                      </Text>
+                    </View>
+                  ))}
+                  {selectedTags.length > 4 && (
+                    <Text style={st.tagMore}>+{selectedTags.length - 4}</Text>
+                  )}
+                </View>
+              )}
+              <Ionicons name="chevron-forward" size={16} color={Colors.muted} style={{ marginLeft: 'auto' }} />
+            </TouchableOpacity>
+          </View>
+
+          {/* ── 6. Précision ──────────────────────────────────── */}
+          <View style={st.section}>
+            <Text style={st.label}>Précision de localisation</Text>
+            <View style={st.precisionRow}>
+              {PRECISION_OPTIONS.map(p => {
+                const active = precision === p.value;
+                return (
+                  <TouchableOpacity
+                    key={p.value}
+                    style={[st.precisionBtn, active && st.precisionBtnActive]}
+                    onPress={() => setPrecision(p.value)}
+                    testID={`precision-${p.value}`}
+                  >
+                    <Ionicons name={p.icon} size={18} color={active ? Colors.primary : Colors.muted} />
+                    <Text style={[st.precisionLabel, active && st.precisionLabelActive]}>{p.label}</Text>
+                    <Text style={st.precisionDesc}>{p.desc}</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
 
-          {/* Location Row */}
-          <TouchableOpacity style={styles.locationRow} activeOpacity={0.7}>
-            <Ionicons name="location" size={20} color={Colors.primary} />
-            <Text style={styles.locationText} numberOfLines={1}>
-              {locationAddress}
-            </Text>
-            <Ionicons name="pencil" size={18} color={Colors.foreground} />
-          </TouchableOpacity>
-
-          {/* Map with precision circle */}
-          <View style={styles.mapSection}>
-            <View style={styles.mapWrap}>
+          {/* ── 7. Localisation ───────────────────────────────── */}
+          <View style={st.section}>
+            <Text style={st.label}>Localisation</Text>
+            <View style={st.locationRow}>
+              <Ionicons name="location" size={18} color={Colors.primary} />
+              <Text style={st.locationText} numberOfLines={2}>{locationAddress}</Text>
+              <TouchableOpacity onPress={getUserLocation} testID="refresh-location-btn">
+                <Ionicons name="refresh" size={18} color={Colors.primary} />
+              </TouchableOpacity>
+            </View>
+            <View style={st.mapWrap}>
               <MapViewComponent
                 key={`map-${precision}`}
                 centerLat={selectedLat}
@@ -235,295 +376,266 @@ export default function CreateTagPointScreen() {
                 selectedLng={selectedLng}
                 onMapPress={handleMapPress}
                 precisionRadius={precisionRadius}
-                style={styles.map}
               />
             </View>
-            {/* Precision indicator text */}
             {precisionRadius > 0 && (
-              <Text style={styles.precisionIndicator}>
-                Zone de précision: {precisionRadius >= 1000 ? `${precisionRadius/1000}km` : `${precisionRadius}m`}
-              </Text>
+              <View style={st.precisionInfo}>
+                <Ionicons name="information-circle-outline" size={14} color={Colors.muted} />
+                <Text style={st.precisionInfoText}>
+                  Localisation approximative dans un rayon de {precisionRadius >= 1000 ? '1 km' : '100 m'}
+                </Text>
+              </View>
             )}
           </View>
 
-          {/* Title */}
-          <WInput
-            label="Titre"
-            placeholder="Entrer un titre"
-            value={title}
-            onChangeText={setTitle}
-            testID="create-title-input"
-          />
-
-          {/* Price */}
-          <WInput
-            label="price"
-            placeholder="Entrer le prix"
-            value={price}
-            onChangeText={setPrice}
-            keyboardType="numeric"
-            testID="create-price-input"
-          />
-
-          {/* Date & Horaire */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Date & Horaire</Text>
-            <View style={styles.scheduleTypeRow}>
-              {(['none', 'once', 'recurring'] as const).map((type) => (
-                <TouchableOpacity
-                  key={type}
-                  style={[styles.scheduleTypeBtn, scheduleType === type && styles.scheduleTypeBtnActive]}
-                  onPress={() => setScheduleType(type)}
-                  testID={`schedule-type-${type}`}
-                >
-                  <Text style={[styles.scheduleTypeText, scheduleType === type && styles.scheduleTypeTextActive]}>
-                    {type === 'none' ? 'Aucun' : type === 'once' ? 'Date unique' : 'Récurrent'}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+          {/* ── 8. Date & Horaire ─────────────────────────────── */}
+          <View style={st.section}>
+            <Text style={st.label}>Date & Horaire</Text>
+            <View style={st.scheduleRow}>
+              {(['none', 'once', 'recurring'] as const).map(type => {
+                const active = scheduleType === type;
+                const icon = type === 'none' ? 'remove-circle-outline' : type === 'once' ? 'calendar-outline' : 'repeat-outline';
+                const label = type === 'none' ? 'Sans date' : type === 'once' ? 'Date unique' : 'Récurrent';
+                return (
+                  <TouchableOpacity
+                    key={type}
+                    style={[st.scheduleBtn, active && st.scheduleBtnActive]}
+                    onPress={() => setScheduleType(type)}
+                    testID={`schedule-${type}`}
+                  >
+                    <Ionicons name={icon} size={20} color={active ? Colors.primary : Colors.muted} />
+                    <Text style={[st.scheduleBtnText, active && st.scheduleBtnTextActive]}>{label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
             {scheduleType === 'once' && (
-              <View style={styles.scheduleInputs}>
-                <View style={styles.scheduleInputRow}>
-                  <Ionicons name="calendar-outline" size={18} color={Colors.primary} />
-                  <WInput
-                    label=""
-                    placeholder="JJ/MM/AAAA"
-                    value={eventDate}
-                    onChangeText={setEventDate}
-                    keyboardType="numeric"
-                    style={styles.scheduleInput}
-                    testID="event-date-input"
-                  />
-                  <Ionicons name="time-outline" size={18} color={Colors.primary} />
-                  <WInput
-                    label=""
-                    placeholder="HH:MM"
-                    value={eventTime}
-                    onChangeText={setEventTime}
-                    keyboardType="numeric"
-                    style={styles.scheduleInput}
-                    testID="event-time-input"
-                  />
+              <View style={st.scheduleCard}>
+                <View style={st.scheduleInputRow}>
+                  <View style={[st.scheduleField, { flex: 1.4 }]}>
+                    <Text style={st.scheduleFieldLabel}>Date</Text>
+                    <TextInput
+                      style={st.scheduleInput}
+                      placeholder="JJ/MM/AAAA"
+                      placeholderTextColor={Colors.muted}
+                      value={eventDate}
+                      onChangeText={setEventDate}
+                      keyboardType="numeric"
+                      testID="event-date-input"
+                    />
+                  </View>
+                  <View style={[st.scheduleField, { flex: 1 }]}>
+                    <Text style={st.scheduleFieldLabel}>Heure</Text>
+                    <TextInput
+                      style={st.scheduleInput}
+                      placeholder="HH:MM"
+                      placeholderTextColor={Colors.muted}
+                      value={eventTime}
+                      onChangeText={setEventTime}
+                      keyboardType="numeric"
+                      testID="event-time-input"
+                    />
+                  </View>
                 </View>
               </View>
             )}
 
             {scheduleType === 'recurring' && (
-              <View style={styles.scheduleInputs}>
-                <View style={styles.daysRow}>
-                  {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map((day, idx) => (
+              <View style={st.scheduleCard}>
+                <Text style={st.scheduleCardLabel}>Jour de la semaine</Text>
+                <View style={st.daysRow}>
+                  {DAYS.map((day, idx) => (
                     <TouchableOpacity
                       key={day}
-                      style={[styles.dayBtn, recurringDay === idx && styles.dayBtnActive]}
+                      style={[st.dayBtn, recurringDay === idx && st.dayBtnActive]}
                       onPress={() => setRecurringDay(idx)}
-                      testID={`day-btn-${idx}`}
+                      testID={`day-${idx}`}
                     >
-                      <Text style={[styles.dayText, recurringDay === idx && styles.dayTextActive]}>{day}</Text>
+                      <Text style={[st.dayText, recurringDay === idx && st.dayTextActive]}>{day}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
-                <View style={styles.scheduleInputRow}>
-                  <Ionicons name="time-outline" size={18} color={Colors.primary} />
-                  <WInput
-                    label=""
-                    placeholder="HH:MM (ex: 18:00)"
-                    value={recurringTime}
-                    onChangeText={setRecurringTime}
-                    keyboardType="numeric"
-                    style={{ flex: 1 }}
-                    testID="recurring-time-input"
-                  />
-                </View>
+                <Text style={st.scheduleCardLabel}>Heure</Text>
+                <TextInput
+                  style={st.scheduleInput}
+                  placeholder="Ex : 18:30"
+                  placeholderTextColor={Colors.muted}
+                  value={recurringTime}
+                  onChangeText={setRecurringTime}
+                  keyboardType="numeric"
+                  testID="recurring-time-input"
+                />
               </View>
             )}
           </View>
 
-          {/* Communication Toggle */}
-          <View style={styles.toggleRow}>
-            <View style={styles.toggleLabel}>
-              <Text style={styles.toggleText}>Ouvert à la communication</Text>
-              <Ionicons name="information-circle-outline" size={16} color={Colors.muted} />
-            </View>
-            <TouchableOpacity 
-              style={[styles.toggleBtn, openToCommunication && styles.toggleBtnActive]}
-              onPress={() => setOpenToCommunication(!openToCommunication)}
-            >
-              {openToCommunication && (
-                <Ionicons name="checkmark" size={18} color={Colors.background} />
-              )}
-            </TouchableOpacity>
-          </View>
-
-          <WButton
-            label={submitting ? '' : 'Publier'}
+          {/* ── Publish button ─────────────────────────────────── */}
+          <TouchableOpacity
+            style={[st.submitBtn, (!title.trim() || submitting) && { opacity: 0.45 }]}
             onPress={handleSubmit}
-            loading={submitting}
-            style={styles.submitBtn}
-            testID="create-submit-btn"
-          />
+            disabled={!title.trim() || submitting}
+            testID="submit-btn"
+          >
+            {submitting
+              ? <ActivityIndicator color={Colors.background} />
+              : <>
+                  <Ionicons name="checkmark-circle" size={20} color={Colors.background} />
+                  <Text style={st.submitBtnText}>Publier le TagPoint</Text>
+                </>}
+          </TouchableOpacity>
+
+          <View style={{ height: 60 }} />
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* ── Tag Selector Modal ──────────────────────────────── */}
+      <Modal visible={showTagModal} animationType="slide" transparent onRequestClose={() => setShowTagModal(false)}>
+        <View style={ms.overlay}>
+          <TouchableOpacity style={ms.backdrop} activeOpacity={1} onPress={() => setShowTagModal(false)} />
+          <View style={ms.sheet}>
+            <View style={ms.modalHeader}>
+              <Text style={ms.modalTitle}>Choisir les tags</Text>
+              <View style={{ flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' }}>
+                {selectedTagIds.length > 0 && (
+                  <TouchableOpacity onPress={() => setSelectedTagIds([])}>
+                    <Text style={ms.clearText}>Effacer</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity onPress={() => setShowTagModal(false)} testID="close-tag-modal">
+                  <Ionicons name="checkmark-circle" size={28} color={Colors.primary} />
+                </TouchableOpacity>
+              </View>
+            </View>
+            <ScrollView contentContainerStyle={{ padding: Spacing.md, paddingBottom: 40 }}>
+              {categories.map(cat => (
+                <View key={cat.category_id} style={ms.catGroup}>
+                  <Text style={ms.catLabel}>{lang === 'fr' ? cat.label_fr : cat.label_en}</Text>
+                  <View style={ms.tagsWrap}>
+                    {(cat.tags || []).map((tag: any) => {
+                      const selected = selectedTagIds.includes(tag.tag_id);
+                      const color = tagColor(cat.category_id);
+                      return (
+                        <TouchableOpacity
+                          key={tag.tag_id}
+                          style={[ms.tagChip, selected && { backgroundColor: color + '22', borderColor: color }]}
+                          onPress={() => toggleTag(tag.tag_id)}
+                          testID={`tag-chip-${tag.tag_id}`}
+                        >
+                          {selected && <Ionicons name="checkmark" size={12} color={color} style={{ marginRight: 3 }} />}
+                          <Text style={[ms.tagChipText, selected && { color }]}>
+                            {lang === 'fr' ? tag.label_fr : tag.label_en}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+// ─── Styles ───────────────────────────────────────────────────────────────────
+const st = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.header },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    backgroundColor: Colors.header,
-  },
-  backBtn: { padding: 4 },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: Colors.primary,
-  },
-  headerAction: { padding: 4 },
-  headerActionText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.primary,
-  },
-  kav: { flex: 1, backgroundColor: Colors.background },
-  scroll: { padding: Spacing.md, paddingBottom: 40 },
-  searchLabel: {
-    fontSize: 14,
-    color: Colors.muted,
-    marginBottom: Spacing.sm,
-  },
-  imageUploadArea: {
-    height: 180,
-    backgroundColor: Colors.card,
-    borderRadius: Radius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.lg,
-  },
-  uploadContent: {
-    alignItems: 'center',
-    gap: 8,
-  },
-  uploadText: {
-    fontSize: 14,
-    color: Colors.muted,
-  },
-  section: { marginBottom: Spacing.md },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: Colors.foreground,
-    marginBottom: Spacing.sm,
-  },
-  precisionRow: {
-    flexDirection: 'row',
-    borderRadius: Radius.lg,
-    overflow: 'hidden',
-    backgroundColor: Colors.card,
-  },
-  precisionBtn: {
-    flex: 1,
-    paddingVertical: 14,
-    alignItems: 'center',
-    backgroundColor: Colors.card,
-    borderRightWidth: 1,
-    borderRightColor: Colors.border,
-  },
-  precisionBtnFirst: {
-    borderTopLeftRadius: Radius.lg,
-    borderBottomLeftRadius: Radius.lg,
-  },
-  precisionBtnLast: {
-    borderTopRightRadius: Radius.lg,
-    borderBottomRightRadius: Radius.lg,
-    borderRightWidth: 0,
-  },
-  precisionBtnActive: {
-    backgroundColor: Colors.header,
-  },
-  precisionText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.muted,
-  },
-  precisionTextActive: {
-    color: Colors.foreground,
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: Spacing.md,
-    paddingVertical: Spacing.xs,
-  },
-  locationText: {
-    flex: 1,
-    fontSize: 14,
-    color: Colors.foreground,
-  },
-  mapSection: { marginBottom: Spacing.md },
-  mapWrap: { 
-    height: 200, 
-    borderRadius: Radius.lg, 
-    overflow: 'hidden',
-  },
-  map: { flex: 1 },
-  precisionIndicator: {
-    fontSize: 12,
-    color: Colors.muted,
-    textAlign: 'center',
-    marginTop: Spacing.xs,
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: Spacing.md,
-    paddingVertical: Spacing.sm,
-  },
-  toggleLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  toggleText: {
-    fontSize: 15,
-    color: Colors.foreground,
-  },
-  toggleBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: Colors.muted,
-    backgroundColor: 'transparent',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  toggleBtnActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  submitBtn: { marginTop: Spacing.md },
 
-  // Schedule styles
-  scheduleTypeRow: { flexDirection: 'row', borderRadius: Radius.lg, overflow: 'hidden', backgroundColor: Colors.card, marginBottom: Spacing.md },
-  scheduleTypeBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', backgroundColor: Colors.card },
-  scheduleTypeBtnActive: { backgroundColor: Colors.header },
-  scheduleTypeText: { fontSize: 13, fontWeight: '600', color: Colors.muted },
-  scheduleTypeTextActive: { color: Colors.primary },
-  scheduleInputs: { gap: Spacing.sm },
-  scheduleInputRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  scheduleInput: { flex: 1 },
-  daysRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: Spacing.sm },
-  dayBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, backgroundColor: Colors.header },
+  headerBtn: { padding: 4, width: 36 },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: Colors.primary, flex: 1, textAlign: 'center' },
+  publishBtn: { backgroundColor: Colors.primary, paddingHorizontal: 14, paddingVertical: 7, borderRadius: Radius.full, minWidth: 72, alignItems: 'center' },
+  publishBtnText: { fontSize: 14, fontWeight: '700', color: Colors.background },
+
+  scroll: { flex: 1, backgroundColor: Colors.background },
+  scrollContent: { padding: Spacing.md },
+
+  section: { marginBottom: Spacing.lg },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.sm },
+  sectionTitle: { fontSize: 15, fontWeight: '700', color: Colors.foreground },
+  sectionHint: { fontSize: 12, color: Colors.primary, fontWeight: '600' },
+
+  label: { fontSize: 13, fontWeight: '600', color: Colors.muted, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
+  required: { color: Colors.destructive },
+  charCount: { fontSize: 11, color: Colors.muted, textAlign: 'right', marginTop: 4 },
+
+  input: { backgroundColor: Colors.card, borderRadius: Radius.md, padding: Spacing.md, fontSize: 15, color: Colors.foreground, borderWidth: 1, borderColor: Colors.border },
+  inputMulti: { minHeight: 100, textAlignVertical: 'top' },
+
+  // Images
+  imgScroll: { marginHorizontal: -Spacing.md, paddingHorizontal: Spacing.md },
+  imgAdd: { width: IMG_SIZE + 20, height: IMG_SIZE + 20, borderRadius: Radius.md, backgroundColor: Colors.card, borderWidth: 1.5, borderStyle: 'dashed', borderColor: Colors.border, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  imgAddText: { fontSize: 11, color: Colors.muted, marginTop: 2 },
+  imgThumb: { width: IMG_SIZE + 20, height: IMG_SIZE + 20, borderRadius: Radius.md, marginRight: 10, position: 'relative', overflow: 'hidden' },
+  imgThumbImg: { width: '100%', height: '100%', borderRadius: Radius.md },
+  imgMainBadge: { position: 'absolute', bottom: 4, left: 4, backgroundColor: Colors.primary, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2 },
+  imgMainBadgeText: { fontSize: 9, color: Colors.background, fontWeight: '700' },
+  imgRemove: { position: 'absolute', top: 4, right: 4, backgroundColor: Colors.background, borderRadius: 10 },
+
+  // Domains
+  domainsScroll: { marginHorizontal: -Spacing.md, paddingHorizontal: Spacing.md },
+  domainPill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: Radius.full, backgroundColor: Colors.card, borderWidth: 1.5, borderColor: Colors.border, marginRight: 8 },
+  domainText: { fontSize: 13, fontWeight: '600', color: Colors.muted },
+  domainTextActive: { color: Colors.background },
+
+  // Tags trigger
+  tagTrigger: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.card, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border, minHeight: 52 },
+  tagTriggerText: { fontSize: 15, color: Colors.muted },
+  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, flex: 1 },
+  tagPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: Radius.full, borderWidth: 1.5 },
+  tagPillText: { fontSize: 12, fontWeight: '600' },
+  tagMore: { fontSize: 12, color: Colors.primary, fontWeight: '700', alignSelf: 'center' },
+
+  // Precision
+  precisionRow: { flexDirection: 'row', gap: 8 },
+  precisionBtn: { flex: 1, alignItems: 'center', gap: 4, padding: Spacing.sm, backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.border },
+  precisionBtnActive: { borderColor: Colors.primary, backgroundColor: Colors.primary + '15' },
+  precisionLabel: { fontSize: 13, fontWeight: '700', color: Colors.muted },
+  precisionLabelActive: { color: Colors.primary },
+  precisionDesc: { fontSize: 10, color: Colors.muted },
+
+  // Location
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.card, borderRadius: Radius.md, padding: Spacing.md, marginBottom: Spacing.sm, borderWidth: 1, borderColor: Colors.border },
+  locationText: { flex: 1, fontSize: 14, color: Colors.foreground },
+  mapWrap: { height: 200, borderRadius: Radius.lg, overflow: 'hidden' },
+  precisionInfo: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: Spacing.xs },
+  precisionInfoText: { fontSize: 12, color: Colors.muted },
+
+  // Schedule
+  scheduleRow: { flexDirection: 'row', gap: 8, marginBottom: Spacing.md },
+  scheduleBtn: { flex: 1, alignItems: 'center', gap: 5, padding: Spacing.sm, backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.border },
+  scheduleBtnActive: { borderColor: Colors.primary, backgroundColor: Colors.primary + '15' },
+  scheduleBtnText: { fontSize: 11, fontWeight: '600', color: Colors.muted, textAlign: 'center' },
+  scheduleBtnTextActive: { color: Colors.primary },
+  scheduleCard: { backgroundColor: Colors.card, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border, gap: Spacing.sm },
+  scheduleCardLabel: { fontSize: 12, fontWeight: '600', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.5 },
+  scheduleInputRow: { flexDirection: 'row', gap: Spacing.md },
+  scheduleField: { gap: 6 },
+  scheduleFieldLabel: { fontSize: 12, color: Colors.muted, fontWeight: '600' },
+  scheduleInput: { backgroundColor: Colors.background, borderRadius: Radius.md, padding: Spacing.md, fontSize: 15, color: Colors.foreground, borderWidth: 1, borderColor: Colors.border },
+  daysRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 4 },
+  dayBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: Colors.border },
   dayBtnActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  dayText: { fontSize: 12, fontWeight: '600', color: Colors.muted },
+  dayText: { fontSize: 11, fontWeight: '700', color: Colors.muted },
   dayTextActive: { color: Colors.background },
+
+  submitBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.primary, borderRadius: Radius.full, paddingVertical: 16, marginTop: Spacing.sm },
+  submitBtnText: { fontSize: 16, fontWeight: '800', color: Colors.background },
+});
+
+const ms = StyleSheet.create({
+  overlay: { flex: 1, justifyContent: 'flex-end' },
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
+  sheet: { backgroundColor: Colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '85%' },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: Spacing.lg, paddingBottom: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: Colors.foreground },
+  clearText: { fontSize: 13, color: Colors.destructive, fontWeight: '600' },
+  catGroup: { marginBottom: Spacing.lg },
+  catLabel: { fontSize: 12, fontWeight: '700', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 },
+  tagsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  tagChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 7, borderRadius: Radius.full, backgroundColor: Colors.card, borderWidth: 1.5, borderColor: Colors.border },
+  tagChipText: { fontSize: 13, fontWeight: '500', color: Colors.foreground },
 });
