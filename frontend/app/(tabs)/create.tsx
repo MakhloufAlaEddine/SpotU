@@ -132,11 +132,14 @@ export default function CreateTagPointScreen() {
   // Schedule
   const [scheduleType, setScheduleType] = useState<'none' | 'once' | 'recurring'>('none');
   const [eventDateTime, setEventDateTime] = useState<Date | null>(null);
+  const [eventEndDateTime, setEventEndDateTime] = useState<Date | null>(null);
   const [showDateTimePicker, setShowDateTimePicker] = useState(false);
-  // recurringSchedule: day index → array of times (per-day schedule)
-  const [recurringSchedule, setRecurringSchedule] = useState<Record<number, Date[]>>({});
+  const [showEndDateTimePicker, setShowEndDateTimePicker] = useState(false);
+  // recurringSchedule: day index → array of {start, end} time pairs
+  const [recurringSchedule, setRecurringSchedule] = useState<Record<number, { start: Date; end: Date | null }[]>>({});
   const [editingDayIdx, setEditingDayIdx] = useState<number | null>(null);
   const [editingTimeIdx, setEditingTimeIdx] = useState<number | null>(null);
+  const [editingTimeType, setEditingTimeType] = useState<'start' | 'end'>('start');
   // Full preview modal (at root level to avoid ScrollView clipping)
   const [showFullPreview, setShowFullPreview] = useState(false);
 
