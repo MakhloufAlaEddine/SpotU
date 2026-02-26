@@ -6,7 +6,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
-import { Colors, Spacing, Radius } from '../constants/theme';
+import { Colors, Spacing, Radius } from '../constants/Colors';
 
 function formatDistance(d: number | null): string {
   if (d == null) return '---';
