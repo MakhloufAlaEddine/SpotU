@@ -166,12 +166,25 @@ export default function CreateTagPointScreen() {
     if (params.title) setTitle(params.title);
     if (params.description) setDescription(params.description);
     if (params.precision) setPrecision(params.precision as any);
-    if (params.lat) setSelectedLat(parseFloat(params.lat));
-    if (params.lng) setSelectedLng(parseFloat(params.lng));
     if (params.images) { try { setImages(JSON.parse(params.images)); } catch {} }
-    // Store tags in ref BEFORE changing domainId (domainId effect would clear them)
-    if (params.tagIds) { try { editTagsRef.current = JSON.parse(params.tagIds); } catch {} }
+    // Set tags DIRECTLY — don't rely on domainId effect (it won't fire if domainId hasn't changed)
+    if (params.tagIds) {
+      try {
+        const tags = JSON.parse(params.tagIds);
+        setSelectedTagIds(tags);
+        editTagsRef.current = null; // Clear ref so domainId effect doesn't double-set
+      } catch {}
+    }
+    // Set domainId — this triggers loadCategories() so tag labels render correctly
     if (params.domainId) setDomainId(params.domainId);
+    // Restore location (after domainId to avoid GPS override)
+    if (params.lat && params.lng) {
+      const lat = parseFloat(params.lat);
+      const lng = parseFloat(params.lng);
+      setSelectedLat(lat);
+      setSelectedLng(lng);
+      reverseGeocode(lat, lng);
+    }
     if (params.eventDate) {
       setScheduleType('once');
       setEventDateTime(new Date(params.eventDate));
