@@ -199,9 +199,10 @@ async def connect_to_db():
     global pool
     database_url = os.environ.get("DATABASE_URL")
     pool = await asyncpg.create_pool(database_url, min_size=2, max_size=10, init=_init_connection, ssl=False)
+
+    # 1. Tables + migrations
     async with pool.acquire() as conn:
         await conn.execute(CREATE_TABLES_SQL)
-        # Migrations
         await conn.execute("""
             ALTER TABLE tag_points ADD COLUMN IF NOT EXISTS image_url TEXT;
             ALTER TABLE tag_points ADD COLUMN IF NOT EXISTS images JSONB DEFAULT '[]'::jsonb;
@@ -210,19 +211,20 @@ async def connect_to_db():
             ALTER TABLE tag_points ADD COLUMN IF NOT EXISTS event_schedule JSONB DEFAULT NULL;
         """)
 
-    # Seed données de base (users, tagpoints, tags...)
+    # 2. Seed données de base (users, tagpoints, tags, domaines...)
     from seed import seed_initial_data
     await seed_initial_data()
 
-        # Seed event dates & schedules (réinitialisés à chaque démarrage)
+    # 3. Seed données de test (events, participants, votes, saves)
+    async with pool.acquire() as conn:
         await conn.execute("""
-            UPDATE tag_points SET event_date = NOW() + INTERVAL '1 day 9 hours 30 minutes'  WHERE point_id = 'pt_demo001';
-            UPDATE tag_points SET event_date = NOW() + INTERVAL '2 days 7 hours'             WHERE point_id = 'pt_demo014';
-            UPDATE tag_points SET event_date = NOW() + INTERVAL '3 days 18 hours 30 minutes' WHERE point_id = 'pt_demo002';
-            UPDATE tag_points SET event_date = NOW() + INTERVAL '5 days 14 hours'            WHERE point_id = 'pt_demo008';
-            UPDATE tag_points SET event_date = NOW() + INTERVAL '7 days 10 hours'            WHERE point_id = 'pt_demo004';
-            UPDATE tag_points SET event_date = NOW() - INTERVAL '2 days 17 hours'            WHERE point_id = 'pt_demo013';
-            UPDATE tag_points SET event_date = NOW() - INTERVAL '5 days 9 hours'             WHERE point_id = 'pt_demo006';
+            UPDATE tag_points SET event_date = NOW() + INTERVAL '1 day 9 hours 30 minutes'   WHERE point_id = 'pt_demo001';
+            UPDATE tag_points SET event_date = NOW() + INTERVAL '2 days 7 hours'              WHERE point_id = 'pt_demo014';
+            UPDATE tag_points SET event_date = NOW() + INTERVAL '3 days 18 hours 30 minutes'  WHERE point_id = 'pt_demo002';
+            UPDATE tag_points SET event_date = NOW() + INTERVAL '5 days 14 hours'             WHERE point_id = 'pt_demo008';
+            UPDATE tag_points SET event_date = NOW() + INTERVAL '7 days 10 hours'             WHERE point_id = 'pt_demo004';
+            UPDATE tag_points SET event_date = NOW() - INTERVAL '2 days 17 hours'             WHERE point_id = 'pt_demo013';
+            UPDATE tag_points SET event_date = NOW() - INTERVAL '5 days 9 hours'              WHERE point_id = 'pt_demo006';
             UPDATE tag_points SET event_schedule = '{"type":"weekly","day":0,"time":"07:00"}' WHERE point_id = 'pt_demo005';
             UPDATE tag_points SET event_schedule = '{"type":"weekly","day":2,"time":"18:30"}' WHERE point_id = 'pt_demo007';
             UPDATE tag_points SET event_schedule = '{"type":"weekly","day":5,"time":"09:00"}' WHERE point_id = 'pt_demo010';
@@ -230,8 +232,6 @@ async def connect_to_db():
             UPDATE tag_points SET event_schedule = '{"type":"weekly","day":1,"time":"12:30"}' WHERE point_id = 'pt_demo003';
             UPDATE tag_points SET event_schedule = '{"type":"weekly","day":4,"time":"19:00"}' WHERE point_id = 'pt_demo012';
         """)
-
-        # Seed participants
         await conn.execute("""
             INSERT INTO tag_point_participants (participant_id, point_id, user_id, joined_at) VALUES
               ('part_001','pt_demo001','user_demo001', NOW()-INTERVAL '1 hour'),
@@ -251,8 +251,6 @@ async def connect_to_db():
               ('part_015','pt_demo012','user_coach001', NOW()-INTERVAL '1 day')
             ON CONFLICT (point_id, user_id) DO NOTHING;
         """)
-
-        # Seed votes & commentaires
         await conn.execute("""
             INSERT INTO tag_point_votes (vote_id, point_id, user_id, rating, comment, created_at) VALUES
               ('vote_001','pt_demo001','user_demo002',5,'Super groupe, ambiance top ! On était une quinzaine ce matin 💪', NOW()-INTERVAL '2 days'),
@@ -289,8 +287,6 @@ async def connect_to_db():
               ('vote_032','pt_demo015','user_demo003',4,'Très bien pour la gestion du stress en compétition. Je reviendrai.', NOW()-INTERVAL '6 hours')
             ON CONFLICT (point_id, user_id) DO UPDATE SET rating=EXCLUDED.rating, comment=EXCLUDED.comment;
         """)
-
-        # Seed saves
         await conn.execute("""
             INSERT INTO tag_point_saves (save_id, point_id, user_id, saved_at) VALUES
               ('save_001','pt_demo003','user_demo001', NOW()-INTERVAL '2 days'),
@@ -301,7 +297,8 @@ async def connect_to_db():
               ('save_006','pt_demo005','user_demo003', NOW()-INTERVAL '2 days')
             ON CONFLICT (point_id, user_id) DO NOTHING;
         """)
-    logger.info("Connected to PostgreSQL with PostGIS")
+
+    logger.info("Connected to PostgreSQL with PostGIS + seed data loaded")
 
 
 async def close_db():
