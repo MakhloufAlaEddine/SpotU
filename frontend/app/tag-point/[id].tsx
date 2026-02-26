@@ -69,6 +69,59 @@ function formatRecurring(s: any): { summary: string; perDay: Array<{ day: string
   return { summary: 'Récurrent', perDay: null };
 }
 
+// Calcule la prochaine occurrence d'un événement récurrent
+function getNextOccurrence(s: any): { date: Date; startTime: string; endTime: string | null } | null {
+  if (!s) return null;
+  if (typeof s === 'string') { try { s = JSON.parse(s); } catch { return null; } }
+  if (!s.schedule || typeof s.schedule !== 'object') return null;
+  const now = new Date();
+  // JS getDay(): 0=Dim..6=Sam → notre idx: 0=Lun..6=Dim
+  const todayIdx = now.getDay() === 0 ? 6 : now.getDay() - 1;
+  let earliest: { date: Date; startTime: string; endTime: string | null } | null = null;
+  Object.entries(s.schedule as Record<string, any>).forEach(([dayStr, slots]) => {
+    const dayIdx = parseInt(dayStr);
+    const slotsArr = Array.isArray(slots) ? slots : [];
+    if (slotsArr.length === 0) return;
+    const firstSlot = slotsArr[0];
+    let startTime: string;
+    let endTime: string | null = null;
+    if (typeof firstSlot === 'string') { startTime = firstSlot; }
+    else if (firstSlot?.start) { startTime = firstSlot.start; endTime = firstSlot.end || null; }
+    else { return; }
+    const [h, m] = startTime.split(':').map(Number);
+    let daysUntil = (dayIdx - todayIdx + 7) % 7;
+    if (daysUntil === 0 && (h * 60 + m) <= (now.getHours() * 60 + now.getMinutes())) {
+      daysUntil = 7;
+    }
+    const nextDate = new Date(now);
+    nextDate.setDate(now.getDate() + daysUntil);
+    nextDate.setHours(h, m, 0, 0);
+    if (!earliest || nextDate < earliest.date) {
+      earliest = { date: nextDate, startTime, endTime };
+    }
+  });
+  return earliest;
+}
+
+// Formate le label jour relatif pour le prochain événement
+function formatDayLabel(date: Date): string {
+  const now = new Date();
+  const diff = Math.round(
+    (new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime() -
+     new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) / 86400000
+  );
+  if (diff === 0) return "Aujourd'hui";
+  if (diff === 1) return 'Demain';
+  if (diff < 7) {
+    const day = date.toLocaleDateString('fr-FR', { weekday: 'long' });
+    return day.charAt(0).toUpperCase() + day.slice(1);
+  }
+  const label = date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+
+
 function formatEventDate(d: string): string {
   const date = new Date(d);
   const now = new Date();
