@@ -1095,12 +1095,13 @@ const sc = StyleSheet.create({
   editBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.primary + '15', borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 4 },
   editBadgeText: { fontSize: 12, color: Colors.primary, fontWeight: '600' },
 
-  // Precision
-  precisionCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.card, borderRadius: Radius.lg, padding: Spacing.md, borderWidth: 1.5, borderColor: Colors.border },
-  precisionCardActive: { borderColor: Colors.primary, backgroundColor: Colors.primary + '08' },
-  precisionIconBox: { width: 44, height: 44, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
-  precisionLabel: { fontSize: 15, fontWeight: '700', color: Colors.foreground },
-  precisionDesc: { fontSize: 12, color: Colors.muted, marginTop: 2 },
+  // Precision - compact horizontal
+  precisionCompact: { flex: 1, alignItems: 'center', gap: 5, padding: 10, backgroundColor: Colors.card, borderRadius: Radius.lg, borderWidth: 1.5, borderColor: Colors.border, position: 'relative', minHeight: 90 },
+  precisionCompactActive: { borderColor: Colors.primary, backgroundColor: Colors.primary + '08' },
+  precisionCompactIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' },
+  precisionCompactLabel: { fontSize: 12, fontWeight: '700', color: Colors.foreground, textAlign: 'center' },
+  precisionCompactDesc: { fontSize: 10, color: Colors.muted, textAlign: 'center', lineHeight: 13 },
+  precisionCheck: { position: 'absolute', top: 6, right: 6, width: 16, height: 16, borderRadius: 8, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
 
   // Map
   mapWrap: { height: 200, borderRadius: Radius.lg, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border },
