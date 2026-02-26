@@ -686,7 +686,18 @@ export default function CreateTagPointScreen() {
       <DateTimePickerModal
         visible={showEndDateTimePicker}
         onClose={() => setShowEndDateTimePicker(false)}
-        onConfirm={d => { setEventEndDateTime(d); setShowEndDateTimePicker(false); }}
+        onConfirm={d => {
+          if (eventDateTime) {
+            const startMins = eventDateTime.getHours() * 60 + eventDateTime.getMinutes();
+            const endMins = d.getHours() * 60 + d.getMinutes();
+            if (endMins <= startMins) {
+              Alert.alert("Heure invalide", "L'heure de fin doit être après l'heure de début.");
+              return;
+            }
+          }
+          setEventEndDateTime(d);
+          setShowEndDateTimePicker(false);
+        }}
         initialDate={eventEndDateTime || undefined}
         mode="time"
       />
