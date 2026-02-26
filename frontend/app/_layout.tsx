@@ -2,6 +2,7 @@ import { Stack, useRouter, useSegments, useRootNavigationState } from 'expo-rout
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
 import { AuthProvider, useAuth } from '../context/AuthContext';
+import { RefreshProvider } from '../context/RefreshContext';
 import { LanguageProvider } from '../context/LanguageContext';
 import { LocationProvider } from '../context/LocationContext';
 import { StatusBar } from 'expo-status-bar';
@@ -42,6 +43,7 @@ function NavigationGuard() {
 export default function RootLayout() {
   return (
     <AuthProvider>
+      <RefreshProvider>
       <LanguageProvider>
         <LocationProvider>
           <StatusBar style="light" />
