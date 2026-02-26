@@ -690,11 +690,16 @@ export default function TagPointDetail() {
                 return (
                   <View>
                     <View style={st.dateRow}>
-                      <View style={st.dateIconBox}>
-                        <Ionicons name="calendar" size={20} color={Colors.primary} />
+                      <View style={[st.dateIconBox, st.dateIconBoxRecurring]}>
+                        <Ionicons name="repeat" size={20} color={Colors.primary} />
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text style={st.dateLabel}>Prochain événement</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                          <Text style={st.dateLabel}>Prochain événement</Text>
+                          <View style={st.recurringBadge}>
+                            <Text style={st.recurringBadgeText}>Récurrent</Text>
+                          </View>
+                        </View>
                         <Text style={st.dateValue}>{nextLabel}</Text>
                       </View>
                     </View>
