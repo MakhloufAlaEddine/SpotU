@@ -583,6 +583,27 @@ async def update_tag_point(point_id: str, data: TagPointUpdate, request: Request
     return build_point_response(row_to_dict(row))
 
 
+@router.patch("/tag-points/{point_id}/new-date")
+async def toggle_new_date_coming(point_id: str, request: Request):
+    """Creator can toggle 'new date coming soon' flag when event is past."""
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    async with pool.acquire() as conn:
+        existing = await conn.fetchrow(
+            "SELECT user_id, new_date_coming FROM tag_points WHERE point_id = $1", point_id
+        )
+        if not existing:
+            raise HTTPException(status_code=404, detail="TagPoint not found")
+        if existing["user_id"] != user["user_id"] and user["role"] != "admin":
+            raise HTTPException(status_code=403, detail="Not authorized")
+        new_val = not existing["new_date_coming"]
+        await conn.execute(
+            "UPDATE tag_points SET new_date_coming = $1, updated_at = NOW() WHERE point_id = $2",
+            new_val, point_id
+        )
+    return {"new_date_coming": new_val}
+
+
 @router.delete("/tag-points/{point_id}")
 async def delete_tag_point(point_id: str, request: Request):
     pool = get_pool()
