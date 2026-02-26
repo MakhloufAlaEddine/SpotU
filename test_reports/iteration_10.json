@@ -1,0 +1,65 @@
+{
+  "summary": "Iteration 10: Full test of FullPreviewModal rewrite — mirrors [id].tsx detail page with fake votes/comments encouragement. All 10 test scenarios PASS. Required Expo restart to clear stale CI=true bundle before new code was visible.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+
+  "test_report_links": [],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [
+    "Metro runs with CI=true in supervisor config — file watching disabled, stale bundle served. Expo restart is required after every main agent file change. This is a known dev-env limitation (noted in iteration 9 as well).",
+    "FAKE_VOTES_DATA is static (MOCKED) — 3 hardcoded fake reviews (Marie L., Pierre T., Camille D.) displayed only in preview modal to encourage publishing. These are never sent to the backend.",
+    "FAB opacity 0.4 verified visually from screenshots (RN Web inline style for opacity may not be directly queryable via document.querySelectorAll('[style*=\"opacity\"]') due to RN-to-web style compilation).",
+    "FullPreviewModal close button uses chevron-back icon (matching [id].tsx navigation style), not X close button — intentional UX improvement matching the target design."
+  ],
+
+  "updated_files": [],
+
+  "success_rate": {
+    "backend": "N/A (frontend only testing)",
+    "frontend": "100% (10/10 test scenarios pass)"
+  },
+
+  "test_credentials": {
+    "email": "user@winek.app",
+    "password": "WinekUser2024!",
+    "user_display_name": "Thomas Dupont"
+  },
+
+  "seed_data_creation": "No new seed data created. Used existing account user@winek.app.",
+
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Iteration 10 tested the FullPreviewModal rewrite in create.tsx. All new elements verified: (1) Header with chevron-back (close-full-preview testID) and 'Détails' title + 'Aperçu' badge, (2) Hero image placeholder + ownerBadge overlay (Thomas Dupont / Créateur), (3) Title section with fake rating ★★★★★ 4.7 (12), (4) RSVP row (Rejoindre + 4 participants, disabled), (5) Actions row (Similaires/Partager/Sauvegarder disabled), (6) Map via MapViewComponent, (7) Description section (shows placeholder if no description), (8) Fake votes section — MOCKED static data with FAKE_DIST [8,3,1,0,0], FAKE_RATING=4.7, FAKE_VOTES_COUNT=12, cards for Marie L./Pierre T./Camille D., (9) exampleBanner 'Exemples d avis — publiez pour recevoir de vrais votes !', (10) FAB star at opacity 0.4. Metro CI=true requires expo restart after code changes. testIDs: full-preview-btn, close-full-preview.",
+
+  "test_scenarios_detail": {
+    "T1_open_full_preview": "PASS - full-preview-btn testID found and clickable from step 5",
+    "T2_header_arrow_details": "PASS - chevron-back close button (testID=close-full-preview) + 'Détails' title + 'Aperçu' badge all visible",
+    "T3_title_rating_count": "PASS - Title shows, fake rating 4.7 visible, vote count 12 shown as '(12)'",
+    "T4_rsvp_row": "PASS - 'Rejoindre' button + '4 participants' both present and visible",
+    "T5_action_buttons": "PASS - Similaires, Partager, Sauvegarder all present (visually disabled, no onPress handlers)",
+    "T6_description_section": "PASS - Description placeholder 'Aucune description' shown (no description was entered in test)",
+    "T7_fake_votes_section": "PASS - Rating 4.7 shown, distribution bars (5:8, 4:3, 3:1, 2:0, 1:0), vote cards for Marie L./Pierre T./Camille D. all present with correct stars and comments",
+    "T8_example_banner": "PASS - 'Exemples d avis — publiez pour recevoir de vrais votes !' banner visible with sparkles icon",
+    "T9_close_modal": "PASS - close-full-preview click closes modal and returns to step 5 (full-preview-btn visible again)",
+    "T10_fab_opacity": "PASS - FAB star button visible in bottom-right of modal with reduced opacity (0.4 in code, visually verified from screenshots)"
+  },
+
+  "mocked_apis": {
+    "FAKE_VOTES_DATA": "MOCKED — 3 static fake vote cards (Marie L. 5★, Pierre T. 4★, Camille D. 5★) shown only in FullPreviewModal to encourage publishing. Not API-backed.",
+    "FAKE_RATING": "MOCKED — 4.7 static value",
+    "FAKE_VOTES_COUNT": "MOCKED — 12 static value",
+    "FAKE_DIST": "MOCKED — [8,3,1,0,0] static distribution"
+  }
+}
