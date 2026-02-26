@@ -108,6 +108,8 @@ export default function CreateTagPointScreen() {
   const [domainId, setDomainId] = useState('dom_sport');
   const [images, setImages] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
+  const uploadBarAnim = useRef(new Animated.Value(0)).current;
 
   // Location
   const [selectedLat, setSelectedLat] = useState(48.8566);
