@@ -685,7 +685,7 @@ const ms = StyleSheet.create({
     backgroundColor: Colors.background,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    height: '80%',  // Fixed height so ScrollView works correctly
+    height: SH * 0.82,
     overflow: 'hidden',
   },
   sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: Colors.border, alignSelf: 'center', marginTop: 10, marginBottom: 4 },
