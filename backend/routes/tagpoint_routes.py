@@ -584,8 +584,10 @@ async def update_tag_point(point_id: str, data: TagPointUpdate, request: Request
                 if val is None:
                     set_clauses.append(f"{key} = NULL")
                 else:
+                    # Pass Python object directly — asyncpg JSONB codec handles encoding once
+                    # DO NOT json.dumps() here: that causes double-encoding
                     set_clauses.append(f"{key} = ${i}::jsonb")
-                    values.append(json.dumps(val))
+                    values.append(val)
                     i += 1
             else:
                 if val is None:
