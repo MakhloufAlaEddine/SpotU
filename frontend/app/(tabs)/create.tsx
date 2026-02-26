@@ -762,7 +762,9 @@ function StepLocalisation({ selectedLat, selectedLng, locationAddress, precision
 }
 
 // ─── Step 4: Date ───────────────────────────────────────────────────────────────
-function StepDate({ scheduleType, setScheduleType, eventDateTime, onOpenDatePicker, recurringDays, toggleRecurringDay, recurringTimes, onEditTime, onAddTime, onRemoveTime }: any) {
+function StepDate({ scheduleType, setScheduleType, eventDateTime, onOpenDatePicker, recurringSchedule, toggleDay, addTimeToDay, removeTimeFromDay, editTimeForDay }: any) {
+  const selectedDays = Object.keys(recurringSchedule).map(Number).sort((a, b) => a - b);
+
   return (
     <View style={{ gap: Spacing.lg }}>
       <View style={sc.scheduleTypes}>
@@ -773,12 +775,8 @@ function StepDate({ scheduleType, setScheduleType, eventDateTime, onOpenDatePick
         ] as const).map(({ type, icon, label, sub }) => {
           const active = scheduleType === type;
           return (
-            <TouchableOpacity
-              key={type}
-              style={[sc.scheduleCard, active && sc.scheduleCardActive]}
-              onPress={() => setScheduleType(type)}
-              testID={`schedule-${type}`}
-            >
+            <TouchableOpacity key={type} style={[sc.scheduleCard, active && sc.scheduleCardActive]}
+              onPress={() => setScheduleType(type)} testID={`schedule-${type}`}>
               <View style={[sc.scheduleIconBox, active && { backgroundColor: Colors.primary + '22' }]}>
                 <Ionicons name={icon} size={26} color={active ? Colors.primary : Colors.muted} />
               </View>
@@ -805,67 +803,66 @@ function StepDate({ scheduleType, setScheduleType, eventDateTime, onOpenDatePick
 
       {scheduleType === 'recurring' && (
         <View style={{ gap: Spacing.md }}>
-          {/* Days */}
+          {/* Day selector */}
           <View>
-            <Text style={sc.scheduleFieldLabel}>Jours de la semaine</Text>
+            <Text style={sc.scheduleFieldLabel}>Jours actifs</Text>
             <View style={sc.daysRow}>
-              {DAYS.map((d, i) => (
-                <TouchableOpacity
-                  key={d}
-                  style={[sc.dayBtn, recurringDays.includes(i) && sc.dayBtnActive]}
-                  onPress={() => toggleRecurringDay(i)}
-                  testID={`day-${i}`}
-                >
-                  <Text style={[sc.dayText, recurringDays.includes(i) && { color: Colors.background }]}>{d}</Text>
-                </TouchableOpacity>
-              ))}
+              {DAYS.map((d, i) => {
+                const active = recurringSchedule[i] !== undefined;
+                return (
+                  <TouchableOpacity key={d} style={[sc.dayBtn, active && sc.dayBtnActive]}
+                    onPress={() => toggleDay(i)} testID={`day-${i}`}>
+                    <Text style={[sc.dayText, active && { color: Colors.background }]}>{d}</Text>
+                    {active && (recurringSchedule[i].length > 0) && (
+                      <View style={sc.dayTimeBadge}>
+                        <Text style={sc.dayTimeBadgeText}>{recurringSchedule[i].length}</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
-            {recurringDays.length === 0 && (
+            {selectedDays.length === 0 && (
               <View style={sc.fieldTip}>
                 <Ionicons name="information-circle-outline" size={13} color={Colors.muted} />
                 <Text style={sc.fieldTipText}>Sélectionnez un ou plusieurs jours</Text>
               </View>
             )}
-            {recurringDays.length > 0 && (
-              <View style={[sc.fieldTip, { marginTop: 6 }]}>
-                <Ionicons name="checkmark-circle-outline" size={13} color={Colors.primary} />
-                <Text style={[sc.fieldTipText, { color: Colors.primary }]}>
-                  {recurringDays.map(i => DAYS[i]).join(', ')}
-                </Text>
-              </View>
-            )}
           </View>
 
-          {/* Time slots */}
-          <View>
-            <Text style={sc.scheduleFieldLabel}>Créneaux horaires</Text>
-            {recurringTimes.map((time: Date, idx: number) => (
-              <View key={idx} style={sc.timeSlotRow}>
-                <TouchableOpacity
-                  style={[sc.dateBtn, { flex: 1 }]}
-                  onPress={() => onEditTime(idx)}
-                  testID={`time-slot-${idx}`}
-                >
-                  <Ionicons name="time-outline" size={20} color={Colors.primary} />
-                  <Text style={sc.dateBtnValue}>{fmtTime(time)}</Text>
-                  <Ionicons name="pencil-outline" size={14} color={Colors.muted} />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => onRemoveTime(idx)} style={sc.removeTimeBtn} testID={`remove-time-${idx}`}>
-                  <Ionicons name="close-circle" size={24} color={Colors.muted} />
+          {/* Per-day time slots */}
+          {selectedDays.map(dayIdx => (
+            <View key={dayIdx} style={sc.dayScheduleCard}>
+              <View style={sc.dayScheduleHeader}>
+                <View style={sc.dayScheduleDot} />
+                <Text style={sc.dayScheduleTitle}>{DAYS[dayIdx]}</Text>
+                <Text style={sc.dayScheduleCount}>
+                  {recurringSchedule[dayIdx].length} créneau{recurringSchedule[dayIdx].length !== 1 ? 'x' : ''}
+                </Text>
+              </View>
+              <View style={{ gap: 8 }}>
+                {recurringSchedule[dayIdx].map((time: Date, tIdx: number) => (
+                  <View key={tIdx} style={sc.timeSlotRow}>
+                    <TouchableOpacity style={[sc.dateBtn, { flex: 1 }]}
+                      onPress={() => editTimeForDay(dayIdx, tIdx)} testID={`time-${dayIdx}-${tIdx}`}>
+                      <Ionicons name="time-outline" size={18} color={Colors.primary} />
+                      <Text style={sc.dateBtnValue}>{fmtTime(time)}</Text>
+                      <Ionicons name="pencil-outline" size={13} color={Colors.muted} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => removeTimeFromDay(dayIdx, tIdx)}
+                      style={sc.removeTimeBtn} testID={`remove-time-${dayIdx}-${tIdx}`}>
+                      <Ionicons name="close-circle" size={22} color={Colors.muted} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+                <TouchableOpacity style={sc.addTimeBtn} onPress={() => addTimeToDay(dayIdx)}
+                  testID={`add-time-${dayIdx}`}>
+                  <Ionicons name="add-circle-outline" size={18} color={Colors.primary} />
+                  <Text style={sc.addTimeBtnText}>Ajouter un créneau</Text>
                 </TouchableOpacity>
               </View>
-            ))}
-            <TouchableOpacity style={sc.addTimeBtn} onPress={onAddTime} testID="add-time-slot-btn">
-              <Ionicons name="add-circle-outline" size={20} color={Colors.primary} />
-              <Text style={sc.addTimeBtnText}>Ajouter un créneau horaire</Text>
-            </TouchableOpacity>
-            {recurringTimes.length === 0 && (
-              <View style={sc.fieldTip}>
-                <Ionicons name="information-circle-outline" size={13} color={Colors.muted} />
-                <Text style={sc.fieldTipText}>Ex : 09:00, 12:00, 18:00 — autant de créneaux que nécessaire</Text>
-              </View>
-            )}
-          </View>
+            </View>
+          ))}
         </View>
       )}
     </View>
