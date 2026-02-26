@@ -22,8 +22,8 @@ def auth_token():
         "password": TEST_USER_PASSWORD
     })
     assert resp.status_code == 200, f"Login failed: {resp.text}"
-    token = resp.json().get("access_token")
-    assert token, "No access token in response"
+    token = resp.json().get("token") or resp.json().get("access_token")
+    assert token, f"No access token in response. Keys: {list(resp.json().keys())}"
     return token
 
 
