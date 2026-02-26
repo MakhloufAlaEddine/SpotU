@@ -231,11 +231,19 @@ export default function CreateTagPointScreen() {
 
     setSubmitting(true);
     try {
-      // 1. Upload images in parallel, collect URLs
+      // 1. Upload images sequentially to track progress
       const uploadedUrls: string[] = [];
       if (images.length > 0 && token) {
-        const results = await Promise.all(images.map(uri => uploadImage(uri, token)));
-        results.forEach(url => { if (url) uploadedUrls.push(url); });
+        setUploadProgress({ current: 0, total: images.length });
+        Animated.timing(uploadBarAnim, { toValue: 0, duration: 0, useNativeDriver: false }).start();
+        for (let i = 0; i < images.length; i++) {
+          const url = await uploadImage(images[i], token);
+          if (url) uploadedUrls.push(url);
+          const progress = (i + 1) / images.length;
+          setUploadProgress({ current: i + 1, total: images.length });
+          Animated.timing(uploadBarAnim, { toValue: progress, duration: 250, useNativeDriver: false }).start();
+        }
+        setUploadProgress(null);
       }
 
       // 2. Build payload with real image URLs
@@ -266,7 +274,10 @@ export default function CreateTagPointScreen() {
       ]);
     } catch (err: any) {
       Alert.alert('Erreur', err.message || 'Impossible de créer le tagPoint');
-    } finally { setSubmitting(false); }
+    } finally {
+      setSubmitting(false);
+      setUploadProgress(null);
+    }
   };
 
   const toggleTag = (id: string) =>
