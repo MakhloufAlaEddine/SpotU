@@ -218,8 +218,8 @@ export default function CreateTagPointScreen() {
   const handleSubmit = async () => {
     if (!title.trim()) { Alert.alert('Titre requis'); return; }
     if (scheduleType === 'once' && !eventDateTime) { Alert.alert('Date requise', 'Sélectionnez une date et heure.'); return; }
-    if (scheduleType === 'recurring' && (recurringDay === null || !recurringTime)) {
-      Alert.alert('Configuration incomplète', 'Sélectionnez un jour et une heure.'); return;
+    if (scheduleType === 'recurring' && (recurringDays.length === 0 || recurringTimes.length === 0)) {
+      Alert.alert('Configuration incomplète', 'Sélectionnez au moins un jour et un créneau horaire.'); return;
     }
 
     setSubmitting(true);
