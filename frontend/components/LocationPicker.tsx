@@ -1,21 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
-  ScrollView, Modal,
+  ScrollView, Modal, ActivityIndicator, FlatList, Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { MapViewComponent } from '../../components/MapViewComponent';
-import { Colors, Spacing, Radius } from '../../constants/Colors';
+import { MapViewComponent } from './MapViewComponent';
+import { Colors, Spacing, Radius } from '../constants/Colors';
 
-interface SavedAddress {
-  id: string;
-  name: string;
-  address: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  lat: number;
-  lng: number;
-}
+type NominatimResult = { place_id: number; display_name: string; lat: string; lon: string };
 
 interface LocationPickerProps {
   visible: boolean;
@@ -23,295 +16,207 @@ interface LocationPickerProps {
   onSelect: (lat: number, lng: number, address: string) => void;
   initialLat?: number;
   initialLng?: number;
+  initialAddress?: string;
 }
 
-export function LocationPicker({ 
-  visible, 
-  onClose, 
-  onSelect,
-  initialLat = 48.8566,
-  initialLng = 2.3522 
+export function LocationPicker({
+  visible, onClose, onSelect,
+  initialLat = 48.8566, initialLng = 2.3522, initialAddress = '',
 }: LocationPickerProps) {
-  const [searchQuery, setSearchQuery] = useState('');
   const [selectedLat, setSelectedLat] = useState(initialLat);
   const [selectedLng, setSelectedLng] = useState(initialLng);
-  const [mapType, setMapType] = useState<'Map' | 'Satellite'>('Map');
-  
-  // Sample saved addresses
-  const savedAddresses: SavedAddress[] = [
-    {
-      id: '1',
-      name: 'Home',
-      address: '27 Bis Boulevard de la République, 78360 Montesson, France',
-      icon: 'home-outline',
-      lat: 48.9150,
-      lng: 2.1465,
-    },
-    {
-      id: '2',
-      name: 'work',
-      address: '53 Boulevard Brune, 75014 Paris, France',
-      icon: 'briefcase-outline',
-      lat: 48.8261,
-      lng: 2.3177,
-    },
-  ];
+  const [currentAddress, setCurrentAddress] = useState(initialAddress);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<NominatimResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleSelectAddress = (address: SavedAddress) => {
-    setSelectedLat(address.lat);
-    setSelectedLng(address.lng);
+  const formatAddress = (data: any) => {
+    const a = data.address || {};
+    const parts = [
+      a.road || a.pedestrian || a.footway,
+      a.house_number,
+      a.postcode,
+      a.city || a.town || a.village || a.municipality,
+    ].filter(Boolean);
+    return parts.length >= 2 ? parts.join(', ') : data.display_name?.split(',').slice(0, 3).join(',') || '';
+  };
+
+  const reverseGeocode = async (lat: number, lng: number) => {
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`,
+        { headers: { 'Accept-Language': 'fr' } }
+      );
+      const data = await res.json();
+      if (data?.display_name) setCurrentAddress(formatAddress(data));
+    } catch {}
+  };
+
+  const handleMapPress = async (lat: number, lng: number) => {
+    setSelectedLat(lat); setSelectedLng(lng);
+    setShowResults(false); Keyboard.dismiss();
+    await reverseGeocode(lat, lng);
+  };
+
+  const handleSearchChange = (text: string) => {
+    setSearchQuery(text);
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    if (text.length < 3) { setSearchResults([]); setShowResults(false); return; }
+    searchTimeout.current = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(text)}&limit=5`,
+          { headers: { 'Accept-Language': 'fr' } }
+        );
+        const data: NominatimResult[] = await res.json();
+        setSearchResults(data); setShowResults(data.length > 0);
+      } catch {}
+      setSearching(false);
+    }, 500);
+  };
+
+  const handleSelectResult = (result: NominatimResult) => {
+    const lat = parseFloat(result.lat), lng = parseFloat(result.lon);
+    setSelectedLat(lat); setSelectedLng(lng);
+    setCurrentAddress(result.display_name.split(',').slice(0, 3).join(','));
+    setSearchQuery(''); setSearchResults([]); setShowResults(false); Keyboard.dismiss();
+  };
+
+  const handleGPS = async () => {
+    setGpsLoading(true);
+    try {
+      const Location = await import('expo-location');
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        setSelectedLat(loc.coords.latitude); setSelectedLng(loc.coords.longitude);
+        await reverseGeocode(loc.coords.latitude, loc.coords.longitude);
+      }
+    } catch {}
+    setGpsLoading(false);
   };
 
   const handleConfirm = () => {
-    onSelect(selectedLat, selectedLng, 'Selected location');
+    onSelect(selectedLat, selectedLng, currentAddress);
+    onClose();
   };
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen">
-      <SafeAreaView style={styles.container} edges={['top']}>
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <SafeAreaView style={st.container} edges={['top']}>
         {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={onClose}>
-            <Text style={styles.headerBtn}>Annuler</Text>
+        <View style={st.header}>
+          <TouchableOpacity onPress={onClose} testID="location-cancel">
+            <Text style={st.cancel}>Annuler</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Set global location</Text>
-          <TouchableOpacity onPress={handleConfirm}>
-            <Text style={styles.headerBtn}>Choisir</Text>
+          <Text style={st.headerTitle}>Définir la localisation</Text>
+          <TouchableOpacity onPress={handleConfirm} testID="location-confirm">
+            <Text style={st.confirm}>Choisir</Text>
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Search Bar */}
-          <View style={styles.searchBar}>
-            <Ionicons name="search" size={18} color={Colors.muted} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Chercher une adresse"
-              placeholderTextColor={Colors.muted}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
+        <ScrollView
+          style={{ flex: 1, backgroundColor: Colors.background }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* GPS */}
+          <TouchableOpacity style={st.gpsRow} onPress={handleGPS} testID="location-gps-btn">
+            <View style={st.gpsIcon}>
+              <Ionicons name="locate" size={22} color={Colors.foreground} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={st.gpsTitle}>Localisation actuelle</Text>
+              <Text style={st.gpsSub}>Utiliser le GPS</Text>
+            </View>
+            {gpsLoading && <ActivityIndicator size="small" color={Colors.primary} />}
+          </TouchableOpacity>
+
+          {/* Search */}
+          <View style={st.searchWrap}>
+            <View style={st.searchRow}>
+              <Ionicons name="search" size={18} color={Colors.muted} style={{ marginRight: 8 }} />
+              <TextInput
+                style={st.searchInput}
+                placeholder="Rechercher une adresse…"
+                placeholderTextColor={Colors.muted}
+                value={searchQuery}
+                onChangeText={handleSearchChange}
+                returnKeyType="search"
+                testID="location-search-input"
+              />
+              {searching && <ActivityIndicator size="small" color={Colors.primary} />}
+            </View>
+            {showResults && (
+              <View style={st.resultsBox}>
+                <FlatList
+                  data={searchResults}
+                  keyExtractor={i => String(i.place_id)}
+                  scrollEnabled={false}
+                  keyboardShouldPersistTaps="handled"
+                  renderItem={({ item }) => (
+                    <TouchableOpacity style={st.resultRow} onPress={() => handleSelectResult(item)}>
+                      <Ionicons name="location-outline" size={16} color={Colors.primary} style={{ marginRight: 8 }} />
+                      <Text style={st.resultText} numberOfLines={2}>{item.display_name}</Text>
+                    </TouchableOpacity>
+                  )}
+                />
+              </View>
+            )}
+          </View>
+
+          {/* Map */}
+          <View style={st.mapWrap}>
+            <MapViewComponent
+              centerLat={selectedLat}
+              centerLng={selectedLng}
+              zoom={15}
+              selectable
+              showUserMarker={false}
+              pins={[{ id: 'selected', lat: selectedLat, lng: selectedLng, title: 'Position', color: '#E53E3E' }]}
+              onMapPress={handleMapPress}
             />
           </View>
 
-          {/* Current Location */}
-          <TouchableOpacity style={styles.locationRow}>
-            <Ionicons name="locate-outline" size={20} color={Colors.foreground} />
-            <View style={styles.locationInfo}>
-              <Text style={styles.locationTitle}>Localisation actuelle</Text>
-              <Text style={styles.locationSubtitle}>Using GPS</Text>
+          {/* Current address */}
+          {currentAddress ? (
+            <View style={st.addrRow}>
+              <Ionicons name="location" size={18} color={Colors.primary} />
+              <Text style={st.addrText} numberOfLines={2}>{currentAddress}</Text>
             </View>
-          </TouchableOpacity>
+          ) : null}
 
-          {/* Map Section */}
-          <View style={styles.mapSection}>
-            {/* Map Type Toggle */}
-            <View style={styles.mapTypeToggle}>
-              {(['Map', 'Satellite'] as const).map((type) => (
-                <TouchableOpacity
-                  key={type}
-                  style={[styles.mapTypeBtn, mapType === type && styles.mapTypeBtnActive]}
-                  onPress={() => setMapType(type)}
-                >
-                  <Text style={[styles.mapTypeText, mapType === type && styles.mapTypeTextActive]}>
-                    {type}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Map */}
-            <View style={styles.mapContainer}>
-              <MapViewComponent
-                centerLat={selectedLat}
-                centerLng={selectedLng}
-                zoom={15}
-                selectable
-                selectedLat={selectedLat}
-                selectedLng={selectedLng}
-                onMapPress={(lat, lng) => {
-                  setSelectedLat(lat);
-                  setSelectedLng(lng);
-                }}
-                style={styles.map}
-              />
-            </View>
-          </View>
-
-          {/* Selected Location Display */}
-          <TouchableOpacity style={styles.selectedLocation}>
-            <Ionicons name="location" size={20} color={Colors.primary} />
-            <Text style={styles.selectedLocationText} numberOfLines={1}>
-              Gare Montparnas......75014 Pa...
-            </Text>
-          </TouchableOpacity>
-
-          {/* Saved Addresses Section */}
-          <View style={styles.savedSection}>
-            <Text style={styles.savedTitle}>Adresses enregistrées</Text>
-            {savedAddresses.map((address) => (
-              <TouchableOpacity
-                key={address.id}
-                style={styles.savedAddress}
-                onPress={() => handleSelectAddress(address)}
-              >
-                <Ionicons name={address.icon} size={20} color={Colors.foreground} />
-                <View style={styles.savedAddressInfo}>
-                  <Text style={styles.savedAddressName}>{address.name}</Text>
-                  <Text style={styles.savedAddressText} numberOfLines={2}>
-                    {address.address}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <View style={{ height: 40 }} />
         </ScrollView>
       </SafeAreaView>
     </Modal>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.header,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    backgroundColor: Colors.header,
-  },
-  headerBtn: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.primary,
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: Colors.primary,
-  },
-  content: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.card,
-    borderRadius: Radius.lg,
-    marginHorizontal: Spacing.md,
-    marginVertical: Spacing.md,
-    paddingHorizontal: Spacing.md,
-    gap: 8,
-  },
-  searchInput: {
-    flex: 1,
-    paddingVertical: Spacing.sm + 2,
-    fontSize: 15,
-    color: Colors.foreground,
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    gap: 12,
-  },
-  locationInfo: {
-    flex: 1,
-  },
-  locationTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.foreground,
-  },
-  locationSubtitle: {
-    fontSize: 13,
-    color: Colors.muted,
-    marginTop: 2,
-  },
-  mapSection: {
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.md,
-  },
-  mapTypeToggle: {
-    flexDirection: 'row',
-    backgroundColor: Colors.card,
-    borderRadius: Radius.sm,
-    padding: 4,
-    alignSelf: 'flex-start',
-    marginBottom: Spacing.sm,
-  },
-  mapTypeBtn: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 6,
-    borderRadius: Radius.sm,
-  },
-  mapTypeBtnActive: {
-    backgroundColor: Colors.foreground,
-  },
-  mapTypeText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.muted,
-  },
-  mapTypeTextActive: {
-    color: Colors.background,
-  },
-  mapContainer: {
-    height: 200,
-    borderRadius: Radius.lg,
-    overflow: 'hidden',
-  },
-  map: {
-    flex: 1,
-  },
-  selectedLocation: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    gap: 8,
-  },
-  selectedLocationText: {
-    flex: 1,
-    fontSize: 14,
-    color: Colors.foreground,
-  },
-  savedSection: {
-    backgroundColor: Colors.background,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
-  },
-  savedTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: Colors.foreground,
-    marginBottom: Spacing.md,
-  },
-  savedAddress: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingVertical: Spacing.sm,
-    gap: 12,
-  },
-  savedAddressInfo: {
-    flex: 1,
-  },
-  savedAddressName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.foreground,
-  },
-  savedAddressText: {
-    fontSize: 13,
-    color: Colors.muted,
-    marginTop: 2,
-    lineHeight: 18,
-  },
-});
+const st = StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.header },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, backgroundColor: Colors.header, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  headerTitle: { fontSize: 16, fontWeight: '700', color: Colors.foreground },
+  cancel: { fontSize: 15, color: Colors.muted },
+  confirm: { fontSize: 15, fontWeight: '700', color: Colors.primary },
 
-export default LocationPicker;
+  gpsRow: { flexDirection: 'row', alignItems: 'center', padding: Spacing.md, gap: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border, backgroundColor: Colors.background },
+  gpsIcon: { width: 40, height: 40, borderRadius: 20, borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
+  gpsTitle: { fontSize: 15, fontWeight: '600', color: Colors.foreground },
+  gpsSub: { fontSize: 12, color: Colors.muted, marginTop: 2 },
+
+  searchWrap: { marginHorizontal: Spacing.md, marginVertical: Spacing.md, zIndex: 10 },
+  searchRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm },
+  searchInput: { flex: 1, fontSize: 14, color: Colors.foreground, paddingVertical: 4 },
+  resultsBox: { backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, marginTop: 4, overflow: 'hidden' },
+  resultRow: { flexDirection: 'row', alignItems: 'center', padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  resultText: { flex: 1, fontSize: 13, color: Colors.foreground, lineHeight: 18 },
+
+  mapWrap: { height: 280, marginHorizontal: Spacing.md, borderRadius: Radius.lg, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border },
+  addrRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: Colors.card, marginHorizontal: Spacing.md, marginTop: Spacing.md, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border },
+  addrText: { flex: 1, fontSize: 14, color: Colors.foreground, lineHeight: 20 },
+});
