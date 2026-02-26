@@ -436,7 +436,15 @@ export default function CreateTagPointScreen() {
     <SafeAreaView style={st.safe} edges={['top']}>
       {/* ── Header ─────────────────────────── */}
       <View style={st.header}>
-        <TouchableOpacity onPress={step === 0 ? () => router.back() : goPrev} style={st.headerSideBtn} testID="back-btn">
+        <TouchableOpacity
+          onPress={step === 0
+            ? () => (isEditMode && params.pointId
+                ? router.replace(`/tag-point/${params.pointId}` as any)
+                : router.back())
+            : goPrev}
+          style={st.headerSideBtn}
+          testID="back-btn"
+        >
           <Ionicons name={step === 0 ? 'close' : 'chevron-back'} size={24} color={Colors.foreground} />
         </TouchableOpacity>
         <View style={st.headerCenter}>
