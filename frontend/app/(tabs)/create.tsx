@@ -230,12 +230,21 @@ export default function CreateTagPointScreen() {
 
     setSubmitting(true);
     try {
+      // 1. Upload images in parallel, collect URLs
+      const uploadedUrls: string[] = [];
+      if (images.length > 0 && token) {
+        const results = await Promise.all(images.map(uri => uploadImage(uri, token)));
+        results.forEach(url => { if (url) uploadedUrls.push(url); });
+      }
+
+      // 2. Build payload with real image URLs
       const payload: any = {
         title: title.trim(),
         description: description.trim() || null,
         latitude: selectedLat, longitude: selectedLng,
         precision, domain_id: domainId,
-        tag_ids: selectedTagIds, images: [],
+        tag_ids: selectedTagIds,
+        images: uploadedUrls,
       };
       if (scheduleType === 'once' && eventDateTime) payload.event_date = eventDateTime.toISOString();
       if (scheduleType === 'recurring' && Object.keys(recurringSchedule).length > 0)
@@ -247,9 +256,12 @@ export default function CreateTagPointScreen() {
         };
 
       const result = await api.post('/tag-points', payload);
+      const newPointId = result.point_id;
+
+      // 3. Show alert — use setTimeout to defer navigation until alert is fully dismissed
       Alert.alert('Publié !', 'Votre tagPoint est visible !', [
-        { text: 'Voir', onPress: () => router.replace(`/tag-point/${result.point_id}` as any) },
-        { text: 'Accueil', onPress: () => router.replace('/(tabs)/map' as any) },
+        { text: 'Voir', onPress: () => setTimeout(() => router.replace(`/tag-point/${newPointId}` as any), 100) },
+        { text: 'Accueil', onPress: () => setTimeout(() => router.replace('/(tabs)/map' as any), 100) },
       ]);
     } catch (err: any) {
       Alert.alert('Erreur', err.message || 'Impossible de créer le tagPoint');
