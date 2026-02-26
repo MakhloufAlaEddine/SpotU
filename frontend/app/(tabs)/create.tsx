@@ -487,7 +487,6 @@ export default function CreateTagPointScreen() {
               </>
             )}
           </TouchableOpacity>
-          </TouchableOpacity>
         )}
       </View>
 
