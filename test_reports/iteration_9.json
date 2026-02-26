@@ -1,0 +1,67 @@
+{
+  "summary": "Iteration 9: Full test of 4 WINEK wizard corrections — per-day recurringSchedule Record<number,Date[]>, FullPreviewModal close bug fix, no duplicate schedule sections, multi-day/multi-time display in [id].tsx. All 8 test scenarios PASS. Fixed 2 critical syntax errors in [id].tsx. Had to restart expo server due to CI=true Metro cache issue.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "No design issues found",
+        "issues": ["Per-day cards, badges, full preview modal, and [id].tsx schedule table all render correctly with proper teal accent colors and dark theme"]
+      }
+    ]
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_winek_iter9.py",
+    "/app/test_reports/pytest/iter9_results.xml"
+  ],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [
+    "[id].tsx had critical syntax error: line 59 was a malformed anonymous function `(d: string): string {` missing `function formatEventDate` keyword and name — FIXED",
+    "[id].tsx had DUPLICATE `function formatRecurring` declaration: old legacy version `(s: { type: string; day: number; time: string }): string` at line 79 conflicted with new version at line 34 — FIXED (removed duplicate)",
+    "Metro running with CI=true in supervisor config → file watching disabled, stale bundle served. Expo restart required after main agent file changes. Consider removing CI=true from supervisor env for dev environments.",
+    "Time slots in per-day schedule show current time (HH:MM) rather than user-chosen time when testing via web — this is expected behavior since DateTimePicker defaults to 'now' and the test environment only clicks Confirmer without changing the time. No issue with the code itself."
+  ],
+
+  "updated_files": [
+    "/app/frontend/app/tag-point/[id].tsx (fixed formatEventDate syntax error + removed duplicate formatRecurring)"
+  ],
+
+  "success_rate": {
+    "backend": "100% (9/9 tests pass)",
+    "frontend": "100% (8/8 test scenarios pass)"
+  },
+
+  "test_credentials": {
+    "email": "user@winek.app",
+    "password": "WinekUser2024!",
+    "created_test_tagpoint": "pt_c2b5d70990b5 (TEST Multi-Day Recurring Footing)"
+  },
+
+  "seed_data_creation": "Created pt_c2b5d70990b5 with event_schedule={type:'weekly', schedule:{'1':['09:00'],'3':['12:00','18:00']}} for [id].tsx testing. Several TEST_Iter9 tagPoints created during backend tests (cleanup attempted).",
+
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Iteration 9 tested 4 wizard corrections for WINEK. All features working: (1) recurringSchedule Record<number,Date[]> per-day slots working with independent day cards, (2) FullPreviewModal close bug fixed (modal renders at root, close-full-preview testID works), (3) no duplicate schedule sections in preview, (4) [id].tsx shows per-day schedule table. Metro in supervisor runs with CI=true (no hot reload) — restart expo after main agent file changes. testIDs: day-{i}, add-time-{dayIdx}, time-{dayIdx}-{tIdx}, remove-time-{dayIdx}-{tIdx}, full-preview-btn, close-full-preview, submit-btn. Backend format: {event_schedule: {type:'weekly', schedule:{'0':['09:00'],'2':['12:00','18:00']}}}.",
+
+  "test_scenarios_detail": {
+    "T1_per_day_card_monday": "PASS - add-time-0 testID appears after selecting day-0 (Lun)",
+    "T2_badge_on_day_btn": "PASS - Day button shows count badge (text 'Lun\\n1') after adding 1 slot",
+    "T3_per_day_ui": "PASS - Each selected day has own card with time slots + Ajouter un créneau",
+    "T4_full_preview_modal_open": "PASS - full-preview-btn opens modal, close-full-preview testID present",
+    "T4_bugfix_close_modal": "PASS - Modal closes on close-full-preview click, returns to step 5",
+    "T5_no_duplicate_sections": "PASS - 'Horaire' count=1 in modal (no duplicates)",
+    "T6_recurring_table_in_preview": "PASS - HORAIRES RÉCURRENTS table shows Lun→time, Mer→time rows",
+    "T7_submit_payload_format": "PASS - POST payload = {type:'weekly', schedule:{'0':['HH:MM'],'2':['HH:MM','HH:MM']}}",
+    "T8_id_tsx_per_day_display": "PASS - [id].tsx shows RÉCURRENT label, per-day table (Mardi→09:00, Jeudi→12:00,18:00)"
+  }
+}
