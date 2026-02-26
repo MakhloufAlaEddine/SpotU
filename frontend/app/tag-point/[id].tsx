@@ -146,8 +146,11 @@ function formatDayLabel(date: Date): string {
 function formatEventDate(d: string): string {
   const date = new Date(d);
   const now = new Date();
-  const diff = Math.floor((date.getTime() - now.getTime()) / 86400000);
   const time = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  // Comparer les dates calendaires (pas les timestamps) pour éviter "Aujourd'hui" quand c'est demain
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const eventDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diff = Math.round((eventDay.getTime() - today.getTime()) / 86400000);
   if (diff === 0) return `Aujourd'hui à ${time}`;
   if (diff === 1) return `Demain à ${time}`;
   if (diff === -1) return `Hier à ${time}`;
