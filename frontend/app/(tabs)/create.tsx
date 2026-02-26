@@ -119,9 +119,9 @@ export default function CreateTagPointScreen() {
   const [scheduleType, setScheduleType] = useState<'none' | 'once' | 'recurring'>('none');
   const [eventDateTime, setEventDateTime] = useState<Date | null>(null);
   const [showDateTimePicker, setShowDateTimePicker] = useState(false);
-  const [recurringDay, setRecurringDay] = useState<number | null>(null);
-  const [recurringTime, setRecurringTime] = useState<Date | null>(null);
-  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [recurringDays, setRecurringDays] = useState<number[]>([]);
+  const [recurringTimes, setRecurringTimes] = useState<Date[]>([]);
+  const [editingTimeIdx, setEditingTimeIdx] = useState<number | null>(null);
 
   // Domain & Tag data
   const [domains, setDomains] = useState<any[]>([]);
