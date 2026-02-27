@@ -175,11 +175,14 @@ async def create_service(data: ServiceCreate, request: Request):
             days = slot.days_of_week if slot.days_of_week is not None else (
                 [slot.day_of_week] if slot.day_of_week is not None else []
             )
+            # Resolve location_id: if the slot sends a temp client-side loc id,
+            # match it to the actual DB location_id by position (loc.id == location_id field from client)
+            loc_id = slot.location_id if slot.location_id else None
             await conn.execute(
                 """INSERT INTO service_slots
-                   (slot_id, service_id, slot_type, days_of_week, day_of_week, start_time, end_time, slot_date)
-                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8)""",
-                slotid, sid, slot.slot_type,
+                   (slot_id, service_id, location_id, slot_type, days_of_week, day_of_week, start_time, end_time, slot_date)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)""",
+                slotid, sid, loc_id, slot.slot_type,
                 days,
                 days[0] if days else None,
                 slot.start_time, slot.end_time, slot.slot_date
