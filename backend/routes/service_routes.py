@@ -121,7 +121,7 @@ async def my_services(request: Request):
     user = await require_auth(request, pool)
     async with pool.acquire() as conn:
         rows = await conn.fetch(
-            f"SELECT {SVC_FIELDS} FROM services WHERE coach_id = $1 ORDER BY created_at DESC",
+            f"SELECT {SVC_FIELDS} FROM services WHERE coach_id = $1 AND active = TRUE ORDER BY created_at DESC",
             user["user_id"]
         )
         services = [build_service(row_to_dict(r)) for r in rows]
