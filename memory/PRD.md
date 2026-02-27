@@ -88,18 +88,18 @@ Construire une application mobile **WINEK**, une plateforme hyperlocale de conne
 ## Backlog Priorisé
 
 ### P0 — Critique
+- ~~Amélioration de profil (show_phone, intérêts, avis)~~ ✅ TERMINÉ (27 Fév 2026)
 - ~~Heure de fin d'événement~~ ✅ TERMINÉ (26 Fév 2026)
 - Fix Expo hot-reload (CI=true dans le pod K8s)
 
 ### P1 — Important
+- **Refonte boutons d'action** sur `[id].tsx` (Similar, Share, Save) - insatisfaction utilisateur
 - **Flux "Créer un Service"** pour les coachs (`/app/frontend/app/create-service.tsx`)
 - **Intégration Stripe** pour les paiements de services
-- **Refonte boutons d'action** sur `[id].tsx` (Similar, Share, Save)
 
 ### P2 — Futur
 - Support bilingue (i18n Français/Anglais)
 - Implémentation du Chat (`/app/frontend/app/(tabs)/chat.tsx`)
-- Système d'avis & notations
 - Dashboard Admin
 - Correction Google Auth sur Expo Go (natif)
 
