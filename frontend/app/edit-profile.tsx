@@ -26,6 +26,13 @@ export default function EditProfileScreen() {
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [showPhone, setShowPhone] = useState(false);
   const [showReviews, setShowReviews] = useState(true);
+  // Photo
+  const [pictureUri, setPictureUri] = useState<string | undefined>(undefined);
+  // Password change
+  const [currentPwd, setCurrentPwd] = useState('');
+  const [newPwd, setNewPwd] = useState('');
+  const [confirmPwd, setConfirmPwd] = useState('');
+  const [pwdSaving, setPwdSaving] = useState(false);
 
   // Data
   const [allTags, setAllTags] = useState<any[]>([]);
