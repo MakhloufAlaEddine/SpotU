@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { MapViewComponent } from '../../components/MapViewComponent';
 import { DomainPill } from '../../components/DomainPill';
 import { TagSelector } from '../../components/TagSelector';
+import { DateTimePickerModal } from '../../components/DateTimePicker';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/LanguageContext';
