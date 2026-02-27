@@ -91,6 +91,19 @@ export default function UserProfileScreen() {
     }, [id])
   );
 
+  // Re-detect myReview when me loads after reviews are already fetched
+  // (fix: auth context may not be ready on initial page load, causing myReview detection to fail)
+  React.useEffect(() => {
+    if (me && reviews.length > 0 && !myReview) {
+      const mine = reviews.find((r: any) => r.reviewer_id === me.user_id);
+      if (mine) {
+        setMyReview(mine);
+        setMyRating(mine.rating);
+        setMyComment(mine.comment || '');
+      }
+    }
+  }, [me?.user_id, reviews]);
+
   const load = async () => {
     try {
       const data = await api.get(`/users/${id}/public`);
