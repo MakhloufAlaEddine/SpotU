@@ -12,7 +12,7 @@ import os
 
 BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "").rstrip("/")
 if not BASE_URL:
-    BASE_URL = "https://hyperlocal-sports.preview.emergentagent.com"
+    BASE_URL = "https://hyper-connect-7.preview.emergentagent.com"
 
 COACH_EMAIL = "coach@winek.app"
 COACH_PASSWORD = "WinekCoach2024!"

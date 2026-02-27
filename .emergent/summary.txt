@@ -3,7 +3,10 @@
 **PRODUCT REQUIREMENTS**:
 - **Core Feature**: Create, search for, and manage geo-located tagPoints and Services.
 - **Geolocation**: Search for activities around a location with adjustable precision using PostGIS.
-- **Coaching Services**: Coaches can create profiles and offer paid services with multiple locations and time slots.
+- **Coaching Services**: Coaches can create profiles and offer paid services. The service creation flow has been refined to include:
+    - Three types of time slots: Date unique (single date), Récurrent (recurring on multiple days of the week), and Disponible (general availability on multiple days).
+    - Strict validation for date/day selection.
+    - A user interface for date/time selection that should be identical to the one used for creating/editing tagPoints.
 - **Payments**: Integration with Stripe for transactions (future work).
 - **User Roles**: Standard User, Coach, Admin.
 - **Tech Stack**: React Native (Expo), TypeScript, FastAPI, PostgreSQL, PostGIS.
@@ -14,31 +17,31 @@
 **User's preferred language**: French. The next agent MUST respond in **French**.
 
 **what currently exists?**
-The application features a complete user journey including authentication, tagPoint creation/search, and a rich profile system with user reviews and badges. A full CRUD (Create, Read, Update, Delete) lifecycle for Services has been implemented. Coaches can now create complex services with a title, description, price, multiple geographic locations, and multiple recurring time slots via a multi-step form. A detailed service page displays all this information, including an interactive map with all locations. Users can view these services and initiate a booking. The edit functionality for services has just been completed, allowing coaches to modify all aspects of their existing services. Five test services have been seeded for the primary coach account.
+The application has a fully functional authentication system and CRUD operations for tagPoints and Services. The service creation and editing process (, ) is highly advanced, featuring a multi-step form. This form supports complex service definitions including title, description, price, multiple locations on a map, and sophisticated time slot management. Time slots can be of three types (Unique, Récurrent, Disponible) and allow for selecting multiple days of the week for recurring and available slots. All backend models and endpoints have been updated to support this structure. The Edit Service feature was fully tested and validated.
 
 **Last working item**:
--   **Last item agent was working**: Finishing the Edit Service feature. The agent implemented the  backend endpoint and the  frontend screen. The testing agent was run and discovered two bugs (one frontend, one backend). The agent has implemented fixes for both bugs but has not yet re-tested or verified them.
+-   **Last item agent was working**: The agent was starting to implement the user's latest request: to completely overhaul the date/time selection UI in the service creation/editing forms to be identical to the UI used in the tagPoint creation form. The agent has investigated the target components () and has just started the backend work by creating a new Alembic migration file.
 -   **Status**: IN PROGRESS
--   **Agent Testing Done**: Y (but found bugs that were just fixed, re-testing is required)
--   **Which testing method agent to use?**: both. The  should be run to validate the recent bug fixes and ensure no regressions were introduced in the service CRUD flow.
+-   **Agent Testing Done**: N
+-   **Which testing method agent to use?**: both. The backend migration needs to be applied and tested. The frontend will require a complete rewrite of Step 4 in the service forms, which must be validated by the frontend testing agent.
 -   **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: Verify Edit Service Bug Fixes (P0)**
+-   **Issue 1: Refactor Service Date/Time UI to match TagPoint UI (P0)**
 -   **Issue 2: Expo Metro bundler does not hot-reload (P0 - CRITICAL)**
 -   **Issue 3: User dissatisfaction with action buttons layout (P1)**
 -   **Issue 4: Google Auth flow is broken on Expo Go (P2 - ON HOLD)**
 
 **Issues Detail**:
--   **Issue 1: Verify Edit Service Bug Fixes**
-    -   **Attempted fixes**: Two fixes were just applied:
-        1.  **Frontend**: In , replaced  with  to fix a redirection issue on web after saving.
-        2.  **Backend**: In , removed  around  in the  function to fix a double-encoding error.
+-   **Issue 1: Refactor Service Date/Time UI to match TagPoint UI**
+    -   **Attempted fixes**: The agent has analyzed the target UI components from  and created a new database migration file . The content of this migration and the subsequent frontend changes have not yet been implemented.
     -   **Next debug checklist**:
-        1.  Restart both backend and frontend services.
-        2.  Run  with a focus on editing a service and verifying the data saves correctly.
-        3.  Manually test the edit flow: navigate to a service, click Modifier, change the price and a location, save, and confirm the data is updated on the detail page.
-    -   **Why fix this issue and what will be achieved with the fix?**: This will complete the entire, user-requested CRUD functionality for services, making it a production-ready feature.
+        1.  Implement the logic inside the new migration file ().
+        2.  Run FAILED: No 'script_location' key found in configuration. to apply the migration.
+        3.  Update backend models () and routes () if required by the migration.
+        4.  Completely rewrite Step 4 of the stepper in  and  to use the same components and logic as  for date and time selection.
+        5.  Run  to validate the new UI and backend logic.
+    -   **Why fix this issue and what will be achieved with the fix?**: To achieve UI consistency across the application as requested by the user, providing a more intuitive and familiar user experience for creating services.
     -   **Status**: IN PROGRESS
     -   **Is recurring issue?**: N
     -   **Should Test frontend/backend/both after fix?**: both
@@ -46,17 +49,16 @@ The application features a complete user journey including authentication, tagPo
 
 -   **Issue 2: Expo Metro bundler does not hot-reload**
     -   **Description**: A critical workflow blocker where frontend code changes are not reflected without a manual restart (expo: ERROR (not running)
-expo: started).
-    -   **Next debug checklist**: This is a persistent environment issue. The only action is to continue using the expo: stopped
-expo: started workaround.
+expo: started). This has persisted across multiple sessions.
+    -   **Next debug checklist**: There is no known fix. The only action is to continue using the expo: stopped
+expo: started workaround after every single frontend file modification.
     -   **Why fix this issue and what will be achieved with the fix?**: Fixing it would restore hot-reloading and dramatically increase development speed.
     -   **Status**: NOT STARTED
     -   **Is recurring issue?**: Y
     -   **Should Test frontend/backend/both after fix?**: N/A (Environment issue)
 
 -   **Issue 3: User dissatisfaction with action buttons layout**
-    -   **Description**: The user is unhappy with the layout of Similar, Share, and Save buttons on the tagPoint detail screen (). This is a long-standing request.
-    -   **Next debug checklist**: Propose a new layout to the user or ask for specific design guidance before implementation.
+    -   **Description**: The user is unhappy with the layout of Similar, Share, and Save buttons on the tagPoint detail screen (). This is a long-standing request that has not been addressed.
     -   **Status**: NOT STARTED
     -   **Is recurring issue?**: Y
     -   **Should Test frontend/backend/both after fix?**: frontend
@@ -65,13 +67,13 @@ expo: started workaround.
     -   **Description**: The in-app browser for Google login does not close automatically on the native mobile app.
     -   **Status**: BLOCKED (User has deprioritized this task).
     -   **Is recurring issue?**: Y
-    -   **Should Test frontend/backend/both after fix?**: frontend (specifically on Expo Go).
+    -   **Should Test frontend/backend/both after fix?**: frontend
 
 **In progress Task List**:
--   **Task 1: Finalize Edit Service Feature (P0)**
-    -   **Where to resume**: The fixes are coded. The immediate next step is to restart the services and run the  to confirm the bug fixes work and the feature is stable.
-    -   **What will be achieved with this?**: A fully tested and complete service management feature (Create, Read, Update).
-    -   **Status**: TESTING PENDING
+-   **Task 1: Finalize UI Refactor for Service Date/Time Selection (P0)**
+    -   **Where to resume**: The Alembic migration file has been created at . The next step is to write the migration script, apply it, and then proceed with the extensive frontend rewrite.
+    -   **What will be achieved with this?**: A consistent and user-approved UI for date/time selection in service creation and editing.
+    -   **Status**: IN PROGRESS
     -   **Should Test frontend/backend/both after fix?**: both
     -   **Blocked on something**: Expo hot-reload issue (Issue #2).
 
@@ -88,18 +90,20 @@ expo: started workaround.
     -   Fix Google Auth on Expo Go (currently on hold).
 
 **Completed work in this session**
--   **Feature: Service Management (CRUD)**:
-    -   Removed  from the user profile and backend models.
-    -   Implemented a multi-step stepper for creating services ().
-    -   Implemented a detail screen to view services (), including a map with multiple markers.
-    -   Implemented the ability to edit existing services ().
-    -   Created backend endpoints and database models (, , ) to support the entire feature.
--   **Feature: Booking V1**:
-    -   Implemented the backend logic () to allow users to book a service at a specific location and time slot.
--   **Data Seeding**:
-    -   Created 5 comprehensive test services for the primary coach user, complete with multiple locations and slots.
--   **UI Enhancements**:
-    -   Made service cards on user and coach profile pages clickable, navigating to the service detail screen.
+-   **Feature: Edit Service Validation**: Confirmed via testing agent that bug fixes for the edit service feature were successful.
+-   **Feature: Enhanced Service Slot Creation**:
+    -   Implemented three distinct slot types: Date unique, Récurrent, and Disponible.
+    -   Implemented multi-day selection for Récurrent and Disponible slots.
+    -   Added strict validation logic for date/day selection in the form.
+    -   Fixed a map precision circle rendering bug.
+    -   Added a Previous button to the final step of the service creation form.
+    -   Added UI text to encourage coaches to create appealing service listings.
+-   **Bug Fixes**:
+    -   Resolved two minor issues (missing React key, inconsistent API response) identified by the testing agent.
+    -   Fixed a critical bug where  (unsupported on web) was used, replacing it with an inline error message.
+    -   Fixed duplicate variable declarations () in  and  that were found by the testing agent.
+    -   Fixed a backend crash during seeding due to a removed  column.
+    -   Fixed a backend  test failure by adding a missing  field to a Pydantic model.
 
 **Earlier issues found/mentioned but not fixed**
 -   **Action Buttons UX**: The user's dissatisfaction with the action buttons on the tagPoint detail page  remains unaddressed.
@@ -112,62 +116,54 @@ expo: started is mandatory after every frontend code change.
 
 
 **Key Technical Concepts**
--   **Complex CRUD with Relations**: The  endpoint manages a parent  entity and its child  and  by deleting old records and creating new ones in a single API call.
--   **Component Reuse for Editing**: The stepper UI component from  is reused in , which fetches existing data to pre-populate the form state.
--   **Conditional Rendering for Ownership**: The Modifier (Edit) button on the service detail page () is conditionally rendered, appearing only for the user who owns the service.
--   **Interactive Maps**: Using  to display multiple markers for service locations on a single map.
--   **Database Schema Evolution**: New tables (, , , ) and columns were added to the PostgreSQL database to support new features.
+-   **DB Migration with Alembic**: A new migration has been initiated to support the upcoming UI changes.
+-   **Complex Frontend State Management**: The service creation/editing forms manage a complex state object with nested arrays for locations and slots, requiring careful state updates and validation logic.
+-   **Iterative Refinement**: The service creation feature has been built and refined over multiple iterations based on detailed user feedback, demonstrating a tight feedback loop.
+-   **Test-Driven Correction**: The  was used multiple times to validate large feature sets, identify critical bugs (like duplicate declarations), and confirm fixes.
 
 **key DB schema**
--   **services**: uid=0(root) gid=0(root) groups=0(root), , , , , , 
--   **service_locations**: uid=0(root) gid=0(root) groups=0(root), , , , , 
--   **service_slots**: uid=0(root) gid=0(root) groups=0(root), , , , , 
--   **bookings**: uid=0(root) gid=0(root) groups=0(root), , , , , , 
+-   **service_slots**: uid=0(root) gid=0(root) groups=0(root), ,  (e.g., 'unique', 'recurring', 'available'), , ,  (JSONB array of integers), , , .
+    -   **Note**: A new migration  has been created and may alter this schema.
 
 **All files of reference**
--   **/app/backend/routes/service_routes.py**: Core logic for service CRUD.
--   **/app/backend/routes/booking_routes.py**: Logic for creating bookings.
--   **/app/frontend/app/(main)/edit-service/[id].tsx**: Screen for editing a service.
--   **/app/frontend/app/service/[id].tsx**: Service detail screen.
--   **/app/frontend/app/(main)/create-service.tsx**: Screen for creating a new service.
--   **/app/frontend/app/coach/[id].tsx**: Profile screen modified to link to services.
+-   **/app/backend/alembic/versions/e1c3a0b1c9c7_update_service_slots.py**: The starting point for the current task.
+-   **/app/frontend/app/(main)/create-service.tsx**: Will be heavily modified.
+-   **/app/frontend/app/(main)/edit-service/[id].tsx**: Will be heavily modified.
+-   **/app/frontend/app/(tabs)/create-tag-point.tsx**: Reference file for the target UI design.
+-   **/app/backend/routes/service_routes.py**: Contains the backend logic for creating/updating services.
+-   **/app/backend/models/service.py**: Contains the Pydantic and ORM models for services.
 
 **Areas that need refactoring**:
--   ****: This file remains very large and could be broken down into smaller, more focused components for better maintainability.
--   ****: The  function performs multiple database writes (deletes and inserts). This logic should be wrapped in a single database transaction to ensure atomicity and prevent partial updates in case of an error.
+-   ****: The  function performs multiple database writes (deletes and inserts). This logic should be wrapped in a single database transaction to ensure atomicity.
+-   ****: This file remains very large and could be broken down into smaller, more focused components.
 
 **key api endpoints**
--   : Creates a new service.
--   : Retrieves details for a single service.
--   : Updates an existing service, including its locations and slots.
--   : Creates a booking for a service.
--   : Retrieves all services created by a specific user.
+-   : Creates a new service. Its logic was significantly updated to handle the different slot types and multi-day arrays.
+-   : Updates an existing service. Logic was also updated.
 
 **Critical Info for New Agent**
 -   **Language**: You MUST respond and communicate in **French**.
 -   **CRITICAL WORKFLOW BLOCKER**: The Expo environment does **NOT** hot-reload. After making any frontend code changes, you **MUST** run expo: stopped
 expo: started to see them. Do not waste time trying to fix this.
--   **Immediate Task**: Your first priority is to **verify the fixes** for the Edit Service feature. The code has been written, but it needs to be tested to confirm the bugs are resolved before moving on. Start by restarting services and running the testing agent.
+-   **Immediate Task**: Your first priority is to continue the implementation of the new date/time selection UI for services. Start by filling out and applying the Alembic migration . Then proceed to rewrite the frontend components.
 
 **documents and test reports created in this job**
--   /app/test_reports/iteration_6.json
--   /app/test_reports/iteration_7.json
--   /app/test_reports/iteration_8.json
--   /app/test_reports/iteration_9.json
--   /app/test_reports/iteration_10.json
--   /app/memory/PRD.md
+-   /app/test_reports/iteration_11.json
+-   /app/test_reports/iteration_12.json
+-   /app/test_reports/iteration_13.json
+-   /app/memory/PRD.md (updated multiple times)
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User Request**: Allow modifying a service. (IN PROGRESS - Fixes applied, verification pending)
-2.  **User Request**: Create test services for me. (DONE)
-3.  **User Request**: Add a service detail screen. (DONE)
-4.  **Agent Action**: Finished previous task.
-5.  **User Confirmation**: Confirmed Recurring slots. (Acknowledged)
-6.  **User Clarification**: Explained the requirements for services (multiple locations/slots). (Understood & Implemented)
-7.  **Agent Action**: Clarified service vs. tagpoint difference.
-8.  **User Request**: Start P0 task and asked for clarification. (Addressed)
-9.  **Agent Action**: Finished previous task.
-10. **Agent Action**: Finished previous task.
+1.  **User Request**: Use the exact same date components from tagPoint creation for service creation. (IN PROGRESS)
+2.  **Agent Action**: Finished previous task (slot multi-day selection).
+3.  **User Request**: Refine slot selection: multi-day choice for recurrent/available, strict validation. (DONE)
+4.  **Agent Action**: Finished previous task (5 service creation improvements).
+5.  **User Request**: List of 5 improvements for service creation (map circle, slot UI, slot types, back button, encouragement). (DONE)
+6.  **Agent Action**: Finished P0 task (verifying edit service fixes).
+7.  **User Confirmation**: Go ahead with the plan.
+8.  **Agent Plan**: Proposed plan after initial debugging.
+9.  **User Confirmation**: Start with P0.
+10. **Agent Plan**: Proposed plan for next steps.
 
 **Project Health Check:**
 -   **Broken**:
@@ -183,7 +179,7 @@ expo: started after every frontend change.
 -   **OpenStreetMap Nominatim**: Used for reverse geocoding via direct API calls.
 
 **Testing status**
--   **Testing agent used after significant changes**: YES. The testing agent has been used extensively and was instrumental in identifying the last two bugs in the Edit Service flow.
+-   **Testing agent used after significant changes**: YES. The testing agent was used three times in this session to validate major feature changes and bug fixes, proving highly effective at catching critical issues.
 -   **Troubleshoot agent used after agent stuck in loop**: NO
 -   **Test files created**: None.
 -   **Known regressions**: The developer workflow has regressed significantly due to the persistent hot-reloading issue.
@@ -193,4 +189,4 @@ expo: started after every frontend change.
 -   **Password**: 
 
 **What agent forgot to execute**
--   The user's long-standing dissatisfaction with the action buttons' layout on the tagPoint detail screen () has still not been addressed. This should be raised with the user as a potential next task after the current work is verified.</analysis>
+-   The user's long-standing dissatisfaction with the action buttons' layout on the tagPoint detail screen () has still not been addressed. This is a recurring pending item that should be prioritized after the current P0 task.</analysis>
