@@ -175,6 +175,22 @@ export default function MenuScreen() {
 
             <Ionicons name="chevron-forward" size={18} color={Colors.primary + '99'} style={{ alignSelf: 'center' }} />
           </View>
+
+          {/* ── Progress toward next badge ── */}
+          {progressMsg && (
+            <View style={st.progressBanner} testID="badge-progress-banner">
+              <Ionicons name="ribbon-outline" size={14} color={Colors.primary} />
+              <View style={{ flex: 1, gap: 5 }}>
+                <Text style={st.progressText}>{progressMsg}</Text>
+                <View style={st.progressTrack}>
+                  <View style={[st.progressFill, {
+                    width: `${Math.min(100, (progressCurrent / progressTarget) * 100)}%` as any
+                  }]} />
+                </View>
+              </View>
+              <Text style={st.progressCount}>{progressCurrent}/{progressTarget}</Text>
+            </View>
+          )}
         </TouchableOpacity>
 
         {/* ── QUICK ACTIONS ─────────────────────────────────── */}
