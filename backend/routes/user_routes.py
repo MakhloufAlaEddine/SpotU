@@ -176,6 +176,9 @@ async def update_user_review(user_id: str, review_id: str, data: ProfileReviewCr
             review_id
         )
     return row_to_dict(row)
+
+
+@router.post("/{user_id}/reviews")
 async def create_user_review(user_id: str, data: ProfileReviewCreate, request: Request):
     pool = get_pool()
     reviewer = await require_auth(request, pool)
