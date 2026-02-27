@@ -147,7 +147,8 @@ export default function EditProfileScreen() {
     );
   };
 
-  const handleDeleteService = (svcId: string, title: string) => {    Alert.alert('Supprimer', `Supprimer le service "${title}" ?`, [
+  const handleDeleteService = (svcId: string, title: string) => {
+    Alert.alert('Supprimer', `Supprimer le service "${title}" ?`, [
       { text: 'Annuler', style: 'cancel' },
       {
         text: 'Supprimer', style: 'destructive', onPress: async () => {
@@ -160,6 +161,31 @@ export default function EditProfileScreen() {
         }
       }
     ]);
+  };
+
+  const handleChangePassword = async () => {
+    if (!currentPwd || !newPwd || !confirmPwd) {
+      Alert.alert('Champs requis', 'Veuillez remplir tous les champs.');
+      return;
+    }
+    if (newPwd !== confirmPwd) {
+      Alert.alert('Erreur', 'Les deux nouveaux mots de passe ne correspondent pas.');
+      return;
+    }
+    if (newPwd.length < 6) {
+      Alert.alert('Erreur', 'Le nouveau mot de passe doit contenir au moins 6 caractères.');
+      return;
+    }
+    setPwdSaving(true);
+    try {
+      await api.put('/auth/change-password', { current_password: currentPwd, new_password: newPwd });
+      setCurrentPwd(''); setNewPwd(''); setConfirmPwd('');
+      Alert.alert('Succès', 'Mot de passe mis à jour !');
+    } catch (e: any) {
+      Alert.alert('Erreur', e.message || 'Mot de passe actuel incorrect.');
+    } finally {
+      setPwdSaving(false);
+    }
   };
 
   if (loading) {
