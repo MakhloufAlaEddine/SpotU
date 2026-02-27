@@ -1,0 +1,99 @@
+{
+  "summary": "WINEK iteration 22 - Edit Service feature fully tested. Backend: 9/9 tests pass (PUT /api/services/{id}: scalar-only update, full location+slot replacement, owner check). Frontend: stepper navigation, pre-fill, owner buttons all pass. Fixed critical 422 bug in edit-service/[id].tsx (tag_ids sent as string instead of array). One UX issue reported: Alert.alert doesn't render on web after save.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "PUT /api/services/{id} + GET /api/services/{id}",
+        "issue": "tag_ids returned as JSON string '\"[]\"' instead of array []. Root cause: create_service and update_service use json.dumps(data.tag_ids) before passing to asyncpg, which double-encodes via JSONB codec (json.dumps(json.dumps([])) = '\"[]\"'). Also _enrich_service parses raw_tags but doesn't normalize svc['tag_ids'] back to a list.",
+        "priority": "MEDIUM"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "edit-service save + redirect",
+        "issue": "After successful PUT (200 OK), Alert.alert('Modifications sauvegardées!', ...) does not render on Expo Web. No visual feedback shown and router.replace('/service/{id}') is never called. User stays on edit-service page with no confirmation. Works on mobile (native Alert), broken on web.",
+        "affected_selectors": ["[data-testid='save-service-btn']"],
+        "priority": "MEDIUM"
+      }
+    ],
+    "design_issues": []
+  },
+  "bug_fixed": {
+    "file": "/app/frontend/app/edit-service/[id].tsx",
+    "issue": "loadService() set selectedTags = data.tag_ids where data.tag_ids was '\"[]\"' (a string due to backend double-encoding). handleSubmit then sent tag_ids: '\"[]\"' in PUT body, causing 422 Pydantic validation error ('Input should be a valid list').",
+    "fix": "Added defensive parsing: if tag_ids is a string, JSON.parse it; if array use as-is; otherwise default to []. Line 101 in edit-service/[id].tsx",
+    "severity": "CRITICAL - save button always returned 422, completely blocking edit-service flow"
+  },
+  "test_results": {
+    "backend": {
+      "total": 9,
+      "passed": 9,
+      "failed": 0,
+      "tests": {
+        "service_exists_with_locations_slots": "PASS - svc_4842a8361c1f has 3 locations, 4 slots",
+        "put_title_price_only_preserves_locations_slots": "PASS - PUT {title, price} conserves 3 locations + 4 slots",
+        "verify_persistence_after_scalar_update": "PASS - GET confirms title+price persisted",
+        "put_new_locations_and_slots": "PASS - 3 new locations + 4 new slots replaced correctly",
+        "verify_persistence_after_location_slot_update": "PASS - GET confirms 3 locs + 4 slots, slot 08:00 present",
+        "non_owner_cannot_update": "PASS - user@winek.app gets 403 Forbidden",
+        "unauthenticated_cannot_update": "PASS - anon gets 401 Unauthorized",
+        "service_not_modified_by_non_owner": "PASS - title unchanged after 403",
+        "restore_service_to_original": "PASS - title='Coaching Running Paris', price=65, 3 locs, 4 slots"
+      }
+    },
+    "frontend": {
+      "coach_service_detail_options_btn": "PASS - data-testid='owner-options-btn' visible for coach on own service",
+      "coach_service_detail_modifier_btn": "PASS - data-testid='edit-service-btn' visible, text='Modifier'",
+      "coach_service_detail_no_book_btn": "PASS - book-btn correctly hidden for coach on own service",
+      "user_service_detail_book_btn": "PASS - data-testid='book-btn' visible with text='Réserver' for non-owner",
+      "user_service_detail_no_edit_btns": "PASS - owner buttons hidden for regular user",
+      "edit_service_loads_with_prefill": "PASS - title='Coaching Running Paris', price='65', duration=60min active",
+      "edit_service_step3_locations_prefilled": "PASS - 3 locations shown with delete buttons (Paris Centre, Boulogne, Montrouge)",
+      "edit_service_step4_slots_prefilled": "PASS - 4 slots shown with delete buttons",
+      "stepper_navigation_1_to_5": "PASS - all 5 steps navigable, step4 next says 'Résumé'",
+      "step5_summary_content": "PASS - shows title, price, domain, 3 lieux, 4 créneaux",
+      "save_button_calls_put": "PASS (after fix) - PUT /api/services/{id} returns 200 OK",
+      "redirect_after_save": "FAIL - Alert.alert does not render on Expo Web, router.replace never called, page stays on edit-service"
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_edit_service_iter22.py",
+    "/app/test_reports/pytest/pytest_iter22.xml"
+  ],
+  "action_items": [
+    "HIGH: Fix Alert.alert after save in edit-service/[id].tsx for web compatibility. Replace Alert.alert with: (1) Platform.OS === 'web' ? router.replace('/service/{id}') : Alert.alert(...), OR (2) use a toast notification, OR (3) call router.replace directly after successful PUT without waiting for user confirmation",
+    "MEDIUM: Fix backend double-encoding of tag_ids in service_routes.py: In create_service (line 163), change json.dumps(data.tag_ids) → data.tag_ids. In update_service (line 207), change json.dumps(raw['tag_ids']) → raw['tag_ids']. Also normalize svc['tag_ids'] in _enrich_service to always return a list (add: svc['tag_ids'] = raw_tags or [])",
+    "LOW: Other services created via the stepper (svc_demo001, etc.) may also have corrupted tag_ids stored as double-encoded strings. A DB migration to fix these may be needed after backend fix."
+  ],
+  "critical_code_review_comments": [
+    "CRITICAL RCA: service_routes.py create_service uses json.dumps(data.tag_ids) before passing to asyncpg. The _init_connection JSONB codec also calls json.dumps on write, causing double-encoding. Result: tag_ids stored as JSON string '\"[]\"' instead of JSON array []. Fix: remove manual json.dumps calls and let asyncpg codec handle JSONB serialization.",
+    "MEDIUM: edit-service/[id].tsx handleSubmit uses Alert.alert which is not web-compatible for navigation. After PUT success, the user has no feedback and stays on the edit page. This breaks the complete UX flow on web.",
+    "LOW: In service_routes.py update_service, SCALAR_FIELDS doesn't include 'price' correctly when price=0 (not a real issue since price must be >0, but worth noting for robustness). Actually it IS included: raw.get(k) is not None check - 0 is not None so it works. No issue."
+  ],
+  "updated_files": [
+    "/app/frontend/app/edit-service/[id].tsx (line 101: defensive tag_ids parsing)"
+  ],
+  "success_rate": {
+    "backend": "100% (9/9)",
+    "frontend": "91% (11/12) - redirect after save fails due to Alert.alert web incompatibility"
+  },
+  "test_credentials": {
+    "coach": "coach@winek.app / WinekCoach2024! (user_coach001, owns svc_4842a8361c1f)",
+    "user": "user@winek.app / WinekUser2024! (user_demo001, non-owner)"
+  },
+  "seed_data_creation": "No new seed data created. Service svc_4842a8361c1f restored to: title='Coaching Running Paris', price=65, 3 locations (Paris Centre/Boulogne/Montrouge), 4 slots (Lun 07-08 / Mer 12-13 / Ven 07-08 / Dim 09-10:30).",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "WINEK iteration 22 - Edit service fully tested. Fixed: tag_ids string→array parsing in edit-service/[id].tsx (was causing 422 on save). Remaining issue: Alert.alert doesn't work on web after save, so no redirect to /service/{id}. Backend PUT tested: scalar-only update preserves locations/slots, full replacement works, owner-only protection works. Service svc_4842a8361c1f: Coaching Running Paris, coach=user_coach001 (coach@winek.app), 3 locations, 4 slots. Both coach and user scenarios verified.",
+  "rca_of_issue": {
+    "bug": "422 Unprocessable Entity on PUT /api/services/{id} from edit-service UI",
+    "root_cause": "1. Backend stores tag_ids as double-encoded JSON string ('\"[]\"') due to json.dumps() call before asyncpg JSONB codec. 2. Frontend loadService() set selectedTags = '\"[]\"' (string). 3. handleSubmit sent tag_ids: '\"[]\"' (string) in PUT body. 4. Pydantic ServiceUpdate.tag_ids = Optional[List[str]] rejected the string with 'list_type' validation error.",
+    "reproduction": "1. Login as coach. 2. Go to /edit-service/svc_4842a8361c1f. 3. Navigate to step 5. 4. Click 'Sauvegarder les modifications'. 5. Network tab shows PUT returns 422 with detail: [{'type':'list_type','loc':['body','tag_ids'],'msg':'Input should be a valid list','input':'[]'}]",
+    "fix_applied": "Frontend defensive fix in edit-service/[id].tsx line 101: Array.isArray check with JSON.parse fallback for string tag_ids",
+    "backend_fix_needed": "Remove json.dumps() in service_routes.py create_service and update_service for tag_ids field. Also normalize svc['tag_ids'] in _enrich_service."
+  }
+}
