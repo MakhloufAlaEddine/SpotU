@@ -309,12 +309,12 @@ export default function EditServiceScreen() {
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
-      const slotsPayload = locations.flatMap(loc => {
+      const slotsPayload = locations.flatMap((loc, locIdx) => {
         if (loc.scheduleType === 'once') {
           if (!loc.eventDateTime) return [];
           const d = loc.eventDateTime;
           return [{
-            location_id: loc.id,
+            location_index: locIdx,
             slot_type: 'single',
             day_of_week: null,
             days_of_week: null,
@@ -325,7 +325,7 @@ export default function EditServiceScreen() {
         }
         return Object.entries(loc.recurringSchedule).flatMap(([dayIdx, timeSlots]) =>
           timeSlots.map(ts => ({
-            location_id: loc.id,
+            location_index: locIdx,
             slot_type: loc.scheduleType === 'availability' ? 'availability' : 'recurring',
             day_of_week: parseInt(dayIdx),
             days_of_week: null,
