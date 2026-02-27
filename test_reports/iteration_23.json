@@ -1,0 +1,127 @@
+{
+  "summary": "Iteration 23 - Tests P0: Vérification des corrections du bug 'Edit Service'. Backend 19/19 tests passent. Frontend: flux complet de modification d'un service vérifié. Les 2 corrections P0 fonctionnent: (1) router.replace redirige correctement vers /service/{id} après sauvegarde, (2) PUT /api/services/{id} accepte tag_ids comme liste sans 422.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "GET /api/services/{id}",
+        "issue": "_enrich_service ne normalise pas svc['tag_ids'] vers une liste dans la réponse. Les anciens services créés avec double-encodage (via seed.py json.dumps) retournent tag_ids comme string. Le frontend gère cela avec un parsing défensif, mais idéalement l'API devrait toujours retourner tag_ids comme liste. Fix simple: ajouter svc['tag_ids'] = raw_tags or [] dans _enrich_service après le parsing.",
+        "priority": "LOW"
+      }
+    ]
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+
+  "p0_bug_fixes_verified": {
+    "fix1_router_replace": {
+      "status": "PASS",
+      "description": "router.replace('/service/{id}') fonctionne correctement après sauvegarde. L'URL change de /edit-service/svc_demo001 → /service/svc_demo001. Le prix mis à jour (70€) est immédiatement visible sur la page de détail.",
+      "file": "/app/frontend/app/edit-service/[id].tsx (ligne 210)"
+    },
+    "fix2_no_double_encoding": {
+      "status": "PASS",
+      "description": "PUT /api/services/{id} avec tag_ids comme liste retourne 200 OK (plus de 422). Le backend n'utilise plus json.dumps() sur tag_ids. Testé avec: tag_ids: [] → 200, tag_ids: ['tag_musculation', 'tag_cardio', 'tag_hiit'] → 200. String tag_ids → 422 (validation Pydantic correcte).",
+      "file": "/app/backend/routes/service_routes.py (lignes 206-207)"
+    }
+  },
+
+  "test_results": {
+    "backend": {
+      "total": 19,
+      "passed": 19,
+      "failed": 0,
+      "tests": {
+        "coach_login_success": "PASS",
+        "coach_login_wrong_password": "PASS",
+        "get_my_services": "PASS - svc_demo001 avec tags, locations, slots",
+        "get_service_by_id": "PASS - enrichi avec coach, tags, locations, slots",
+        "get_service_not_found": "PASS - 404",
+        "get_service_unauthenticated": "PASS - 200 (endpoint public)",
+        "get_mine_unauthenticated": "PASS - 401",
+        "put_title_and_price_only": "PASS - titre+prix modifiés, locations/slots conservés",
+        "put_with_tag_ids_as_list": "PASS - 200 OK (bug fix vérifié)",
+        "put_with_empty_tag_ids": "PASS - [] → 200 OK",
+        "put_with_locations_and_slots": "PASS - 1 location + 2 slots remplacés",
+        "put_verify_persistence_after_update": "PASS - prix persisté en DB",
+        "put_non_owner_forbidden": "PASS - 403",
+        "put_unauthenticated": "PASS - 401",
+        "put_nonexistent_service": "PASS - 404",
+        "restore_service_original_state": "PASS",
+        "tag_ids_not_double_encoded": "PASS - PUT tag_ids list → 200 OK",
+        "frontend_defensive_parsing_works": "PASS - JSON.parse fonctionne",
+        "put_tag_ids_string_causes_422": "PASS - Pydantic valide correctement"
+      }
+    },
+    "frontend": {
+      "coach_login": "PASS - redirige vers /map",
+      "service_detail_loads": "PASS - 60€, titre, Sophie Martin, 3 tags, 1 lieu, 2 créneaux",
+      "owner_buttons_visible": "PASS - edit-service-btn + owner-options-btn visibles",
+      "book_btn_hidden_for_owner": "PASS - book-btn absent pour le propriétaire",
+      "edit_page_pre_filled": "PASS - titre et prix pré-remplis correctement",
+      "step_navigation_1_to_5": "PASS - étapes 1→2→3→4→5 navigables",
+      "price_modification": "PASS - prix modifiable de 60 à 70",
+      "step5_resume_summary": "PASS - affiche titre, 70€/séance, 60min, 1 pers., Coaching, 1 lieu, 2 créneaux",
+      "save_button_visible": "PASS - save-service-btn présent à l'étape 5",
+      "p0_redirect_after_save": "PASS - router.replace redirige vers /service/svc_demo001 ✓",
+      "updated_price_visible": "PASS - 70€ affiché sur la page de détail après redirect",
+      "all_3_tags_displayed": "PASS - Musculation, HIIT, Cardio affichés (service restauré)"
+    }
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_edit_service_iter23.py",
+    "/app/test_reports/pytest/pytest_iter23.xml"
+  ],
+
+  "action_items": [
+    "LOW: Normaliser svc['tag_ids'] vers une liste dans _enrich_service après parsing: ajouter svc['tag_ids'] = raw_tags if raw_tags else [] après le bloc de parsing. Cela garantit que l'API retourne toujours tag_ids comme liste JSON."
+  ],
+
+  "critical_code_review_comments": [
+    "MEDIUM: seed.py ligne 384 utilise toujours json.dumps() pour tag_ids: json.dumps([...]) avant de passer à asyncpg. Asyncpg a le codec JSONB avec encoder=json.dumps, ce qui cause un double-encodage. La correction du backend dans service_routes.py est bonne, mais le seed.py devrait aussi être corrigé pour éviter la double-encodage lors du seed initial. Fix: passer la liste directement sans json.dumps(), ou utiliser $7 au lieu de $7::jsonb.",
+    "LOW: _enrich_service ne met pas à jour svc['tag_ids'] vers une liste après parsing. Conséquence: les services créés avec l'ancien code (json.dumps) retournent tag_ids comme string. Le frontend gère cela avec le parsing défensif, mais l'API devrait être cohérente."
+  ],
+
+  "updated_files": [],
+
+  "success_rate": {
+    "backend": "100% (19/19)",
+    "frontend": "100% (12/12)"
+  },
+
+  "test_credentials": {
+    "coach": "coach@winek.app / WinekCoach2024! (user_coach001, owns svc_demo001)",
+    "user": "user@winek.app / WinekUser2024! (user_demo001)"
+  },
+
+  "seed_data_creation": "Service svc_demo001 restauré à: prix=60, tag_ids=['tag_musculation','tag_cardio','tag_hiit'], 1 location (Paris Centre), 2 slots (Lun 07-08, Jeu 12-13).",
+
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Iteration 23 - Tests P0 Edit Service tous PASS. Corrections vérifiées: (1) router.replace dans edit-service/[id].tsx redirige correctement après save. (2) PUT /api/services/{id} accepte tag_ids comme liste sans 422. Service svc_demo001: prix=60, 3 tags (musculation/cardio/hiit), 1 location (Paris Centre), 2 slots (Lun 07-08, Jeu 12-13). tag_ids stocké comme JSON array propre (plus de double-encodage après PUT). Note: seed.py utilise encore json.dumps() donc si le backend redémarre et que la DB est vidée, svc_demo001 sera recréé avec double-encodage initial. Action LOW recommandée: normaliser svc['tag_ids'] dans _enrich_service.",
+
+  "rca_of_bugs_fixed": {
+    "bug1_alert_redirect": {
+      "bug": "Alert.alert ne s'affiche pas sur web Expo après save du service",
+      "root_cause": "Alert.alert est une API React Native qui n'est pas supportée sur le web. Le router.replace était dans le callback de l'Alert qui ne s'affichait jamais.",
+      "fix": "Suppression de Alert.alert, appel direct de router.replace('/service/{id}') après le PUT réussi",
+      "status": "VERIFIED WORKING"
+    },
+    "bug2_tag_ids_422": {
+      "bug": "422 Unprocessable Entity sur PUT /api/services/{id} depuis le formulaire edit-service",
+      "root_cause": "1) Backend stockait tag_ids avec json.dumps() avant asyncpg (double-encodage JSONB). 2) GET retournait tag_ids comme string '\"[]\"'. 3) Frontend envoyait tag_ids: '\"[]\"' (string) dans PUT body. 4) Pydantic ServiceUpdate.tag_ids = Optional[List[str]] rejetait la string.",
+      "fixes": [
+        "Backend: suppression de json.dumps() dans update_service (tag_ids passé directement comme liste)",
+        "Frontend: parsing défensif dans edit-service/[id].tsx pour gérer tag_ids comme string ou liste"
+      ],
+      "status": "VERIFIED WORKING"
+    }
+  }
+}
