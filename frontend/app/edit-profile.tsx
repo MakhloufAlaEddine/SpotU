@@ -628,4 +628,21 @@ const st = StyleSheet.create({
     paddingHorizontal: 28, paddingVertical: 13,
   },
   coachCtaBtnText: { fontSize: 15, fontWeight: '700', color: Colors.background },
+
+  // Password / account section
+  inputReadOnly: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: Colors.secondary, opacity: 0.7,
+  },
+  inputReadOnlyText: { fontSize: 14, color: Colors.muted, flex: 1 },
+  pwdSectionLabel: {
+    fontSize: 12, fontWeight: '700', color: Colors.primary, textTransform: 'uppercase',
+    letterSpacing: 0.6, marginHorizontal: 16, marginBottom: 4, marginTop: 8,
+  },
+  pwdSaveBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    margin: 16, marginTop: 8, backgroundColor: Colors.primary,
+    borderRadius: Radius.full, paddingVertical: 12,
+  },
+  pwdSaveBtnText: { fontSize: 14, fontWeight: '700', color: Colors.background },
 });
