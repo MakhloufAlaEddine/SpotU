@@ -33,7 +33,14 @@ async def get_profile(request: Request):
 async def update_profile(data: UserUpdate, request: Request):
     pool = get_pool()
     user = await require_auth(request, pool)
-    update_fields = {k: v for k, v in data.model_dump().items() if v is not None}
+    # Fields that can be explicitly set to NULL to clear them
+    CLEARABLE_FIELDS = {'iban', 'bic', 'iban_name', 'bio', 'phone', 'picture'}
+    update_fields = {}
+    for k, v in data.model_dump().items():
+        if v is not None:
+            update_fields[k] = v
+        elif k in CLEARABLE_FIELDS:
+            update_fields[k] = None  # Allow explicitly clearing these fields
     if not update_fields:
         return user
 
