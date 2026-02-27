@@ -84,15 +84,30 @@ export default function MenuScreen() {
   const initial = user.name?.charAt(0)?.toUpperCase() || '?';
   const isCoach = user.role === 'coach';
 
-  // Badge computation (only positive)
+  // Badge computation (only positive, minimum 3 reviews)
   const avgR = reviewStats.avg_rating;
   const revCount = reviewStats.review_count;
   let badge: { label: string; color: string; bg: string; icon: string } | null = null;
-  if (avgR && revCount > 0 && avgR >= 3.5) {
+  if (avgR && revCount >= 3 && avgR >= 3.5) {
     if (avgR >= 4.8 && revCount >= 10)     badge = { label: 'Elite',         color: '#FFD700', bg: 'rgba(255,215,0,0.15)',   icon: 'diamond' };
     else if (avgR >= 4.5 && revCount >= 5) badge = { label: 'Top Joueur',    color: '#FFD700', bg: 'rgba(255,215,0,0.12)',   icon: 'trophy' };
     else if (avgR >= 4.0 && revCount >= 3) badge = { label: 'Très Apprécié', color: '#C0C0C0', bg: 'rgba(192,192,192,0.15)', icon: 'star' };
     else                                   badge = { label: 'Bien Noté',     color: '#CD7F32', bg: 'rgba(205,127,50,0.15)',  icon: 'thumbs-up' };
+  }
+
+  // Progress toward next badge (to show as motivation)
+  let progressMsg: string | null = null;
+  let progressTarget = 0;
+  let progressCurrent = revCount;
+  if (revCount < 3) {
+    progressMsg = `Obtenez ${3 - revCount} avis de plus pour débloquer votre 1er badge`;
+    progressTarget = 3;
+  } else if (!badge || badge.label === 'Bien Noté') {
+    const need = 5 - revCount;
+    if (need > 0) { progressMsg = `${need} avis de plus pour atteindre "Top Joueur"`; progressTarget = 5; }
+  } else if (badge.label === 'Top Joueur') {
+    const need = 10 - revCount;
+    if (need > 0) { progressMsg = `${need} avis de plus pour atteindre "Elite"`; progressTarget = 10; }
   }
 
   return (
