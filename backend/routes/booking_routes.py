@@ -30,7 +30,7 @@ async def my_bookings(request: Request):
     user = await require_auth(request, pool)
     async with pool.acquire() as conn:
         rows = await conn.fetch(
-            "SELECT booking_id, service_id, user_id, coach_id, status, scheduled_at, notes, amount, commission, payment_status, payment_session_id, created_at FROM bookings WHERE user_id = $1 ORDER BY created_at DESC",
+            "SELECT {BOOKING_FIELDS} FROM bookings WHERE user_id = $1 ORDER BY created_at DESC".format(BOOKING_FIELDS=BOOKING_FIELDS),
             user["user_id"]
         )
         bookings = rows_to_list(rows)
@@ -45,7 +45,7 @@ async def coach_bookings(request: Request):
         raise HTTPException(status_code=403, detail="Coach role required")
     async with pool.acquire() as conn:
         rows = await conn.fetch(
-            "SELECT booking_id, service_id, user_id, coach_id, status, scheduled_at, notes, amount, commission, payment_status, payment_session_id, created_at FROM bookings WHERE coach_id = $1 ORDER BY created_at DESC",
+            "SELECT {BOOKING_FIELDS} FROM bookings WHERE coach_id = $1 ORDER BY created_at DESC".format(BOOKING_FIELDS=BOOKING_FIELDS),
             user["user_id"]
         )
         bookings = rows_to_list(rows)
@@ -58,7 +58,7 @@ async def get_booking(booking_id: str, request: Request):
     user = await require_auth(request, pool)
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            "SELECT booking_id, service_id, user_id, coach_id, status, scheduled_at, notes, amount, commission, payment_status, payment_session_id, created_at FROM bookings WHERE booking_id = $1",
+            "SELECT {BOOKING_FIELDS} FROM bookings WHERE booking_id = $1".format(BOOKING_FIELDS=BOOKING_FIELDS),
             booking_id
         )
         if not row:
@@ -96,7 +96,7 @@ async def create_booking(data: BookingCreate, request: Request):
             data.notes, float(svc["price"]), commission
         )
         row = await conn.fetchrow(
-            "SELECT booking_id, service_id, user_id, coach_id, status, scheduled_at, notes, amount, commission, payment_status, created_at FROM bookings WHERE booking_id = $1",
+            "SELECT {BOOKING_FIELDS} FROM bookings WHERE booking_id = $1".format(BOOKING_FIELDS=BOOKING_FIELDS),
             bid
         )
     return row_to_dict(row)
