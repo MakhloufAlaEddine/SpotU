@@ -104,10 +104,11 @@ export default function CreateServiceScreen() {
   const [slots, setSlots] = useState<ServiceSlot[]>([]);
   const [addingSlot, setAddingSlot] = useState(false);
   const [newSlotType, setNewSlotType] = useState<SlotType>('recurring');
-  const [newSlotDay, setNewSlotDay] = useState(0);
+  const [newSlotDays, setNewSlotDays] = useState<number[]>([]);
   const [newSlotDate, setNewSlotDate] = useState('');
   const [newSlotStart, setNewSlotStart] = useState('');
   const [newSlotEnd, setNewSlotEnd] = useState('');
+  const [slotError, setSlotError] = useState('');
 
   const [submitting, setSubmitting] = useState(false);
 
