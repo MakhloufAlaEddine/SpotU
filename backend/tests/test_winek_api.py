@@ -20,7 +20,7 @@ def _load_base_url():
                     return line.split('=', 1)[1].strip().rstrip('/')
     except Exception:
         pass
-    return 'https://winek-stepper-ui.preview.emergentagent.com'
+    return 'https://hyperlocal-sports.preview.emergentagent.com'
 
 BASE_URL = _load_base_url()
 
