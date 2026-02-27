@@ -689,6 +689,36 @@ export default function EditServiceScreen() {
           )}
         </View>
       </KeyboardAvoidingView>
+
+      {/* ─── DateTimePicker Modals ─────────────────────────────────────── */}
+      <DateTimePickerModal
+        visible={showStartPicker}
+        onClose={() => setShowStartPicker(false)}
+        onConfirm={d => { setNewSlotStartDate(d); setShowStartPicker(false); }}
+        initialDate={newSlotStartDate || undefined}
+        mode={newSlotType === 'single' ? 'datetime' : 'time'}
+        minDate={newSlotType === 'single' ? new Date() : undefined}
+      />
+      <DateTimePickerModal
+        visible={showEndPicker}
+        onClose={() => setShowEndPicker(false)}
+        onConfirm={d => {
+          if (newSlotStartDate) {
+            const startMins = newSlotStartDate.getHours() * 60 + newSlotStartDate.getMinutes();
+            const endMins = d.getHours() * 60 + d.getMinutes();
+            if (endMins <= startMins) {
+              setSlotError("L'heure de fin doit être après l'heure de début");
+              setShowEndPicker(false);
+              return;
+            }
+          }
+          setNewSlotEndDate(d);
+          setSlotError('');
+          setShowEndPicker(false);
+        }}
+        initialDate={newSlotEndDate || undefined}
+        mode="time"
+      />
     </SafeAreaView>
   );
 }
