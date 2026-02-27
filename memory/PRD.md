@@ -28,6 +28,10 @@ Construire une application mobile **WINEK**, une plateforme hyperlocale de conne
 - Inscription
 - Profil utilisateur avec ses tagPoints
 - Google OAuth (web uniquement, natif ON HOLD)
+- **Profil public** : Affichage de la bio, intérêts, téléphone (conditionnel), avis ✅ NOUVEAU (27 Fév 2026)
+- **Édition de profil** : Photo, bio, téléphone, intérêts, toggle show_phone/show_reviews ✅ NOUVEAU
+- **Système d'avis** : Notation 1-5 étoiles + commentaire sur profil public ✅ NOUVEAU
+- **Confidentialité** : Toggle pour afficher/masquer téléphone et autoriser les avis ✅ NOUVEAU
 
 ### TagPoints (Core Feature)
 - Création en mode wizard multi-étapes (titre, description, domaine, tags, images, localisation, date)
