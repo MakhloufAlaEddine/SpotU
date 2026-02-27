@@ -245,12 +245,12 @@ export default function ServiceDetailScreen() {
           </View>
         )}
 
-        {/* ── Lieux ─────────────────────────────────────────────────────────── */}
+        {/* ── Lieux & Créneaux groupés par lieu ────────────────────────── */}
         {locations.length > 0 && (
           <View style={s.section}>
-            <Text style={s.sectionTitle}>Lieux d'intervention</Text>
+            <Text style={s.sectionTitle}>Lieux & Disponibilités</Text>
 
-            {/* Map — shows all pins, centers on selected */}
+            {/* Map */}
             <View style={s.mapWrap} testID="service-map">
               <MapViewComponent
                 pins={pins}
@@ -265,55 +265,127 @@ export default function ServiceDetailScreen() {
               />
             </View>
 
-            {/* Location list */}
-            {locations.map((loc: any, i: number) => (
-              <TouchableOpacity
-                key={loc.location_id}
-                style={[s.locCard, activeLocIdx === i && s.locCardActive]}
-                onPress={() => setActiveLocIdx(i)}
-                testID={`location-item-${loc.location_id}`}
-                activeOpacity={0.7}
-              >
-                <View style={[s.locIconBox, activeLocIdx === i && s.locIconBoxActive]}>
-                  <Ionicons name="location" size={13} color={activeLocIdx === i ? Colors.background : ORANGE} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.locTitle}>{loc.description || `Lieu ${i + 1}`}</Text>
-                  <Text style={s.locPrecision}>{PRECISION_LABEL[loc.precision] ?? loc.precision}</Text>
-                </View>
-                {activeLocIdx === i && (
-                  <Ionicons name="checkmark-circle" size={16} color={ORANGE} />
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
+            {/* Per-location mini-calendar cards */}
+            {locations.map((loc: any, locIdx: number) => {
+              const locSlots: any[] = slots.filter((s: any) =>
+                s.location_id === loc.location_id ||
+                (!s.location_id && locIdx === 0)
+              );
+              // Active days for recurring/availability
+              const activeDays = [...new Set(
+                locSlots
+                  .filter((s: any) => s.slot_type !== 'single' && s.day_of_week !== null && s.day_of_week !== undefined)
+                  .map((s: any) => s.day_of_week as number)
+              )].sort((a, b) => a - b);
 
-        {/* ── Créneaux ──────────────────────────────────────────────────────── */}
-        {slots.length > 0 && (
-          <View style={s.section}>
-            <Text style={s.sectionTitle}>Créneaux disponibles</Text>
-            <View style={s.slotsTable}>
-              {slots.map((slot: any, i: number) => (
-                <View key={slot.slot_id}
-                  style={[s.slotRow, i > 0 && s.slotRowBorder]}
-                  testID={`slot-row-${slot.slot_id}`}
-                >
-                  <View style={s.slotDayBadge}>
-                    <Text style={s.slotDayText}>{DAYS_SHORT[slot.day_of_week]}</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.slotTime}>
-                      {slot.start_time}{slot.end_time ? ` → ${slot.end_time}` : ''}
-                    </Text>
-                    <Text style={s.slotNext}>{getNextOccurrence(slot)}</Text>
-                  </View>
-                  <View style={s.durationChip}>
-                    <Text style={s.durationChipText}>{service.duration_min}min</Text>
-                  </View>
+              const singleSlots = locSlots.filter((s: any) => s.slot_type === 'single');
+              const hasRecurring = locSlots.some((s: any) => s.slot_type !== 'single');
+              const schedTypeLabel = locSlots.length === 0 ? null
+                : locSlots[0].slot_type === 'availability' ? 'Disponibilité sur RDV'
+                : locSlots[0].slot_type === 'single' ? 'Événement ponctuel'
+                : 'Récurrent';
+
+              return (
+                <View key={loc.location_id} style={[s.locSectionCard, activeLocIdx === locIdx && s.locSectionCardActive]}>
+                  {/* Location header */}
+                  <TouchableOpacity
+                    style={s.locSectionHeader}
+                    onPress={() => setActiveLocIdx(locIdx)}
+                    testID={`location-item-${loc.location_id}`}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[s.locSectionIcon, activeLocIdx === locIdx && s.locSectionIconActive]}>
+                      <Ionicons name="location" size={14} color={activeLocIdx === locIdx ? Colors.background : ORANGE} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.locSectionTitle}>{loc.description || `Lieu ${locIdx + 1}`}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                        <Text style={s.locSectionMeta}>{PRECISION_LABEL[loc.precision] ?? loc.precision}</Text>
+                        {schedTypeLabel && (
+                          <>
+                            <View style={s.metaDot} />
+                            <Text style={s.locSectionMeta}>{schedTypeLabel}</Text>
+                          </>
+                        )}
+                      </View>
+                    </View>
+                    {activeLocIdx === locIdx
+                      ? <Ionicons name="checkmark-circle" size={18} color={ORANGE} />
+                      : <Ionicons name="chevron-down" size={16} color={Colors.muted} />
+                    }
+                  </TouchableOpacity>
+
+                  {/* Mini week-calendar (for recurring/availability) */}
+                  {hasRecurring && activeDays.length > 0 && (
+                    <View style={s.weekGrid}>
+                      {[0,1,2,3,4,5,6].map(d => {
+                        const active = activeDays.includes(d);
+                        return (
+                          <View key={d} style={s.weekGridItem}>
+                            <View style={[s.weekDayCell, active && s.weekDayCellActive]}>
+                              <Text style={[s.weekDayText, active && s.weekDayTextActive]}>
+                                {DAYS_SHORT[d]}
+                              </Text>
+                            </View>
+                            {active && <View style={s.weekDayDot} />}
+                          </View>
+                        );
+                      })}
+                    </View>
+                  )}
+
+                  {/* Slot rows */}
+                  {locSlots.length > 0 ? (
+                    <View style={s.locSlotList}>
+                      {locSlots.map((slot: any, si: number) => {
+                        const isSingle = slot.slot_type === 'single';
+                        const dayLabel = isSingle
+                          ? (slot.slot_date ? slot.slot_date.slice(5).replace('-', '/') : '?')
+                          : (slot.day_of_week !== null && slot.day_of_week !== undefined ? DAYS_SHORT[slot.day_of_week] : '?');
+                        const timeRange = `${slot.start_time}${slot.end_time ? ` → ${slot.end_time}` : ''}`;
+                        const nextLabel = !isSingle && slot.day_of_week !== null && slot.day_of_week !== undefined
+                          ? getNextOccurrence(slot)
+                          : isSingle && slot.slot_date ? `Date : ${slot.slot_date}` : '';
+
+                        return (
+                          <TouchableOpacity
+                            key={slot.slot_id}
+                            style={[s.locSlotRow, si > 0 && s.locSlotRowBorder, selectedSlotId === slot.slot_id && s.locSlotRowActive]}
+                            onPress={() => {
+                              setSelectedSlotId(slot.slot_id);
+                              setSelectedLocationId(loc.location_id);
+                              setActiveLocIdx(locIdx);
+                            }}
+                            testID={`slot-row-${slot.slot_id}`}
+                            activeOpacity={0.7}
+                          >
+                            <View style={[s.slotDayBadge, selectedSlotId === slot.slot_id && s.slotDayBadgeActive]}>
+                              <Text style={[s.slotDayText, selectedSlotId === slot.slot_id && s.slotDayTextActive]}>
+                                {dayLabel}
+                              </Text>
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text style={s.slotTime}>{timeRange}</Text>
+                              {nextLabel ? <Text style={s.slotNext}>{nextLabel}</Text> : null}
+                            </View>
+                            <View style={[s.durationChip, selectedSlotId === slot.slot_id && s.durationChipActive]}>
+                              <Text style={[s.durationChipText, selectedSlotId === slot.slot_id && { color: ORANGE }]}>
+                                {service.duration_min}min
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  ) : (
+                    <View style={s.noSlotsNote}>
+                      <Ionicons name="calendar-outline" size={14} color={Colors.muted} />
+                      <Text style={s.noSlotsText}>Aucun créneau configuré pour ce lieu</Text>
+                    </View>
+                  )}
                 </View>
-              ))}
-            </View>
+              );
+            })}
           </View>
         )}
 
