@@ -127,6 +127,19 @@ class TagPointUpdate(BaseModel):
 
 
 # --- SERVICE ---
+class ServiceLocationItem(BaseModel):
+    latitude: float
+    longitude: float
+    precision: Precision = Precision.exact
+    description: Optional[str] = None
+
+
+class ServiceSlotItem(BaseModel):
+    day_of_week: int  # 0=Lundi … 6=Dimanche
+    start_time: str   # 'HH:MM'
+    end_time: str     # 'HH:MM'
+
+
 class ServiceCreate(BaseModel):
     title: str
     description: Optional[str] = None
@@ -134,10 +147,9 @@ class ServiceCreate(BaseModel):
     duration_min: int = 60
     tag_ids: List[str] = []
     domain_id: str
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    location_description: Optional[str] = None
     max_participants: int = 1
+    locations: List[ServiceLocationItem] = []
+    slots: List[ServiceSlotItem] = []
 
 
 class ServiceUpdate(BaseModel):
