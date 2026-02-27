@@ -72,8 +72,6 @@ export default function EditProfileScreen() {
   const [name, setName] = useState('');
   const [bio, setBio] = useState('');
   const [phone, setPhone] = useState('');
-  const [hourlyRate, setHourlyRate] = useState('');
-  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [pictureUri, setPictureUri] = useState<string | undefined>(undefined);
 
   // Privacy
