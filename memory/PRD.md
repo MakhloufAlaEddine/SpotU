@@ -53,6 +53,15 @@ Construire une application mobile **WINEK**, une plateforme hyperlocale de conne
   - Étape 5 : Résumé & Publication
 - **Recherche géospatiale** : Trouve un service si AU MOINS UN de ses lieux est dans le rayon
 - **Suppression hourly_rate** : Champ "Taux horaire" supprimé du profil et de la DB ✅
+- **Écran Détail Service** (`/service/[id].tsx`) ✅ NOUVEAU
+  - Hero : titre, prix badge orange, durée, participants, domaine
+  - Fiche coach cliquable → profil public
+  - Carte multi-lieux avec sélection interactive
+  - Tableau créneaux avec prochaine occurrence calculée
+  - Modal réservation : sélection lieu + créneau + notes
+  - Bouton "Réserver" caché pour le propriétaire du service
+  - Bookings sauvegardés avec slot_id et location_id
+- **Navigation unifiée** : Service cards dans coach/[id].tsx et user/[id].tsx pointent vers /service/{id}
 
 ### Géolocalisation
 - Recherche par localisation avec précision ajustable (exact, 100m, 1km)
