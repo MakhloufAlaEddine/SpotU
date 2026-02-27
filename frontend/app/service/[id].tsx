@@ -648,39 +648,69 @@ const s = StyleSheet.create({
     marginBottom: 12, borderWidth: 1, borderColor: Colors.border,
   },
 
-  // Locations list
-  locCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    padding: 12, borderRadius: Radius.lg, marginBottom: 8,
-    backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border,
+  // Per-location section cards
+  locSectionCard: {
+    backgroundColor: Colors.card, borderRadius: Radius.xl,
+    borderWidth: 1, borderColor: Colors.border, marginBottom: 12, overflow: 'hidden',
   },
-  locCardActive: { borderColor: ORANGE, backgroundColor: ORANGE_LIGHT },
-  locIconBox: {
-    width: 28, height: 28, borderRadius: 8, backgroundColor: ORANGE_LIGHT,
+  locSectionCardActive: { borderColor: ORANGE },
+  locSectionHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    padding: 14,
+  },
+  locSectionIcon: {
+    width: 30, height: 30, borderRadius: 9, backgroundColor: ORANGE_LIGHT,
     alignItems: 'center', justifyContent: 'center',
   },
-  locIconBoxActive: { backgroundColor: ORANGE },
-  locTitle: { fontSize: 13, fontWeight: '600', color: Colors.foreground },
-  locPrecision: { fontSize: 11, color: Colors.muted, marginTop: 1 },
+  locSectionIconActive: { backgroundColor: ORANGE },
+  locSectionTitle: { fontSize: 14, fontWeight: '700', color: Colors.foreground, lineHeight: 20 },
+  locSectionMeta: { fontSize: 11, color: Colors.muted },
 
-  // Slots table
-  slotsTable: {
-    backgroundColor: Colors.card, borderRadius: Radius.xl,
-    borderWidth: 1, borderColor: Colors.border, overflow: 'hidden',
+  // Mini week grid
+  weekGrid: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    paddingHorizontal: 14, paddingBottom: 12, gap: 4,
   },
-  slotRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
-  slotRowBorder: { borderTopWidth: 1, borderTopColor: Colors.border },
+  weekGridItem: { alignItems: 'center', gap: 4, flex: 1 },
+  weekDayCell: {
+    width: 36, height: 36, borderRadius: 10, backgroundColor: Colors.background,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  weekDayCellActive: { backgroundColor: ORANGE, borderColor: ORANGE },
+  weekDayText: { fontSize: 10, fontWeight: '700', color: Colors.muted },
+  weekDayTextActive: { color: Colors.background },
+  weekDayDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: ORANGE },
+
+  // Per-location slot list
+  locSlotList: { borderTopWidth: 1, borderTopColor: Colors.border },
+  locSlotRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    padding: 14, backgroundColor: Colors.card,
+  },
+  locSlotRowBorder: { borderTopWidth: 1, borderTopColor: Colors.border },
+  locSlotRowActive: { backgroundColor: ORANGE_LIGHT },
+  noSlotsNote: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    padding: 14, borderTopWidth: 1, borderTopColor: Colors.border,
+  },
+  noSlotsText: { fontSize: 12, color: Colors.muted, fontStyle: 'italic' },
+
+  // Slot elements
   slotDayBadge: {
     width: 40, height: 40, borderRadius: 10, backgroundColor: ORANGE_LIGHT,
     alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: ORANGE_BORDER,
   },
+  slotDayBadgeActive: { backgroundColor: ORANGE, borderColor: ORANGE },
   slotDayText: { fontSize: 11, fontWeight: '800', color: ORANGE },
+  slotDayTextActive: { color: Colors.background },
   slotTime: { fontSize: 14, fontWeight: '700', color: Colors.foreground },
   slotNext: { fontSize: 11, color: Colors.muted, marginTop: 2 },
   durationChip: {
     backgroundColor: Colors.background, borderRadius: Radius.full,
     paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: Colors.border,
   },
+  durationChipActive: { borderColor: ORANGE_BORDER, backgroundColor: ORANGE_LIGHT },
   durationChipText: { fontSize: 11, fontWeight: '600', color: Colors.muted },
 
   // Commission note
