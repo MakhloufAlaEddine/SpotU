@@ -127,6 +127,14 @@ export default function MenuScreen() {
                     {isCoach ? 'Coach' : 'Membre'}
                   </Text>
                 </View>
+                {/* Achievement badge — only positive */}
+                {badge && (
+                  <View style={[st.heroBadge, { backgroundColor: badge.bg, borderWidth: 1, borderColor: badge.color + '44' }]}
+                    testID="hero-achievement-badge">
+                    <Ionicons name={badge.icon as any} size={11} color={badge.color} />
+                    <Text style={[st.heroBadgeText, { color: badge.color }]}>{badge.label}</Text>
+                  </View>
+                )}
               </View>
               <View style={st.heroStats}>
                 <View style={st.heroStat}>
@@ -134,10 +142,19 @@ export default function MenuScreen() {
                   <Text style={st.heroStatLbl}>TagPoints</Text>
                 </View>
                 <View style={st.heroStatDiv} />
-                <View style={st.heroStat}>
-                  <Text style={st.heroStatVal}>0</Text>
+                <View style={st.heroStat} testID="hero-review-count">
+                  <Text style={st.heroStatVal}>{revCount}</Text>
                   <Text style={st.heroStatLbl}>Avis</Text>
                 </View>
+                {avgR != null && (
+                  <>
+                    <View style={st.heroStatDiv} />
+                    <View style={st.heroStat} testID="hero-avg-rating">
+                      <Text style={[st.heroStatVal, { color: '#FFD700' }]}>{avgR}</Text>
+                      <Text style={st.heroStatLbl}>Moy.</Text>
+                    </View>
+                  </>
+                )}
               </View>
             </View>
 
