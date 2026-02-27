@@ -152,7 +152,30 @@ async def get_user_reviews(user_id: str):
         return rows_to_list(reviews)
 
 
-@router.post("/{user_id}/reviews")
+@router.put("/{user_id}/reviews/{review_id}")
+async def update_user_review(user_id: str, review_id: str, data: ProfileReviewCreate, request: Request):
+    pool = get_pool()
+    reviewer = await require_auth(request, pool)
+    async with pool.acquire() as conn:
+        existing = await conn.fetchrow(
+            "SELECT review_id FROM reviews WHERE review_id = $1 AND reviewer_id = $2 AND reviewee_id = $3",
+            review_id, reviewer["user_id"], user_id
+        )
+        if not existing:
+            raise HTTPException(status_code=404, detail="Avis non trouvé ou non autorisé")
+        await conn.execute(
+            "UPDATE reviews SET rating = $1, comment = $2 WHERE review_id = $3",
+            data.rating, data.comment, review_id
+        )
+        row = await conn.fetchrow(
+            """SELECT r.review_id, r.rating, r.comment, r.created_at,
+                      u.user_id as reviewer_id, u.name as reviewer_name, u.picture as reviewer_picture
+               FROM reviews r
+               JOIN users u ON u.user_id = r.reviewer_id
+               WHERE r.review_id = $1""",
+            review_id
+        )
+    return row_to_dict(row)
 async def create_user_review(user_id: str, data: ProfileReviewCreate, request: Request):
     pool = get_pool()
     reviewer = await require_auth(request, pool)
