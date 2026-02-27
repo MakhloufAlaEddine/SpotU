@@ -107,7 +107,7 @@ async def seed_initial_data():
             )
             # Coach
             await conn.execute(
-                "INSERT INTO users (user_id, email, password_hash, name, role, language, bio, is_coach_verified, coach_tags, hourly_rate, picture) VALUES ($1,$2,$3,$4,'coach','fr',$5,TRUE,$6::jsonb,60.0,$7) ON CONFLICT DO NOTHING",
+                "INSERT INTO users (user_id, email, password_hash, name, role, language, bio, is_coach_verified, coach_tags, picture) VALUES ($1,$2,$3,$4,'coach','fr',$5,TRUE,$6::jsonb,$7) ON CONFLICT DO NOTHING",
                 "user_coach001", "coach@winek.app", hash_password("WinekCoach2024!"), "Sophie Martin",
                 "Coach sportive certifiée, spécialisée fitness et running. 8 ans d'expérience.",
                 json.dumps(["tag_musculation", "tag_hiit", "tag_cardio"]),
