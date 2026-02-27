@@ -237,9 +237,10 @@ async def update_service(service_id: str, data: ServiceUpdate, request: Request)
                 slotid = new_id("slot")
                 await conn.execute(
                     """INSERT INTO service_slots
-                       (slot_id, service_id, day_of_week, start_time, end_time)
-                       VALUES ($1, $2, $3, $4, $5)""",
-                    slotid, service_id, slot.day_of_week, slot.start_time, slot.end_time
+                       (slot_id, service_id, slot_type, day_of_week, start_time, end_time, slot_date)
+                       VALUES ($1, $2, $3, $4, $5, $6, $7)""",
+                    slotid, service_id, slot.slot_type, slot.day_of_week,
+                    slot.start_time, slot.end_time, slot.slot_date
                 )
 
         row = await conn.fetchrow(
