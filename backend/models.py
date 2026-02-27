@@ -136,6 +136,7 @@ class ServiceLocationItem(BaseModel):
 
 class ServiceSlotItem(BaseModel):
     slot_type: str = 'recurring'  # 'recurring' | 'single' | 'availability'
+    location_id: Optional[str] = None  # FK to service_locations
     raw_schedule: Optional[dict] = None  # full schedule object (source of truth)
     days_of_week: Optional[List[int]] = None  # derived: active days for recurring/availability
     day_of_week: Optional[int] = None   # legacy (compat)
