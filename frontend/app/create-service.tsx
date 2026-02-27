@@ -59,9 +59,9 @@ function formatSlotLabel(slot: ServiceSlot): string {
     const dateStr = d ? d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) : '??';
     return `${dateStr}  ·  ${slot.start} → ${slot.end}`;
   }
-  const dayLabel = slot.day !== undefined ? DAYS_FR[slot.day] : '?';
-  if (slot.type === 'availability') return `${dayLabel}  ·  ${slot.start} → ${slot.end}  (sur rdv)`;
-  return `${dayLabel}  ·  ${slot.start} → ${slot.end}`;
+  const daysLabel = slot.days.length > 0 ? slot.days.sort().map(d => DAYS_FR[d]).join(', ') : '—';
+  if (slot.type === 'availability') return `${daysLabel}  ·  ${slot.start} → ${slot.end}  (sur rdv)`;
+  return `${daysLabel}  ·  ${slot.start} → ${slot.end}`;
 }
 
 function slotIcon(type: SlotType): any {
