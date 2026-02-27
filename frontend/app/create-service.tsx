@@ -242,45 +242,136 @@ export default function CreateServiceScreen() {
     }
   };
 
-  // ─── Time Picker ──────────────────────────────────────────────────────────
-  const renderTimePicker = (
-    value: string, onChange: (v: string) => void, label: string, testPrefix: string
-  ) => {
-    const [hh, mm] = value ? value.split(':') : ['', '00'];
-    return (
-      <View style={s.field}>
-        <Text style={s.fieldLabel}>{label}</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View style={{ flexDirection: 'row', gap: 6, paddingVertical: 4 }}>
-            {HOURS.map(h => (
-              <TouchableOpacity key={h}
-                style={[s.timeChip, hh === h && s.timeChipActive]}
-                onPress={() => onChange(`${h}:${mm || '00'}`)}
-                testID={`${testPrefix}-h-${h}`}>
-                <Text style={[s.timeChipText, hh === h && s.timeChipTextActive]}>{h}h</Text>
+  // ─── Step 4 ───────────────────────────────────────────────────────────────
+  const renderStep4 = () => (
+    <View style={s.stepContent}>
+      <Text style={s.stepTitle}>Disponibilités</Text>
+      <Text style={s.stepHint}>Définissez vos créneaux et disponibilités</Text>
+      {slots.map(slot => (
+        <View key={slot.id} style={s.itemCard}>
+          <View style={[s.itemIconBox, { backgroundColor: slot.type === 'single' ? 'rgba(29,191,115,0.12)' : slot.type === 'availability' ? 'rgba(90,100,220,0.12)' : ORANGE_LIGHT }]}>
+            <Ionicons name={slotIcon(slot.type)} size={16} color={slot.type === 'single' ? GREEN : slot.type === 'availability' ? '#5A64DC' : ORANGE} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.itemMeta}>{SLOT_TYPES.find(t => t.value === slot.type)?.label}</Text>
+            <Text style={s.itemTitle}>{formatSlotLabel(slot)}</Text>
+          </View>
+          <TouchableOpacity onPress={() => setSlots(prev => prev.filter(sl => sl.id !== slot.id))}>
+            <Ionicons name="trash-outline" size={18} color={Colors.destructive} />
+          </TouchableOpacity>
+        </View>
+      ))}
+      {addingSlot ? (
+        <View style={s.addCard}>
+          <Text style={s.addCardTitle}>Nouveau créneau</Text>
+          {/* Type selector */}
+          <View style={{ gap: 8, marginBottom: 4 }}>
+            {SLOT_TYPES.map(t => (
+              <TouchableOpacity key={t.value}
+                style={[s.slotTypeCard, newSlotType === t.value && s.slotTypeCardActive]}
+                onPress={() => { setNewSlotType(t.value as SlotType); setNewSlotStartDate(null); setNewSlotEndDate(null); setNewSlotDays([]); setSlotError(''); }}
+                testID={`slot-type-${t.value}`}>
+                <Ionicons name={t.icon as any} size={16} color={newSlotType === t.value ? ORANGE : Colors.muted} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[s.slotTypeLabel, newSlotType === t.value && s.slotTypeLabelActive]}>{t.label}</Text>
+                  <Text style={s.slotTypeHint}>{t.hint}</Text>
+                </View>
+                {newSlotType === t.value && <Ionicons name="checkmark-circle" size={16} color={ORANGE} />}
               </TouchableOpacity>
             ))}
           </View>
-        </ScrollView>
-        {hh ? (
-          <View style={{ flexDirection: 'row', gap: 6, marginTop: 6 }}>
-            {MINUTES.map(m => (
-              <TouchableOpacity key={m}
-                style={[s.minChip, (mm || '00') === m && s.minChipActive]}
-                onPress={() => onChange(`${hh}:${m}`)}
-                testID={`${testPrefix}-m-${m}`}>
-                <Text style={[s.minChipText, (mm || '00') === m && s.minChipTextActive]}>:{m}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        ) : (
-          <Text style={s.timeHint}>Sélectionnez une heure</Text>
-        )}
-      </View>
-    );
-  };
 
-  // ─── Stepper Header ──────────────────────────────────────────────────────
+          {/* Date unique: bouton DateTimePicker mode datetime (date + heure de début) */}
+          {newSlotType === 'single' && (
+            <View style={s.field}>
+              <Text style={s.fieldLabel}>Date & Heure de début</Text>
+              <TouchableOpacity style={s.dateBtn} onPress={() => setShowStartPicker(true)} testID="open-start-picker">
+                <Ionicons name="calendar" size={20} color={newSlotStartDate ? ORANGE : Colors.muted} />
+                <View style={{ flex: 1 }}>
+                  {newSlotStartDate
+                    ? <><Text style={s.dateBtnValue}>{fmtDate(newSlotStartDate)}</Text><Text style={s.dateBtnSub}>Début : {fmtTime(newSlotStartDate)}</Text></>
+                    : <Text style={s.dateBtnPlaceholder}>Choisir date et heure de début</Text>
+                  }
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={Colors.muted} />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Récurrent / Disponibilité: sélecteur de jours */}
+          {newSlotType !== 'single' && (
+            <View style={s.field}>
+              <Text style={s.fieldLabel}>Jours de la semaine (plusieurs possibles)</Text>
+              <View style={[s.chips, { flexWrap: 'wrap' }]}>
+                {DAYS_FR.map((day, i) => (
+                  <TouchableOpacity key={i}
+                    style={[s.chip, newSlotDays.includes(i) && s.chipActive]}
+                    onPress={() => setNewSlotDays(prev =>
+                      prev.includes(i) ? prev.filter(d => d !== i) : [...prev, i]
+                    )} testID={`day-${i}`}>
+                    <Text style={[s.chipText, newSlotDays.includes(i) && s.chipTextActive]}>{day}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {newSlotDays.length > 0 && (
+                <Text style={s.charCountGood}>{newSlotDays.length} jour(s) sélectionné(s)</Text>
+              )}
+            </View>
+          )}
+
+          {/* Heure de début (récurrent/disponibilité seulement) */}
+          {newSlotType !== 'single' && (
+            <View style={s.field}>
+              <Text style={s.fieldLabel}>{newSlotType === 'availability' ? 'Disponible dès' : 'Heure de début'}</Text>
+              <TouchableOpacity style={s.dateBtn} onPress={() => setShowStartPicker(true)} testID="open-start-picker">
+                <Ionicons name="play-circle-outline" size={20} color={newSlotStartDate ? ORANGE : Colors.muted} />
+                <View style={{ flex: 1 }}>
+                  {newSlotStartDate
+                    ? <Text style={s.dateBtnValue}>{fmtTime(newSlotStartDate)}</Text>
+                    : <Text style={s.dateBtnPlaceholder}>Choisir l'heure</Text>
+                  }
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={Colors.muted} />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Heure de fin (toujours, mais uniquement visible si heure de début sélectionnée pour "single") */}
+          {(newSlotType !== 'single' || !!newSlotStartDate) && (
+            <View style={s.field}>
+              <Text style={s.fieldLabel}>{newSlotType === 'availability' ? "Disponible jusqu'à" : 'Heure de fin'}</Text>
+              <TouchableOpacity style={s.dateBtn} onPress={() => setShowEndPicker(true)} testID="open-end-picker">
+                <Ionicons name="stop-circle-outline" size={20} color={newSlotEndDate ? ORANGE : Colors.muted} />
+                <View style={{ flex: 1 }}>
+                  {newSlotEndDate
+                    ? <Text style={s.dateBtnValue}>{fmtTime(newSlotEndDate)}</Text>
+                    : <Text style={s.dateBtnPlaceholder}>Choisir l'heure de fin</Text>
+                  }
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={Colors.muted} />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          <View style={s.addCardActions}>
+            <TouchableOpacity style={s.cancelBtn}
+              onPress={() => { setAddingSlot(false); setNewSlotStartDate(null); setNewSlotEndDate(null); setNewSlotDays([]); setSlotError(''); }}>
+              <Text style={s.cancelBtnText}>Annuler</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={s.confirmBtn} onPress={addSlot} testID="confirm-slot-btn">
+              <Text style={s.confirmBtnText}>Ajouter</Text>
+            </TouchableOpacity>
+          </View>
+          {slotError ? <Text style={s.errorText} testID="slot-error">{slotError}</Text> : null}
+        </View>
+      ) : (
+        <TouchableOpacity style={s.addBtn} onPress={() => setAddingSlot(true)} testID="add-slot-btn">
+          <Ionicons name="add-circle-outline" size={20} color={ORANGE} />
+          <Text style={s.addBtnText}>Ajouter un créneau</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
   const renderStepHeader = () => (
     <View style={s.stepHeader}>
       {STEP_LABELS.map((label, idx) => {
