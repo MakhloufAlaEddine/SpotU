@@ -58,6 +58,7 @@ export default function EditProfileScreen() {
       setSelectedTagIds(user?.coach_tags || []);
       setShowPhone(user?.show_phone ?? false);
       setShowReviews(user?.show_reviews ?? true);
+      setPictureUri(user?.picture || undefined);
 
       const [tags, doms] = await Promise.all([
         api.get('/tags'),
