@@ -172,11 +172,16 @@ async def create_service(data: ServiceCreate, request: Request):
             )
         for slot in data.slots:
             slotid = new_id("slot")
+            days = slot.days_of_week if slot.days_of_week is not None else (
+                [slot.day_of_week] if slot.day_of_week is not None else []
+            )
             await conn.execute(
                 """INSERT INTO service_slots
-                   (slot_id, service_id, slot_type, day_of_week, start_time, end_time, slot_date)
-                   VALUES ($1, $2, $3, $4, $5, $6, $7)""",
-                slotid, sid, slot.slot_type, slot.day_of_week,
+                   (slot_id, service_id, slot_type, days_of_week, day_of_week, start_time, end_time, slot_date)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8)""",
+                slotid, sid, slot.slot_type,
+                days,
+                days[0] if days else None,
                 slot.start_time, slot.end_time, slot.slot_date
             )
         row = await conn.fetchrow(
@@ -235,11 +240,16 @@ async def update_service(service_id: str, data: ServiceUpdate, request: Request)
             await conn.execute("DELETE FROM service_slots WHERE service_id = $1", service_id)
             for slot in data.slots:
                 slotid = new_id("slot")
+                days = slot.days_of_week if slot.days_of_week is not None else (
+                    [slot.day_of_week] if slot.day_of_week is not None else []
+                )
                 await conn.execute(
                     """INSERT INTO service_slots
-                       (slot_id, service_id, slot_type, day_of_week, start_time, end_time, slot_date)
-                       VALUES ($1, $2, $3, $4, $5, $6, $7)""",
-                    slotid, service_id, slot.slot_type, slot.day_of_week,
+                       (slot_id, service_id, slot_type, days_of_week, day_of_week, start_time, end_time, slot_date)
+                       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)""",
+                    slotid, service_id, slot.slot_type,
+                    days,
+                    days[0] if days else None,
                     slot.start_time, slot.end_time, slot.slot_date
                 )
 
