@@ -342,6 +342,34 @@ export default function ServiceDetailScreen() {
         </View>
       )}
 
+      {/* ── Owner action bar ─────────────────────────────────────────────── */}
+      {isOwnService && (
+        <View style={s.bookBar}>
+          <TouchableOpacity
+            style={[s.bookBtn, { flex: 1, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border }]}
+            onPress={() => Alert.alert('Options du service', '', [
+              { text: 'Modifier', onPress: () => router.push(`/edit-service/${service.service_id}` as any) },
+              { text: service.active ? 'Désactiver' : 'Réactiver', onPress: async () => {
+                try { await api.put(`/services/${service.service_id}`, { active: !service.active }); loadService(); } catch {}
+              }},
+              { text: 'Annuler', style: 'cancel' },
+            ])}
+            testID="owner-options-btn"
+          >
+            <Ionicons name="ellipsis-horizontal" size={18} color={Colors.foreground} />
+            <Text style={[s.bookBtnText, { color: Colors.foreground }]}>Options</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={s.bookBtn}
+            onPress={() => router.push(`/edit-service/${service.service_id}` as any)}
+            testID="edit-service-btn"
+          >
+            <Ionicons name="create-outline" size={18} color={Colors.background} />
+            <Text style={s.bookBtnText}>Modifier</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* ── Booking Modal ─────────────────────────────────────────────────── */}
       <Modal visible={showBooking} animationType="slide" transparent onRequestClose={() => setShowBooking(false)}>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
