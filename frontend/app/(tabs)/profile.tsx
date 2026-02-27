@@ -21,6 +21,7 @@ export default function MenuScreen() {
   const [myTagPoints, setMyTagPoints] = useState<any[]>([]);
   const [showLangModal, setShowLangModal] = useState(false);
   const [isRefreshingUser, setIsRefreshingUser] = useState(false);
+  const [reviewStats, setReviewStats] = useState<{ avg_rating: number | null; review_count: number }>({ avg_rating: null, review_count: 0 });
 
   useEffect(() => {
     if (!loading && !user) {
@@ -34,10 +35,26 @@ export default function MenuScreen() {
   const { profileKey } = useRefresh();
   useEffect(() => { if (user && profileKey > 0) loadData(); }, [profileKey]);
 
+  // Reload when tab comes into focus (fix: stats not updating after profile edit)
+  useFocusEffect(
+    useCallback(() => {
+      if (user) loadData();
+    }, [user?.user_id])
+  );
+
   const loadData = async () => {
     try {
-      const points = await api.get('/tag-points/mine');
+      const [points, profileData] = await Promise.all([
+        api.get('/tag-points/mine'),
+        api.get('/users/profile'),
+      ]);
       setMyTagPoints(points || []);
+      if (profileData) {
+        setReviewStats({
+          avg_rating: profileData.avg_rating ?? null,
+          review_count: profileData.review_count ?? 0,
+        });
+      }
     } catch {}
     finally { setRefreshing(false); }
   };
