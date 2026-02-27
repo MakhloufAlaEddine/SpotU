@@ -84,6 +84,17 @@ export default function MenuScreen() {
   const initial = user.name?.charAt(0)?.toUpperCase() || '?';
   const isCoach = user.role === 'coach';
 
+  // Badge computation (only positive)
+  const avgR = reviewStats.avg_rating;
+  const revCount = reviewStats.review_count;
+  let badge: { label: string; color: string; bg: string; icon: string } | null = null;
+  if (avgR && revCount > 0 && avgR >= 3.5) {
+    if (avgR >= 4.8 && revCount >= 10)     badge = { label: 'Elite',         color: '#FFD700', bg: 'rgba(255,215,0,0.15)',   icon: 'diamond' };
+    else if (avgR >= 4.5 && revCount >= 5) badge = { label: 'Top Joueur',    color: '#FFD700', bg: 'rgba(255,215,0,0.12)',   icon: 'trophy' };
+    else if (avgR >= 4.0 && revCount >= 3) badge = { label: 'Très Apprécié', color: '#C0C0C0', bg: 'rgba(192,192,192,0.15)', icon: 'star' };
+    else                                   badge = { label: 'Bien Noté',     color: '#CD7F32', bg: 'rgba(205,127,50,0.15)',  icon: 'thumbs-up' };
+  }
+
   return (
     <SafeAreaView style={st.safe} edges={['top']}>
       <ScrollView
