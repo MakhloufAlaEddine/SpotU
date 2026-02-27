@@ -84,6 +84,8 @@ export default function EditProfileScreen() {
         bio: bio.trim() || null,
         phone: phone.trim() || null,
         coach_tags: selectedTagIds,
+        show_phone: showPhone,
+        show_reviews: showReviews,
         ...(isCoach && hourlyRate ? { hourly_rate: parseFloat(hourlyRate) } : {}),
       });
       await refreshUser();
