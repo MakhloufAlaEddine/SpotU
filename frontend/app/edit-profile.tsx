@@ -23,6 +23,8 @@ export default function EditProfileScreen() {
   const [phone, setPhone] = useState('');
   const [hourlyRate, setHourlyRate] = useState('');
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [showPhone, setShowPhone] = useState(false);
+  const [showReviews, setShowReviews] = useState(true);
 
   // Data
   const [allTags, setAllTags] = useState<any[]>([]);
