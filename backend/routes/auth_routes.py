@@ -82,3 +82,19 @@ async def logout(request: Request):
     pool = get_pool()
     await require_auth(request, pool)
     return {"success": True}
+
+
+@router.put("/change-password")
+async def change_password(data: PasswordChange, request: Request):
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT password_hash FROM users WHERE user_id = $1", user["user_id"])
+        if not row or not verify_password(data.current_password, row["password_hash"] or ""):
+            raise HTTPException(status_code=401, detail="Mot de passe actuel incorrect")
+        new_hash = hash_password(data.new_password)
+        await conn.execute(
+            "UPDATE users SET password_hash = $1, updated_at = NOW() WHERE user_id = $2",
+            new_hash, user["user_id"]
+        )
+    return {"success": True}
