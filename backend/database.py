@@ -241,6 +241,7 @@ async def connect_to_db():
             ALTER TABLE bookings ADD COLUMN IF NOT EXISTS location_id TEXT;
             ALTER TABLE service_slots ADD COLUMN IF NOT EXISTS slot_type TEXT DEFAULT 'recurring';
             ALTER TABLE service_slots ADD COLUMN IF NOT EXISTS slot_date TEXT;
+            ALTER TABLE service_slots ADD COLUMN IF NOT EXISTS days_of_week JSONB DEFAULT '[]';
         """)
 
     # 2. Seed données de base (users, tagpoints, tags, domaines...)
