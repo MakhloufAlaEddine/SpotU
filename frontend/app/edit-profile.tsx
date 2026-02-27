@@ -84,6 +84,24 @@ export default function EditProfileScreen() {
     );
   };
 
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission requise', "L'accès à la galerie est nécessaire pour changer votre photo.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+      base64: true,
+    });
+    if (!result.canceled && result.assets[0]?.base64) {
+      setPictureUri(`data:image/jpeg;base64,${result.assets[0].base64}`);
+    }
+  };
+
   const handleSave = async () => {
     if (!name.trim()) { Alert.alert('Nom requis', 'Veuillez entrer votre nom.'); return; }
     setSaving(true);
