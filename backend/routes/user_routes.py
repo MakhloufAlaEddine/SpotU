@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request, HTTPException
 from datetime import datetime, timezone
-from models import UserUpdate
+from models import UserUpdate, ProfileReviewCreate, new_id
 from auth_utils import require_auth, USER_FIELDS
 from database import get_pool, row_to_dict, rows_to_list
 
@@ -58,20 +58,37 @@ async def get_public_profile(user_id: str):
     pool = get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            "SELECT user_id, name, picture, role, bio, is_coach_verified, coach_tags, hourly_rate FROM users WHERE user_id = $1",
+            """SELECT user_id, name, picture, role, bio, is_coach_verified, coach_tags,
+                      hourly_rate, show_phone, show_reviews, phone
+               FROM users WHERE user_id = $1""",
             user_id
         )
         if not row:
             raise HTTPException(status_code=404, detail="User not found")
         user = row_to_dict(row)
 
+        # Phone: only expose if user opted in
+        if not user.get("show_phone"):
+            user["phone"] = None
+
+        # Fetch tag details for interests (coach_tags)
+        tag_ids = user.get("coach_tags") or []
+        if tag_ids:
+            tag_rows = await conn.fetch(
+                "SELECT tag_id, label_fr, label_en, icon FROM tags WHERE tag_id = ANY($1::text[])",
+                tag_ids
+            )
+            user["interests"] = rows_to_list(tag_rows)
+        else:
+            user["interests"] = []
+
         # Review stats
-        reviews = await conn.fetch(
+        all_reviews = await conn.fetch(
             "SELECT rating FROM reviews WHERE reviewee_id = $1", user_id
         )
-        if reviews:
-            user["avg_rating"] = round(sum(r["rating"] for r in reviews) / len(reviews), 1)
-            user["review_count"] = len(reviews)
+        if all_reviews:
+            user["avg_rating"] = round(sum(r["rating"] for r in all_reviews) / len(all_reviews), 1)
+            user["review_count"] = len(all_reviews)
         else:
             user["avg_rating"] = None
             user["review_count"] = 0
@@ -93,4 +110,72 @@ async def get_public_profile(user_id: str):
             user_id
         )
         user["tag_points"] = rows_to_list(tp_rows)
+
     return user
+
+
+@router.get("/{user_id}/reviews")
+async def get_user_reviews(user_id: str):
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        # Check user exists + reviews enabled
+        row = await conn.fetchrow(
+            "SELECT show_reviews FROM users WHERE user_id = $1", user_id
+        )
+        if not row:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        reviews = await conn.fetch(
+            """SELECT r.review_id, r.rating, r.comment, r.created_at,
+                      u.user_id as reviewer_id, u.name as reviewer_name, u.picture as reviewer_picture
+               FROM reviews r
+               JOIN users u ON u.user_id = r.reviewer_id
+               WHERE r.reviewee_id = $1
+               ORDER BY r.created_at DESC""",
+            user_id
+        )
+        return rows_to_list(reviews)
+
+
+@router.post("/{user_id}/reviews")
+async def create_user_review(user_id: str, data: ProfileReviewCreate, request: Request):
+    pool = get_pool()
+    reviewer = await require_auth(request, pool)
+
+    if reviewer["user_id"] == user_id:
+        raise HTTPException(status_code=400, detail="Cannot review yourself")
+
+    async with pool.acquire() as conn:
+        # Check target user exists and allows reviews
+        target = await conn.fetchrow(
+            "SELECT show_reviews FROM users WHERE user_id = $1", user_id
+        )
+        if not target:
+            raise HTTPException(status_code=404, detail="User not found")
+        if not target["show_reviews"]:
+            raise HTTPException(status_code=403, detail="This user does not accept reviews")
+
+        # Check for duplicate direct review (booking_id IS NULL)
+        existing = await conn.fetchrow(
+            "SELECT review_id FROM reviews WHERE reviewer_id = $1 AND reviewee_id = $2 AND booking_id IS NULL",
+            reviewer["user_id"], user_id
+        )
+        if existing:
+            raise HTTPException(status_code=409, detail="Vous avez déjà laissé un avis pour cet utilisateur")
+
+        review_id = new_id("rev")
+        await conn.execute(
+            """INSERT INTO reviews (review_id, booking_id, reviewer_id, reviewee_id, rating, comment)
+               VALUES ($1, NULL, $2, $3, $4, $5)""",
+            review_id, reviewer["user_id"], user_id, data.rating, data.comment
+        )
+
+        row = await conn.fetchrow(
+            """SELECT r.review_id, r.rating, r.comment, r.created_at,
+                      u.user_id as reviewer_id, u.name as reviewer_name, u.picture as reviewer_picture
+               FROM reviews r
+               JOIN users u ON u.user_id = r.reviewer_id
+               WHERE r.review_id = $1""",
+            review_id
+        )
+    return row_to_dict(row)
