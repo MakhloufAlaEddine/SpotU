@@ -1,6 +1,6 @@
 # WINEK — Product Requirements Document
 
-**Dernière mise à jour**: 27 Février 2026 (v3)
+**Dernière mise à jour**: 27 Février 2026 (v4)
 
 ---
 
