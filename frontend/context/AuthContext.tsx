@@ -18,6 +18,8 @@ interface User {
   is_coach_verified?: boolean;
   coach_tags?: string[];
   hourly_rate?: number | null;
+  show_phone?: boolean;
+  show_reviews?: boolean;
 }
 
 interface AuthContextType {
