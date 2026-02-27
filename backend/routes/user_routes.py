@@ -111,13 +111,17 @@ async def get_public_profile(user_id: str):
         else:
             user["interests"] = []
 
-        # Review stats
-        all_reviews = await conn.fetch(
-            "SELECT rating FROM reviews WHERE reviewee_id = $1", user_id
-        )
-        if all_reviews:
-            user["avg_rating"] = round(sum(r["rating"] for r in all_reviews) / len(all_reviews), 1)
-            user["review_count"] = len(all_reviews)
+        # Review stats — only expose if user allows reviews
+        if user.get("show_reviews"):
+            all_reviews = await conn.fetch(
+                "SELECT rating FROM reviews WHERE reviewee_id = $1", user_id
+            )
+            if all_reviews:
+                user["avg_rating"] = round(sum(r["rating"] for r in all_reviews) / len(all_reviews), 1)
+                user["review_count"] = len(all_reviews)
+            else:
+                user["avg_rating"] = None
+                user["review_count"] = 0
         else:
             user["avg_rating"] = None
             user["review_count"] = 0
