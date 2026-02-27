@@ -392,14 +392,6 @@ export default function EditProfileScreen() {
           {/* ── 5. COACH ────────────────────────────── */}
           {isCoach ? (
             <>
-              <Section title="Paramètres Coach" icon="trophy-outline">
-                <Field label="Taux horaire (€)">
-                  <TextInput style={st.input} value={hourlyRate} onChangeText={setHourlyRate}
-                    placeholder="ex: 50" placeholderTextColor={Colors.muted}
-                    keyboardType="numeric" returnKeyType="done" testID="hourly-rate-input" />
-                </Field>
-              </Section>
-
               <Section title="Mes Services" icon="briefcase-outline"
                 action={{ label: '+ Créer', onPress: () => router.push('/create-service' as any) }}>
                 {services.length === 0 && (
