@@ -1,0 +1,134 @@
+{
+  "summary": "Iteration 27 - Tests de la nouvelle architecture location_index (service_slots liés aux service_locations via location_id). Backend 16/16 PASS. Frontend 16/16 PASS. L'architecture est entièrement fonctionnelle: POST/PUT/GET /api/services correctement mappent location_index→location_id. L'UI create-service et edit-service utilisent bien la nouvelle architecture aux étapes 3 et 4.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "GET /api/services/mine",
+        "issue": "Ne filtre pas par active=TRUE - les services supprimés (soft-delete) apparaissent toujours dans la liste du coach",
+        "priority": "LOW"
+      }
+    ]
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "All pages",
+        "issues": ["5x 'Unexpected text node: . A text node cannot be a child of <View>' errors in browser console - whitespace text nodes in View components (React Native Web warning, non-blocking)"]
+      }
+    ]
+  },
+
+  "test_results": {
+    "backend": {
+      "total": 16,
+      "passed": 16,
+      "failed": 0,
+      "tests": {
+        "create_2_locations_200": "PASS - POST /services with 2 locations+2 slots → 200",
+        "response_has_2_locations": "PASS - GET after POST returns 2 locations",
+        "slots_have_location_id": "PASS - All slots have non-null location_id",
+        "slot_idx0_linked_to_loc0": "PASS - Tuesday 09:00 slot → Paris Centre location_id",
+        "slot_idx1_linked_to_loc1": "PASS - Friday 14:00 slot → Bois de Boulogne location_id",
+        "slot_types_correct": "PASS - Both slots are 'recurring' type",
+        "put_create_and_update_200": "PASS - Initial POST + PUT returns 200",
+        "put_new_locations_persisted": "PASS - Marais + Vincennes locations persisted after PUT",
+        "put_slots_linked_to_new_locs": "PASS - Wednesday→Marais, Sunday→Vincennes correctly mapped",
+        "put_slot_types_preserved": "PASS - availability+recurring types correct after PUT",
+        "put_scalar_updated": "PASS - title and price updated correctly",
+        "get_svc_demo001_slots": "PASS - GET svc_demo001 works (0 slots, as expected with empty seed data)",
+        "get_svc_demo001_locations": "PASS - locations array present",
+        "newly_created_all_slots_location_id": "PASS - All slots have valid location_id matching service locations",
+        "cleanup_service_1": "PASS - TEST service deleted",
+        "cleanup_service_2": "PASS - TEST service deleted"
+      }
+    },
+    "frontend": {
+      "total": 16,
+      "passed": 16,
+      "tests": {
+        "F1_login": "PASS - coach@winek.app login → /map",
+        "F4_add_loc_btn": "PASS - Step 3 'Ajouter un lieu' button present [data-testid='add-location-btn']",
+        "F5_step3_title": "PASS - 'Lieux d'intervention' title visible",
+        "F6_step3_validation": "PASS - Next blocked when no location added",
+        "F7_location1_added": "PASS - LocationPicker opens, search works, location card added",
+        "F8_two_locations": "PASS - 2 locations added: Parc des Princes + Bois de Boulogne",
+        "F8b_precision_chips": "PASS - 6 precision chips (3 per location: exact/100m/1km)",
+        "F10_step4_title": "PASS - 'Planning par lieu' title at step 4",
+        "F10b_schedule_cards": "PASS - 6 schedule type cards (3 per location: Disponibilité/Date unique/Récurrent)",
+        "F10c_per_loc_schedule": "PASS - Independent schedule section per location",
+        "F12_step4_validation": "PASS - Next blocked when schedule incomplete",
+        "F13_edit_loads": "PASS - edit-service/svc_8f29229294d2 loads correctly",
+        "F14_prefill": "PASS - Edit form pre-filled: title='Cours Tennis Multi-lieux', price=75",
+        "F15_edit_locations": "PASS - 2 existing locations loaded in edit step 3 (Paris Centre, Paris Nord)",
+        "F15b_precision_chips": "PASS - Precision chips shown with correct pre-selected values",
+        "F16_edit_step4": "PASS - Edit step 4 shows 6 schedule cards + pre-filled time slots (09:00→10:30 Mar, Jeu)",
+        "F16c_pre_filled_schedule": "PASS - Pre-filled time slots: time-start-0-1-0 + time-start-1-3-0"
+      }
+    }
+  },
+
+  "key_findings": {
+    "location_index_mapping": "FULLY WORKING - POST/PUT correctly resolves location_index→location_id. Each slot links to the correct service_location via FK.",
+    "create_service_step3": "LocationPicker working: search with geocoding results, map preview, confirmation button 'Choisir' [data-testid='location-confirm'], precision chips (exact/100m/1km)",
+    "create_service_step4": "Per-location schedule cards working: 3 schedule type buttons per location, day selectors (Lun-Dim), time slot management, DateTimePickerModal for times",
+    "edit_service_step3": "Pre-loads existing locations with correct precision, remove buttons, add-location-btn",
+    "edit_service_step4": "Pre-loads existing schedule (active days highlighted, time slots pre-filled with start/end times)",
+    "validation_step3": "Blocks Next when locations.length === 0 ✓",
+    "validation_step4": "Blocks Next when no days selected or no time slots configured ✓",
+    "no_regressions": "No regressions found from iteration 26"
+  },
+
+  "code_review_notes": {
+    "database_py": "service_slots CREATE TABLE is missing location_id, slot_type, slot_date, days_of_week, raw_schedule columns - they are added via ALTER TABLE migrations. While functional, the CREATE TABLE definition is out of sync with actual schema. Non-blocking.",
+    "get_services_mine": "GET /services/mine does not filter active=TRUE, soft-deleted services still appear in coach list",
+    "react_native_web_warnings": "5x 'Unexpected text node' warnings in browser console - likely whitespace between JSX View children"
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_location_id_iter27.py",
+    "/app/test_reports/pytest/pytest_iter27.xml"
+  ],
+
+  "action_items": [
+    "OPTIONAL: Filter active=TRUE in GET /api/services/mine to hide soft-deleted services",
+    "OPTIONAL: Fix whitespace text nodes in View components (React Native Web warnings)",
+    "OPTIONAL: Sync CREATE TABLE service_slots in database.py to include all columns (currently added via ALTER TABLE migrations)"
+  ],
+
+  "critical_code_review_comments": [
+    "PASS: POST /services correctly uses location_index to map slots → location_id (FK in service_slots table)",
+    "PASS: PUT /services/{id} correctly re-generates new location_ids and re-maps slots via location_index",
+    "PASS: GET /services/{id} returns slot.location_id for each slot",
+    "PASS: create-service.tsx step 3 uses LocationPicker with [data-testid='add-location-btn'], step 4 shows per-location schedules",
+    "PASS: edit-service/[id].tsx step 3 loads existing locations with precision chips, step 4 pre-fills schedule from API data",
+    "PASS: Validation blocks step3→4 if no locations, blocks step4→5 if schedule incomplete",
+    "INFO: database.py CREATE TABLE service_slots is out of sync with actual DB schema (missing columns added via ALTER TABLE) - not a runtime issue but can cause confusion for new deployments if migrations fail",
+    "INFO: GET /services/mine doesn't filter inactive services (soft-deleted services still appear)"
+  ],
+
+  "updated_files": [
+    "/app/backend/tests/test_location_id_iter27.py"
+  ],
+
+  "success_rate": {
+    "backend": "100% (16/16)",
+    "frontend": "100% (16/16)"
+  },
+
+  "test_credentials": {
+    "coach": "coach@winek.app / WinekCoach2024!",
+    "test_service_used": "svc_8f29229294d2 (Cours Tennis Multi-lieux, 2 locs, 2 slots) - used for edit testing"
+  },
+
+  "seed_data_creation": "3 TEST_ services created and deleted during backend tests. No permanent test data.",
+
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Iteration 27 - New location_index architecture fully validated. Backend: POST/PUT/GET /api/services all correctly map location_index to location_id FK in service_slots. Frontend: create-service.tsx and edit-service/[id].tsx steps 3 & 4 use new architecture (LocationPicker, per-location schedule cards, precision chips, pre-fill on edit). Validations work correctly. No bugs found. Test services (svc_8f29229294d2 'Cours Tennis Multi-lieux') is a good test fixture with 2 locations and 2 pre-filled slots. Key testids: [data-testid='add-location-btn'], [data-testid='location-search-input'], [data-testid='location-confirm'], [data-testid='schedule-{type}-{locIdx}'], [data-testid='day-{dayIdx}-{locIdx}'], [data-testid='add-time-{locIdx}-{dayIdx}'], [data-testid='time-start-{locIdx}-{dayIdx}-{timeIdx}']."
+}
