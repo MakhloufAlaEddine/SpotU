@@ -790,23 +790,6 @@ const s = StyleSheet.create({
   chipActive: { backgroundColor: ORANGE_LIGHT, borderColor: ORANGE },
   chipText: { fontSize: 13, fontWeight: '600', color: Colors.muted },
   chipTextActive: { color: ORANGE },
-  // Time picker
-  timeChip: {
-    paddingHorizontal: 10, paddingVertical: 8, borderRadius: Radius.md,
-    borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.background,
-    minWidth: 44, alignItems: 'center',
-  },
-  timeChipActive: { backgroundColor: ORANGE_LIGHT, borderColor: ORANGE },
-  timeChipText: { fontSize: 13, fontWeight: '700', color: Colors.muted },
-  timeChipTextActive: { color: ORANGE },
-  minChip: {
-    paddingHorizontal: 14, paddingVertical: 7, borderRadius: Radius.full,
-    borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.background,
-  },
-  minChipActive: { backgroundColor: ORANGE_LIGHT, borderColor: ORANGE },
-  minChipText: { fontSize: 13, fontWeight: '600', color: Colors.muted },
-  minChipTextActive: { color: ORANGE },
-  timeHint: { fontSize: 12, color: Colors.muted, fontStyle: 'italic' },
   errorText: { fontSize: 12, color: Colors.destructive, fontWeight: '600', marginTop: 2 },
   // Date button (DateTimePicker trigger)
   dateBtn: {
