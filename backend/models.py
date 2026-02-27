@@ -176,3 +176,15 @@ class ReviewCreate(BaseModel):
         if not 1 <= v <= 5:
             raise ValueError("Rating must be between 1 and 5")
         return v
+
+
+class ProfileReviewCreate(BaseModel):
+    rating: int
+    comment: Optional[str] = None
+
+    @field_validator("rating")
+    @classmethod
+    def rating_range(cls, v):
+        if not 1 <= v <= 5:
+            raise ValueError("La note doit être entre 1 et 5")
+        return v
