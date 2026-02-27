@@ -157,8 +157,13 @@ class ServiceUpdate(BaseModel):
     description: Optional[str] = None
     price: Optional[float] = None
     duration_min: Optional[int] = None
+    max_participants: Optional[int] = None
+    domain_id: Optional[str] = None
+    tag_ids: Optional[List[str]] = None
     active: Optional[bool] = None
     location_description: Optional[str] = None
+    locations: Optional[List[ServiceLocationItem]] = None
+    slots: Optional[List[ServiceSlotItem]] = None
 
 
 # --- BOOKING ---
