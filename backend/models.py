@@ -136,10 +136,11 @@ class ServiceLocationItem(BaseModel):
 
 class ServiceSlotItem(BaseModel):
     slot_type: str = 'recurring'  # 'recurring' | 'single' | 'availability'
-    day_of_week: Optional[int] = None  # 0=Lundi … 6=Dimanche (recurring/availability)
+    days_of_week: Optional[List[int]] = None  # [0..6] multi-jours pour recurring/availability
+    day_of_week: Optional[int] = None   # legacy (compat) — ignoré si days_of_week présent
     start_time: str   # 'HH:MM'
     end_time: str     # 'HH:MM'
-    slot_date: Optional[str] = None   # 'YYYY-MM-DD' (single date only)
+    slot_date: Optional[str] = None   # 'YYYY-MM-DD' pour type single
 
 
 class ServiceCreate(BaseModel):
