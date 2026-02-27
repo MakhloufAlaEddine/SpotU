@@ -377,6 +377,42 @@ export default function EditProfileScreen() {
           </Section>
         )}
 
+        {/* ── COMPTE & SÉCURITÉ ─────────────────── */}
+        <Section title="Compte & Sécurité" icon="lock-closed-outline">
+          <Field label="Adresse e-mail">
+            <View style={[st.input, st.inputReadOnly]}>
+              <Text style={st.inputReadOnlyText}>{user?.email}</Text>
+              <Ionicons name="lock-closed-outline" size={14} color={Colors.muted} />
+            </View>
+          </Field>
+          <Text style={st.pwdSectionLabel}>Changer le mot de passe</Text>
+          <Field label="Mot de passe actuel">
+            <TextInput style={st.input} value={currentPwd} onChangeText={setCurrentPwd}
+              placeholder="••••••••" placeholderTextColor={Colors.muted}
+              secureTextEntry testID="current-pwd-input" />
+          </Field>
+          <Field label="Nouveau mot de passe">
+            <TextInput style={st.input} value={newPwd} onChangeText={setNewPwd}
+              placeholder="Min. 6 caractères" placeholderTextColor={Colors.muted}
+              secureTextEntry testID="new-pwd-input" />
+          </Field>
+          <Field label="Confirmer le nouveau mot de passe">
+            <TextInput style={st.input} value={confirmPwd} onChangeText={setConfirmPwd}
+              placeholder="Répétez le nouveau mot de passe" placeholderTextColor={Colors.muted}
+              secureTextEntry testID="confirm-pwd-input" />
+          </Field>
+          <TouchableOpacity style={[st.pwdSaveBtn, pwdSaving && { opacity: 0.6 }]}
+            onPress={handleChangePassword} disabled={pwdSaving} testID="change-pwd-btn">
+            {pwdSaving
+              ? <ActivityIndicator size="small" color={Colors.background} />
+              : <>
+                  <Ionicons name="shield-checkmark-outline" size={15} color={Colors.background} />
+                  <Text style={st.pwdSaveBtnText}>Mettre à jour le mot de passe</Text>
+                </>
+            }
+          </TouchableOpacity>
+        </Section>
+
         <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
