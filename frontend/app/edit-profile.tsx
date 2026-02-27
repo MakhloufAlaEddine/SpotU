@@ -178,7 +178,6 @@ export default function EditProfileScreen() {
         bic: bic.trim() || null,
         iban_name: ibanName.trim() || null,
         ...(pictureUri !== user?.picture ? { picture: pictureUri || null } : {}),
-        ...(isCoach && hourlyRate ? { hourly_rate: parseFloat(hourlyRate) } : {}),
       });
       await refreshUser();
       Alert.alert('Succès', 'Profil mis à jour !');
