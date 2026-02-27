@@ -93,6 +93,7 @@ export default function EditProfileScreen() {
   const [allTags, setAllTags] = useState<any[]>([]);
   const [services, setServices] = useState<any[]>([]);
   const [domains, setDomains] = useState<any[]>([]);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
 
   // UI
   const [saving, setSaving] = useState(false);
