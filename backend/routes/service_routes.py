@@ -158,7 +158,7 @@ async def create_service(data: ServiceCreate, request: Request):
                 tag_ids, domain_id, max_participants, active)
                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,TRUE)""",
             sid, user["user_id"], data.title, data.description, data.price,
-            data.duration_min, json.dumps(data.tag_ids), data.domain_id,
+            data.duration_min, data.tag_ids, data.domain_id,
             data.max_participants
         )
         for loc in data.locations:
@@ -204,7 +204,7 @@ async def update_service(service_id: str, data: ServiceUpdate, request: Request)
         raw = data.model_dump()
         update_dict = {k: raw[k] for k in SCALAR_FIELDS if raw.get(k) is not None}
         if raw.get('tag_ids') is not None:
-            update_dict['tag_ids'] = json.dumps(raw['tag_ids'])
+            update_dict['tag_ids'] = raw['tag_ids']
 
         if update_dict:
             set_clauses = [f"{k} = ${i+1}" for i, k in enumerate(update_dict.keys())]

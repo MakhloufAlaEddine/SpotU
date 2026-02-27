@@ -206,9 +206,8 @@ export default function EditServiceScreen() {
           day_of_week: s.day, start_time: s.start, end_time: s.end,
         })),
       });
-      Alert.alert('Modifications sauvegardées !', '', [
-        { text: 'Voir le service', onPress: () => router.replace(`/service/${id}` as any) },
-      ]);
+      // Direct redirect (Alert.alert not reliable on web)
+      router.replace(`/service/${id}` as any);
     } catch (err: any) {
       Alert.alert('Erreur', err.message || 'Impossible de modifier le service');
     } finally {
