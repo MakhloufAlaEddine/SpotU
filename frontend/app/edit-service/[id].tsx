@@ -25,8 +25,9 @@ const GREEN = '#1DBF73';
 const STEP_LABELS = ['Infos', 'Sport', 'Lieux', 'Créneaux', 'Résumé'];
 const DAYS_FR = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 const DURATIONS = ['30', '45', '60', '90', '120'];
-const HOURS = Array.from({ length: 19 }, (_, i) => String(i + 5).padStart(2, '0')); // 05-23
-const MINUTES = ['00', '15', '30', '45'];
+const MONTHS_FR = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
+const fmtTime = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+const fmtDate = (d: Date) => `${d.getDate()} ${MONTHS_FR[d.getMonth()]} ${d.getFullYear()}`;
 const PRECISION_OPTIONS: { value: 'exact' | '100m' | '1000m'; label: string; hint: string }[] = [
   { value: 'exact', label: 'Précis', hint: 'Adresse exacte visible' },
   { value: '100m', label: '± 100m', hint: 'Quartier visible' },
