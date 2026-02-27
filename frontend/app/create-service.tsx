@@ -222,7 +222,8 @@ export default function CreateServiceScreen() {
         })),
         slots: slots.map(s => ({
           slot_type: s.type,
-          day_of_week: s.day !== undefined ? s.day : null,
+          days_of_week: s.type !== 'single' ? s.days : null,
+          day_of_week: s.type !== 'single' && s.days.length > 0 ? s.days[0] : null,
           start_time: s.start, end_time: s.end,
           slot_date: s.date || null,
         })),
