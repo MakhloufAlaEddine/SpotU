@@ -1,0 +1,113 @@
+{
+  "summary": "Iteration 25 - Tests des créneaux multi-jours (days_of_week: List[int]). Backend 10/10 PASS. Frontend 6/6 PASS après correction de 2 bugs critiques (déclarations dupliquées de useState). Flux complet: login coach → create-service → créneau Récurrent Lun+Mer 09:00→10:00 → POST /api/services → redirect /profile → vérification DB days_of_week=[0,2] ✓",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "POST /api/services (backend logs)",
+        "issue": "3 requêtes 500 observées dans les logs AVANT la session de tests (vraisemblablement des tests précédents). Les 10 tests de cette itération ont tous réussi avec 200."
+      }
+    ]
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Create Service - Step 4 - Date unique",
+        "issues": [
+          "Le champ date utilise un picker natif du navigateur (mm/dd/yyyy) en format US, pas en format français (dd/mm/yyyy). C'est le comportement attendu de <input type='date'> sur web, mais l'UX pourrait être améliorée avec un composant date en format FR."
+        ]
+      }
+    ]
+  },
+
+  "bugs_fixed": [
+    {
+      "file": "/app/frontend/app/create-service.tsx",
+      "issue": "Déclaration dupliquée `const [slotError, setSlotError] = useState('')` aux lignes 112 ET 190 → SyntaxError Babel → bundle Metro 500 → page blanche",
+      "fix": "Suppression de la seconde déclaration à la ligne 190 (avant addSlot())",
+      "severity": "CRITICAL"
+    },
+    {
+      "file": "/app/frontend/app/edit-service/[id].tsx",
+      "issue": "Même déclaration dupliquée `const [slotError, setSlotError] = useState('')` aux lignes 113 ET 209",
+      "fix": "Suppression de la seconde déclaration à la ligne 209 (avant addSlot())",
+      "severity": "CRITICAL"
+    }
+  ],
+
+  "test_results": {
+    "backend": {
+      "total": 10,
+      "passed": 10,
+      "failed": 0,
+      "tests": {
+        "recurring_multi_day_POST": "PASS - POST recurring days_of_week=[0,2,4] → response days_of_week=[0,2,4]",
+        "recurring_multi_day_GET": "PASS - GET returns days_of_week=[0,2,4]",
+        "recurring_cleanup": "PASS",
+        "single_slot_POST": "PASS - POST single slot_date='2026-03-15' → response slot_date='2026-03-15'",
+        "single_slot_GET": "PASS - GET returns slot_date='2026-03-15'",
+        "single_cleanup": "PASS",
+        "availability_POST": "PASS - POST availability days_of_week=[1,3] → response days_of_week=[1,3]",
+        "availability_GET": "PASS - GET returns days_of_week=[1,3]",
+        "availability_cleanup": "PASS",
+        "put_multi_day_persistence": "PASS - PUT days_of_week=[0,2,4] → GET persiste days_of_week=[0,2,4]"
+      }
+    },
+    "frontend": {
+      "test1_slot_types_visible": "PASS - 3 types visibles: Récurrent (sélectionné), Date unique, Disponibilité",
+      "test2_multi_select_days": "PASS - Clic Lun + Mer → '2 jour(s) sélectionné(s)', les deux restent actifs (orange)",
+      "test3_validation_no_days": "PASS - Clic Ajouter sans jour → message 'Sélectionnez au moins un jour' en rouge visible",
+      "test4_single_date_field": "PASS - Date unique: champ date (mm/dd/yyyy) visible, section JOURS absente",
+      "test5_time_picker_chips": "PASS - Sélection 09h → chips :00/:15/:30/:45 apparaissent",
+      "test6_full_flow": "PASS - Service créé Récurrent Lun+Mer 09:00→10:00 → POST → redirect /profile → DB days_of_week=[0,2] ✓"
+    }
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_slot_multiday_iter25.py",
+    "/app/test_reports/pytest/pytest_iter25.xml"
+  ],
+
+  "action_items": [
+    "INFO (non-bloquant): Le champ date 'Date unique' utilise <input type='date'> natif du navigateur → format US mm/dd/yyyy. Envisager un composant date FR si l'UX doit être améliorée."
+  ],
+
+  "critical_code_review_comments": [
+    "CRITICAL (FIXÉ): Déclarations dupliquées de useState('slotError') dans create-service.tsx ET edit-service/[id].tsx. Ces doublons causaient un SyntaxError Babel qui empêchait la compilation du bundle Metro → page blanche. Les deux fichiers ont été corrigés."
+  ],
+
+  "updated_files": [
+    "/app/frontend/app/create-service.tsx",
+    "/app/frontend/app/edit-service/[id].tsx"
+  ],
+
+  "success_rate": {
+    "backend": "100% (10/10)",
+    "frontend": "100% (6/6)"
+  },
+
+  "test_credentials": {
+    "coach": "coach@winek.app / WinekCoach2024!",
+    "service_test_created": "TEST Récurrent Coach Lun+Mer 09-10h (nettoyé après test)"
+  },
+
+  "seed_data_creation": "Service de test créé et supprimé lors des tests. svc_demo001 restauré après tests PUT.",
+
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Iteration 25 - Multi-day slots (days_of_week) backend et frontend 100% testés et validés. Bugs critiques corrigés: double déclaration slotError dans create-service.tsx et edit-service/[id].tsx (causait Babel SyntaxError → bundle 500 → page blanche). Après correction, l'app charge normalement. Backend: POST/GET/PUT avec days_of_week=[0,2,4] fonctionne. Frontend: step 4 multi-select days, validation, time picker chips, flux complet → tout fonctionne. Ticket d'amélioration optionnel: date picker en format FR (actuellement mm/dd/yyyy).",
+
+  "rca_of_issues": {
+    "blank_page_expo": {
+      "issue": "Application Expo web servait une page blanche",
+      "root_cause": "Deux fichiers contenaient des déclarations dupliquées de useState: `const [slotError, setSlotError] = useState('')` déclarée DEUX FOIS dans le même scope de fonction (create-service.tsx lignes 112+190, edit-service/[id].tsx lignes 113+209). Babel/TypeScript considère ceci comme une 'redéclaration dans le même scope' → SyntaxError → Metro retournait 500 sur le bundle → le script JS ne s'exécutait pas → page blanche.",
+      "fix": "Suppression des seconds useState dupliqués (lignes 190 dans create-service.tsx et 209 dans edit-service/[id].tsx)",
+      "reproduction": "curl http://localhost:3000/node_modules/expo-router/entry.bundle?platform=web → retournait {type:TransformError, SyntaxError: Identifier 'slotError' has already been declared}"
+    }
+  }
+}
