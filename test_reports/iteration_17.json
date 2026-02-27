@@ -1,0 +1,63 @@
+{
+  "summary": "Iteration 17: Testing 6 WINEK profile corrections. Found and fixed 2 bugs: (1) missing @router.post decorator on create_user_review causing 405 Method Not Allowed, (2) edit-review-btn/my-review-banner not showing due to auth context timing race condition (me=null when loadReviews runs). Both fixed. All 20 backend tests pass. All frontend features verified working after fixes.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/users/{id}/reviews",
+        "issue": "Missing @router.post decorator on create_user_review function. The function existed but was not registered as a route, returning 405 Method Not Allowed on all POST requests.",
+        "priority": "CRITICAL",
+        "status": "FIXED by T1 - added @router.post('/{user_id}/reviews') decorator in /app/backend/routes/user_routes.py"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "user/[id].tsx - ReviewSection",
+        "issue": "edit-review-btn and my-review-banner not showing on page load. Root cause: useFocusEffect fires when id is set, calling loadReviews() while me (auth context user) is still null (auth context is restoring from stored token asynchronously). Since me is null, the review.reviewer_id === me.user_id check never runs, leaving myReview null.",
+        "selector": "[data-testid='edit-review-btn'], [data-testid='my-review-banner']",
+        "priority": "HIGH",
+        "status": "FIXED by T1 - added useEffect([me?.user_id, reviews]) to re-detect myReview when me loads after reviews are fetched"
+      },
+      {
+        "component": "user/[id].tsx - see-more-reviews-btn copy",
+        "issue": "Button text 'Voir les 1 autres avis' has French plural agreement error when count=1 (should be 'Voir le 1 autre avis'). Minor copy issue.",
+        "selector": "[data-testid='see-more-reviews-btn']",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_profile_reviews_iter17.py",
+    "/app/test_reports/pytest/iter17_results.xml"
+  ],
+  "action_items": [
+    "FIXED (T1): POST /api/users/{id}/reviews missing @router.post decorator - now returns 409 for duplicate, 201 for new reviews",
+    "FIXED (T1): edit-review-btn/my-review-banner timing bug - added useEffect to re-detect myReview when auth context loads",
+    "MINOR: Fix French plural 'Voir les 1 autres avis' → 'Voir le 1 autre avis' (singular handling) in see-more-reviews-btn text"
+  ],
+  "critical_code_review_comments": [
+    "FIXED: create_user_review function in user_routes.py was missing @router.post decorator - the function was defined but not registered as any HTTP route",
+    "FIXED: Race condition in [id].tsx - useFocusEffect with [id] dependency captures loadReviews closure that closes over me=null. Added reactive useEffect([me?.user_id, reviews]) to re-detect myReview when auth context loads",
+    "The useFocusEffect dependency array should arguably include me?.user_id to reload when user changes, but the new useEffect approach is safer and avoids double-fetching",
+    "Star picker in edit form (StarRow component) uses TouchableOpacity without testID or role attributes, making it untestable via data-testid/role selectors"
+  ],
+  "updated_files": [
+    "/app/backend/routes/user_routes.py",
+    "/app/frontend/app/user/[id].tsx",
+    "/app/backend/tests/test_profile_reviews_iter17.py"
+  ],
+  "success_rate": {
+    "backend": "100% (20/20 tests passed)",
+    "frontend": "100% (all features working after fixes)"
+  },
+  "test_credentials": "user@winek.app / WinekUser2024!, coach@winek.app / WinekCoach2024!, mbenali@winek.app / WinekDemo2024!, cdurand@winek.app / WinekDemo2024!, admin@winek.app / WinekAdmin2024!",
+  "seed_data_creation": "Added reviews to user_demo002 for see-more-reviews-btn testing: rev_a439039b47c7 from user_demo003 (rating=5), rev_778bc37d7fb3 from user_admin001 (rating=4). User_demo002 now has 4 reviews total. Also enabled show_phone=true + phone='+33 6 12 34 56 78' for user_demo002 to test phone-call-btn.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All 6 profile corrections are now working: (1) useFocusEffect reloads data on focus, (2) edit-review-btn shows after fix, (3) see-more-reviews-btn works with 4 reviews on user_demo002, (4) phone-call-btn visible for user_demo002 (show_phone enabled), (5) hero-review-count/avg-rating/badge all correct on Profile tab, (6) achievement badges working correctly. Two bugs were fixed: missing POST route decorator and auth timing race condition. User_demo002 now has 4 reviews and show_phone=true for comprehensive testing.",
+  "rca_of_the_issue": "Bug 1 RCA: In /app/backend/routes/user_routes.py, the create_user_review function at line 179 was missing the @router.post('/{user_id}/reviews') decorator. The function was syntactically correct Python but not registered as any HTTP route - causing ALL POST requests to the path to return 405 Method Not Allowed. Fix: added the decorator.\n\nBug 2 RCA: In /app/frontend/app/user/[id].tsx, the useFocusEffect fires with [id] dependency when the screen mounts. At this point, the AuthContext is still restoring the user from stored token (async /auth/me call). The loadReviews() function captures the me variable from the component closure where me=null, so the data.find(r => r.reviewer_id === me.user_id) comparison is never executed. Result: myReview stays null, showing 'Laisser un avis' form instead of 'Mon avis' banner with Modifier button. Fix: added useEffect([me?.user_id, reviews]) that re-detects myReview reactively whenever me becomes available after reviews are loaded."
+}
