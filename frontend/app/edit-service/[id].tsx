@@ -210,19 +210,25 @@ export default function EditServiceScreen() {
   };
 
   const addSlot = () => {
-    if (!newSlotStart) { setSlotError('Sélectionnez une heure de début'); return; }
-    if (!newSlotEnd) { setSlotError('Sélectionnez une heure de fin'); return; }
-    if (newSlotStart >= newSlotEnd) { setSlotError("L'heure de fin doit être après l'heure de début"); return; }
-    if (newSlotType === 'single' && !newSlotDate) { setSlotError('Sélectionnez une date'); return; }
+    if (!newSlotStartDate) { setSlotError('Sélectionnez une heure de début'); return; }
+    if (!newSlotEndDate) { setSlotError('Sélectionnez une heure de fin'); return; }
+    const startMins = newSlotStartDate.getHours() * 60 + newSlotStartDate.getMinutes();
+    const endMins = newSlotEndDate.getHours() * 60 + newSlotEndDate.getMinutes();
+    if (endMins <= startMins) { setSlotError("L'heure de fin doit être après l'heure de début"); return; }
+    if (newSlotType === 'single' && !newSlotStartDate) { setSlotError('Sélectionnez une date'); return; }
     if (newSlotType !== 'single' && newSlotDays.length === 0) { setSlotError('Sélectionnez au moins un jour'); return; }
+    const start = fmtTime(newSlotStartDate);
+    const end = fmtTime(newSlotEndDate);
+    const slotDate = newSlotType === 'single'
+      ? `${newSlotStartDate.getFullYear()}-${String(newSlotStartDate.getMonth() + 1).padStart(2, '0')}-${String(newSlotStartDate.getDate()).padStart(2, '0')}`
+      : undefined;
     setSlotError('');
     setSlots(prev => [...prev, {
       id: `slot_${Date.now()}`, type: newSlotType,
       days: newSlotType !== 'single' ? [...newSlotDays].sort() : [],
-      start: newSlotStart, end: newSlotEnd,
-      date: newSlotType === 'single' ? newSlotDate : undefined,
+      start, end, date: slotDate,
     }]);
-    setNewSlotStart(''); setNewSlotEnd(''); setNewSlotDate(''); setNewSlotDays([]);
+    setNewSlotStartDate(null); setNewSlotEndDate(null); setNewSlotDays([]);
     setAddingSlot(false);
   };
 
