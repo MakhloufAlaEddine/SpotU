@@ -61,12 +61,27 @@ Construire une application mobile **WINEK**, une plateforme hyperlocale de conne
 
 ## Schema DB Principal
 
+### `users`
+| Colonne | Type | Notes |
+|---|---|---|
+| show_phone | BOOLEAN | **NOUVEAU** Afficher le téléphone sur profil public (défaut: false) |
+| show_reviews | BOOLEAN | **NOUVEAU** Autoriser les avis (défaut: true) |
+
 ### `tag_points`
 | Colonne | Type | Notes |
 |---|---|---|
 | event_date | TIMESTAMPTZ | Date de début (unique) |
 | event_end_date | TIMESTAMPTZ | **NOUVEAU** Heure de fin |
 | event_schedule | JSONB | `{type:'weekly', schedule:{dayIdx:[{start:'HH:MM',end:'HH:MM'}]}}` |
+
+### `reviews`
+| Colonne | Type | Notes |
+|---|---|---|
+| booking_id | TEXT NULL | Nullable - avis directs (sans réservation) supportés |
+| reviewer_id | TEXT | Utilisateur qui note |
+| reviewee_id | TEXT | Utilisateur noté |
+| rating | INTEGER | 1 à 5 |
+| comment | TEXT NULL | Optionnel |
 
 ---
 
