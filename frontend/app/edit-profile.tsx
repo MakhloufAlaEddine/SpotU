@@ -102,8 +102,7 @@ export default function EditProfileScreen() {
     }
   };
 
-  const handleSave = async () => {
-    if (!name.trim()) { Alert.alert('Nom requis', 'Veuillez entrer votre nom.'); return; }
+  const handleSave = async () => {    if (!name.trim()) { Alert.alert('Nom requis', 'Veuillez entrer votre nom.'); return; }
     setSaving(true);
     try {
       await api.put('/users/profile', {
