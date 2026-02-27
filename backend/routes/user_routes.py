@@ -73,6 +73,12 @@ async def get_public_profile(user_id: str):
 
         # Fetch tag details for interests (coach_tags)
         tag_ids = user.get("coach_tags") or []
+        if isinstance(tag_ids, str):
+            import json as _j
+            try:
+                tag_ids = _j.loads(tag_ids)
+            except Exception:
+                tag_ids = []
         if tag_ids:
             tag_rows = await conn.fetch(
                 "SELECT tag_id, label_fr, label_en, icon FROM tags WHERE tag_id = ANY($1::text[])",
