@@ -151,13 +151,14 @@ async def get_public_profile(user_id: str):
 async def get_user_reviews(user_id: str):
     pool = get_pool()
     async with pool.acquire() as conn:
-        # Check user exists + reviews enabled
         row = await conn.fetchrow(
             "SELECT show_reviews FROM users WHERE user_id = $1", user_id
         )
         if not row:
             raise HTTPException(status_code=404, detail="User not found")
-
+        # Respect privacy: return empty list if user disabled reviews
+        if not row["show_reviews"]:
+            return []
         reviews = await conn.fetch(
             """SELECT r.review_id, r.rating, r.comment, r.created_at,
                       u.user_id as reviewer_id, u.name as reviewer_name, u.picture as reviewer_picture
