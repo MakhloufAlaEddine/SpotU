@@ -16,11 +16,11 @@ const TEAL_BORDER = 'rgba(0,191,165,0.3)';
 // ── Badge logic ───────────────────────────────────────────────────────────────
 type Badge = { label: string; color: string; bg: string; icon: string };
 function computeBadge(avg: number | null, count: number): Badge | null {
-  if (!avg || count === 0 || avg < 3.5) return null;
-  if (avg >= 4.8 && count >= 10) return { label: 'Elite', color: '#FFD700', bg: 'rgba(255,215,0,0.15)', icon: 'diamond' };
-  if (avg >= 4.5 && count >= 5)  return { label: 'Top Joueur', color: '#FFD700', bg: 'rgba(255,215,0,0.12)', icon: 'trophy' };
+  if (!avg || count < 3 || avg < 3.5) return null;
+  if (avg >= 4.8 && count >= 10) return { label: 'Elite',         color: '#FFD700', bg: 'rgba(255,215,0,0.15)',   icon: 'diamond' };
+  if (avg >= 4.5 && count >= 5)  return { label: 'Top Joueur',    color: '#FFD700', bg: 'rgba(255,215,0,0.12)',   icon: 'trophy' };
   if (avg >= 4.0 && count >= 3)  return { label: 'Très Apprécié', color: '#C0C0C0', bg: 'rgba(192,192,192,0.15)', icon: 'star' };
-  return { label: 'Bien Noté', color: '#CD7F32', bg: 'rgba(205,127,50,0.15)', icon: 'thumbs-up' };
+  return                                 { label: 'Bien Noté',     color: '#CD7F32', bg: 'rgba(205,127,50,0.15)',  icon: 'thumbs-up' };
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
