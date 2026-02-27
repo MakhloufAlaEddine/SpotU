@@ -44,7 +44,8 @@ const SLOT_TYPES = [
 type SlotType = 'recurring' | 'single' | 'availability';
 type ServiceSlot = {
   id: string; type: SlotType;
-  day?: number; start: string; end: string; date?: string;
+  days: number[];  // indices jours (multi-sélection) pour recurring/availability
+  start: string; end: string; date?: string;
 };
 type ServiceLocation = {
   id: string; lat: number; lng: number;
