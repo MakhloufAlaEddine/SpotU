@@ -112,6 +112,7 @@ export default function CreateServiceScreen() {
   const [slotError, setSlotError] = useState('');
 
   const [submitting, setSubmitting] = useState(false);
+  // slotError state is declared above (line 112)
 
   useEffect(() => {
     if (!user) return;
