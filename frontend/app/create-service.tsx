@@ -6,7 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { MapViewComponent } from '../components/MapViewComponent';
+import { LocationPicker } from '../components/LocationPicker';
 import { DomainPill } from '../components/DomainPill';
 import { TagSelector } from '../components/TagSelector';
 import { DateTimePickerModal } from '../components/DateTimePicker';
@@ -14,7 +14,6 @@ import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
 import { Colors, Spacing, Radius } from '../constants/Colors';
-import * as Location from 'expo-location';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ORANGE = '#FF9500';
@@ -22,51 +21,38 @@ const ORANGE_LIGHT = 'rgba(255,149,0,0.12)';
 const ORANGE_BORDER = 'rgba(255,149,0,0.3)';
 const GREEN = '#1DBF73';
 
-const STEP_LABELS = ['Infos', 'Sport', 'Lieux', 'Créneaux', 'Résumé'];
-const DAYS_FR = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+const STEP_LABELS = ['Infos', 'Sport', 'Lieux', 'Planning', 'Résumé'];
+const DAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 const DURATIONS = ['30', '45', '60', '90', '120'];
 const MONTHS_FR = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
+
 const fmtTime = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 const fmtDate = (d: Date) => `${d.getDate()} ${MONTHS_FR[d.getMonth()]} ${d.getFullYear()}`;
-const PRECISION_OPTIONS: { value: 'exact' | '100m' | '1000m'; label: string; hint: string }[] = [
-  { value: 'exact', label: 'Précis', hint: 'Adresse exacte visible' },
-  { value: '100m', label: '± 100m', hint: 'Quartier visible' },
-  { value: '1000m', label: '± 1km', hint: 'Zone visible' },
-];
-const PRECISION_RADIUS: Record<string, number> = { exact: 0, '100m': 100, '1000m': 1000 };
-const PRECISION_LABEL: Record<string, string> = { exact: 'Précis', '100m': '± 100m', '1000m': '± 1km' };
-const SLOT_TYPES = [
-  { value: 'recurring', label: 'Récurrent', icon: 'repeat', hint: 'Ex: tous les lundis 09h-10h' },
-  { value: 'single', label: 'Date unique', icon: 'calendar', hint: 'Une séance précise' },
-  { value: 'availability', label: 'Disponibilité', icon: 'time', hint: 'Plage horaire, client fixe l\'heure' },
+
+const PRECISION_OPTIONS: { value: 'exact' | '100m' | '1000m'; label: string; icon: any }[] = [
+  { value: 'exact', label: 'Lieu exact', icon: 'locate' },
+  { value: '100m', label: '~100m', icon: 'radio-button-on' },
+  { value: '1000m', label: '~1km', icon: 'radio-button-off' },
 ];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type SlotType = 'recurring' | 'single' | 'availability';
-type ServiceSlot = {
-  id: string; type: SlotType;
-  days: number[];  // indices jours (multi-sélection) pour recurring/availability
-  start: string; end: string; date?: string;
-};
-type ServiceLocation = {
-  id: string; lat: number; lng: number;
-  precision: 'exact' | '100m' | '1000m'; description: string;
-};
+type LocScheduleType = 'availability' | 'once' | 'recurring';
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-function formatSlotLabel(slot: ServiceSlot): string {
-  if (slot.type === 'single') {
-    const d = slot.date ? new Date(slot.date + 'T00:00:00') : null;
-    const dateStr = d ? d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) : '??';
-    return `${dateStr}  ·  ${slot.start} → ${slot.end}`;
-  }
-  const daysLabel = slot.days.length > 0 ? slot.days.sort().map(d => DAYS_FR[d]).join(', ') : '—';
-  if (slot.type === 'availability') return `${daysLabel}  ·  ${slot.start} → ${slot.end}  (sur rdv)`;
-  return `${daysLabel}  ·  ${slot.start} → ${slot.end}`;
+interface LocTimeSlot {
+  start: Date;
+  end: Date | null;
 }
 
-function slotIcon(type: SlotType): any {
-  return type === 'single' ? 'calendar' : type === 'availability' ? 'time' : 'repeat';
+interface ServiceLocation {
+  id: string;
+  lat: number;
+  lng: number;
+  address: string;
+  precision: 'exact' | '100m' | '1000m';
+  scheduleType: LocScheduleType;
+  eventDateTime: Date | null;
+  eventEndDateTime: Date | null;
+  recurringSchedule: Record<number, LocTimeSlot[]>;
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -94,24 +80,15 @@ export default function CreateServiceScreen() {
 
   // Step 3 – Locations
   const [locations, setLocations] = useState<ServiceLocation[]>([]);
-  const [addingLoc, setAddingLoc] = useState(false);
-  const [newLocLat, setNewLocLat] = useState<number | null>(null);
-  const [newLocLng, setNewLocLng] = useState<number | null>(null);
-  const [newLocPrecision, setNewLocPrecision] = useState<'exact' | '100m' | '1000m'>('exact');
-  const [newLocDesc, setNewLocDesc] = useState('');
-  const [mapCenterLat, setMapCenterLat] = useState(48.8566);
-  const [mapCenterLng, setMapCenterLng] = useState(2.3522);
+  const [showLocPicker, setShowLocPicker] = useState(false);
 
-  // Step 4 – Slots
-  const [slots, setSlots] = useState<ServiceSlot[]>([]);
-  const [addingSlot, setAddingSlot] = useState(false);
-  const [newSlotType, setNewSlotType] = useState<SlotType>('recurring');
-  const [newSlotDays, setNewSlotDays] = useState<number[]>([]);
-  const [newSlotStartDate, setNewSlotStartDate] = useState<Date | null>(null);
-  const [newSlotEndDate, setNewSlotEndDate] = useState<Date | null>(null);
-  const [showStartPicker, setShowStartPicker] = useState(false);
-  const [showEndPicker, setShowEndPicker] = useState(false);
-  const [slotError, setSlotError] = useState('');
+  // Step 4 – Time pickers targeting
+  const [editingLocIdx, setEditingLocIdx] = useState<number | null>(null);
+  const [editingDayIdx, setEditingDayIdx] = useState<number | null>(null);
+  const [editingTimeIdx, setEditingTimeIdx] = useState<number | null>(null);
+  const [editingTimeType, setEditingTimeType] = useState<'start' | 'end'>('start');
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
 
@@ -126,7 +103,6 @@ export default function CreateServiceScreen() {
       return;
     }
     loadDomains();
-    getUserLocation();
   }, [user]);
 
   useEffect(() => { if (selectedDomain) loadTags(selectedDomain); }, [selectedDomain]);
@@ -138,15 +114,6 @@ export default function CreateServiceScreen() {
       const coaching = doms.find((d: any) => d.name === 'coaching');
       setSelectedDomain(coaching?.domain_id || doms[0]?.domain_id || '');
     } catch {}
-  };
-
-  const getUserLocation = async () => {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status === 'granted') {
-      const loc = await Location.getCurrentPositionAsync({});
-      setMapCenterLat(loc.coords.latitude);
-      setMapCenterLng(loc.coords.longitude);
-    }
   };
 
   const loadTags = async (domainId: string) => {
@@ -170,50 +137,132 @@ export default function CreateServiceScreen() {
       if (!price || isNaN(p) || p <= 0) { Alert.alert('', 'Entrez un prix valide (> 0)'); return; }
     }
     if (step === 2 && !selectedDomain) { Alert.alert('', 'Sélectionnez un domaine'); return; }
+    if (step === 3 && locations.length === 0) { Alert.alert('', 'Ajoutez au moins un lieu'); return; }
+    if (step === 4) {
+      // Validate all locations have a schedule
+      for (const loc of locations) {
+        if (loc.scheduleType === 'once' && !loc.eventDateTime) {
+          Alert.alert('Planning incomplet', `Configurez la date pour : ${loc.address || 'un lieu'}`);
+          return;
+        }
+        if ((loc.scheduleType === 'recurring' || loc.scheduleType === 'availability')) {
+          const days = Object.keys(loc.recurringSchedule).map(Number);
+          if (days.length === 0) {
+            Alert.alert('Planning incomplet', `Sélectionnez au moins un jour pour : ${loc.address || 'un lieu'}`);
+            return;
+          }
+          if (days.some(d => loc.recurringSchedule[d].length === 0)) {
+            Alert.alert('Planning incomplet', `Chaque jour doit avoir au moins un créneau`);
+            return;
+          }
+        }
+      }
+    }
     setStep(s => Math.min(s + 1, 5));
     scrollTop();
   };
 
   const goPrev = () => { setStep(s => Math.max(s - 1, 1)); scrollTop(); };
 
-  const addLocation = () => {
-    if (!newLocLat || !newLocLng) { Alert.alert('', 'Sélectionnez un point sur la carte'); return; }
+  // ─── Location helpers ──────────────────────────────────────────────────────
+  const addLocation = (lat: number, lng: number, address: string) => {
     setLocations(prev => [...prev, {
       id: `loc_${Date.now()}`,
-      lat: newLocLat, lng: newLocLng,
-      precision: newLocPrecision, description: newLocDesc.trim(),
+      lat, lng, address, precision: 'exact',
+      scheduleType: 'recurring',
+      eventDateTime: null, eventEndDateTime: null,
+      recurringSchedule: {},
     }]);
-    setNewLocLat(null); setNewLocLng(null);
-    setNewLocPrecision('exact'); setNewLocDesc('');
-    setAddingLoc(false);
   };
 
-  const addSlot = () => {
-    if (!newSlotStartDate) { setSlotError('Sélectionnez une heure de début'); return; }
-    if (!newSlotEndDate) { setSlotError('Sélectionnez une heure de fin'); return; }
-    const startMins = newSlotStartDate.getHours() * 60 + newSlotStartDate.getMinutes();
-    const endMins = newSlotEndDate.getHours() * 60 + newSlotEndDate.getMinutes();
-    if (endMins <= startMins) { setSlotError("L'heure de fin doit être après l'heure de début"); return; }
-    if (newSlotType === 'single' && !newSlotStartDate) { setSlotError('Sélectionnez une date'); return; }
-    if (newSlotType !== 'single' && newSlotDays.length === 0) { setSlotError('Sélectionnez au moins un jour'); return; }
-    const start = fmtTime(newSlotStartDate);
-    const end = fmtTime(newSlotEndDate);
-    const slotDate = newSlotType === 'single'
-      ? `${newSlotStartDate.getFullYear()}-${String(newSlotStartDate.getMonth() + 1).padStart(2, '0')}-${String(newSlotStartDate.getDate()).padStart(2, '0')}`
-      : undefined;
-    setSlotError('');
-    setSlots(prev => [...prev, {
-      id: `slot_${Date.now()}`, type: newSlotType,
-      days: newSlotType !== 'single' ? [...newSlotDays].sort() : [],
-      start, end, date: slotDate,
-    }]);
-    setNewSlotStartDate(null); setNewSlotEndDate(null); setNewSlotDays([]);
-    setAddingSlot(false);
+  const updateLocPrecision = (locIdx: number, precision: 'exact' | '100m' | '1000m') => {
+    setLocations(prev => {
+      const next = [...prev];
+      next[locIdx] = { ...next[locIdx], precision };
+      return next;
+    });
   };
 
+  const updateLocScheduleType = (locIdx: number, type: LocScheduleType) => {
+    setLocations(prev => {
+      const next = [...prev];
+      next[locIdx] = { ...next[locIdx], scheduleType: type, eventDateTime: null, eventEndDateTime: null, recurringSchedule: {} };
+      return next;
+    });
+  };
+
+  const toggleDayForLoc = (locIdx: number, dayIdx: number) => {
+    setLocations(prev => {
+      const next = [...prev];
+      const loc = { ...next[locIdx] };
+      const rec = { ...loc.recurringSchedule };
+      if (rec[dayIdx] !== undefined) { delete rec[dayIdx]; } else { rec[dayIdx] = []; }
+      loc.recurringSchedule = rec;
+      next[locIdx] = loc;
+      return next;
+    });
+  };
+
+  const removeTimeFromLocDay = (locIdx: number, dayIdx: number, timeIdx: number) => {
+    setLocations(prev => {
+      const next = [...prev];
+      const loc = { ...next[locIdx] };
+      const rec = { ...loc.recurringSchedule };
+      rec[dayIdx] = (rec[dayIdx] || []).filter((_, i) => i !== timeIdx);
+      loc.recurringSchedule = rec;
+      next[locIdx] = loc;
+      return next;
+    });
+  };
+
+  const openTimePicker = (locIdx: number, dayIdx: number, timeIdx: number, type: 'start' | 'end') => {
+    setEditingLocIdx(locIdx);
+    setEditingDayIdx(dayIdx);
+    setEditingTimeIdx(timeIdx);
+    setEditingTimeType(type);
+  };
+
+  const openDatePicker = (locIdx: number) => {
+    setEditingLocIdx(locIdx);
+    setShowDatePicker(true);
+  };
+
+  const openEndDatePicker = (locIdx: number) => {
+    setEditingLocIdx(locIdx);
+    setShowEndDatePicker(true);
+  };
+
+  // ─── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
+      const slotsPayload = locations.flatMap(loc => {
+        if (loc.scheduleType === 'once') {
+          if (!loc.eventDateTime) return [];
+          const d = loc.eventDateTime;
+          return [{
+            location_id: loc.id,
+            slot_type: 'single',
+            day_of_week: null,
+            days_of_week: null,
+            start_time: fmtTime(d),
+            end_time: loc.eventEndDateTime ? fmtTime(loc.eventEndDateTime) : null,
+            slot_date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
+          }];
+        }
+        return Object.entries(loc.recurringSchedule).flatMap(([dayIdx, timeSlots]) =>
+          timeSlots.map(ts => ({
+            location_id: loc.id,
+            slot_type: loc.scheduleType === 'availability' ? 'availability' : 'recurring',
+            day_of_week: parseInt(dayIdx),
+            days_of_week: null,
+            start_time: fmtTime(ts.start),
+            end_time: ts.end ? fmtTime(ts.end) : null,
+            slot_date: null,
+          }))
+        );
+      });
+
       await api.post('/services', {
         title: title.trim(),
         description: description.trim() || null,
@@ -224,15 +273,9 @@ export default function CreateServiceScreen() {
         tag_ids: selectedTags,
         locations: locations.map(l => ({
           latitude: l.lat, longitude: l.lng,
-          precision: l.precision, description: l.description || null,
+          precision: l.precision, description: l.address || null,
         })),
-        slots: slots.map(s => ({
-          slot_type: s.type,
-          days_of_week: s.type !== 'single' ? s.days : null,
-          day_of_week: s.type !== 'single' && s.days.length > 0 ? s.days[0] : null,
-          start_time: s.start, end_time: s.end,
-          slot_date: s.date || null,
-        })),
+        slots: slotsPayload,
       });
       router.replace('/(tabs)/profile' as any);
     } catch (err: any) {
@@ -241,159 +284,6 @@ export default function CreateServiceScreen() {
       setSubmitting(false);
     }
   };
-
-  // ─── Step 4 ───────────────────────────────────────────────────────────────
-  const renderStep4 = () => (
-    <View style={s.stepContent}>
-      <Text style={s.stepTitle}>Disponibilités</Text>
-      <Text style={s.stepHint}>Définissez vos créneaux et disponibilités</Text>
-      {slots.map(slot => (
-        <View key={slot.id} style={s.itemCard}>
-          <View style={[s.itemIconBox, { backgroundColor: slot.type === 'single' ? 'rgba(29,191,115,0.12)' : slot.type === 'availability' ? 'rgba(90,100,220,0.12)' : ORANGE_LIGHT }]}>
-            <Ionicons name={slotIcon(slot.type)} size={16} color={slot.type === 'single' ? GREEN : slot.type === 'availability' ? '#5A64DC' : ORANGE} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.itemMeta}>{SLOT_TYPES.find(t => t.value === slot.type)?.label}</Text>
-            <Text style={s.itemTitle}>{formatSlotLabel(slot)}</Text>
-          </View>
-          <TouchableOpacity onPress={() => setSlots(prev => prev.filter(sl => sl.id !== slot.id))}>
-            <Ionicons name="trash-outline" size={18} color={Colors.destructive} />
-          </TouchableOpacity>
-        </View>
-      ))}
-      {addingSlot ? (
-        <View style={s.addCard}>
-          <Text style={s.addCardTitle}>Nouveau créneau</Text>
-          {/* Type selector */}
-          <View style={{ gap: 8, marginBottom: 4 }}>
-            {SLOT_TYPES.map(t => (
-              <TouchableOpacity key={t.value}
-                style={[s.slotTypeCard, newSlotType === t.value && s.slotTypeCardActive]}
-                onPress={() => { setNewSlotType(t.value as SlotType); setNewSlotStartDate(null); setNewSlotEndDate(null); setNewSlotDays([]); setSlotError(''); }}
-                testID={`slot-type-${t.value}`}>
-                <Ionicons name={t.icon as any} size={16} color={newSlotType === t.value ? ORANGE : Colors.muted} />
-                <View style={{ flex: 1 }}>
-                  <Text style={[s.slotTypeLabel, newSlotType === t.value && s.slotTypeLabelActive]}>{t.label}</Text>
-                  <Text style={s.slotTypeHint}>{t.hint}</Text>
-                </View>
-                {newSlotType === t.value && <Ionicons name="checkmark-circle" size={16} color={ORANGE} />}
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Date unique: bouton DateTimePicker mode datetime (date + heure de début) */}
-          {newSlotType === 'single' && (
-            <View style={s.field}>
-              <Text style={s.fieldLabel}>Date & Heure de début</Text>
-              <TouchableOpacity style={s.dateBtn} onPress={() => setShowStartPicker(true)} testID="open-start-picker">
-                <Ionicons name="calendar" size={20} color={newSlotStartDate ? ORANGE : Colors.muted} />
-                <View style={{ flex: 1 }}>
-                  {newSlotStartDate
-                    ? <><Text style={s.dateBtnValue}>{fmtDate(newSlotStartDate)}</Text><Text style={s.dateBtnSub}>Début : {fmtTime(newSlotStartDate)}</Text></>
-                    : <Text style={s.dateBtnPlaceholder}>Choisir date et heure de début</Text>
-                  }
-                </View>
-                <Ionicons name="chevron-forward" size={16} color={Colors.muted} />
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Récurrent / Disponibilité: sélecteur de jours */}
-          {newSlotType !== 'single' && (
-            <View style={s.field}>
-              <Text style={s.fieldLabel}>Jours de la semaine (plusieurs possibles)</Text>
-              <View style={[s.chips, { flexWrap: 'wrap' }]}>
-                {DAYS_FR.map((day, i) => (
-                  <TouchableOpacity key={i}
-                    style={[s.chip, newSlotDays.includes(i) && s.chipActive]}
-                    onPress={() => setNewSlotDays(prev =>
-                      prev.includes(i) ? prev.filter(d => d !== i) : [...prev, i]
-                    )} testID={`day-${i}`}>
-                    <Text style={[s.chipText, newSlotDays.includes(i) && s.chipTextActive]}>{day}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              {newSlotDays.length > 0 && (
-                <Text style={s.charCountGood}>{newSlotDays.length} jour(s) sélectionné(s)</Text>
-              )}
-            </View>
-          )}
-
-          {/* Heure de début (récurrent/disponibilité seulement) */}
-          {newSlotType !== 'single' && (
-            <View style={s.field}>
-              <Text style={s.fieldLabel}>{newSlotType === 'availability' ? 'Disponible dès' : 'Heure de début'}</Text>
-              <TouchableOpacity style={s.dateBtn} onPress={() => setShowStartPicker(true)} testID="open-start-picker">
-                <Ionicons name="play-circle-outline" size={20} color={newSlotStartDate ? ORANGE : Colors.muted} />
-                <View style={{ flex: 1 }}>
-                  {newSlotStartDate
-                    ? <Text style={s.dateBtnValue}>{fmtTime(newSlotStartDate)}</Text>
-                    : <Text style={s.dateBtnPlaceholder}>Choisir l'heure</Text>
-                  }
-                </View>
-                <Ionicons name="chevron-forward" size={16} color={Colors.muted} />
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Heure de fin (toujours, mais uniquement visible si heure de début sélectionnée pour "single") */}
-          {(newSlotType !== 'single' || !!newSlotStartDate) && (
-            <View style={s.field}>
-              <Text style={s.fieldLabel}>{newSlotType === 'availability' ? "Disponible jusqu'à" : 'Heure de fin'}</Text>
-              <TouchableOpacity style={s.dateBtn} onPress={() => setShowEndPicker(true)} testID="open-end-picker">
-                <Ionicons name="stop-circle-outline" size={20} color={newSlotEndDate ? ORANGE : Colors.muted} />
-                <View style={{ flex: 1 }}>
-                  {newSlotEndDate
-                    ? <Text style={s.dateBtnValue}>{fmtTime(newSlotEndDate)}</Text>
-                    : <Text style={s.dateBtnPlaceholder}>Choisir l'heure de fin</Text>
-                  }
-                </View>
-                <Ionicons name="chevron-forward" size={16} color={Colors.muted} />
-              </TouchableOpacity>
-            </View>
-          )}
-
-          <View style={s.addCardActions}>
-            <TouchableOpacity style={s.cancelBtn}
-              onPress={() => { setAddingSlot(false); setNewSlotStartDate(null); setNewSlotEndDate(null); setNewSlotDays([]); setSlotError(''); }}>
-              <Text style={s.cancelBtnText}>Annuler</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={s.confirmBtn} onPress={addSlot} testID="confirm-slot-btn">
-              <Text style={s.confirmBtnText}>Ajouter</Text>
-            </TouchableOpacity>
-          </View>
-          {slotError ? <Text style={s.errorText} testID="slot-error">{slotError}</Text> : null}
-        </View>
-      ) : (
-        <TouchableOpacity style={s.addBtn} onPress={() => setAddingSlot(true)} testID="add-slot-btn">
-          <Ionicons name="add-circle-outline" size={20} color={ORANGE} />
-          <Text style={s.addBtnText}>Ajouter un créneau</Text>
-        </TouchableOpacity>
-      )}
-    </View>
-  );
-  const renderStepHeader = () => (
-    <View style={s.stepHeader}>
-      {STEP_LABELS.map((label, idx) => {
-        const num = idx + 1;
-        const done = step > num;
-        const active = step === num;
-        return (
-          <React.Fragment key={num}>
-            {idx > 0 && <View style={[s.stepLine, done && s.stepLineDone]} />}
-            <View style={s.stepItem}>
-              <View style={[s.stepCircle, active && s.stepCircleActive, done && s.stepCircleDone]}>
-                {done
-                  ? <Ionicons name="checkmark" size={13} color={Colors.background} />
-                  : <Text style={[s.stepNum, active && s.stepNumActive]}>{num}</Text>}
-              </View>
-              <Text style={[s.stepLabel, active && s.stepLabelActive]}>{label}</Text>
-            </View>
-          </React.Fragment>
-        );
-      })}
-    </View>
-  );
 
   // ─── Step 1 ───────────────────────────────────────────────────────────────
   const renderStep1 = () => (
@@ -413,7 +303,7 @@ export default function CreateServiceScreen() {
       <View style={s.field}>
         <Text style={s.fieldLabel}>Description</Text>
         <TextInput style={[s.input, s.inputMulti]} value={description} onChangeText={setDescription}
-          placeholder={'Décrivez votre parcours, votre méthode, ce que le client gagnera…\nEx : Coach certifié BPJEPS, 8 ans d\'exp., suivi personnalisé avec plan d\'entraînement.'}
+          placeholder={'Décrivez votre parcours, votre méthode, ce que le client gagnera…'}
           placeholderTextColor={Colors.muted} multiline numberOfLines={4}
           textAlignVertical="top" testID="service-desc-input" />
         {description.length > 0 && (
@@ -481,98 +371,243 @@ export default function CreateServiceScreen() {
             )} lang={lang} maxSelect={5} />
         </View>
       )}
-      {selectedTags.length === 0 && (
-        <View style={s.tipNote}>
-          <Ionicons name="pricetag-outline" size={14} color={Colors.muted} />
-          <Text style={s.tipNoteText}>Les tags aident les sportifs à trouver votre service rapidement</Text>
-        </View>
-      )}
     </View>
   );
 
-  // ─── Step 3 ───────────────────────────────────────────────────────────────
+  // ─── Step 3 – Lieux ───────────────────────────────────────────────────────
   const renderStep3 = () => (
     <View style={s.stepContent}>
       <Text style={s.stepTitle}>Lieux d'intervention</Text>
       <Text style={s.stepHint}>Ajoutez jusqu'à 5 endroits où vous intervenez</Text>
-      {locations.map((loc, i) => (
-        <View key={loc.id} style={s.itemCard}>
-          <View style={s.itemIconBox}><Ionicons name="location" size={16} color={ORANGE} /></View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.itemTitle}>{loc.description || `Lieu ${i + 1}`}</Text>
-            <Text style={s.itemMeta}>{PRECISION_LABEL[loc.precision]} · {loc.lat.toFixed(4)}, {loc.lng.toFixed(4)}</Text>
-          </View>
-          <TouchableOpacity onPress={() => setLocations(prev => prev.filter(l => l.id !== loc.id))}>
-            <Ionicons name="trash-outline" size={18} color={Colors.destructive} />
-          </TouchableOpacity>
-        </View>
-      ))}
-      {addingLoc ? (
-        <View style={s.addCard}>
-          <Text style={s.addCardTitle}>Nouveau lieu</Text>
-          <Text style={s.hint}>Appuyez sur la carte pour sélectionner la position</Text>
-          <View style={s.mapWrap}>
-            <MapViewComponent
-              centerLat={mapCenterLat} centerLng={mapCenterLng} zoom={13}
-              selectable showUserMarker
-              selectedLat={newLocLat ?? undefined} selectedLng={newLocLng ?? undefined}
-              precisionRadius={PRECISION_RADIUS[newLocPrecision]}
-              onMapPress={(lat, lng) => { setNewLocLat(lat); setNewLocLng(lng); }}
-              style={{ flex: 1 }} />
-          </View>
-          {newLocLat && newLocLng && (
-            <Text style={s.coordsText}>{newLocLat.toFixed(5)}, {newLocLng.toFixed(5)}</Text>
-          )}
-          <Text style={[s.fieldLabel, { marginTop: 12 }]}>Précision de l'adresse</Text>
-          <View style={{ gap: 8 }}>
-            {PRECISION_OPTIONS.map(opt => (
-              <TouchableOpacity key={opt.value}
-                style={[s.precisionCard, newLocPrecision === opt.value && s.precisionCardActive]}
-                onPress={() => setNewLocPrecision(opt.value)}
-                testID={`precision-${opt.value}`}>
-                <View style={s.precisionCardLeft}>
-                  <Ionicons name={opt.value === 'exact' ? 'locate' : opt.value === '100m' ? 'radio-button-on' : 'globe-outline'} size={16} color={newLocPrecision === opt.value ? ORANGE : Colors.muted} />
-                  <Text style={[s.precisionCardLabel, newLocPrecision === opt.value && s.precisionCardLabelActive]}>{opt.label}</Text>
-                </View>
-                <Text style={s.precisionCardHint}>{opt.hint}</Text>
+
+      {locations.map((loc, i) => {
+        const sched = loc.scheduleType === 'once' ? 'Date unique' : loc.scheduleType === 'availability' ? 'Disponibilité' : 'Récurrent';
+        const dayCount = Object.keys(loc.recurringSchedule).length;
+        return (
+          <View key={loc.id} style={s.locCard}>
+            <View style={s.locCardHeader}>
+              <View style={s.locIconBox}>
+                <Ionicons name="location" size={16} color={Colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.locCardAddress} numberOfLines={2}>{loc.address || `Lieu ${i + 1}`}</Text>
+                <Text style={s.locCardMeta}>
+                  {sched} {loc.scheduleType !== 'once' && dayCount > 0 ? `· ${dayCount} jour(s)` : ''}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setLocations(prev => prev.filter(l => l.id !== loc.id))}
+                testID={`remove-loc-${loc.id}`} style={{ padding: 4 }}>
+                <Ionicons name="trash-outline" size={18} color={Colors.destructive} />
               </TouchableOpacity>
-            ))}
+            </View>
+            {/* Precision selector */}
+            <View style={s.precisionRow}>
+              {PRECISION_OPTIONS.map(opt => {
+                const active = loc.precision === opt.value;
+                return (
+                  <TouchableOpacity key={opt.value}
+                    style={[s.precisionChip, active && s.precisionChipActive]}
+                    onPress={() => updateLocPrecision(i, opt.value)}
+                    testID={`precision-${opt.value}-${loc.id}`}>
+                    <Ionicons name={opt.icon} size={13} color={active ? Colors.primary : Colors.muted} />
+                    <Text style={[s.precisionChipText, active && { color: Colors.primary }]}>{opt.label}</Text>
+                    {active && <Ionicons name="checkmark" size={11} color={Colors.primary} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           </View>
-          <Text style={[s.fieldLabel, { marginTop: 12 }]}>Description du lieu</Text>
-          <TextInput style={s.input} value={newLocDesc} onChangeText={setNewLocDesc}
-            placeholder="Ex: Parc de la Villette, entrée Nord"
-            placeholderTextColor={Colors.muted} testID="new-loc-desc-input" />
-          <View style={s.addCardActions}>
-            <TouchableOpacity style={s.cancelBtn}
-              onPress={() => { setAddingLoc(false); setNewLocLat(null); setNewLocLng(null); }}>
-              <Text style={s.cancelBtnText}>Annuler</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[s.confirmBtn, !newLocLat && s.disabledBtn]}
-              onPress={addLocation} disabled={!newLocLat} testID="confirm-loc-btn">
-              <Text style={s.confirmBtnText}>Valider ce lieu</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      ) : (
-        locations.length < 5 && (
-          <TouchableOpacity style={s.addBtn} onPress={() => setAddingLoc(true)} testID="add-location-btn">
-            <Ionicons name="add-circle-outline" size={20} color={ORANGE} />
-            <Text style={s.addBtnText}>Ajouter un lieu</Text>
-          </TouchableOpacity>
-        )
+        );
+      })}
+
+      {locations.length < 5 && (
+        <TouchableOpacity style={s.addLocBtn} onPress={() => setShowLocPicker(true)} testID="add-location-btn">
+          <Ionicons name="add-circle-outline" size={20} color={Colors.primary} />
+          <Text style={s.addLocBtnText}>Ajouter un lieu</Text>
+        </TouchableOpacity>
       )}
     </View>
   );
 
+  // ─── Step 4 – Planning par lieu ───────────────────────────────────────────
+  const renderStep4 = () => (
+    <View style={s.stepContent}>
+      <Text style={s.stepTitle}>Planning par lieu</Text>
+      <Text style={s.stepHint}>Configurez les disponibilités pour chaque lieu</Text>
 
-  // ─── Step 5 – Quality Score ───────────────────────────────────────────────
+      {locations.length === 0 && (
+        <View style={s.emptyNote}>
+          <Ionicons name="location-outline" size={20} color={Colors.muted} />
+          <Text style={s.emptyNoteText}>Retournez à l'étape précédente pour ajouter des lieux</Text>
+        </View>
+      )}
+
+      {locations.map((loc, locIdx) => {
+        const selectedDays = Object.keys(loc.recurringSchedule).map(Number).sort((a, b) => a - b);
+        return (
+          <View key={loc.id} style={s.locSection}>
+            {/* Location header */}
+            <View style={s.locSectionHeader}>
+              <View style={s.locSectionDot} />
+              <Text style={s.locSectionAddress} numberOfLines={2}>{loc.address || `Lieu ${locIdx + 1}`}</Text>
+            </View>
+
+            {/* Schedule type cards – same as StepDate in create.tsx */}
+            <View style={sched.scheduleTypes}>
+              {([
+                { type: 'availability', icon: 'ban-outline', label: 'Disponibilité', sub: 'Sur rdv' },
+                { type: 'once', icon: 'calendar-outline', label: 'Date unique', sub: 'Ponctuel' },
+                { type: 'recurring', icon: 'repeat-outline', label: 'Récurrent', sub: 'Hebdo' },
+              ] as const).map(({ type, icon, label, sub }) => {
+                const active = loc.scheduleType === type;
+                return (
+                  <TouchableOpacity key={type}
+                    style={[sched.scheduleCard, active && sched.scheduleCardActive]}
+                    onPress={() => updateLocScheduleType(locIdx, type)}
+                    testID={`schedule-${type}-${locIdx}`}>
+                    <View style={[sched.scheduleIconBox, active && { backgroundColor: Colors.primary + '22' }]}>
+                      <Ionicons name={icon} size={26} color={active ? Colors.primary : Colors.muted} />
+                    </View>
+                    <Text style={[sched.scheduleLabel, active && { color: Colors.primary, fontWeight: '700' }]}>{label}</Text>
+                    <Text style={sched.scheduleSub}>{sub}</Text>
+                    {active && <View style={sched.scheduleCheck}><Ionicons name="checkmark" size={12} color={Colors.background} /></View>}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Date unique */}
+            {loc.scheduleType === 'once' && (
+              <View style={{ gap: 8 }}>
+                <TouchableOpacity style={sched.dateBtn} onPress={() => openDatePicker(locIdx)}
+                  testID={`open-date-${locIdx}`}>
+                  <Ionicons name="calendar" size={22} color={loc.eventDateTime ? Colors.primary : Colors.muted} />
+                  <View style={{ flex: 1 }}>
+                    {loc.eventDateTime
+                      ? <><Text style={sched.dateBtnValue}>{fmtDate(loc.eventDateTime)}</Text><Text style={sched.dateBtnSub}>Début : {fmtTime(loc.eventDateTime)}</Text></>
+                      : <Text style={sched.dateBtnPlaceholder}>Choisir date et heure de début</Text>
+                    }
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={Colors.muted} />
+                </TouchableOpacity>
+                {loc.eventDateTime && (
+                  <TouchableOpacity style={sched.dateBtn} onPress={() => openEndDatePicker(locIdx)}
+                    testID={`open-end-${locIdx}`}>
+                    <Ionicons name="time-outline" size={22} color={loc.eventEndDateTime ? Colors.primary : Colors.muted} />
+                    <View style={{ flex: 1 }}>
+                      {loc.eventEndDateTime
+                        ? <><Text style={sched.dateBtnValue}>{fmtTime(loc.eventEndDateTime)}</Text><Text style={sched.dateBtnSub}>Fin</Text></>
+                        : <Text style={sched.dateBtnPlaceholder}>Heure de fin (optionnel)</Text>
+                      }
+                    </View>
+                    {loc.eventEndDateTime
+                      ? <TouchableOpacity onPress={() => {
+                          setLocations(prev => { const n = [...prev]; n[locIdx] = { ...n[locIdx], eventEndDateTime: null }; return n; });
+                        }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                          <Ionicons name="close-circle" size={20} color={Colors.muted} />
+                        </TouchableOpacity>
+                      : <Ionicons name="chevron-forward" size={16} color={Colors.muted} />
+                    }
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+
+            {/* Récurrent / Disponibilité */}
+            {(loc.scheduleType === 'recurring' || loc.scheduleType === 'availability') && (
+              <View style={{ gap: Spacing.md }}>
+                {/* Day selector */}
+                <View>
+                  <Text style={sched.scheduleFieldLabel}>Jours actifs</Text>
+                  <View style={sched.daysRow}>
+                    {DAYS.map((d, i) => {
+                      const active = loc.recurringSchedule[i] !== undefined;
+                      return (
+                        <TouchableOpacity key={d} style={[sched.dayBtn, active && sched.dayBtnActive]}
+                          onPress={() => toggleDayForLoc(locIdx, i)} testID={`day-${i}-${locIdx}`}>
+                          <Text style={[sched.dayText, active && { color: Colors.background }]}>{d}</Text>
+                          {active && (loc.recurringSchedule[i].length > 0) && (
+                            <View style={sched.dayTimeBadge}>
+                              <Text style={sched.dayTimeBadgeText}>{loc.recurringSchedule[i].length}</Text>
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                  {selectedDays.length === 0 && (
+                    <View style={s.fieldTip}>
+                      <Ionicons name="information-circle-outline" size={13} color={Colors.muted} />
+                      <Text style={s.fieldTipText}>Sélectionnez un ou plusieurs jours</Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Per-day time slots */}
+                {selectedDays.map(dayIdx => (
+                  <View key={dayIdx} style={sched.dayScheduleCard}>
+                    <View style={sched.dayScheduleHeader}>
+                      <View style={sched.dayScheduleDot} />
+                      <Text style={sched.dayScheduleTitle}>{DAYS[dayIdx]}</Text>
+                      <Text style={sched.dayScheduleCount}>
+                        {loc.recurringSchedule[dayIdx].length} créneau{loc.recurringSchedule[dayIdx].length !== 1 ? 'x' : ''}
+                      </Text>
+                    </View>
+                    <View style={{ gap: 8 }}>
+                      {loc.recurringSchedule[dayIdx].map((slot, tIdx) => (
+                        <View key={tIdx} style={sched.timeSlotRow}>
+                          <View style={{ flex: 1, flexDirection: 'row', gap: 6 }}>
+                            <TouchableOpacity style={[sched.dateBtn, { flex: 1 }]}
+                              onPress={() => openTimePicker(locIdx, dayIdx, tIdx, 'start')}
+                              testID={`time-start-${locIdx}-${dayIdx}-${tIdx}`}>
+                              <Ionicons name="play-circle-outline" size={16} color={Colors.primary} />
+                              <Text style={sched.dateBtnValue}>{fmtTime(slot.start)}</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={[sched.dateBtn, { flex: 1 }]}
+                              onPress={() => openTimePicker(locIdx, dayIdx, tIdx, 'end')}
+                              testID={`time-end-${locIdx}-${dayIdx}-${tIdx}`}>
+                              <Ionicons name="stop-circle-outline" size={16} color={slot.end ? Colors.primary : Colors.muted} />
+                              <Text style={[sched.dateBtnValue, !slot.end && { color: Colors.muted, fontSize: 13, fontWeight: '500' }]}>
+                                {slot.end ? fmtTime(slot.end) : 'Fin ?'}
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                          <TouchableOpacity onPress={() => removeTimeFromLocDay(locIdx, dayIdx, tIdx)}
+                            style={sched.removeTimeBtn} testID={`remove-time-${locIdx}-${dayIdx}-${tIdx}`}>
+                            <Ionicons name="close-circle" size={22} color={Colors.muted} />
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                      <TouchableOpacity style={sched.addTimeBtn}
+                        onPress={() => openTimePicker(locIdx, dayIdx, loc.recurringSchedule[dayIdx]?.length ?? 0, 'start')}
+                        testID={`add-time-${locIdx}-${dayIdx}`}>
+                        <Ionicons name="add-circle-outline" size={18} color={Colors.primary} />
+                        <Text style={sched.addTimeBtnText}>Ajouter un créneau</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        );
+      })}
+    </View>
+  );
+
+  // ─── Step 5 ───────────────────────────────────────────────────────────────
+  const totalSlots = locations.reduce((acc, loc) => {
+    if (loc.scheduleType === 'once') return acc + (loc.eventDateTime ? 1 : 0);
+    return acc + Object.values(loc.recurringSchedule).reduce((s, a) => s + a.length, 0);
+  }, 0);
+
   const renderQualityScore = () => {
     const criteria = [
       { ok: title.trim().length > 0, label: 'Titre renseigné' },
       { ok: description.trim().length >= 80, label: 'Description détaillée (80+ car.)' },
       { ok: selectedTags.length > 0, label: 'Tags sélectionnés' },
       { ok: locations.length > 0, label: 'Au moins un lieu' },
-      { ok: slots.length > 0, label: 'Au moins un créneau' },
+      { ok: totalSlots > 0, label: 'Au moins un créneau' },
     ];
     const score = criteria.filter(c => c.ok).length;
     const color = score >= 4 ? GREEN : score >= 3 ? ORANGE : Colors.destructive;
@@ -606,49 +641,103 @@ export default function CreateServiceScreen() {
           <Text style={s.summaryTitle}>{title}</Text>
           {description ? <Text style={s.summaryDesc}>{description}</Text> : null}
           <View style={s.summaryMeta}>
-            <View style={s.summaryMetaItem}>
-              <Ionicons name="pricetag-outline" size={14} color={ORANGE} />
-              <Text style={s.summaryMetaText}>{price}€ / séance</Text>
-            </View>
-            <View style={s.summaryMetaItem}>
-              <Ionicons name="time-outline" size={14} color={ORANGE} />
-              <Text style={s.summaryMetaText}>{duration} min</Text>
-            </View>
-            <View style={s.summaryMetaItem}>
-              <Ionicons name="people-outline" size={14} color={ORANGE} />
-              <Text style={s.summaryMetaText}>{maxParticipants} pers.</Text>
-            </View>
-            {domainObj && (
-              <View style={s.summaryMetaItem}>
-                <Ionicons name="fitness-outline" size={14} color={ORANGE} />
-                <Text style={s.summaryMetaText}>{domainObj.label_fr}</Text>
-              </View>
-            )}
+            <View style={s.summaryMetaItem}><Ionicons name="pricetag-outline" size={14} color={ORANGE} /><Text style={s.summaryMetaText}>{price}€ / séance</Text></View>
+            <View style={s.summaryMetaItem}><Ionicons name="time-outline" size={14} color={ORANGE} /><Text style={s.summaryMetaText}>{duration} min</Text></View>
+            <View style={s.summaryMetaItem}><Ionicons name="people-outline" size={14} color={ORANGE} /><Text style={s.summaryMetaText}>{maxParticipants} pers.</Text></View>
+            {domainObj && <View style={s.summaryMetaItem}><Ionicons name="fitness-outline" size={14} color={ORANGE} /><Text style={s.summaryMetaText}>{domainObj.label_fr}</Text></View>}
           </View>
         </View>
         {locations.length > 0 && (
           <View style={s.summarySection}>
-            <Text style={s.summarySectionTitle}>Lieux ({locations.length})</Text>
-            {locations.map((loc, i) => (
-              <Text key={loc.id} style={s.summarySectionItem}>
-                • {loc.description || `Lieu ${i + 1}`} — {PRECISION_LABEL[loc.precision]}
-              </Text>
-            ))}
-          </View>
-        )}
-        {slots.length > 0 && (
-          <View style={s.summarySection}>
-            <Text style={s.summarySectionTitle}>Créneaux ({slots.length})</Text>
-            {slots.map(slot => (
-              <View key={slot.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-                <Ionicons name={slotIcon(slot.type)} size={13} color={ORANGE} />
-                <Text style={s.summarySectionItem}>{formatSlotLabel(slot)}</Text>
-              </View>
-            ))}
+            <Text style={s.summarySectionTitle}>Lieux & Planning ({locations.length})</Text>
+            {locations.map((loc, i) => {
+              const days = Object.keys(loc.recurringSchedule).map(Number).sort();
+              const schedLabel = loc.scheduleType === 'once'
+                ? (loc.eventDateTime ? `${fmtDate(loc.eventDateTime)} ${fmtTime(loc.eventDateTime)}` : 'Non configuré')
+                : days.length > 0 ? days.map(d => {
+                    const slots = loc.recurringSchedule[d];
+                    return `${DAYS[d]}: ${slots.map(s => s.end ? `${fmtTime(s.start)}-${fmtTime(s.end)}` : fmtTime(s.start)).join(', ')}`;
+                  }).join(' · ') : 'Non configuré';
+              return (
+                <View key={loc.id} style={{ marginBottom: 6 }}>
+                  <Text style={s.summarySectionItem}>📍 {loc.address || `Lieu ${i + 1}`}</Text>
+                  <Text style={[s.summarySectionItem, { paddingLeft: 14, color: Colors.primary }]}>{schedLabel}</Text>
+                </View>
+              );
+            })}
           </View>
         )}
       </View>
     );
+  };
+
+  // ─── Step Header ──────────────────────────────────────────────────────────
+  const renderStepHeader = () => (
+    <View style={s.stepHeader}>
+      {STEP_LABELS.map((label, idx) => {
+        const num = idx + 1;
+        const done = step > num;
+        const active = step === num;
+        return (
+          <React.Fragment key={num}>
+            {idx > 0 && <View style={[s.stepLine, done && s.stepLineDone]} />}
+            <View style={s.stepItem}>
+              <View style={[s.stepCircle, active && s.stepCircleActive, done && s.stepCircleDone]}>
+                {done
+                  ? <Ionicons name="checkmark" size={13} color={Colors.background} />
+                  : <Text style={[s.stepNum, active && s.stepNumActive]}>{num}</Text>}
+              </View>
+              <Text style={[s.stepLabel, active && s.stepLabelActive]}>{label}</Text>
+            </View>
+          </React.Fragment>
+        );
+      })}
+    </View>
+  );
+
+  // ─── Time picker onConfirm ────────────────────────────────────────────────
+  const handleTimeConfirm = (d: Date) => {
+    if (editingLocIdx !== null && editingDayIdx !== null && editingTimeIdx !== null) {
+      if (editingTimeType === 'end') {
+        const loc = locations[editingLocIdx];
+        const slots = loc.recurringSchedule[editingDayIdx] || [];
+        const startTime = slots[editingTimeIdx]?.start;
+        const startMins = startTime ? startTime.getHours() * 60 + startTime.getMinutes() : -1;
+        const endMins = d.getHours() * 60 + d.getMinutes();
+        if (endMins <= startMins) {
+          Alert.alert('Heure invalide', "L'heure de fin doit être après l'heure de début.");
+          setEditingLocIdx(null); setEditingDayIdx(null); setEditingTimeIdx(null);
+          return;
+        }
+      }
+      setLocations(prev => {
+        const next = [...prev];
+        const loc = { ...next[editingLocIdx!] };
+        const rec = { ...loc.recurringSchedule };
+        const slots = [...(rec[editingDayIdx!] || [])];
+        if (editingTimeType === 'start') {
+          if (editingTimeIdx! >= slots.length) {
+            slots.push({ start: d, end: null });
+          } else {
+            const existingEnd = slots[editingTimeIdx!]?.end;
+            if (existingEnd) {
+              const newStartMins = d.getHours() * 60 + d.getMinutes();
+              const endMins = existingEnd.getHours() * 60 + existingEnd.getMinutes();
+              slots[editingTimeIdx!] = newStartMins >= endMins ? { start: d, end: null } : { ...slots[editingTimeIdx!], start: d };
+            } else {
+              slots[editingTimeIdx!] = { ...slots[editingTimeIdx!], start: d };
+            }
+          }
+        } else {
+          slots[editingTimeIdx!] = { ...slots[editingTimeIdx!], end: d };
+        }
+        rec[editingDayIdx!] = slots;
+        loc.recurringSchedule = rec;
+        next[editingLocIdx!] = loc;
+        return next;
+      });
+    }
+    setEditingLocIdx(null); setEditingDayIdx(null); setEditingTimeIdx(null);
   };
 
   // ─── Main render ──────────────────────────────────────────────────────────
@@ -695,50 +784,106 @@ export default function CreateServiceScreen() {
               testID="create-service-submit-btn">
               {submitting
                 ? <ActivityIndicator color={Colors.background} />
-                : <>
-                  <Ionicons name="rocket-outline" size={18} color={Colors.background} />
-                  <Text style={s.nextBtnText}>Publier mon service</Text>
-                </>
+                : <><Ionicons name="rocket-outline" size={18} color={Colors.background} /><Text style={s.nextBtnText}>Publier mon service</Text></>
               }
             </TouchableOpacity>
           )}
         </View>
       </KeyboardAvoidingView>
 
-      {/* ─── DateTimePicker Modals ─────────────────────────────────────── */}
+      {/* ── LocationPicker Modal ──────────────────────────────────────────── */}
+      <LocationPicker
+        visible={showLocPicker}
+        onClose={() => setShowLocPicker(false)}
+        onSelect={(lat, lng, address) => { addLocation(lat, lng, address); setShowLocPicker(false); }}
+      />
+
+      {/* ── DateTimePicker for 'once' type ────────────────────────────────── */}
       <DateTimePickerModal
-        visible={showStartPicker}
-        onClose={() => setShowStartPicker(false)}
-        onConfirm={d => { setNewSlotStartDate(d); setShowStartPicker(false); }}
-        initialDate={newSlotStartDate || undefined}
-        mode={newSlotType === 'single' ? 'datetime' : 'time'}
-        minDate={newSlotType === 'single' ? new Date() : undefined}
+        visible={showDatePicker}
+        onClose={() => { setShowDatePicker(false); setEditingLocIdx(null); }}
+        onConfirm={d => {
+          if (editingLocIdx !== null) {
+            setLocations(prev => { const n = [...prev]; n[editingLocIdx] = { ...n[editingLocIdx], eventDateTime: d }; return n; });
+          }
+          setShowDatePicker(false); setEditingLocIdx(null);
+        }}
+        initialDate={editingLocIdx !== null ? (locations[editingLocIdx]?.eventDateTime || undefined) : undefined}
+        mode="datetime" minDate={new Date()}
       />
       <DateTimePickerModal
-        visible={showEndPicker}
-        onClose={() => setShowEndPicker(false)}
+        visible={showEndDatePicker}
+        onClose={() => { setShowEndDatePicker(false); setEditingLocIdx(null); }}
         onConfirm={d => {
-          if (newSlotStartDate) {
-            const startMins = newSlotStartDate.getHours() * 60 + newSlotStartDate.getMinutes();
-            const endMins = d.getHours() * 60 + d.getMinutes();
-            if (endMins <= startMins) {
-              setSlotError("L'heure de fin doit être après l'heure de début");
-              setShowEndPicker(false);
-              return;
+          if (editingLocIdx !== null) {
+            const loc = locations[editingLocIdx];
+            if (loc.eventDateTime) {
+              const startMins = loc.eventDateTime.getHours() * 60 + loc.eventDateTime.getMinutes();
+              const endMins = d.getHours() * 60 + d.getMinutes();
+              if (endMins <= startMins) {
+                Alert.alert('Heure invalide', "L'heure de fin doit être après l'heure de début.");
+                setShowEndDatePicker(false); setEditingLocIdx(null);
+                return;
+              }
             }
+            setLocations(prev => { const n = [...prev]; n[editingLocIdx!] = { ...n[editingLocIdx!], eventEndDateTime: d }; return n; });
           }
-          setNewSlotEndDate(d);
-          setSlotError('');
-          setShowEndPicker(false);
+          setShowEndDatePicker(false); setEditingLocIdx(null);
         }}
-        initialDate={newSlotEndDate || undefined}
+        initialDate={editingLocIdx !== null ? (locations[editingLocIdx]?.eventEndDateTime || undefined) : undefined}
+        mode="time"
+      />
+
+      {/* ── DateTimePicker for recurring/availability time slots ─────────── */}
+      <DateTimePickerModal
+        visible={editingLocIdx !== null && editingDayIdx !== null && editingTimeIdx !== null}
+        onClose={() => { setEditingLocIdx(null); setEditingDayIdx(null); setEditingTimeIdx(null); }}
+        onConfirm={handleTimeConfirm}
+        initialDate={
+          (editingLocIdx !== null && editingDayIdx !== null && editingTimeIdx !== null)
+            ? (editingTimeType === 'start'
+                ? locations[editingLocIdx]?.recurringSchedule[editingDayIdx]?.[editingTimeIdx]?.start
+                : locations[editingLocIdx]?.recurringSchedule[editingDayIdx]?.[editingTimeIdx]?.end || undefined)
+            : undefined
+        }
         mode="time"
       />
     </SafeAreaView>
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+// ─── Schedule styles (matches create.tsx sc object exactly) ──────────────────
+const sched = StyleSheet.create({
+  scheduleTypes: { flexDirection: 'row', gap: 8 },
+  scheduleCard: { flex: 1, alignItems: 'center', gap: 6, padding: Spacing.md, backgroundColor: Colors.card, borderRadius: Radius.lg, borderWidth: 1.5, borderColor: Colors.border, position: 'relative' },
+  scheduleCardActive: { borderColor: Colors.primary, backgroundColor: Colors.primary + '08' },
+  scheduleIconBox: { width: 52, height: 52, borderRadius: 26, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' },
+  scheduleLabel: { fontSize: 13, fontWeight: '600', color: Colors.foreground, textAlign: 'center' },
+  scheduleSub: { fontSize: 11, color: Colors.muted, textAlign: 'center' },
+  scheduleCheck: { position: 'absolute', top: 8, right: 8, width: 18, height: 18, borderRadius: 9, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
+  dateBtn: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.card, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border },
+  dateBtnValue: { fontSize: 16, fontWeight: '700', color: Colors.primary, flex: 1 },
+  dateBtnSub: { fontSize: 12, color: Colors.muted, marginTop: 2 },
+  dateBtnPlaceholder: { fontSize: 15, color: Colors.muted, flex: 1 },
+  scheduleFieldLabel: { fontSize: 12, fontWeight: '700', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
+  daysRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  dayBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: Colors.border },
+  dayBtnActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  dayText: { fontSize: 11, fontWeight: '700', color: Colors.muted },
+  timeSlotRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  removeTimeBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  addTimeBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 12, paddingHorizontal: Spacing.md, borderRadius: Radius.md, borderWidth: 1.5, borderStyle: 'dashed', borderColor: Colors.primary + '60', backgroundColor: Colors.primary + '08' },
+  addTimeBtnText: { fontSize: 14, color: Colors.primary, fontWeight: '600' },
+  dayScheduleCard: { backgroundColor: Colors.card, borderRadius: Radius.lg, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border },
+  dayScheduleHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  dayScheduleDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.primary },
+  dayScheduleTitle: { fontSize: 14, fontWeight: '800', color: Colors.foreground, flex: 1 },
+  dayScheduleCount: { fontSize: 11, color: Colors.muted },
+  dayTimeBadge: { position: 'absolute', top: -4, right: -4, width: 15, height: 15, borderRadius: 8, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
+  dayTimeBadgeText: { fontSize: 9, color: Colors.background, fontWeight: '800' },
+});
+
+// ─── Main styles ──────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   header: {
@@ -758,11 +903,7 @@ const s = StyleSheet.create({
   stepItem: { alignItems: 'center', gap: 4 },
   stepLine: { width: 20, height: 2, backgroundColor: Colors.border, marginBottom: 16 },
   stepLineDone: { backgroundColor: ORANGE },
-  stepCircle: {
-    width: 28, height: 28, borderRadius: 14, borderWidth: 2,
-    borderColor: Colors.border, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: Colors.background,
-  },
+  stepCircle: { width: 28, height: 28, borderRadius: 14, borderWidth: 2, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.background },
   stepCircleActive: { borderColor: ORANGE, backgroundColor: ORANGE_LIGHT },
   stepCircleDone: { borderColor: ORANGE, backgroundColor: ORANGE },
   stepNum: { fontSize: 12, fontWeight: '700', color: Colors.muted },
@@ -775,125 +916,50 @@ const s = StyleSheet.create({
   stepHint: { fontSize: 13, color: Colors.muted, marginTop: -8 },
   field: { gap: 6 },
   fieldLabel: { fontSize: 11, fontWeight: '700', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.5 },
-  input: {
-    backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1,
-    borderColor: Colors.border, paddingHorizontal: 14, paddingVertical: 12,
-    fontSize: 14, color: Colors.foreground,
-  },
+  fieldTip: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6, paddingHorizontal: 4 },
+  fieldTipText: { fontSize: 12, color: Colors.muted, fontStyle: 'italic', flex: 1 },
+  input: { backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: Colors.foreground },
   inputMulti: { minHeight: 100 },
   row: { flexDirection: 'row', gap: Spacing.sm },
   chips: { flexDirection: 'row', gap: 8 },
-  chip: {
-    paddingHorizontal: 14, paddingVertical: 8, borderRadius: Radius.full,
-    borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.background,
-  },
+  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: Radius.full, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.background },
   chipActive: { backgroundColor: ORANGE_LIGHT, borderColor: ORANGE },
   chipText: { fontSize: 13, fontWeight: '600', color: Colors.muted },
   chipTextActive: { color: ORANGE },
-  errorText: { fontSize: 12, color: Colors.destructive, fontWeight: '600', marginTop: 2 },
-  // Date button (DateTimePicker trigger)
-  dateBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: Colors.card, borderRadius: Radius.md,
-    padding: 12, borderWidth: 1, borderColor: Colors.border,
-  },
-  dateBtnValue: { fontSize: 16, fontWeight: '700', color: Colors.foreground },
-  dateBtnSub: { fontSize: 12, color: Colors.muted, marginTop: 2 },
-  dateBtnPlaceholder: { fontSize: 15, color: Colors.muted },
-  motiveBanner: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
-    backgroundColor: ORANGE_LIGHT, borderRadius: Radius.lg,
-    padding: 14, borderWidth: 1, borderColor: ORANGE_BORDER,
-  },
+  motiveBanner: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: ORANGE_LIGHT, borderRadius: Radius.lg, padding: 14, borderWidth: 1, borderColor: ORANGE_BORDER },
   motiveText: { fontSize: 13, color: Colors.foreground, flex: 1, lineHeight: 19 },
   charCount: { fontSize: 11, textAlign: 'right', marginTop: 2 },
   charCountGood: { color: GREEN },
   charCountWarn: { color: Colors.muted },
-  infoNote: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: ORANGE_LIGHT, borderRadius: Radius.md,
-    padding: Spacing.sm, borderWidth: 1, borderColor: ORANGE_BORDER,
-  },
+  infoNote: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: ORANGE_LIGHT, borderRadius: Radius.md, padding: Spacing.sm, borderWidth: 1, borderColor: ORANGE_BORDER },
   infoNoteText: { fontSize: 12, color: ORANGE, flex: 1 },
-  tipNote: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: Colors.backgroundSecondary, borderRadius: Radius.md,
-    padding: 10, borderWidth: 1, borderColor: Colors.border,
-  },
-  tipNoteText: { fontSize: 12, color: Colors.muted, flex: 1 },
-  // Precision cards
-  precisionCard: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: Colors.background, borderRadius: Radius.md,
-    padding: 12, borderWidth: 1.5, borderColor: Colors.border,
-  },
-  precisionCardActive: { borderColor: ORANGE, backgroundColor: ORANGE_LIGHT },
-  precisionCardLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  precisionCardLabel: { fontSize: 14, fontWeight: '700', color: Colors.muted },
-  precisionCardLabelActive: { color: ORANGE },
-  precisionCardHint: { fontSize: 12, color: Colors.muted },
-  // Slot type cards
-  slotTypeCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: Colors.background, borderRadius: Radius.md,
-    padding: 12, borderWidth: 1.5, borderColor: Colors.border,
-  },
-  slotTypeCardActive: { borderColor: ORANGE, backgroundColor: ORANGE_LIGHT },
-  slotTypeLabel: { fontSize: 14, fontWeight: '700', color: Colors.muted },
-  slotTypeLabelActive: { color: ORANGE },
-  slotTypeHint: { fontSize: 11, color: Colors.muted, marginTop: 1 },
-  // Item cards
-  itemCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: Colors.card, borderRadius: Radius.lg,
-    padding: 14, borderWidth: 1, borderColor: Colors.border,
-  },
-  itemIconBox: {
-    width: 32, height: 32, borderRadius: 10, backgroundColor: ORANGE_LIGHT,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  itemTitle: { fontSize: 14, fontWeight: '600', color: Colors.foreground },
-  itemMeta: { fontSize: 12, color: Colors.muted, marginTop: 2 },
-  addCard: {
-    backgroundColor: Colors.card, borderRadius: Radius.xl,
-    padding: Spacing.md, borderWidth: 1, borderColor: ORANGE_BORDER, gap: 10,
-  },
-  addCardTitle: { fontSize: 15, fontWeight: '700', color: ORANGE },
-  hint: { fontSize: 12, color: Colors.muted },
-  mapWrap: { height: 200, borderRadius: Radius.lg, overflow: 'hidden' },
-  coordsText: { fontSize: 12, color: ORANGE, fontWeight: '600' },
-  addCardActions: { flexDirection: 'row', gap: 10, marginTop: 4 },
-  cancelBtn: {
-    flex: 1, paddingVertical: 11, borderRadius: Radius.full,
-    borderWidth: 1, borderColor: Colors.border, alignItems: 'center',
-  },
-  cancelBtnText: { fontSize: 14, fontWeight: '600', color: Colors.muted },
-  confirmBtn: { flex: 2, paddingVertical: 11, borderRadius: Radius.full, backgroundColor: ORANGE, alignItems: 'center' },
-  disabledBtn: { opacity: 0.4 },
-  confirmBtnText: { fontSize: 14, fontWeight: '700', color: Colors.background },
-  addBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    padding: 14, borderRadius: Radius.lg, borderWidth: 1.5,
-    borderStyle: 'dashed', borderColor: ORANGE_BORDER,
-  },
-  addBtnText: { fontSize: 14, fontWeight: '700', color: ORANGE },
-  // Quality card
-  qualityCard: {
-    backgroundColor: Colors.card, borderRadius: Radius.xl,
-    padding: Spacing.md, borderWidth: 1,
-  },
-  qualityBadge: {
-    width: 40, height: 40, borderRadius: 20,
-    alignItems: 'center', justifyContent: 'center',
-  },
+  // Location cards (step 3)
+  locCard: { backgroundColor: Colors.card, borderRadius: Radius.lg, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border, gap: 12 },
+  locCardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  locIconBox: { width: 32, height: 32, borderRadius: 10, backgroundColor: Colors.primary + '18', alignItems: 'center', justifyContent: 'center' },
+  locCardAddress: { flex: 1, fontSize: 14, fontWeight: '600', color: Colors.foreground, lineHeight: 20 },
+  locCardMeta: { fontSize: 12, color: Colors.muted, marginTop: 2 },
+  precisionRow: { flexDirection: 'row', gap: 6 },
+  precisionChip: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 7, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.background },
+  precisionChipActive: { borderColor: Colors.primary, backgroundColor: Colors.primary + '08' },
+  precisionChipText: { fontSize: 11, fontWeight: '600', color: Colors.muted },
+  addLocBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 14, borderRadius: Radius.lg, borderWidth: 1.5, borderStyle: 'dashed', borderColor: Colors.primary + '60', backgroundColor: Colors.primary + '08' },
+  addLocBtnText: { fontSize: 14, fontWeight: '700', color: Colors.primary },
+  // Location section (step 4)
+  locSection: { backgroundColor: Colors.card, borderRadius: Radius.xl, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border, gap: Spacing.md },
+  locSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  locSectionDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.primary },
+  locSectionAddress: { flex: 1, fontSize: 14, fontWeight: '700', color: Colors.foreground, lineHeight: 20 },
+  emptyNote: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.card, borderRadius: Radius.lg, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border },
+  emptyNoteText: { flex: 1, fontSize: 13, color: Colors.muted },
+  // Quality
+  qualityCard: { backgroundColor: Colors.card, borderRadius: Radius.xl, padding: Spacing.md, borderWidth: 1 },
+  qualityBadge: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   qualityBadgeText: { fontSize: 13, fontWeight: '800', color: '#fff' },
   qualityTitle: { fontSize: 16, fontWeight: '800' },
   qualityItem: { fontSize: 13, color: Colors.foreground },
   // Summary
-  summaryCard: {
-    backgroundColor: Colors.card, borderRadius: Radius.xl,
-    padding: Spacing.md, borderWidth: 1, borderColor: ORANGE_BORDER, gap: 8,
-  },
+  summaryCard: { backgroundColor: Colors.card, borderRadius: Radius.xl, padding: Spacing.md, borderWidth: 1, borderColor: ORANGE_BORDER, gap: 8 },
   summaryTitle: { fontSize: 18, fontWeight: '800', color: Colors.foreground },
   summaryDesc: { fontSize: 14, color: Colors.muted, lineHeight: 20 },
   summaryMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 4 },
@@ -903,22 +969,11 @@ const s = StyleSheet.create({
   summarySectionTitle: { fontSize: 14, fontWeight: '700', color: ORANGE },
   summarySectionItem: { fontSize: 13, color: Colors.muted, paddingLeft: 4 },
   // Bottom nav
-  bottomNav: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: Spacing.md, paddingVertical: 12,
-    backgroundColor: Colors.backgroundSecondary,
-    borderTopWidth: 1, borderTopColor: Colors.border,
-  },
-  prevBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    paddingVertical: 12, borderRadius: Radius.full,
-    borderWidth: 1, borderColor: Colors.border,
-  },
+  bottomNav: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: Spacing.md, paddingVertical: 12, backgroundColor: Colors.backgroundSecondary, borderTopWidth: 1, borderTopColor: Colors.border },
+  prevBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.border },
   prevBtnText: { fontSize: 14, fontWeight: '600', color: Colors.foreground },
-  nextBtn: {
-    flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    paddingVertical: 12, borderRadius: Radius.full, backgroundColor: ORANGE,
-  },
+  nextBtn: { flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: Radius.full, backgroundColor: ORANGE },
   publishBtn: { backgroundColor: GREEN },
+  disabledBtn: { opacity: 0.4 },
   nextBtnText: { fontSize: 15, fontWeight: '700', color: Colors.background },
 });
