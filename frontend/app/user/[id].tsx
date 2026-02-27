@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Image, TextInput, Alert
+  ActivityIndicator, Image, TextInput, Alert, Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
@@ -13,13 +13,23 @@ import { Colors, Spacing, Radius, Shadow } from '../../constants/Colors';
 const TEAL_DIM = 'rgba(0,191,165,0.12)';
 const TEAL_BORDER = 'rgba(0,191,165,0.3)';
 
+// ── Badge logic ───────────────────────────────────────────────────────────────
+type Badge = { label: string; color: string; bg: string; icon: string };
+function computeBadge(avg: number | null, count: number): Badge | null {
+  if (!avg || count === 0 || avg < 3.5) return null;
+  if (avg >= 4.8 && count >= 10) return { label: 'Elite', color: '#FFD700', bg: 'rgba(255,215,0,0.15)', icon: 'diamond' };
+  if (avg >= 4.5 && count >= 5)  return { label: 'Top Joueur', color: '#FFD700', bg: 'rgba(255,215,0,0.12)', icon: 'trophy' };
+  if (avg >= 4.0 && count >= 3)  return { label: 'Très Apprécié', color: '#C0C0C0', bg: 'rgba(192,192,192,0.15)', icon: 'star' };
+  return { label: 'Bien Noté', color: '#CD7F32', bg: 'rgba(205,127,50,0.15)', icon: 'thumbs-up' };
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function formatScheduleShort(tp: any): string {
   if (tp.event_date) {
     const d = new Date(tp.event_date);
     const today = new Date();
-    const eventDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-    const todayDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const diff = Math.round((eventDay.getTime() - todayDay.getTime()) / 86400000);
+    const diff = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() -
+      new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()) / 86400000);
     const time = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
     if (diff === 0) return `Aujourd'hui à ${time}`;
     if (diff === 1) return `Demain à ${time}`;
@@ -44,7 +54,7 @@ function StarRow({ rating, size = 16, onPress }: { rating: number; size?: number
           <Ionicons
             name={n <= rating ? 'star' : 'star-outline'}
             size={size}
-            color={n <= rating ? Colors.star || '#FFD700' : Colors.muted}
+            color={n <= rating ? '#FFD700' : Colors.muted}
           />
         </TouchableOpacity>
       ))}
@@ -52,6 +62,7 @@ function StarRow({ rating, size = 16, onPress }: { rating: number; size?: number
   );
 }
 
+// ── Main Screen ───────────────────────────────────────────────────────────────
 export default function UserProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -61,91 +72,95 @@ export default function UserProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [reviews, setReviews] = useState<any[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [showAllReviews, setShowAllReviews] = useState(false);
 
-  // Review form state
+  // My review state
+  const [myReview, setMyReview] = useState<any>(null);
+  const [editingReview, setEditingReview] = useState(false);
   const [myRating, setMyRating] = useState(0);
   const [myComment, setMyComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [alreadyReviewed, setAlreadyReviewed] = useState(false);
 
-  useEffect(() => {
-    if (id) load();
-  }, [id]);
-
-  // Re-check alreadyReviewed when me (auth) or reviews list changes
-  useEffect(() => {
-    if (me && reviews.length > 0) {
-      const mine = reviews.find((r: any) => r.reviewer_id === me.user_id);
-      if (mine) setAlreadyReviewed(true);
-    }
-  }, [me, reviews]);
+  // Reload every time the screen comes into focus (fix: data not updating after edit)
+  useFocusEffect(
+    useCallback(() => {
+      if (id) {
+        setLoading(true);
+        load();
+      }
+    }, [id])
+  );
 
   const load = async () => {
     try {
       const data = await api.get(`/users/${id}/public`);
       setProfile(data);
-      if (data.show_reviews) {
-        loadReviews();
-      }
-    } catch {
-    } finally {
-      setLoading(false);
-    }
+      if (data.show_reviews) await loadReviews();
+    } catch {}
+    finally { setLoading(false); }
   };
 
   const loadReviews = async () => {
     setReviewsLoading(true);
     try {
-      const data = await api.get(`/users/${id}/reviews`);
-      setReviews(data || []);
-      // Check if current user already reviewed
+      const data: any[] = await api.get(`/users/${id}/reviews`) || [];
+      setReviews(data);
       if (me) {
-        const mine = (data || []).find((r: any) => r.reviewer_id === me.user_id);
-        if (mine) setAlreadyReviewed(true);
+        const mine = data.find(r => r.reviewer_id === me.user_id);
+        if (mine) {
+          setMyReview(mine);
+          setMyRating(mine.rating);
+          setMyComment(mine.comment || '');
+        } else {
+          setMyReview(null);
+        }
       }
-    } catch {
-    } finally {
-      setReviewsLoading(false);
-    }
+    } catch {}
+    finally { setReviewsLoading(false); }
   };
 
   const handleSubmitReview = async () => {
-    if (myRating === 0) {
-      Alert.alert('Note requise', 'Veuillez sélectionner une note (1-5 étoiles).');
-      return;
-    }
+    if (myRating === 0) { Alert.alert('Note requise', 'Sélectionnez 1 à 5 étoiles.'); return; }
     setSubmitting(true);
     try {
-      const newReview = await api.post(`/users/${id}/reviews`, {
-        rating: myRating,
-        comment: myComment.trim() || null,
-      });
-      setReviews(prev => [newReview, ...prev]);
-      setAlreadyReviewed(true);
-      setMyRating(0);
-      setMyComment('');
-      Alert.alert('Merci !', 'Votre avis a été publié.');
+      let updated: any;
+      if (myReview) {
+        // Edit existing review
+        updated = await api.put(`/users/${id}/reviews/${myReview.review_id}`, {
+          rating: myRating,
+          comment: myComment.trim() || null,
+        });
+        setReviews(prev => prev.map(r => r.review_id === updated.review_id ? updated : r));
+        setMyReview(updated);
+      } else {
+        // New review
+        updated = await api.post(`/users/${id}/reviews`, {
+          rating: myRating,
+          comment: myComment.trim() || null,
+        });
+        setReviews(prev => [updated, ...prev]);
+        setMyReview(updated);
+      }
+      setEditingReview(false);
+      Alert.alert('Merci !', myReview ? 'Avis mis à jour.' : 'Avis publié !');
     } catch (e: any) {
       Alert.alert('Erreur', e.message || 'Impossible de publier votre avis.');
-    } finally {
-      setSubmitting(false);
-    }
+    } finally { setSubmitting(false); }
+  };
+
+  const handleCallPhone = (phone: string) => {
+    const url = `tel:${phone.replace(/\s/g, '')}`;
+    Linking.canOpenURL(url).then(ok => {
+      if (ok) Linking.openURL(url);
+      else Alert.alert('Impossible', 'Votre appareil ne supporte pas les appels.');
+    });
   };
 
   if (loading) {
-    return (
-      <View style={st.center}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-      </View>
-    );
+    return <View style={st.center}><ActivityIndicator size="large" color={Colors.primary} /></View>;
   }
-
   if (!profile) {
-    return (
-      <View style={st.center}>
-        <Text style={st.notFound}>Profil introuvable</Text>
-      </View>
-    );
+    return <View style={st.center}><Text style={st.notFound}>Profil introuvable</Text></View>;
   }
 
   const isCoach = profile.role === 'coach';
@@ -153,15 +168,21 @@ export default function UserProfileScreen() {
   const services: any[] = profile.services || [];
   const interests: any[] = profile.interests || [];
   const isOwnProfile = me && me.user_id === id;
-  const canReview = me && !isOwnProfile && profile.show_reviews && !alreadyReviewed;
+  const canWriteNewReview = me && !isOwnProfile && profile.show_reviews && !myReview;
+  const canEditReview = me && !isOwnProfile && myReview && editingReview;
 
   const avgRating = reviews.length > 0
-    ? Math.round((reviews.reduce((s: number, r: any) => s + r.rating, 0) / reviews.length) * 10) / 10
+    ? Math.round((reviews.reduce((s, r) => s + r.rating, 0) / reviews.length) * 10) / 10
     : null;
+
+  const badge = computeBadge(avgRating, reviews.length);
+
+  const REVIEWS_PREVIEW = 3;
+  const displayedReviews = showAllReviews ? reviews : reviews.slice(0, REVIEWS_PREVIEW);
 
   return (
     <SafeAreaView style={st.safe} edges={['top', 'bottom']}>
-      {/* Header */}
+      {/* ── Header ─────────────────────────────── */}
       <View style={st.header}>
         <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/map' as any)}
           style={st.backBtn} testID="back-btn">
@@ -170,7 +191,7 @@ export default function UserProfileScreen() {
         <Text style={st.headerTitle}>Profil</Text>
         {isOwnProfile
           ? <TouchableOpacity style={st.editBtn} onPress={() => router.push('/edit-profile' as any)} testID="edit-profile-btn">
-              <Ionicons name="pencil-outline" size={16} color={Colors.primary} />
+              <Ionicons name="pencil-outline" size={15} color={Colors.primary} />
               <Text style={st.editBtnText}>Modifier</Text>
             </TouchableOpacity>
           : <View style={{ width: 40 }} />
@@ -204,32 +225,45 @@ export default function UserProfileScreen() {
                 {isCoach ? 'Coach' : 'Membre'}
               </Text>
             </View>
+
+            {/* ── Rating badge ── */}
             {avgRating != null && (
               <View style={st.ratingBadge} testID="rating-badge">
-                <Ionicons name="star" size={12} color={Colors.star || '#FFD700'} />
+                <Ionicons name="star" size={12} color="#FFD700" />
                 <Text style={st.ratingText}>{avgRating} ({reviews.length})</Text>
               </View>
             )}
           </View>
+
+          {/* ── Achievement badge (only when positive) ── */}
+          {badge && (
+            <View style={[st.achievementBadge, { backgroundColor: badge.bg, borderColor: badge.color + '44' }]}
+              testID="achievement-badge">
+              <Ionicons name={badge.icon as any} size={13} color={badge.color} />
+              <Text style={[st.achievementText, { color: badge.color }]}>{badge.label}</Text>
+            </View>
+          )}
 
           {profile.bio ? <Text style={st.bio}>{profile.bio}</Text> : null}
         </View>
 
         {/* ── TÉLÉPHONE ──────────────────────────── */}
         {profile.phone ? (
-          <View style={st.infoRow} testID="phone-section">
+          <TouchableOpacity style={st.infoRow} onPress={() => handleCallPhone(profile.phone)}
+            activeOpacity={0.75} testID="phone-call-btn">
             <View style={st.infoIcon}>
               <Ionicons name="call-outline" size={15} color={Colors.primary} />
             </View>
             <Text style={st.infoText}>{profile.phone}</Text>
-          </View>
+            <Ionicons name="chevron-forward" size={14} color={Colors.primary} />
+          </TouchableOpacity>
         ) : null}
 
         {/* ── INTÉRÊTS ─────────────────────────── */}
         {interests.length > 0 && (
           <View style={st.section} testID="interests-section">
             <Text style={st.sectionTitle}>
-              <Ionicons name="heart-outline" size={14} color={Colors.primary} />
+              <Ionicons name="heart-outline" size={13} color={Colors.primary} />
               {'  '}{isCoach ? 'Spécialisations' : "Centres d'intérêt"}
             </Text>
             <View style={st.tagsRow}>
@@ -247,7 +281,7 @@ export default function UserProfileScreen() {
         {tagPoints.length > 0 && (
           <View style={st.section}>
             <Text style={st.sectionTitle}>
-              <Ionicons name="location-outline" size={14} color={Colors.primary} />
+              <Ionicons name="location-outline" size={13} color={Colors.primary} />
               {'  '}TagPoints publiés
             </Text>
             <View style={st.tpList}>
@@ -286,7 +320,7 @@ export default function UserProfileScreen() {
         {isCoach && services.length > 0 && (
           <View style={st.section}>
             <Text style={st.sectionTitle}>
-              <Ionicons name="briefcase-outline" size={14} color={Colors.primary} />
+              <Ionicons name="briefcase-outline" size={13} color={Colors.primary} />
               {'  '}Services proposés
             </Text>
             {services.map((svc: any) => (
@@ -294,20 +328,11 @@ export default function UserProfileScreen() {
                 <Text style={st.serviceTitle}>{svc.title}</Text>
                 {svc.description && <Text style={st.serviceDesc} numberOfLines={2}>{svc.description}</Text>}
                 <View style={st.serviceStats}>
-                  <View style={st.stat}>
-                    <Text style={st.statVal}>{svc.price}€</Text>
-                    <Text style={st.statLbl}>Prix</Text>
-                  </View>
+                  <View style={st.stat}><Text style={st.statVal}>{svc.price}€</Text><Text style={st.statLbl}>Prix</Text></View>
                   <View style={st.statDivider} />
-                  <View style={st.stat}>
-                    <Text style={st.statVal}>{svc.duration_min}min</Text>
-                    <Text style={st.statLbl}>Durée</Text>
-                  </View>
+                  <View style={st.stat}><Text style={st.statVal}>{svc.duration_min}min</Text><Text style={st.statLbl}>Durée</Text></View>
                   <View style={st.statDivider} />
-                  <View style={st.stat}>
-                    <Text style={st.statVal}>{svc.max_participants}</Text>
-                    <Text style={st.statLbl}>Places</Text>
-                  </View>
+                  <View style={st.stat}><Text style={st.statVal}>{svc.max_participants}</Text><Text style={st.statLbl}>Places</Text></View>
                 </View>
                 {me && me.user_id !== profile.user_id && (
                   <TouchableOpacity style={st.bookBtn}
@@ -325,25 +350,28 @@ export default function UserProfileScreen() {
         {/* ── AVIS ──────────────────────────────── */}
         {profile.show_reviews && (
           <View style={st.section} testID="reviews-section">
+            {/* Header */}
             <View style={st.reviewsHeader}>
               <Text style={st.sectionTitle}>
-                <Ionicons name="star-outline" size={14} color={Colors.primary} />
+                <Ionicons name="star-outline" size={13} color={Colors.primary} />
                 {'  '}Avis{reviews.length > 0 ? ` (${reviews.length})` : ''}
               </Text>
               {avgRating != null && (
                 <View style={st.avgRatingRow}>
-                  <StarRow rating={Math.round(avgRating)} size={14} />
+                  <StarRow rating={Math.round(avgRating)} size={13} />
                   <Text style={st.avgRatingText}>{avgRating}</Text>
                 </View>
               )}
             </View>
 
-            {/* Formulaire de soumission */}
-            {canReview && (
+            {/* ── New review form ── */}
+            {(canWriteNewReview || canEditReview) && (
               <View style={st.reviewForm} testID="review-form">
-                <Text style={st.reviewFormTitle}>Laisser un avis</Text>
+                <Text style={st.reviewFormTitle}>
+                  {myReview ? 'Modifier mon avis' : 'Laisser un avis'}
+                </Text>
                 <View style={st.starPicker}>
-                  <StarRow rating={myRating} size={28} onPress={setMyRating} />
+                  <StarRow rating={myRating} size={30} onPress={setMyRating} />
                 </View>
                 <TextInput
                   style={st.reviewInput}
@@ -356,30 +384,48 @@ export default function UserProfileScreen() {
                   textAlignVertical="top"
                   testID="review-comment-input"
                 />
-                <TouchableOpacity
-                  style={[st.submitBtn, submitting && st.submitBtnDisabled]}
-                  onPress={handleSubmitReview}
-                  disabled={submitting}
-                  testID="submit-review-btn">
-                  {submitting
-                    ? <ActivityIndicator size="small" color={Colors.background} />
-                    : <>
-                        <Ionicons name="send" size={15} color={Colors.background} />
-                        <Text style={st.submitBtnText}>Publier l'avis</Text>
-                      </>
-                  }
+                <View style={st.reviewFormActions}>
+                  {editingReview && (
+                    <TouchableOpacity style={st.cancelBtn}
+                      onPress={() => { setEditingReview(false); setMyRating(myReview?.rating || 0); setMyComment(myReview?.comment || ''); }}>
+                      <Text style={st.cancelBtnText}>Annuler</Text>
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity
+                    style={[st.submitBtn, submitting && st.submitBtnDisabled, editingReview && { flex: 1 }]}
+                    onPress={handleSubmitReview}
+                    disabled={submitting}
+                    testID="submit-review-btn">
+                    {submitting
+                      ? <ActivityIndicator size="small" color={Colors.background} />
+                      : <>
+                          <Ionicons name="send" size={14} color={Colors.background} />
+                          <Text style={st.submitBtnText}>{myReview ? 'Mettre à jour' : "Publier"}</Text>
+                        </>
+                    }
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {/* ── "Mon avis" banner with edit button ── */}
+            {myReview && !editingReview && !isOwnProfile && (
+              <View style={st.myReviewBanner} testID="my-review-banner">
+                <View style={{ flex: 1 }}>
+                  <Text style={st.myReviewLabel}>Mon avis</Text>
+                  <StarRow rating={myReview.rating} size={13} />
+                  {myReview.comment ? <Text style={st.myReviewComment} numberOfLines={2}>{myReview.comment}</Text> : null}
+                </View>
+                <TouchableOpacity style={st.editReviewBtn}
+                  onPress={() => { setEditingReview(true); setMyRating(myReview.rating); setMyComment(myReview.comment || ''); }}
+                  testID="edit-review-btn">
+                  <Ionicons name="pencil" size={13} color={Colors.primary} />
+                  <Text style={st.editReviewBtnText}>Modifier</Text>
                 </TouchableOpacity>
               </View>
             )}
 
-            {alreadyReviewed && !isOwnProfile && (
-              <View style={st.alreadyReviewedBanner} testID="already-reviewed-banner">
-                <Ionicons name="checkmark-circle" size={16} color={Colors.primary} />
-                <Text style={st.alreadyReviewedText}>Vous avez déjà laissé un avis</Text>
-              </View>
-            )}
-
-            {/* Liste des avis */}
+            {/* ── Reviews list ── */}
             {reviewsLoading ? (
               <ActivityIndicator size="small" color={Colors.primary} style={{ marginTop: 12 }} />
             ) : reviews.length === 0 ? (
@@ -388,30 +434,45 @@ export default function UserProfileScreen() {
                 <Text style={st.noReviewsText}>Aucun avis pour l'instant</Text>
               </View>
             ) : (
-              reviews.map((r: any) => (
-                <View key={r.review_id} style={st.reviewCard} testID={`review-${r.review_id}`}>
-                  <View style={st.reviewHeader}>
-                    <View style={st.reviewerInfo}>
-                      {r.reviewer_picture
-                        ? <Image source={{ uri: r.reviewer_picture }} style={st.reviewerAvatar} />
-                        : <View style={st.reviewerAvatarPlaceholder}>
-                            <Text style={st.reviewerInitial}>
-                              {r.reviewer_name?.charAt(0)?.toUpperCase() || '?'}
+              <>
+                {displayedReviews
+                  .filter(r => !myReview || r.review_id !== myReview.review_id) // Don't double-show my review
+                  .map((r: any) => (
+                    <View key={r.review_id} style={st.reviewCard} testID={`review-${r.review_id}`}>
+                      <View style={st.reviewHeader}>
+                        <View style={st.reviewerInfo}>
+                          {r.reviewer_picture
+                            ? <Image source={{ uri: r.reviewer_picture }} style={st.reviewerAvatar} />
+                            : <View style={st.reviewerAvatarPlaceholder}>
+                                <Text style={st.reviewerInitial}>{r.reviewer_name?.charAt(0)?.toUpperCase() || '?'}</Text>
+                              </View>
+                          }
+                          <View>
+                            <Text style={st.reviewerName}>{r.reviewer_name}</Text>
+                            <Text style={st.reviewDate}>
+                              {new Date(r.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
                             </Text>
                           </View>
-                      }
-                      <View>
-                        <Text style={st.reviewerName}>{r.reviewer_name}</Text>
-                        <Text style={st.reviewDate}>
-                          {new Date(r.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
-                        </Text>
+                        </View>
+                        <StarRow rating={r.rating} size={13} />
                       </View>
+                      {r.comment ? <Text style={st.reviewComment}>{r.comment}</Text> : null}
                     </View>
-                    <StarRow rating={r.rating} size={13} />
-                  </View>
-                  {r.comment ? <Text style={st.reviewComment}>{r.comment}</Text> : null}
-                </View>
-              ))
+                  ))
+                }
+
+                {/* Voir plus / Voir moins */}
+                {reviews.length > REVIEWS_PREVIEW && (
+                  <TouchableOpacity style={st.seeMoreBtn}
+                    onPress={() => setShowAllReviews(v => !v)}
+                    testID="see-more-reviews-btn">
+                    <Text style={st.seeMoreText}>
+                      {showAllReviews ? 'Voir moins' : `Voir les ${reviews.length - REVIEWS_PREVIEW} autres avis`}
+                    </Text>
+                    <Ionicons name={showAllReviews ? 'chevron-up' : 'chevron-down'} size={14} color={Colors.primary} />
+                  </TouchableOpacity>
+                )}
+              </>
             )}
           </View>
         )}
@@ -422,6 +483,7 @@ export default function UserProfileScreen() {
   );
 }
 
+// ── Styles ────────────────────────────────────────────────────────────────────
 const st = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.background },
@@ -442,6 +504,8 @@ const st = StyleSheet.create({
   },
   editBtnText: { fontSize: 13, fontWeight: '700', color: Colors.primary },
   scroll: { paddingBottom: 20 },
+
+  // Hero
   hero: { alignItems: 'center', paddingVertical: Spacing.xl, paddingHorizontal: Spacing.lg },
   avatarWrap: { position: 'relative', marginBottom: Spacing.md },
   avatarImg: { width: 88, height: 88, borderRadius: 44, borderWidth: 2, borderColor: Colors.primary },
@@ -451,13 +515,12 @@ const st = StyleSheet.create({
   },
   avatarInitial: { fontSize: 38, fontWeight: '800', color: Colors.primary },
   verifiedDot: {
-    position: 'absolute', bottom: 2, right: 2,
-    width: 22, height: 22, borderRadius: 11,
+    position: 'absolute', bottom: 2, right: 2, width: 22, height: 22, borderRadius: 11,
     backgroundColor: Colors.primary, borderWidth: 2, borderColor: Colors.background,
     alignItems: 'center', justifyContent: 'center',
   },
   name: { fontSize: 22, fontWeight: '800', color: Colors.foreground, marginBottom: 10 },
-  badgeRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
+  badgeRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
   roleBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: Colors.secondary, borderRadius: Radius.full,
@@ -467,11 +530,18 @@ const st = StyleSheet.create({
   roleBadgeText: { fontSize: 12, fontWeight: '600', color: Colors.muted },
   ratingBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: Colors.secondary, borderRadius: Radius.full,
+    backgroundColor: 'rgba(255,215,0,0.12)', borderRadius: Radius.full,
     paddingHorizontal: 10, paddingVertical: 4,
+    borderWidth: 1, borderColor: 'rgba(255,215,0,0.25)',
   },
-  ratingText: { fontSize: 12, fontWeight: '600', color: Colors.foreground },
-  bio: { fontSize: 14, color: Colors.muted, textAlign: 'center', lineHeight: 20, maxWidth: 300, marginTop: 6 },
+  ratingText: { fontSize: 12, fontWeight: '600', color: '#FFD700' },
+  achievementBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    borderRadius: Radius.full, paddingHorizontal: 14, paddingVertical: 6,
+    borderWidth: 1, marginBottom: 10,
+  },
+  achievementText: { fontSize: 13, fontWeight: '700' },
+  bio: { fontSize: 14, color: Colors.muted, textAlign: 'center', lineHeight: 20, maxWidth: 300, marginTop: 4 },
 
   // Info row (phone)
   infoRow: {
@@ -489,7 +559,7 @@ const st = StyleSheet.create({
 
   // Section
   section: { paddingHorizontal: Spacing.md, marginBottom: Spacing.lg },
-  sectionTitle: { fontSize: 13, fontWeight: '700', color: Colors.primary, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.8 },
+  sectionTitle: { fontSize: 12, fontWeight: '700', color: Colors.primary, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.8 },
 
   // Interests
   tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -506,8 +576,7 @@ const st = StyleSheet.create({
   tpList: { gap: 8 },
   tpCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: Colors.secondary, borderRadius: Radius.lg,
-    padding: 10, ...Shadow.soft,
+    backgroundColor: Colors.secondary, borderRadius: Radius.lg, padding: 10,
   },
   tpThumb: { width: 56, height: 56, borderRadius: Radius.md },
   tpThumbPlaceholder: { backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center' },
@@ -518,10 +587,7 @@ const st = StyleSheet.create({
   emptyText: { fontSize: 14, color: Colors.muted },
 
   // Services
-  serviceCard: {
-    backgroundColor: Colors.secondary, borderRadius: Radius.xl,
-    padding: Spacing.md, marginBottom: Spacing.sm, ...Shadow.soft,
-  },
+  serviceCard: { backgroundColor: Colors.secondary, borderRadius: Radius.xl, padding: Spacing.md, marginBottom: Spacing.sm },
   serviceTitle: { fontSize: 16, fontWeight: '800', color: Colors.foreground, marginBottom: 4 },
   serviceDesc: { fontSize: 13, color: Colors.muted, marginBottom: Spacing.sm, lineHeight: 18 },
   serviceStats: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.sm },
@@ -531,52 +597,58 @@ const st = StyleSheet.create({
   statDivider: { width: 1, height: 36, backgroundColor: Colors.border },
   bookBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: Colors.primary, borderRadius: Radius.full,
-    paddingVertical: 12, marginTop: 6,
+    backgroundColor: Colors.primary, borderRadius: Radius.full, paddingVertical: 12, marginTop: 6,
   },
   bookBtnText: { fontSize: 15, fontWeight: '700', color: Colors.background },
 
   // Reviews
-  reviewsHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    marginBottom: 12,
-  },
+  reviewsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   avgRatingRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   avgRatingText: { fontSize: 14, fontWeight: '700', color: Colors.foreground },
   reviewForm: {
-    backgroundColor: Colors.card, borderRadius: Radius.xl,
-    padding: Spacing.md, marginBottom: Spacing.md,
-    borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: Colors.card, borderRadius: Radius.xl, padding: Spacing.md,
+    marginBottom: Spacing.md, borderWidth: 1, borderColor: Colors.border,
   },
   reviewFormTitle: { fontSize: 14, fontWeight: '700', color: Colors.foreground, marginBottom: 12 },
   starPicker: { marginBottom: 12 },
   reviewInput: {
     backgroundColor: Colors.background, borderRadius: 10, borderWidth: 1,
     borderColor: Colors.border, paddingHorizontal: 14, paddingVertical: 10,
-    fontSize: 14, color: Colors.foreground, minHeight: 80,
-    marginBottom: 12,
+    fontSize: 14, color: Colors.foreground, minHeight: 80, marginBottom: 12,
   },
+  reviewFormActions: { flexDirection: 'row', gap: 10 },
+  cancelBtn: {
+    borderRadius: Radius.full, paddingVertical: 11, paddingHorizontal: 18,
+    borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center',
+  },
+  cancelBtnText: { fontSize: 14, fontWeight: '600', color: Colors.muted },
   submitBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: Colors.primary, borderRadius: Radius.full,
-    paddingVertical: 12,
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: Colors.primary, borderRadius: Radius.full, paddingVertical: 12,
   },
   submitBtnDisabled: { opacity: 0.6 },
   submitBtnText: { fontSize: 14, fontWeight: '700', color: Colors.background },
-  alreadyReviewedBanner: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: TEAL_DIM, borderRadius: Radius.lg,
-    paddingHorizontal: 14, paddingVertical: 10,
-    borderWidth: 1, borderColor: TEAL_BORDER,
-    marginBottom: Spacing.sm,
+
+  // My review banner
+  myReviewBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: TEAL_DIM, borderRadius: Radius.xl, padding: Spacing.md,
+    borderWidth: 1, borderColor: TEAL_BORDER, marginBottom: Spacing.sm,
   },
-  alreadyReviewedText: { fontSize: 13, color: Colors.primary, fontWeight: '600' },
+  myReviewLabel: { fontSize: 11, fontWeight: '700', color: Colors.primary, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 4 },
+  myReviewComment: { fontSize: 12, color: Colors.muted, marginTop: 4 },
+  editReviewBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: Colors.background, borderRadius: Radius.full,
+    paddingHorizontal: 12, paddingVertical: 7, borderWidth: 1, borderColor: TEAL_BORDER,
+  },
+  editReviewBtnText: { fontSize: 12, fontWeight: '700', color: Colors.primary },
+
   noReviews: { alignItems: 'center', paddingVertical: 24, gap: 8 },
   noReviewsText: { fontSize: 13, color: Colors.muted },
   reviewCard: {
-    backgroundColor: Colors.card, borderRadius: Radius.xl,
-    padding: Spacing.md, marginBottom: Spacing.sm,
-    borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: Colors.card, borderRadius: Radius.xl, padding: Spacing.md,
+    marginBottom: Spacing.sm, borderWidth: 1, borderColor: Colors.border,
   },
   reviewHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 },
   reviewerInfo: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
@@ -589,4 +661,10 @@ const st = StyleSheet.create({
   reviewerName: { fontSize: 13, fontWeight: '700', color: Colors.foreground },
   reviewDate: { fontSize: 11, color: Colors.muted, marginTop: 1 },
   reviewComment: { fontSize: 13, color: Colors.muted, lineHeight: 18 },
+  seeMoreBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 12, borderRadius: Radius.lg, borderWidth: 1, borderColor: TEAL_BORDER,
+    backgroundColor: TEAL_DIM, marginTop: 4,
+  },
+  seeMoreText: { fontSize: 13, fontWeight: '600', color: Colors.primary },
 });
