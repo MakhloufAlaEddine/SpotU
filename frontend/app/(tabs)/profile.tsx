@@ -375,6 +375,18 @@ const st = StyleSheet.create({
   heroStatLbl: { fontSize: 10, color: Colors.muted, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
   heroStatDiv: { width: 1, height: 28, backgroundColor: Colors.border },
 
+  // Badge progress
+  progressBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    marginHorizontal: 20, marginBottom: 16, padding: 12,
+    backgroundColor: 'rgba(0,191,165,0.08)', borderRadius: 12,
+    borderWidth: 1, borderColor: TEAL_BORDER,
+  },
+  progressText: { fontSize: 12, color: Colors.primary, fontWeight: '600', flex: 1 },
+  progressTrack: { height: 4, backgroundColor: Colors.border, borderRadius: 2, overflow: 'hidden', marginTop: 2 },
+  progressFill: { height: '100%', backgroundColor: Colors.primary, borderRadius: 2 },
+  progressCount: { fontSize: 11, color: Colors.muted, fontWeight: '700', minWidth: 28, textAlign: 'right' },
+
   // ACTIONS
   actionsRow: { flexDirection: 'row', gap: 10, paddingHorizontal: Spacing.md, marginBottom: Spacing.xl },
   actionCard: {
