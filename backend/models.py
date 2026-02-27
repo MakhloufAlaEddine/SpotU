@@ -188,3 +188,15 @@ class ProfileReviewCreate(BaseModel):
         if not 1 <= v <= 5:
             raise ValueError("La note doit être entre 1 et 5")
         return v
+
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def password_length(cls, v):
+        if len(v) < 6:
+            raise ValueError("Le mot de passe doit contenir au moins 6 caractères")
+        return v

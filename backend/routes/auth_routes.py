@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request, HTTPException
 from datetime import datetime, timezone
-from models import UserCreate, UserLogin, GoogleAuthRequest, new_id
+from models import UserCreate, UserLogin, GoogleAuthRequest, PasswordChange, new_id
 from auth_utils import hash_password, verify_password, create_jwt, require_auth, fetch_emergent_session, USER_FIELDS
 from database import get_pool, row_to_dict
 import json
