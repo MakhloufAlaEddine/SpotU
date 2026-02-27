@@ -50,6 +50,19 @@ async def _enrich_service(conn, svc: dict) -> dict:
     svc["review_count"] = len(reviews)
     svc["locations"] = await _get_service_locations(conn, svc["service_id"])
     svc["slots"] = await _get_service_slots(conn, svc["service_id"])
+    # Resolve tags
+    import json as _json
+    raw_tags = svc.get("tag_ids")
+    if isinstance(raw_tags, str):
+        raw_tags = _json.loads(raw_tags)
+    if raw_tags:
+        tag_rows = await conn.fetch(
+            "SELECT tag_id, label_fr, label_en, category_id FROM tags WHERE tag_id = ANY($1::text[])",
+            raw_tags
+        )
+        svc["tags"] = rows_to_list(tag_rows)
+    else:
+        svc["tags"] = []
     return svc
 
 

@@ -89,10 +89,12 @@ async def create_booking(data: BookingCreate, request: Request):
         bid = new_id("bkg")
         await conn.execute(
             """INSERT INTO bookings
-               (booking_id, service_id, user_id, coach_id, status, scheduled_at, notes, amount, commission, payment_status)
-               VALUES ($1, $2, $3, $4, 'pending', $5, $6, $7, $8, 'pending')""",
+               (booking_id, service_id, user_id, coach_id, status, scheduled_at,
+                slot_id, location_id, notes, amount, commission, payment_status)
+               VALUES ($1, $2, $3, $4, 'pending', $5, $6, $7, $8, $9, $10, 'pending')""",
             bid, data.service_id, user["user_id"], svc["coach_id"],
-            data.scheduled_at, data.notes, float(svc["price"]), commission
+            data.scheduled_at, data.slot_id, data.location_id,
+            data.notes, float(svc["price"]), commission
         )
         row = await conn.fetchrow(
             "SELECT booking_id, service_id, user_id, coach_id, status, scheduled_at, notes, amount, commission, payment_status, created_at FROM bookings WHERE booking_id = $1",
