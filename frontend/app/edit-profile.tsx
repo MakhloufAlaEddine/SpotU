@@ -194,15 +194,20 @@ export default function EditProfileScreen() {
 
       <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false}>
 
-        {/* ── AVATAR ──────────────────────────────── */}
+        {/* ── AVATAR (cliquable pour modifier la photo) ──────── */}
         <View style={st.avatarSection}>
-          <View style={st.avatarRing}>
+          <TouchableOpacity onPress={pickImage} style={st.avatarRing} activeOpacity={0.8}
+            testID="avatar-pick-btn">
             <View style={st.avatar}>
-              {user?.picture
-                ? <Image source={{ uri: user.picture }} style={st.avatarImg} />
+              {pictureUri
+                ? <Image source={{ uri: pictureUri }} style={st.avatarImg} />
                 : <Text style={st.avatarInitial}>{initial}</Text>}
             </View>
-          </View>
+            <View style={st.cameraBadge}>
+              <Ionicons name="camera" size={13} color={Colors.background} />
+            </View>
+          </TouchableOpacity>
+          <Text style={st.avatarHint}>Appuyez pour modifier</Text>
           <View style={[st.rolePill, isCoach && st.rolePillCoach]}>
             <Ionicons name={isCoach ? 'trophy-outline' : 'person-outline'} size={12}
               color={isCoach ? Colors.primary : Colors.muted} />
