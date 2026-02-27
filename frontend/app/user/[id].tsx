@@ -337,7 +337,9 @@ export default function UserProfileScreen() {
               {'  '}Services proposés
             </Text>
             {services.map((svc: any) => (
-              <View key={svc.service_id} style={st.serviceCard}>
+              <TouchableOpacity key={svc.service_id} style={st.serviceCard}
+                onPress={() => router.push(`/service/${svc.service_id}` as any)}
+                activeOpacity={0.8} testID={`service-card-${svc.service_id}`}>
                 <Text style={st.serviceTitle}>{svc.title}</Text>
                 {svc.description && <Text style={st.serviceDesc} numberOfLines={2}>{svc.description}</Text>}
                 <View style={st.serviceStats}>
@@ -348,14 +350,12 @@ export default function UserProfileScreen() {
                   <View style={st.stat}><Text style={st.statVal}>{svc.max_participants}</Text><Text style={st.statLbl}>Places</Text></View>
                 </View>
                 {me && me.user_id !== profile.user_id && (
-                  <TouchableOpacity style={st.bookBtn}
-                    onPress={() => router.push(`/coach/${profile.user_id}?service_id=${svc.service_id}` as any)}
-                    testID={`book-service-${svc.service_id}`}>
+                  <View style={st.bookBtn}>
                     <Ionicons name="calendar" size={16} color={Colors.background} />
-                    <Text style={st.bookBtnText}>Réserver · {svc.price}€</Text>
-                  </TouchableOpacity>
+                    <Text style={st.bookBtnText}>Voir & Réserver · {svc.price}€</Text>
+                  </View>
                 )}
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         )}
