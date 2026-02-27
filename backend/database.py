@@ -214,6 +214,9 @@ async def connect_to_db():
             ALTER TABLE tag_points ADD COLUMN IF NOT EXISTS new_date_coming BOOLEAN DEFAULT FALSE;
             ALTER TABLE users ADD COLUMN IF NOT EXISTS show_phone BOOLEAN NOT NULL DEFAULT false;
             ALTER TABLE users ADD COLUMN IF NOT EXISTS show_reviews BOOLEAN NOT NULL DEFAULT true;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS iban TEXT NULL;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS bic TEXT NULL;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS iban_name TEXT NULL;
         """)
 
     # 2. Seed données de base (users, tagpoints, tags, domaines...)
