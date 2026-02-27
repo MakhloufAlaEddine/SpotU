@@ -184,10 +184,13 @@ export default function CreateServiceScreen() {
     setAddingLoc(false);
   };
 
+  const [slotError, setSlotError] = useState('');
+
   const addSlot = () => {
-    if (!newSlotStart || !newSlotEnd) { Alert.alert('', 'Sélectionnez les horaires'); return; }
-    if (newSlotStart >= newSlotEnd) { Alert.alert('', "L'heure de fin doit être après le début"); return; }
-    if (newSlotType === 'single' && !newSlotDate) { Alert.alert('', 'Sélectionnez une date'); return; }
+    if (!newSlotStart || !newSlotEnd) { setSlotError('Sélectionnez les horaires de début et de fin'); return; }
+    if (newSlotStart >= newSlotEnd) { setSlotError("L'heure de fin doit être après l'heure de début"); return; }
+    if (newSlotType === 'single' && !newSlotDate) { setSlotError('Sélectionnez une date'); return; }
+    setSlotError('');
     setSlots(prev => [...prev, {
       id: `slot_${Date.now()}`, type: newSlotType,
       day: newSlotType !== 'single' ? newSlotDay : undefined,
