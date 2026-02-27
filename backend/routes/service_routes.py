@@ -162,6 +162,7 @@ async def create_service(data: ServiceCreate, request: Request):
             data.duration_min, data.tag_ids, data.domain_id,
             data.max_participants
         )
+        loc_ids: list[str] = []
         for loc in data.locations:
             lid = new_id("sloc")
             await conn.execute(
@@ -170,19 +171,22 @@ async def create_service(data: ServiceCreate, request: Request):
                    VALUES ($1, $2, ST_SetSRID(ST_MakePoint($3, $4), 4326), $5, $6)""",
                 lid, sid, loc.longitude, loc.latitude, loc.precision, loc.description
             )
+            loc_ids.append(lid)
         for slot in data.slots:
             slotid = new_id("slot")
             days = slot.days_of_week if slot.days_of_week is not None else (
                 [slot.day_of_week] if slot.day_of_week is not None else []
             )
-            # Resolve location_id: if the slot sends a temp client-side loc id,
-            # match it to the actual DB location_id by position (loc.id == location_id field from client)
-            loc_id = slot.location_id if slot.location_id else None
+            # Resolve to actual DB location_id using the slot's location_index
+            if slot.location_index is not None and 0 <= slot.location_index < len(loc_ids):
+                resolved_loc_id = loc_ids[slot.location_index]
+            else:
+                resolved_loc_id = loc_ids[0] if loc_ids else None
             await conn.execute(
                 """INSERT INTO service_slots
                    (slot_id, service_id, location_id, slot_type, days_of_week, day_of_week, start_time, end_time, slot_date)
                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)""",
-                slotid, sid, loc_id, slot.slot_type,
+                slotid, sid, resolved_loc_id, slot.slot_type,
                 days,
                 days[0] if days else None,
                 slot.start_time, slot.end_time, slot.slot_date
