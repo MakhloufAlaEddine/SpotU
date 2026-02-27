@@ -113,6 +113,7 @@ export default function EditProfileScreen() {
         coach_tags: selectedTagIds,
         show_phone: showPhone,
         show_reviews: showReviews,
+        ...(pictureUri !== user?.picture ? { picture: pictureUri || null } : {}),
         ...(isCoach && hourlyRate ? { hourly_rate: parseFloat(hourlyRate) } : {}),
       });
       await refreshUser();
