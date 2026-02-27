@@ -82,7 +82,7 @@ async def get_public_profile(user_id: str):
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """SELECT user_id, name, picture, role, bio, is_coach_verified, coach_tags,
-                      hourly_rate, show_phone, show_reviews, phone
+                      show_phone, show_reviews, phone
                FROM users WHERE user_id = $1""",
             user_id
         )
