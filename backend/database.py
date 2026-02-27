@@ -100,6 +100,25 @@ CREATE TABLE IF NOT EXISTS services (
 
 CREATE INDEX IF NOT EXISTS idx_services_location ON services USING GIST(location);
 
+CREATE TABLE IF NOT EXISTS service_locations (
+    location_id TEXT PRIMARY KEY,
+    service_id TEXT REFERENCES services(service_id) ON DELETE CASCADE,
+    location GEOMETRY(Point, 4326),
+    precision TEXT DEFAULT 'exact',
+    description TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_service_locations_geo ON service_locations USING GIST(location);
+
+CREATE TABLE IF NOT EXISTS service_slots (
+    slot_id TEXT PRIMARY KEY,
+    service_id TEXT REFERENCES services(service_id) ON DELETE CASCADE,
+    day_of_week INTEGER CHECK (day_of_week >= 0 AND day_of_week <= 6),
+    start_time TEXT NOT NULL,
+    end_time TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS bookings (
     booking_id TEXT PRIMARY KEY,
     service_id TEXT REFERENCES services(service_id),
