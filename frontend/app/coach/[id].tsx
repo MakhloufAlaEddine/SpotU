@@ -88,8 +88,14 @@ export default function CoachProfileScreen() {
 
         {/* Service details */}
         {displayService && (
-          <View style={styles.serviceCard} testID="service-card">
-            <Text style={styles.serviceTitle}>{displayService.title}</Text>
+          <TouchableOpacity style={styles.serviceCard} testID="service-card"
+            onPress={() => router.push(`/service/${displayService.service_id}` as any)}
+            activeOpacity={0.8}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <Text style={styles.serviceTitle}>{displayService.title}</Text>
+              <Ionicons name="arrow-forward-circle-outline" size={20} color={Colors.primary} />
+            </View>
             {displayService.description && <Text style={styles.serviceDesc}>{displayService.description}</Text>}
             <View style={styles.serviceStats}>
               <View style={styles.stat}><Text style={styles.statValue}>{displayService.price}€</Text><Text style={styles.statLabel}>{t('price')}</Text></View>
