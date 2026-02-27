@@ -62,6 +62,9 @@ class UserUpdate(BaseModel):
     coach_tags: Optional[List[str]] = None
     show_phone: Optional[bool] = None
     show_reviews: Optional[bool] = None
+    iban: Optional[str] = None
+    bic: Optional[str] = None
+    iban_name: Optional[str] = None
 
 
 # --- DOMAIN ---
