@@ -19,22 +19,52 @@ import * as Location from 'expo-location';
 const ORANGE = '#FF9500';
 const ORANGE_LIGHT = 'rgba(255,149,0,0.12)';
 const ORANGE_BORDER = 'rgba(255,149,0,0.3)';
+const GREEN = '#1DBF73';
 
 const STEP_LABELS = ['Infos', 'Sport', 'Lieux', 'Créneaux', 'Résumé'];
 const DAYS_FR = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 const DURATIONS = ['30', '45', '60', '90', '120'];
-const PRECISION_OPTIONS: { value: 'exact' | '100m' | '1000m'; label: string }[] = [
-  { value: 'exact', label: 'Précis' },
-  { value: '100m', label: '± 100m' },
-  { value: '1000m', label: '± 1km' },
+const HOURS = Array.from({ length: 19 }, (_, i) => String(i + 5).padStart(2, '0')); // 05-23
+const MINUTES = ['00', '15', '30', '45'];
+const PRECISION_OPTIONS: { value: 'exact' | '100m' | '1000m'; label: string; hint: string }[] = [
+  { value: 'exact', label: 'Précis', hint: 'Adresse exacte visible' },
+  { value: '100m', label: '± 100m', hint: 'Quartier visible' },
+  { value: '1000m', label: '± 1km', hint: 'Zone visible' },
 ];
+const PRECISION_RADIUS: Record<string, number> = { exact: 0, '100m': 100, '1000m': 1000 };
 const PRECISION_LABEL: Record<string, string> = { exact: 'Précis', '100m': '± 100m', '1000m': '± 1km' };
+const SLOT_TYPES = [
+  { value: 'recurring', label: 'Récurrent', icon: 'repeat', hint: 'Ex: tous les lundis 09h-10h' },
+  { value: 'single', label: 'Date unique', icon: 'calendar', hint: 'Une séance précise' },
+  { value: 'availability', label: 'Disponibilité', icon: 'time', hint: 'Plage horaire, client fixe l\'heure' },
+];
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+type SlotType = 'recurring' | 'single' | 'availability';
+type ServiceSlot = {
+  id: string; type: SlotType;
+  day?: number; start: string; end: string; date?: string;
+};
 type ServiceLocation = {
   id: string; lat: number; lng: number;
   precision: 'exact' | '100m' | '1000m'; description: string;
 };
-type ServiceSlot = { id: string; day: number; start: string; end: string };
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function formatSlotLabel(slot: ServiceSlot): string {
+  if (slot.type === 'single') {
+    const d = slot.date ? new Date(slot.date + 'T00:00:00') : null;
+    const dateStr = d ? d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) : '??';
+    return `${dateStr}  ·  ${slot.start} → ${slot.end}`;
+  }
+  const dayLabel = slot.day !== undefined ? DAYS_FR[slot.day] : '?';
+  if (slot.type === 'availability') return `${dayLabel}  ·  ${slot.start} → ${slot.end}  (sur rdv)`;
+  return `${dayLabel}  ·  ${slot.start} → ${slot.end}`;
+}
+
+function slotIcon(type: SlotType): any {
+  return type === 'single' ? 'calendar' : type === 'availability' ? 'time' : 'repeat';
+}
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function EditServiceScreen() {
@@ -74,7 +104,9 @@ export default function EditServiceScreen() {
   // Step 4 – Slots
   const [slots, setSlots] = useState<ServiceSlot[]>([]);
   const [addingSlot, setAddingSlot] = useState(false);
+  const [newSlotType, setNewSlotType] = useState<SlotType>('recurring');
   const [newSlotDay, setNewSlotDay] = useState(0);
+  const [newSlotDate, setNewSlotDate] = useState('');
   const [newSlotStart, setNewSlotStart] = useState('');
   const [newSlotEnd, setNewSlotEnd] = useState('');
 
@@ -90,43 +122,39 @@ export default function EditServiceScreen() {
         api.get('/domains'),
       ]);
       setDomains(doms);
-      // Pre-populate step 1
       setTitle(data.title || '');
       setDescription(data.description || '');
       setPrice(String(data.price || ''));
       setDuration(String(data.duration_min || '60'));
       setMaxParticipants(String(data.max_participants || '1'));
-      // Pre-populate step 2
       setSelectedDomain(data.domain_id || doms[0]?.domain_id || '');
-      // Defensive: tag_ids may be a JSON string due to backend double-encoding
       const rawTagIds = data.tag_ids;
       setSelectedTags(
         Array.isArray(rawTagIds) ? rawTagIds
           : typeof rawTagIds === 'string' ? (() => { try { return JSON.parse(rawTagIds); } catch { return []; } })()
           : []
       );
-      // Pre-populate step 3
       if (data.locations?.length > 0) {
         setLocations(data.locations.map((loc: any) => ({
           id: loc.location_id,
-          lat: loc.latitude,
-          lng: loc.longitude,
+          lat: loc.latitude, lng: loc.longitude,
           precision: loc.precision as 'exact' | '100m' | '1000m',
           description: loc.description || '',
         })));
         setMapCenterLat(data.locations[0].latitude);
         setMapCenterLng(data.locations[0].longitude);
       }
-      // Pre-populate step 4
       if (data.slots?.length > 0) {
         setSlots(data.slots.map((s: any) => ({
           id: s.slot_id,
-          day: s.day_of_week,
+          type: (s.slot_type || 'recurring') as SlotType,
+          day: s.day_of_week !== null && s.day_of_week !== undefined ? s.day_of_week : undefined,
           start: s.start_time,
           end: s.end_time,
+          date: s.slot_date || undefined,
         })));
       }
-    } catch (e: any) {
+    } catch {
       Alert.alert('Erreur', 'Impossible de charger le service');
       router.back();
     } finally {
@@ -173,17 +201,16 @@ export default function EditServiceScreen() {
   };
 
   const addSlot = () => {
-    const timeRegex = /^\d{2}:\d{2}$/;
-    if (!newSlotStart || !newSlotEnd) { Alert.alert('', 'Renseignez les horaires'); return; }
-    if (!timeRegex.test(newSlotStart) || !timeRegex.test(newSlotEnd)) {
-      Alert.alert('', 'Format HH:MM requis (ex: 09:00)'); return;
-    }
+    if (!newSlotStart || !newSlotEnd) { Alert.alert('', 'Sélectionnez les horaires'); return; }
     if (newSlotStart >= newSlotEnd) { Alert.alert('', "L'heure de fin doit être après le début"); return; }
+    if (newSlotType === 'single' && !newSlotDate) { Alert.alert('', 'Sélectionnez une date'); return; }
     setSlots(prev => [...prev, {
-      id: `slot_${Date.now()}`, day: newSlotDay,
+      id: `slot_${Date.now()}`, type: newSlotType,
+      day: newSlotType !== 'single' ? newSlotDay : undefined,
       start: newSlotStart, end: newSlotEnd,
+      date: newSlotType === 'single' ? newSlotDate : undefined,
     }]);
-    setNewSlotStart(''); setNewSlotEnd('');
+    setNewSlotStart(''); setNewSlotEnd(''); setNewSlotDate('');
     setAddingSlot(false);
   };
 
@@ -203,16 +230,56 @@ export default function EditServiceScreen() {
           precision: l.precision, description: l.description || null,
         })),
         slots: slots.map(s => ({
-          day_of_week: s.day, start_time: s.start, end_time: s.end,
+          slot_type: s.type,
+          day_of_week: s.day !== undefined ? s.day : null,
+          start_time: s.start, end_time: s.end,
+          slot_date: s.date || null,
         })),
       });
-      // Direct redirect (Alert.alert not reliable on web)
       router.replace(`/service/${id}` as any);
     } catch (err: any) {
       Alert.alert('Erreur', err.message || 'Impossible de modifier le service');
     } finally {
       setSubmitting(false);
     }
+  };
+
+  // ─── Time Picker ──────────────────────────────────────────────────────────
+  const renderTimePicker = (
+    value: string, onChange: (v: string) => void, label: string, testPrefix: string
+  ) => {
+    const [hh, mm] = value ? value.split(':') : ['', '00'];
+    return (
+      <View style={s.field}>
+        <Text style={s.fieldLabel}>{label}</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View style={{ flexDirection: 'row', gap: 6, paddingVertical: 4 }}>
+            {HOURS.map(h => (
+              <TouchableOpacity key={h}
+                style={[s.timeChip, hh === h && s.timeChipActive]}
+                onPress={() => onChange(`${h}:${mm || '00'}`)}
+                testID={`${testPrefix}-h-${h}`}>
+                <Text style={[s.timeChipText, hh === h && s.timeChipTextActive]}>{h}h</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
+        {hh ? (
+          <View style={{ flexDirection: 'row', gap: 6, marginTop: 6 }}>
+            {MINUTES.map(m => (
+              <TouchableOpacity key={m}
+                style={[s.minChip, (mm || '00') === m && s.minChipActive]}
+                onPress={() => onChange(`${hh}:${m}`)}
+                testID={`${testPrefix}-m-${m}`}>
+                <Text style={[s.minChipText, (mm || '00') === m && s.minChipTextActive]}>:{m}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : (
+          <Text style={s.timeHint}>Sélectionnez une heure</Text>
+        )}
+      </View>
+    );
   };
 
   // ─── Stepper Header ──────────────────────────────────────────────────────
@@ -244,15 +311,20 @@ export default function EditServiceScreen() {
     <View style={s.stepContent}>
       <Text style={s.stepTitle}>Informations de base</Text>
       <View style={s.field}>
-        <Text style={s.fieldLabel}>Titre *</Text>
+        <Text style={s.fieldLabel}>Titre du service *</Text>
         <TextInput style={s.input} value={title} onChangeText={setTitle}
           placeholder="Titre du service" placeholderTextColor={Colors.muted} testID="edit-title-input" />
       </View>
       <View style={s.field}>
         <Text style={s.fieldLabel}>Description</Text>
         <TextInput style={[s.input, s.inputMulti]} value={description} onChangeText={setDescription}
-          placeholder="Description du service…" placeholderTextColor={Colors.muted}
+          placeholder="Décrivez votre service…" placeholderTextColor={Colors.muted}
           multiline numberOfLines={4} textAlignVertical="top" testID="edit-desc-input" />
+        {description.length > 0 && (
+          <Text style={[s.charCount, description.length >= 80 ? s.charCountGood : s.charCountWarn]}>
+            {description.length} car. {description.length >= 80 ? '✓ Excellente description' : '(80+ recommandé)'}
+          </Text>
+        )}
       </View>
       <View style={s.row}>
         <View style={{ flex: 1 }}>
@@ -331,28 +403,36 @@ export default function EditServiceScreen() {
           <Text style={s.addCardTitle}>Nouveau lieu</Text>
           <Text style={s.hint}>Appuyez sur la carte pour sélectionner la position</Text>
           <View style={s.mapWrap}>
-            <MapViewComponent centerLat={mapCenterLat} centerLng={mapCenterLng} zoom={13}
+            <MapViewComponent
+              centerLat={mapCenterLat} centerLng={mapCenterLng} zoom={13}
               selectable showUserMarker
               selectedLat={newLocLat ?? undefined} selectedLng={newLocLng ?? undefined}
+              precisionRadius={PRECISION_RADIUS[newLocPrecision]}
               onMapPress={(lat, lng) => { setNewLocLat(lat); setNewLocLng(lng); }}
               style={{ flex: 1 }} />
           </View>
           {newLocLat && newLocLng && (
             <Text style={s.coordsText}>{newLocLat.toFixed(5)}, {newLocLng.toFixed(5)}</Text>
           )}
-          <Text style={[s.fieldLabel, { marginTop: 12 }]}>Précision</Text>
-          <View style={s.chips}>
+          <Text style={[s.fieldLabel, { marginTop: 12 }]}>Précision de l'adresse</Text>
+          <View style={{ gap: 8 }}>
             {PRECISION_OPTIONS.map(opt => (
               <TouchableOpacity key={opt.value}
-                style={[s.chip, newLocPrecision === opt.value && s.chipActive]}
-                onPress={() => setNewLocPrecision(opt.value)}>
-                <Text style={[s.chipText, newLocPrecision === opt.value && s.chipTextActive]}>{opt.label}</Text>
+                style={[s.precisionCard, newLocPrecision === opt.value && s.precisionCardActive]}
+                onPress={() => setNewLocPrecision(opt.value)}
+                testID={`precision-${opt.value}`}>
+                <View style={s.precisionCardLeft}>
+                  <Ionicons name={opt.value === 'exact' ? 'locate' : opt.value === '100m' ? 'radio-button-on' : 'globe-outline'} size={16} color={newLocPrecision === opt.value ? ORANGE : Colors.muted} />
+                  <Text style={[s.precisionCardLabel, newLocPrecision === opt.value && s.precisionCardLabelActive]}>{opt.label}</Text>
+                </View>
+                <Text style={s.precisionCardHint}>{opt.hint}</Text>
               </TouchableOpacity>
             ))}
           </View>
           <Text style={[s.fieldLabel, { marginTop: 12 }]}>Description du lieu</Text>
           <TextInput style={s.input} value={newLocDesc} onChangeText={setNewLocDesc}
-            placeholder="Ex: Parc, salle, adresse…" placeholderTextColor={Colors.muted} />
+            placeholder="Ex: Parc de la Villette, entrée Nord"
+            placeholderTextColor={Colors.muted} />
           <View style={s.addCardActions}>
             <TouchableOpacity style={s.cancelBtn}
               onPress={() => { setAddingLoc(false); setNewLocLat(null); setNewLocLng(null); }}>
@@ -378,14 +458,16 @@ export default function EditServiceScreen() {
   // ─── Step 4 ───────────────────────────────────────────────────────────────
   const renderStep4 = () => (
     <View style={s.stepContent}>
-      <Text style={s.stepTitle}>Créneaux récurrents</Text>
+      <Text style={s.stepTitle}>Disponibilités</Text>
       <Text style={s.stepHint}>Modifiez ou ajoutez des créneaux</Text>
       {slots.map(slot => (
         <View key={slot.id} style={s.itemCard}>
-          <View style={s.itemIconBox}><Ionicons name="time" size={16} color={ORANGE} /></View>
+          <View style={[s.itemIconBox, { backgroundColor: slot.type === 'single' ? 'rgba(29,191,115,0.12)' : slot.type === 'availability' ? 'rgba(90,100,220,0.12)' : ORANGE_LIGHT }]}>
+            <Ionicons name={slotIcon(slot.type)} size={16} color={slot.type === 'single' ? GREEN : slot.type === 'availability' ? '#5A64DC' : ORANGE} />
+          </View>
           <View style={{ flex: 1 }}>
-            <Text style={s.itemTitle}>{DAYS_FR[slot.day]}</Text>
-            <Text style={s.itemMeta}>{slot.start} → {slot.end}</Text>
+            <Text style={s.itemMeta}>{SLOT_TYPES.find(t => t.value === slot.type)?.label}</Text>
+            <Text style={s.itemTitle}>{formatSlotLabel(slot)}</Text>
           </View>
           <TouchableOpacity onPress={() => setSlots(prev => prev.filter(s => s.id !== slot.id))}
             testID={`remove-slot-${slot.id}`}>
@@ -396,37 +478,64 @@ export default function EditServiceScreen() {
       {addingSlot ? (
         <View style={s.addCard}>
           <Text style={s.addCardTitle}>Nouveau créneau</Text>
-          <Text style={s.fieldLabel}>Jour</Text>
-          <View style={[s.chips, { flexWrap: 'wrap' }]}>
-            {DAYS_FR.map((day, i) => (
-              <TouchableOpacity key={i}
-                style={[s.chip, newSlotDay === i && s.chipActive]}
-                onPress={() => setNewSlotDay(i)} testID={`day-${i}`}>
-                <Text style={[s.chipText, newSlotDay === i && s.chipTextActive]}>{day}</Text>
+          <View style={{ gap: 8, marginBottom: 4 }}>
+            {SLOT_TYPES.map(t => (
+              <TouchableOpacity key={t.value}
+                style={[s.slotTypeCard, newSlotType === t.value && s.slotTypeCardActive]}
+                onPress={() => setNewSlotType(t.value as SlotType)}
+                testID={`slot-type-${t.value}`}>
+                <Ionicons name={t.icon as any} size={16} color={newSlotType === t.value ? ORANGE : Colors.muted} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[s.slotTypeLabel, newSlotType === t.value && s.slotTypeLabelActive]}>{t.label}</Text>
+                  <Text style={s.slotTypeHint}>{t.hint}</Text>
+                </View>
+                {newSlotType === t.value && <Ionicons name="checkmark-circle" size={16} color={ORANGE} />}
               </TouchableOpacity>
             ))}
           </View>
-          <View style={[s.row, { marginTop: 12 }]}>
-            <View style={{ flex: 1 }}>
-              <Text style={s.fieldLabel}>Début</Text>
-              <TextInput style={s.input} value={newSlotStart} onChangeText={setNewSlotStart}
-                placeholder="09:00" placeholderTextColor={Colors.muted}
-                keyboardType="numbers-and-punctuation" testID="slot-start-input" />
+          {newSlotType === 'single' && (
+            <View style={s.field}>
+              <Text style={s.fieldLabel}>Date de la séance</Text>
+              {Platform.OS === 'web' ? (
+                <input
+                  type="date"
+                  value={newSlotDate}
+                  onChange={(e: any) => setNewSlotDate(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
+                  style={{ width: '100%', padding: '12px 14px', borderRadius: 8, border: '1px solid ' + Colors.border, background: Colors.card, color: Colors.foreground, fontSize: 14, outline: 'none' } as any}
+                  data-testid="slot-date-input"
+                />
+              ) : (
+                <TextInput style={s.input} value={newSlotDate} onChangeText={setNewSlotDate}
+                  placeholder="AAAA-MM-JJ" placeholderTextColor={Colors.muted} testID="slot-date-input" />
+              )}
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={s.fieldLabel}>Fin</Text>
-              <TextInput style={s.input} value={newSlotEnd} onChangeText={setNewSlotEnd}
-                placeholder="10:00" placeholderTextColor={Colors.muted}
-                keyboardType="numbers-and-punctuation" testID="slot-end-input" />
+          )}
+          {newSlotType !== 'single' && (
+            <View style={s.field}>
+              <Text style={s.fieldLabel}>Jour de la semaine</Text>
+              <View style={[s.chips, { flexWrap: 'wrap' }]}>
+                {DAYS_FR.map((day, i) => (
+                  <TouchableOpacity key={i}
+                    style={[s.chip, newSlotDay === i && s.chipActive]}
+                    onPress={() => setNewSlotDay(i)} testID={`day-${i}`}>
+                    <Text style={[s.chipText, newSlotDay === i && s.chipTextActive]}>{day}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
-          </View>
+          )}
+          {renderTimePicker(newSlotStart, setNewSlotStart,
+            newSlotType === 'availability' ? 'Disponible dès' : 'Heure de début', 'start')}
+          {renderTimePicker(newSlotEnd, setNewSlotEnd,
+            newSlotType === 'availability' ? 'Disponible jusqu\'à' : 'Heure de fin', 'end')}
           <View style={s.addCardActions}>
             <TouchableOpacity style={s.cancelBtn}
-              onPress={() => { setAddingSlot(false); setNewSlotStart(''); setNewSlotEnd(''); }}>
+              onPress={() => { setAddingSlot(false); setNewSlotStart(''); setNewSlotEnd(''); setNewSlotDate(''); }}>
               <Text style={s.cancelBtnText}>Annuler</Text>
             </TouchableOpacity>
             <TouchableOpacity style={s.confirmBtn} onPress={addSlot} testID="confirm-slot-btn">
-              <Text style={s.confirmBtnText}>Ajouter ce créneau</Text>
+              <Text style={s.confirmBtnText}>Ajouter</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -483,24 +592,13 @@ export default function EditServiceScreen() {
           <View style={s.summarySection}>
             <Text style={s.summarySectionTitle}>Créneaux ({slots.length})</Text>
             {slots.map(slot => (
-              <Text key={slot.id} style={s.summarySectionItem}>
-                • {DAYS_FR[slot.day]} : {slot.start} → {slot.end}
-              </Text>
+              <View key={slot.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                <Ionicons name={slotIcon(slot.type)} size={13} color={ORANGE} />
+                <Text style={s.summarySectionItem}>{formatSlotLabel(slot)}</Text>
+              </View>
             ))}
           </View>
         )}
-        <TouchableOpacity
-          style={[s.saveBtn, submitting && s.disabledBtn]}
-          onPress={handleSubmit} disabled={submitting}
-          testID="save-service-btn">
-          {submitting
-            ? <ActivityIndicator color={Colors.background} />
-            : <>
-              <Ionicons name="checkmark-circle-outline" size={18} color={Colors.background} />
-              <Text style={s.saveBtnText}>Sauvegarder les modifications</Text>
-            </>
-          }
-        </TouchableOpacity>
       </View>
     );
   };
@@ -512,7 +610,7 @@ export default function EditServiceScreen() {
     </View>
   );
 
-  // ─── Main Render ──────────────────────────────────────────────────────────
+  // ─── Main render ──────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
       <View style={s.header}>
@@ -537,20 +635,33 @@ export default function EditServiceScreen() {
           {step === 5 && renderStep5()}
         </ScrollView>
 
-        {step < 5 && (
-          <View style={s.bottomNav}>
-            {step > 1 ? (
-              <TouchableOpacity style={s.prevBtn} onPress={goPrev} testID="prev-step-btn">
-                <Ionicons name="chevron-back" size={18} color={Colors.foreground} />
-                <Text style={s.prevBtnText}>Précédent</Text>
-              </TouchableOpacity>
-            ) : <View style={{ flex: 1 }} />}
+        <View style={s.bottomNav}>
+          {step > 1 ? (
+            <TouchableOpacity style={s.prevBtn} onPress={goPrev} testID="prev-step-btn">
+              <Ionicons name="chevron-back" size={18} color={Colors.foreground} />
+              <Text style={s.prevBtnText}>Précédent</Text>
+            </TouchableOpacity>
+          ) : <View style={{ flex: 1 }} />}
+          {step < 5 ? (
             <TouchableOpacity style={s.nextBtn} onPress={goNext} testID="next-step-btn">
               <Text style={s.nextBtnText}>{step === 4 ? 'Résumé' : 'Suivant'}</Text>
               <Ionicons name="chevron-forward" size={18} color={Colors.background} />
             </TouchableOpacity>
-          </View>
-        )}
+          ) : (
+            <TouchableOpacity
+              style={[s.nextBtn, s.saveBtn, submitting && s.disabledBtn]}
+              onPress={handleSubmit} disabled={submitting}
+              testID="save-service-btn">
+              {submitting
+                ? <ActivityIndicator color={Colors.background} />
+                : <>
+                  <Ionicons name="checkmark-circle-outline" size={18} color={Colors.background} />
+                  <Text style={s.nextBtnText}>Sauvegarder</Text>
+                </>
+              }
+            </TouchableOpacity>
+          )}
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -608,6 +719,48 @@ const s = StyleSheet.create({
   chipActive: { backgroundColor: ORANGE_LIGHT, borderColor: ORANGE },
   chipText: { fontSize: 13, fontWeight: '600', color: Colors.muted },
   chipTextActive: { color: ORANGE },
+  charCount: { fontSize: 11, textAlign: 'right', marginTop: 2 },
+  charCountGood: { color: GREEN },
+  charCountWarn: { color: Colors.muted },
+  // Time picker
+  timeChip: {
+    paddingHorizontal: 10, paddingVertical: 8, borderRadius: Radius.md,
+    borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.background,
+    minWidth: 44, alignItems: 'center',
+  },
+  timeChipActive: { backgroundColor: ORANGE_LIGHT, borderColor: ORANGE },
+  timeChipText: { fontSize: 13, fontWeight: '700', color: Colors.muted },
+  timeChipTextActive: { color: ORANGE },
+  minChip: {
+    paddingHorizontal: 14, paddingVertical: 7, borderRadius: Radius.full,
+    borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.background,
+  },
+  minChipActive: { backgroundColor: ORANGE_LIGHT, borderColor: ORANGE },
+  minChipText: { fontSize: 13, fontWeight: '600', color: Colors.muted },
+  minChipTextActive: { color: ORANGE },
+  timeHint: { fontSize: 12, color: Colors.muted, fontStyle: 'italic' },
+  // Precision cards
+  precisionCard: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: Colors.background, borderRadius: Radius.md,
+    padding: 12, borderWidth: 1.5, borderColor: Colors.border,
+  },
+  precisionCardActive: { borderColor: ORANGE, backgroundColor: ORANGE_LIGHT },
+  precisionCardLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  precisionCardLabel: { fontSize: 14, fontWeight: '700', color: Colors.muted },
+  precisionCardLabelActive: { color: ORANGE },
+  precisionCardHint: { fontSize: 12, color: Colors.muted },
+  // Slot type cards
+  slotTypeCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: Colors.background, borderRadius: Radius.md,
+    padding: 12, borderWidth: 1.5, borderColor: Colors.border,
+  },
+  slotTypeCardActive: { borderColor: ORANGE, backgroundColor: ORANGE_LIGHT },
+  slotTypeLabel: { fontSize: 14, fontWeight: '700', color: Colors.muted },
+  slotTypeLabelActive: { color: ORANGE },
+  slotTypeHint: { fontSize: 11, color: Colors.muted, marginTop: 1 },
+  // Item cards
   itemCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     backgroundColor: Colors.card, borderRadius: Radius.lg,
@@ -618,12 +771,12 @@ const s = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   itemTitle: { fontSize: 14, fontWeight: '600', color: Colors.foreground },
-  itemMeta: { fontSize: 12, color: Colors.muted, marginTop: 2 },
+  itemMeta: { fontSize: 12, color: Colors.muted, marginTop: 1 },
   addCard: {
     backgroundColor: Colors.card, borderRadius: Radius.xl,
-    padding: Spacing.md, borderWidth: 1, borderColor: ORANGE_BORDER, gap: 8,
+    padding: Spacing.md, borderWidth: 1, borderColor: ORANGE_BORDER, gap: 10,
   },
-  addCardTitle: { fontSize: 15, fontWeight: '700', color: ORANGE, marginBottom: 2 },
+  addCardTitle: { fontSize: 15, fontWeight: '700', color: ORANGE },
   hint: { fontSize: 12, color: Colors.muted },
   mapWrap: { height: 200, borderRadius: Radius.lg, overflow: 'hidden' },
   coordsText: { fontSize: 12, color: ORANGE, fontWeight: '600' },
@@ -642,6 +795,7 @@ const s = StyleSheet.create({
     borderStyle: 'dashed', borderColor: ORANGE_BORDER,
   },
   addBtnText: { fontSize: 14, fontWeight: '700', color: ORANGE },
+  // Summary
   summaryCard: {
     backgroundColor: Colors.card, borderRadius: Radius.xl,
     padding: Spacing.md, borderWidth: 1, borderColor: ORANGE_BORDER, gap: 8,
@@ -654,11 +808,7 @@ const s = StyleSheet.create({
   summarySection: { gap: 6 },
   summarySectionTitle: { fontSize: 14, fontWeight: '700', color: ORANGE },
   summarySectionItem: { fontSize: 13, color: Colors.muted, paddingLeft: 4 },
-  saveBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-    backgroundColor: ORANGE, borderRadius: Radius.full, paddingVertical: 16, marginTop: 8,
-  },
-  saveBtnText: { fontSize: 16, fontWeight: '800', color: Colors.background },
+  // Bottom nav
   bottomNav: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: Spacing.md, paddingVertical: 12,
@@ -667,12 +817,14 @@ const s = StyleSheet.create({
   },
   prevBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    paddingVertical: 12, borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.border,
+    paddingVertical: 12, borderRadius: Radius.full,
+    borderWidth: 1, borderColor: Colors.border,
   },
   prevBtnText: { fontSize: 14, fontWeight: '600', color: Colors.foreground },
   nextBtn: {
     flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     paddingVertical: 12, borderRadius: Radius.full, backgroundColor: ORANGE,
   },
+  saveBtn: { backgroundColor: GREEN },
   nextBtnText: { fontSize: 15, fontWeight: '700', color: Colors.background },
 });
