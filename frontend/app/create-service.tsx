@@ -541,13 +541,14 @@ export default function CreateServiceScreen() {
             newSlotType === 'availability' ? 'Disponible jusqu\'à' : 'Heure de fin', 'end')}
           <View style={s.addCardActions}>
             <TouchableOpacity style={s.cancelBtn}
-              onPress={() => { setAddingSlot(false); setNewSlotStart(''); setNewSlotEnd(''); setNewSlotDate(''); }}>
+              onPress={() => { setAddingSlot(false); setNewSlotStart(''); setNewSlotEnd(''); setNewSlotDate(''); setSlotError(''); }}>
               <Text style={s.cancelBtnText}>Annuler</Text>
             </TouchableOpacity>
             <TouchableOpacity style={s.confirmBtn} onPress={addSlot} testID="confirm-slot-btn">
               <Text style={s.confirmBtnText}>Ajouter</Text>
             </TouchableOpacity>
           </View>
+          {slotError ? <Text style={s.errorText} testID="slot-error">{slotError}</Text> : null}
         </View>
       ) : (
         <TouchableOpacity style={s.addBtn} onPress={() => setAddingSlot(true)} testID="add-slot-btn">
