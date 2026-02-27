@@ -98,7 +98,13 @@ export default function EditServiceScreen() {
       setMaxParticipants(String(data.max_participants || '1'));
       // Pre-populate step 2
       setSelectedDomain(data.domain_id || doms[0]?.domain_id || '');
-      setSelectedTags(data.tag_ids || []);
+      // Defensive: tag_ids may be a JSON string due to backend double-encoding
+      const rawTagIds = data.tag_ids;
+      setSelectedTags(
+        Array.isArray(rawTagIds) ? rawTagIds
+          : typeof rawTagIds === 'string' ? (() => { try { return JSON.parse(rawTagIds); } catch { return []; } })()
+          : []
+      );
       // Pre-populate step 3
       if (data.locations?.length > 0) {
         setLocations(data.locations.map((loc: any) => ({
