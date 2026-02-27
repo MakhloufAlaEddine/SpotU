@@ -1,0 +1,102 @@
+{
+  "summary": "Complete backend + frontend testing for WINEK iteration 20 - Service stepper refactor (5-step create-service) and hourly_rate removal. All 14 backend tests pass. Frontend: all 5 stepper steps verified with orange UI. Fixed a critical crash bug in edit-profile.tsx (missing selectedTagIds useState declaration). 2 minor issues remain for E1.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "create-service.tsx - Step 5 Résumé",
+        "issue": "Domain icon rendered as raw string text: 'UserCheck Coaching' instead of showing an icon + 'Coaching'. The `domainObj.icon` field contains a string icon name (e.g. 'UserCheck', 'Dumbbell') used by Lucide/similar library, but Step 5 renders it as `{domainObj.icon} {domainObj.label_fr}` in a plain <Text> component. DomainPill component handles this differently.",
+        "selector": "summaryMetaItem in renderStep5()",
+        "priority": "LOW"
+      },
+      {
+        "component": "create-service.tsx - Direct URL navigation",
+        "issue": "Navigating directly to /create-service URL (not via in-app flow) causes Expo Router error: 'Attempted to navigate before mounting Root Layout' when user=null during initial render and router.back() is called in useEffect. In-app navigation via edit-profile works correctly. Fix: check loading state before calling router.back().",
+        "selector": "useEffect in CreateServiceScreen (line ~91-98)",
+        "priority": "LOW (only affects direct URL, in-app flow works)"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "bug_fixed": {
+    "file": "/app/frontend/app/edit-profile.tsx",
+    "issue": "Missing useState declaration for `selectedTagIds`/`setSelectedTagIds`. The state was used in multiple places (line 116 in init(), line 349 in JSX subtitle, line 160-163 in toggleTag, line 173 in handleSave) but the useState hook was never declared. Caused a ReferenceError crash when loading edit-profile.",
+    "fix": "Added `const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);` in the Data states section (line 96, after domains state)",
+    "severity": "CRITICAL - screen was completely broken before fix"
+  },
+  "test_results": {
+    "backend": {
+      "total": 14,
+      "passed": 14,
+      "failed": 0,
+      "tests": {
+        "hourly_rate_absent_coach_profile": "PASS",
+        "hourly_rate_absent_user_profile": "PASS",
+        "create_service_with_locations_slots": "PASS - 2 locations, 3 slots created and returned",
+        "create_service_empty_locations_slots": "PASS",
+        "create_service_requires_coach_role": "PASS - 403 for non-coach",
+        "get_services_has_locations_slots_keys": "PASS",
+        "get_service_by_id_has_locations_slots": "PASS",
+        "get_my_services_has_locations_slots": "PASS",
+        "geospatial_search_paris_50km": "PASS",
+        "geospatial_search_tokyo_far": "PASS - returns 0 services",
+        "geospatial_single_param_no_crash": "PASS - 200",
+        "geospatial_large_radius": "PASS",
+        "service_locations_persist_db": "PASS - lat/lng/precision verified",
+        "service_appears_in_mine": "PASS"
+      }
+    },
+    "frontend": {
+      "login_page": "PASS - 'Bon retour!' French UI, email/password inputs work",
+      "coach_login": "PASS - coach@winek.app / WinekCoach2024! redirects to /map",
+      "profile_tab": "PASS - Sophie Martin shown as Coach",
+      "navigate_to_create_service": "PASS - via edit-profile '+ Créer' button",
+      "stepper_labels": "PASS - INFOS, SPORT, LIEUX, CRÉNEAUX, RÉSUMÉ all visible",
+      "stepper_orange_colors": "PASS - #FF9500 orange on active step circle, lines, buttons",
+      "step1_form_fill": "PASS - title and price inputs work, commission 15% note shows in orange",
+      "step1_next_btn": "PASS - 'Suivant' button advances to step 2",
+      "step2_sport": "PASS - Domain selector (Coaching active), tags shown",
+      "step3_lieux": "PASS - 'Ajouter un lieu' button, map (Paris/OSM), precision chips, description input",
+      "step4_creneaux": "PASS - 'Ajouter un créneau', 7 days of week (Lun-Dim), time inputs HH:MM",
+      "step5_resume": "PASS - Summary with title/price/duration, warnings, 'Publier mon service' orange button",
+      "edit_profile_no_hourly_rate": "PASS - 'Taux horaire' ABSENT",
+      "edit_profile_mes_services": "PASS - 'Mes Services' section shown for coach"
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_services_stepper_iter20.py",
+    "/app/test_reports/pytest/pytest_iter20.xml"
+  ],
+  "action_items": [
+    "LOW: Fix domain icon display in Step 5 summary - 'UserCheck Coaching' shows raw icon string. Use emoji icons in seed data OR render DomainPill component in the summary instead of plain Text.",
+    "LOW: Fix create-service direct URL navigation - add loading state check before router.back() in useEffect to prevent crash on direct URL navigation."
+  ],
+  "critical_code_review_comments": [
+    "FIXED: Missing useState for selectedTagIds in edit-profile.tsx - was causing complete crash of edit-profile screen (ReferenceError on render).",
+    "users table still has hourly_rate column defined in CREATE_TABLES_SQL (line 25 of database.py) but it's immediately dropped via ALTER TABLE DROP COLUMN in the migration (line 239). This is OK but slightly wasteful - could remove the column from CREATE TABLE to keep schema clean.",
+    "create-service useEffect role check (line 91-98) calls router.back() before the router is mounted when directly deep-linking. Should guard with loading state: if (loading) return;",
+    "edit-profile.tsx was missing `selectedTagIds` useState - this was likely removed accidentally when refactoring hourly_rate. Always review useState declarations after removing fields."
+  ],
+  "updated_files": [
+    "/app/frontend/app/edit-profile.tsx (added missing selectedTagIds useState declaration at line 96)"
+  ],
+  "success_rate": {
+    "backend": "100% (14/14)",
+    "frontend": "93% (13/14 - domain icon display minor issue)"
+  },
+  "seed_data_creation": "Created multiple TEST_ prefixed services during backend testing (service_locations and service_slots tables verified populated)",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "WINEK app fully tested iter20. Backend all green (PostgreSQL running, PostGIS working, service_locations/service_slots tables functional). Frontend create-service 5-step stepper fully working with orange #FF9500 colors. edit-profile fixed (selectedTagIds useState added). Key: Metro runs in CI mode (no hot reload) - clear .metro-cache + restart expo after code changes. Auth: standard login via /api/auth/login + localStorage 'winek_token'. Direct URL navigation to /create-service shows Expo Router error (not a blocking issue - in-app navigation works fine).",
+  "rca_of_issue": {
+    "bug": "edit-profile.tsx crashed with 'selectedTagIds is not defined'",
+    "root_cause": "When E1 removed the hourly_rate field from edit-profile.tsx, the useState declaration for selectedTagIds was accidentally removed along with it. The state was used in 4+ places (init(), JSX subtitle, toggleTag(), handleSave()) but its useState hook was missing from the component.",
+    "reproduction": "1. Login as coach. 2. Navigate to /edit-profile. 3. React renders EditProfileScreen. 4. Line 349: subtitle={`${selectedTagIds.length} sélectionné...`} throws ReferenceError because selectedTagIds is undefined.",
+    "fix": "Added `const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);` in Data states section of edit-profile.tsx",
+    "prevention": "Always run a quick render test after removing state fields - TypeScript would have caught this if the file had strict mode and if the removed line contained the type declaration."
+  }
+}
