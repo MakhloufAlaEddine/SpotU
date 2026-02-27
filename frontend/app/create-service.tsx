@@ -771,6 +771,7 @@ const s = StyleSheet.create({
   minChipText: { fontSize: 13, fontWeight: '600', color: Colors.muted },
   minChipTextActive: { color: ORANGE },
   timeHint: { fontSize: 12, color: Colors.muted, fontStyle: 'italic' },
+  errorText: { fontSize: 12, color: Colors.destructive, fontWeight: '600', marginTop: 2 },
   // Motivational banner
   motiveBanner: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 10,
