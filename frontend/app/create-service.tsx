@@ -189,17 +189,19 @@ export default function CreateServiceScreen() {
   const [slotError, setSlotError] = useState('');
 
   const addSlot = () => {
-    if (!newSlotStart || !newSlotEnd) { setSlotError('Sélectionnez les horaires de début et de fin'); return; }
+    if (!newSlotStart) { setSlotError('Sélectionnez une heure de début'); return; }
+    if (!newSlotEnd) { setSlotError('Sélectionnez une heure de fin'); return; }
     if (newSlotStart >= newSlotEnd) { setSlotError("L'heure de fin doit être après l'heure de début"); return; }
     if (newSlotType === 'single' && !newSlotDate) { setSlotError('Sélectionnez une date'); return; }
+    if (newSlotType !== 'single' && newSlotDays.length === 0) { setSlotError('Sélectionnez au moins un jour'); return; }
     setSlotError('');
     setSlots(prev => [...prev, {
       id: `slot_${Date.now()}`, type: newSlotType,
-      day: newSlotType !== 'single' ? newSlotDay : undefined,
+      days: newSlotType !== 'single' ? [...newSlotDays].sort() : [],
       start: newSlotStart, end: newSlotEnd,
       date: newSlotType === 'single' ? newSlotDate : undefined,
     }]);
-    setNewSlotStart(''); setNewSlotEnd(''); setNewSlotDate('');
+    setNewSlotStart(''); setNewSlotEnd(''); setNewSlotDate(''); setNewSlotDays([]);
     setAddingSlot(false);
   };
 
