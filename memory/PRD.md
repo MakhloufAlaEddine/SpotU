@@ -1,89 +1,117 @@
 # WINEK - Product Requirements Document
 
 ## Original Problem Statement
-Application mobile "WINEK" - Plateforme hyperlocale de connexion par tags (V1: sports et coaching).
-- Utilisateurs peuvent créer et rechercher des "tagPoints" géolocalisés
-- Les coachs peuvent proposer des services payants
-- Stack: React Native (Expo/TypeScript) + FastAPI + PostgreSQL/PostGIS
-- Bilingue: Français/Anglais
+Application mobile hyperlocale WINEK - plateforme de connexion basée sur des tags (sports/coaching). V1 orientée sports et coaching : créer, chercher et gérer des "tagPoints" et "Services" géolocalisés. Modèle payant pour les coaches avec intégration Stripe.
 
-## Architecture
-```
-/app
-├── backend/
-│   ├── server.py          # FastAPI app + startup
-│   ├── database.py        # AsyncPG pool + CREATE TABLE migrations
-│   ├── models.py          # Pydantic models
-│   ├── seed.py            # Seed data (users, domains, tagpoints, services)
-│   ├── auth_utils.py      # JWT auth
-│   └── routes/
-│       ├── auth_routes.py
-│       ├── tagpoint_routes.py
-│       ├── service_routes.py
-│       ├── user_routes.py
-│       └── upload_routes.py
-├── frontend/
-│   ├── app/
-│   │   ├── (tabs)/        # Map, Discover, Create tagpoint, Profile
-│   │   ├── create-service.tsx   # Service creation (5 étapes)
-│   │   ├── edit-service/[id].tsx # Service editing (5 étapes)
-│   │   └── tag-point/[id].tsx   # TagPoint detail
-│   └── components/
-│       ├── DateTimePicker.tsx   # DateTimePickerModal (partagé)
-│       ├── MapViewComponent.tsx
-│       ├── DomainPill.tsx
-│       └── TagSelector.tsx
-```
+**Langue préférée**: Français
+
+---
+
+## Architecture Technique
+- **Frontend**: React Native (Expo), TypeScript
+- **Backend**: FastAPI (Python), PostgreSQL + PostGIS
+- **Auth**: JWT + Google Social Login (Emergent-managed)
+- **Géolocalisation**: PostGIS pour les requêtes spatiales
+- **Paiements**: Stripe (planifié)
+
+## Personas Utilisateurs
+- **User (standard)**: Cherche des activités, sauvegarde des tagPoints, réserve des services
+- **Coach**: Crée des profils, offre des services payants avec planning par lieu
+- **Admin**: Gestion de la plateforme
+
+---
 
 ## What's Been Implemented
 
-### Core Features (DONE)
-- Auth: login/signup + Google Social Login (ON HOLD - bug Expo Go)
-- TagPoints: CRUD complet + carte géolocalisée + précision PostGIS
-- Services: CRUD complet avec formulaire 5 étapes
-  - Étape 1: Titre, description, prix, durée
-  - Étape 2: Sport & tags
-  - Étape 3: Lieux sur carte (jusqu'à 5)
-  - Étape 4: Créneaux avec DateTimePickerModal (refonte 2026-02-27)
-  - Étape 5: Résumé + publication
-- Profil: Visualisation tagPoints et services du coach
-- Booking: Système de réservation V1
+### Session 1-3 (Fondations)
+- Auth JWT + Google Social Login
+- TagPoints CRUD avec géolocalisation PostGIS
+- Écran carte principal + recherche
+- Profil utilisateur + coach
+- Domaines/Tags/Catégories
+- Système de services de base
 
-### Dernière implémentation (2026-02-27)
-- P0 Terminé: Refonte UI date/heure Step 4 (create-service + edit-service)
-  - Remplacé: chips scrollables heures/minutes
-  - Par: DateTimePickerModal (identique à create-tag-point)
-  - Mode datetime pour créneau "Date unique"
-  - Mode time pour créneaux "Récurrent" et "Disponibilité"
-  - Validation intégrée (fin > début, sélection requise)
-  - Tests: 12/12 backend + 15/15 frontend PASS
+### Session 4-6 (Services & Booking)
+- Système de réservation (bookings)
+- Formulaire création service (create-service.tsx) - 5 étapes
+- Formulaire édition service (edit-service/[id].tsx)
+- Bug fix: connexion backend PostgreSQL
 
-## Key DB Schema (PostgreSQL + PostGIS)
-- users: user_id, email, hashed_password, role (user/coach/admin), full_name
-- tag_points: tag_point_id, user_id, title, description, lat, lng, precision, schedule (JSONB)
-- services: service_id, coach_id, title, description, price, domain_id, status
-- service_slots: slot_id, service_id, slot_type (recurring/single/availability), day_of_week, days_of_week (JSONB), start_time, end_time, slot_date
-- bookings: booking_id, service_id, user_id, slot_id, status, notes
+### Session 7 (Refactoring UI - Obsolète)
+- Refactoring UI date/time picker (déprécié immédiatement après)
 
-## Credentials (test)
-- admin@winek.app / WinekAdmin2024!
-- coach@winek.app / WinekCoach2024!
-- user@winek.app / WinekUser2024!
+### Session 8 (Architecture Location-Based - ACTUEL)
+**Date**: 2026-02-27
+- **Nouvelle colonne**: `service_slots.location_id` FK → `service_locations(location_id)`
+- **Modèle**: `ServiceSlotItem` avec `location_index` (int) pour résoudre le mapping
+- **Backend create/update**: Collecte les IDs de locations créées, mappe via `location_index`
+- **Retour GET**: `slot.location_id` retourné dans la réponse API
+- **Frontend create-service.tsx**: `handleSubmit` envoie `location_index: locIdx`
+- **Frontend edit-service/[id].tsx**: REÉCRIT - étapes 3 & 4 avec nouvelle architecture
+  - Étape 3: `LocationPicker` pour ajouter des lieux + precision chips
+  - Étape 4: Planning indépendant par lieu (sélecteur type, jours, créneaux horaires)
+  - `loadService`: reconstruit l'état depuis l'API (groupement slots par location_id)
+  - `handleSubmit`: envoie `location_index` pour chaque slot
+- **Fix**: `GET /services/mine` filtre `active=TRUE` (services soft-deleted masqués)
+- **Tests**: 100% - 32/32 (16 backend + 16 frontend) - iteration_27.json
 
-## Known Issues / Blockers
-- Expo hot-reload: Non fonctionnel → sudo supervisorctl restart expo requis après chaque modif frontend
-- Google Auth Expo Go: In-app browser ne se ferme pas automatiquement (ON HOLD)
+---
 
 ## Prioritized Backlog
 
-### P1 (Prochain sprint)
-- [ ] Boutons d'action (Similaire/Partager/Sauvegarder) sur tag-point/[id].tsx - layout insatisfaisant
-- [ ] Système de réservation V2: acceptation/rejet par le coach
-- [ ] Recherche et filtrage des services sur la carte
+### P0 - Critique
+- Aucun P0 actif (location-based scheduling TERMINÉ ✅)
 
-### P2 (Future)
-- [ ] Intégration Stripe (paiements services)
-- [ ] Support bilingue i18n (Français/Anglais)
-- [ ] Chat entre utilisateurs
-- [ ] Dashboard Admin
-- [ ] Fix Google Auth sur Expo Go
+### P1 - Haute Priorité
+- **Booking System V2**: Acceptation/rejet des réservations par le coach
+- **Service Search**: Recherche et filtrage des services sur la carte principale
+- **Action Buttons UI**: Layout insatisfaisant (`Similaire/Partager/Sauvegarder`) sur `tagPoint/[id].tsx`
+- **Stripe Integration**: Paiements pour les services
+
+### P2 - Priorité Moyenne
+- **i18n**: Support bilingue Français/Anglais
+- **Chat**: Implémentation du chat entre utilisateurs
+- **Admin Dashboard**: Interface d'administration
+
+### P3 - Backlog
+- Fix Google Auth sur Expo Go (IN HOLD)
+- Admin Dashboard complet
+- Notifications push
+
+---
+
+## Issues Connues
+
+### Non-bloquantes
+- **Expo Hot-Reload**: Cassé - utiliser `sudo supervisorctl restart expo` après chaque changement frontend
+- **Google Auth Expo Go**: Navigateur in-app ne se ferme pas automatiquement (ON HOLD)
+- **React Native Web warnings**: "Unexpected text node" (console, non-bloquant)
+
+---
+
+## Données de Test
+- **coach**: `coach@winek.app` / `WinekCoach2024!`
+- **user**: `user@winek.app` / `WinekUser2024!`
+- **admin**: `admin@winek.app` / `WinekAdmin2024!`
+- **Service test**: `svc_8f29229294d2` (Cours Tennis Multi-lieux, 2 lieux, 2 slots)
+
+---
+
+## API Endpoints Clés
+- `POST /api/services` - Créer service (location_index dans slots)
+- `PUT /api/services/{id}` - Modifier service (location_index dans slots)
+- `GET /api/services/{id}` - Récupérer service (slot.location_id retourné)
+- `GET /api/services/mine` - Services du coach connecté (filtre active=TRUE)
+
+## Schéma DB Clé (service_slots)
+```sql
+slot_id TEXT PK
+service_id TEXT FK
+location_id TEXT FK → service_locations(location_id) ON DELETE SET NULL
+slot_type TEXT DEFAULT 'recurring'
+days_of_week JSONB
+day_of_week INT
+start_time TEXT
+end_time TEXT
+slot_date TEXT
+```
