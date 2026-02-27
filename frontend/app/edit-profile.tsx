@@ -487,6 +487,14 @@ const st = StyleSheet.create({
   tagChipText: { fontSize: 12, fontWeight: '600', color: Colors.muted },
   tagChipTextActive: { color: Colors.primary, fontWeight: '700' },
 
+  // Switch rows (privacy)
+  switchRow: {
+    flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16,
+    paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: Colors.border,
+  },
+  switchLabel: { fontSize: 14, fontWeight: '600', color: Colors.foreground, marginBottom: 2 },
+  switchDesc: { fontSize: 12, color: Colors.muted },
+
   // Services
   serviceRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
