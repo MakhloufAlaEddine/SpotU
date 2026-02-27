@@ -58,7 +58,6 @@ class UserUpdate(BaseModel):
     phone: Optional[str] = None
     language: Optional[Language] = None
     picture: Optional[str] = None
-    hourly_rate: Optional[float] = None
     coach_tags: Optional[List[str]] = None
     show_phone: Optional[bool] = None
     show_reviews: Optional[bool] = None
