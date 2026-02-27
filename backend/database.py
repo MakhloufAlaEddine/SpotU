@@ -212,6 +212,8 @@ async def connect_to_db():
             ALTER TABLE tag_points ADD COLUMN IF NOT EXISTS event_end_date TIMESTAMPTZ;
             ALTER TABLE tag_points ADD COLUMN IF NOT EXISTS event_schedule JSONB DEFAULT NULL;
             ALTER TABLE tag_points ADD COLUMN IF NOT EXISTS new_date_coming BOOLEAN DEFAULT FALSE;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS show_phone BOOLEAN NOT NULL DEFAULT false;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS show_reviews BOOLEAN NOT NULL DEFAULT true;
         """)
 
     # 2. Seed données de base (users, tagpoints, tags, domaines...)
