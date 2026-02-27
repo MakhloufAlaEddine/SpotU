@@ -504,10 +504,10 @@ const st = StyleSheet.create({
   saveBtnText: { fontSize: 13, fontWeight: '700', color: Colors.background },
 
   // Avatar
-  avatarSection: { alignItems: 'center', paddingVertical: 28, gap: 10 },
+  avatarSection: { alignItems: 'center', paddingVertical: 28, gap: 8 },
   avatarRing: {
     width: 92, height: 92, borderRadius: 46,
-    borderWidth: 2.5, borderColor: Colors.primary, padding: 4,
+    borderWidth: 2.5, borderColor: Colors.primary, padding: 4, position: 'relative',
   },
   avatar: {
     flex: 1, borderRadius: 42, backgroundColor: Colors.card,
@@ -515,6 +515,13 @@ const st = StyleSheet.create({
   },
   avatarImg: { width: '100%', height: '100%' },
   avatarInitial: { fontSize: 32, fontWeight: '800', color: Colors.primary },
+  cameraBadge: {
+    position: 'absolute', bottom: 0, right: 0,
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: Colors.primary, borderWidth: 2, borderColor: Colors.background,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  avatarHint: { fontSize: 11, color: Colors.muted, marginTop: 2 },
   rolePill: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     backgroundColor: Colors.card, borderRadius: Radius.full,
