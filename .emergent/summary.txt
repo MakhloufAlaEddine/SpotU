@@ -14,92 +14,63 @@
 **User's preferred language**: French. The next agent MUST respond in **French**.
 
 **what currently exists?**
-The application has a functional user journey including authentication, tagPoint creation, editing, deletion, and location-based searching. The agent has just begun implementing a new feature to add start and end times to events. The database schema ( table) and backend models/routes have been updated to support  (for unique dates) and a modified  JSONB structure for recurring events (e.g., ). The frontend implementation for this new feature has not started yet.
+The application is significantly advanced. A full user journey is in place: authentication, tagPoint creation/editing/viewing, and location-based search. Key recent additions include:
+1.  **Event End Times**: Events can now have both a start and end time, for unique and recurring schedules. This is implemented full-stack.
+2.  **Public User Profiles**: A new screen  displays any user's public information, including their bio and a list of their public tagPoints.
+3.  **Profile Editing**: A comprehensive  screen allows users to edit their photo, bio, phone number, and manage their interests. It also includes a flow to become a coach.
+4.  **UI/UX Overhaul**: The main menu () has been completely redesigned into a Player Card style. The tagPoint detail screen () has been improved to show the Next Event for recurring activities and includes a distinctive icon and badge for them.
+5.  **Data Seeding**: The database seed script () has been updated with 15 realistic tagPoints using the latest data schema.
 
-Several critical bugs have been fixed, including an app crash on the profile screen (resolved with a custom ), numerous issues in the edit mode (missing images/tags, incorrect navigation), and data integrity problems related to date management (double-encoding, lack of mutual exclusivity).
-
-However, a major development environment issue persists: the Expo Metro bundler does not automatically hot-reload code changes due to a persistent  flag, requiring frequent manual cache clearing.
+A critical development workflow issue persists: the Expo Metro bundler does not hot-reload, requiring manual restarts of the frontend service after every change.
 
 **Last working item**:
-- **Last item agent was working**: Implementing support for event **end times** for both unique date and recurring tagPoints. The agent successfully modified the backend:
-    1.  **Database**: Added  column to the  table.
-    2.  **Backend Models**: Updated  and  Pydantic models.
-    3.  **Backend Logic**: Modified the  and  SQL queries in  to handle the new fields.
-- **Status**: IN PROGRESS
-- **Agent Testing Done**: N
-- **Which testing method agent to use?**: both. Once the frontend changes are complete, a full end-to-end test will be required, validating the UI, data submission, database storage, and display logic.
-- **User Testing Done**: N
+-   **Last item agent was working**: Implementing three new features for user profiles, requested by the user:
+    1.  A toggle in the edit profile screen to show/hide the user's phone number on their public profile.
+    2.  Displaying the user's selected interests and (if enabled) their phone number on the public profile screen.
+    3.  Adding a user rating and comment system, with a profile setting to enable/disable its display.
+    The agent started the backend implementation, adding new columns to the  table and beginning to modify the Pydantic models and API routes.
+-   **Status**: IN PROGRESS
+-   **Agent Testing Done**: N
+-   **Which testing method agent to use?**: both. A full end-to-end test will be required. The frontend agent should verify the UI elements in  and . The backend agent should test the new API endpoints for updating settings and submitting/fetching reviews.
+-   **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: Implement frontend for Event End Times (P0)**
+-   **Issue 1: Complete Profile Enhancement (Phone Toggle, Interests, Ratings) (P0)**
 -   **Issue 2: Expo Metro bundler does not hot-reload (P0 - CRITICAL)**
 -   **Issue 3: User dissatisfaction with action buttons layout (P1)**
 -   **Issue 4: Google Auth flow is broken on Expo Go (P2 - ON HOLD)**
 
 **Issues Detail**:
--   **Issue 1: Implement frontend for Event End Times**
-    -   **Attempted fixes**: N/A (Frontend work has not started).
+-   **Issue 1: Complete Profile Enhancement (Phone Toggle, Interests, Ratings)**
+    -   **Attempted fixes**: The agent started the backend work:
+        -   Added  (BOOLEAN),  (BOOLEAN) to the  table via an ALTER TABLE query.
+        -   Started modifying  and .
     -   **Next debug checklist**:
-        1.  Modify  to add UI components for selecting an end time for unique date events.
-        2.  Modify the recurring date component in  to allow setting a start and end time for each time slot.
-        3.  Update the payload in the  function to send the new  and the updated  structure.
-        4.  Update the display logic in  to show the time range (e.g., 18:00 - 19:00).
-    -   **Why fix this issue and what will be achieved with the fix?**: This is a direct user request to allow specifying a duration for activities, which is a core piece of information for an event.
+        1.  **Backend**: Finish updating Pydantic models (, , ) to include the new fields.
+        2.  **Backend**: Finalize the  endpoint to save these new settings.
+        3.  **Backend**: Update the  endpoint to return interests, reviews, and the phone number (respecting the  flag).
+        4.  **Backend**: Create new endpoints for managing reviews (e.g., , ).
+        5.  **Frontend**: Add the  components for Show phone number and Allow reviews in .
+        6.  **Frontend**: In , display the user's interests, phone number (conditionally), and the new reviews section (conditionally).
+        7.  **Frontend**: Implement a modal or form for users to submit a review on another user's profile.
+    -   **Why fix this issue and what will be achieved with the fix?**: This is a direct user request to enrich user profiles and add social proof features (ratings/reviews), making the platform more engaging.
     -   **Status**: IN PROGRESS
     -   **Is recurring issue?**: N
     -   **Should Test frontend/backend/both after fix?**: both
-    -   **Blocked on other issue**: No, but development is slowed by Issue #2.
+    -   **Blocked on other issue**: Development is slowed by Issue #2.
 
 -   **Issue 2: Expo Metro bundler does not hot-reload**
-    -   **Description**: Code changes in the frontend are not reflected in the Expo Go app without a manual cache clear. The user repeatedly reports Pas de changement (No change). The root cause appears to be a  environment variable being injected into the environment, forcing Metro into non-watch mode.
-    -   **Attempted fixes**: The agent tried overriding the variable by: 1) modifying , 2) using KUBERNETES_SERVICE_PORT_HTTPS=443
-PYTHON_SHA256=8d3ed8ec5c88c1c95f5e558612a725450d2452813ddad5e58fdb1a53b1209b78
-KUBERNETES_SERVICE_PORT=443
-PYTHONUNBUFFERED=1
-PIP_NO_INPUT=1
-STRIPE_API_KEY=sk_test_emergent
-HOSTNAME=agent-env-e9fba46a-7b1a-4212-93d3-bc5fe670ab88
-PYTHON_VERSION=3.11.14
-base_url=https://demobackend.emergentagent.com
-run_id=e9fba46a-7b1a-4212-93d3-bc5fe670ab88
-UV_COMPILE_BYTECODE=1
-PLUGIN_VENV_PATH=/opt/plugins-venv
-PWD=/app/frontend
-code_server_password=8f20de09
-HOME=/root
-LANG=C.UTF-8
-KUBERNETES_PORT_443_TCP=tcp://34.118.224.1:443
-VIRTUAL_ENV=/root/.venv
-GPG_KEY=A035C8C19219BA821ECEA86B64E628F8D684696D
-PLAYWRIGHT_BROWSERS_PATH=/pw-browsers
-integration_proxy_url=https://integrations.emergentagent.com
-preview_endpoint=https://tagpoint-hub.preview.emergentagent.com
-ENABLE_RELOAD=true
-SHLVL=0
-KUBERNETES_PORT_443_TCP_PROTO=tcp
-KUBERNETES_PORT_443_TCP_ADDR=34.118.224.1
-KUBERNETES_SERVICE_HOST=34.118.224.1
-KUBERNETES_PORT=tcp://34.118.224.1:443
-KUBERNETES_PORT_443_TCP_PORT=443
-PATH=/root/.venv/bin:/opt/plugins-venv/bin:/opt/bin:/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-monitor_polling_interval=1
-NEXT_TELEMETRY_DISABLED=1
-NODE_VERSION=20
-DEBIAN_FRONTEND=noninteractive
-OLDPWD=/app
-_=/usr/bin/env
-CI=false in the supervisor command, 3) removing  from  files. All attempts failed, suggesting the variable is set at a higher level (e.g., Kubernetes pod spec).
-    -   **Next debug checklist**: The immediate workaround is to **manually restart the frontend service** (frontend: ERROR (no such process)
-frontend: ERROR (no such process)) after every code change to force a rebuild. A permanent solution would require investigating how to override the pod's environment variables.
-    -   **Why fix this issue and what will be achieved with the fix?**: This is a critical development workflow blocker. Fixing it will restore hot-reloading and dramatically increase development speed.
+    -   **Description**: Frontend code changes are not reflected in the Expo Go app without a manual cache clear. The root cause appears to be a  environment variable. The agent encountered this repeatedly, especially while fixing a syntax error, which required multiple cache clearing attempts.
+    -   **Next debug checklist**: The established workaround is to **run expo: ERROR (not running)
+expo: started** after every frontend code change. A permanent fix is unlikely without access to the higher-level environment configuration.
+    -   **Why fix this issue and what will be achieved with the fix?**: This is a critical development workflow blocker. Fixing it would restore hot-reloading and dramatically increase development speed.
     -   **Status**: NOT STARTED
     -   **Is recurring issue?**: Y
     -   **Should Test frontend/backend/both after fix?**: N/A (Environment issue)
-    -   **Blocked on other issue**: No.
 
 -   **Issue 3: User dissatisfaction with action buttons layout**
-    -   **Description**: The user is not satisfied with the current layout of the Similar, Share, and Save buttons on the tagPoint detail screen ().
-    -   **Next debug checklist**: Proactively ask the user if they have a new design in mind or if they would like suggestions for a new layout.
+    -   **Description**: The user is not satisfied with the current layout of the Similar, Share, and Save buttons on the tagPoint detail screen (). This was mentioned in a previous fork but has not been addressed.
+    -   **Next debug checklist**: Proactively ask the user for design preferences or propose a new, cleaner layout for these actions.
     -   **Status**: NOT STARTED
     -   **Is recurring issue?**: Y
     -   **Should Test frontend/backend/both after fix?**: frontend
@@ -111,103 +82,112 @@ frontend: ERROR (no such process)) after every code change to force a rebuild. A
     -   **Should Test frontend/backend/both after fix?**: frontend (specifically on Expo Go).
 
 **In progress Task List**:
--   **Task 1: Complete End Time Feature (P0)**
-    -   **Where to resume**: The backend portion is complete. Resume by implementing the frontend UI and logic in  and .
-    -   **What will be achieved with this?**: Users will be able to specify a duration for their activities, making the event information more complete.
+-   **Task 1: Complete Profile Enhancement Features (P0)**
+    -   **Where to resume**: Resume backend implementation. The database schema has been altered. The next step is to update the Pydantic models in  and the API logic in .
+    -   **What will be achieved with this?**: Users will have more control over their profile's privacy and will be able to display more information (interests, reviews) to build trust and community.
     -   **Status**: IN PROGRESS
     -   **Should Test frontend/backend/both after fix?**: both
     -   **Blocked on something**: Development is hampered by the Expo hot-reload issue (Issue #2).
 
 **Upcoming and Future Tasks**
-- **Upcoming Tasks (P1)**:
-    - Complete Create Service Flow for Coaches in .
-    - Stripe Integration for service payments.
-    - Bilingual Support (i18n).
-    - Chat Implementation in .
-    - Revisit and finalize the UI for action buttons on the  screen (see Issue 3).
-- **Future Tasks (P2)**:
-    - User Reviews & Ratings system.
-    - Admin Dashboard.
-    - Fix Google Auth on Expo Go (currently on hold).
+-   **Upcoming Tasks (P1)**:
+    -   Revisit and finalize the UI for action buttons on the  screen (see Issue 3).
+    -   Complete Create Service Flow for Coaches in .
+    -   Stripe Integration for service payments.
+    -   Bilingual Support (i18n).
+    -   Chat Implementation in .
+-   **Future Tasks (P2)**:
+    -   Admin Dashboard.
+    -   Fix Google Auth on Expo Go (currently on hold).
 
 **Completed work in this session**
-- **Feature: Navigation and UX Flow Improvements**:
-    - After creating or editing a tagPoint, the app now navigates directly to the detail screen, removing the disruptive Voir/Accueil dialog.
-    - Fixed a bug where editing a tagPoint and returning to the detail screen created a duplicate entry in the navigation stack, requiring two back presses. The fix involved using  and .
-- **Feature: Enhanced Date Validation**:
-    - Added validation in the creation/edit form to prevent users from proceeding to the preview step with incomplete date/time information (e.g., Date unique selected but no date chosen).
-- **Critical Bug Fixes**:
-    - **Date Management**:
-        - Fixed a backend double-encoding bug where  was stored as a string instead of a JSON object.
-        - Made the frontend pre-fill logic for dates backward-compatible to handle legacy data formats from the database seed, resolving a bug where recurring events were displayed as sans date in edit mode.
-        - Ensured that changing an event's date type (e.g., from recurring to unique) correctly nullifies the unused date fields in the database.
-    - **Image Updates**: Fixed a bug where updating a tagPoint's images did not work because the  field was missing from the  backend model.
-- **Dev Environment Investigation**:
-    - Diagnosed the root cause of frontend changes not appearing: Metro bundler runs in  mode, disabling the file watcher. Attempted multiple fixes without success. The current workaround is manual cache clearing.
+-   **Feature: Event Start & End Times**: Implemented full-stack support for event end times, including DB migration, backend logic, and frontend UI in creation () and detail () screens.
+-   **Feature: Public User Profiles**: Created a new dynamic route  to display any user's public profile, including their tagpoints.
+-   **Feature: Profile Editing**: Built a comprehensive profile edit screen () for managing personal info, bio, interests, and coach status.
+-   **UI/UX Redesign**:
+    -   Completely redesigned the Menu/Profile tab () with a modern Player Card layout.
+    -   Improved the tagpoint detail screen () to show PROCHAIN ÉVÉNEMENT for recurring events, adding a  icon and a RÉCURRENT badge.
+-   **Critical Bug Fixes**:
+    -   Fixed a crash caused by incorrect state handling during end-time validation for recurring events.
+    -   Corrected a date calculation bug where events scheduled for tomorrow were incorrectly displayed as Today.
+-   **Data Management**: Updated the database seed script in  to populate all 15 test tagpoints with up-to-date, complete data, including end times and image URLs.
+-   **Workflow & Navigation**:
+    -   Corrected navigation flow so that clicking the user's Player Card navigates to their public profile view, which contains an Edit button to access the edit screen.
 
 **Earlier issues found/mentioned but not fixed**
 -   **Google Auth on Expo Go**: Deprioritized by the user.
--   **Core UX of action buttons**: The user is fundamentally not happy with the design on . This is an open UX problem.
--   **Expo Hot-Reload/Cache Issue**: The agent diagnosed the problem but could not implement a permanent fix.
+-   **Action Buttons UX**: The user's dissatisfaction with the action buttons on  remains unaddressed.
 
 **Known issue recurrence from previous fork**
--   **Expo Metro Bundler Cache Invalidation**: This is a new and highly impactful recurring issue. Throughout the session, the user repeatedly reported that code changes were not visible (Pas de changement). This forced the agent to manually clear the Metro cache (frontend: ERROR (no such process)
-frontend: ERROR (no such process)) multiple times, significantly slowing down the development-feedback loop. This is the most critical workflow impediment.
+-   **Expo Metro Bundler Cache Invalidation**: This is a severe and recurring workflow impediment. The agent spent significant time debugging a syntax error that was masked by Metro's caching behavior, ultimately resorting to deleting cache directories and reinstalling dependencies. The issue persists and requires a manual restart (expo: stopped
+expo: started) after every frontend change.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Defensive Data Handling**: The frontend now anticipates and handles multiple data formats (legacy and new) for  to prevent crashes and ensure correct UI state during edits.
--   **Navigation Stack Management**: Correctly using  in conjunction with  (or a context) is the established pattern for returning from an edit screen to a detail screen to ensure a clean navigation history and fresh data.
--   **Targeted Form Validation**: Shifting validation logic from the final  to an intermediate step ( to preview) to provide earlier user feedback, as requested.
--   **Environment Debugging**: Diagnosed a critical Expo/Metro hot-reloading issue caused by a  environment variable, though a permanent fix was not found.
+-   **Conditional Rendering**: Extensively used to show/hide UI elements based on user role (owner vs. visitor), event type (unique vs. recurring), and user settings.
+-   **Dynamic Routing**: Implemented a public user profile page using Expo's file-based dynamic routing ().
+-   **Backward Compatibility**: The  function in  was refactored to handle both new and legacy data formats for , preventing crashes.
+-   **State Management Bug Pattern**: Identified and fixed a critical bug where a  statement inside a  callback caused the state to become , leading to a crash.
+-   **Date/Time Logic**: Corrected a bug by comparing calendar dates () instead of raw timestamps to determine Today vs. Tomorrow.
 
 **key DB schema**
 -   :
-    -   : **(New)**  - Stores the end time for unique date events.
-    -   : **(Modified)**  - Schema now supports start/end times per day, e.g., .
+    -   :  - End time for unique events.
+    -   :  - Schema now .
+-   :
+    -   : **(New)** 
+    -   : **(New)** 
+-   :
+    -   uid=0(root) gid=0(root) groups=0(root), , , , ,  (Schema exists).
 
 **All files of reference**
--   **/app/backend/routes/tagpoint_routes.py**: Contains the updated backend logic for  and  to handle start/end times.
--   **/app/frontend/app/(main)/create.tsx**: Heavily modified for navigation, validation, and numerous bug fixes. This is the next file to be edited for the end-time UI.
--   **/app/frontend/app/(main)/[id].tsx**: Modified to use  for data reloading and will need updates to display time ranges.
--   **/app/supervisor/supervisord.conf**: Was modified in a failed attempt to fix the Expo hot-reload issue.
+-   **/app/frontend/app/edit-profile.tsx**: New screen for all profile management.
+-   **/app/frontend/app/user/[id].tsx**: New public profile screen.
+-   **/app/frontend/app/(tabs)/menu.tsx**: Completely redesigned main menu screen.
+-   **/app/frontend/app/(main)/[id].tsx**: Heavily modified for multiple new features and bug fixes.
+-   **/app/frontend/app/(main)/create.tsx**: Heavily modified to support end times and validation.
+-   **/app/backend/routes/user_routes.py**: Contains the logic for public profiles, needs to be updated.
+-   **/app/backend/database.py**: Contains the updated seed data.
 
 **Areas that need refactoring**:
--    continues to grow in complexity. It handles creation, editing, a multi-step wizard, complex date logic, and image uploads. It is a prime candidate for being broken down into smaller, more manageable components.
+-   The files , , and the new  are all becoming monolithic and handle a large amount of state and logic. They are strong candidates for being broken down into smaller, reusable components to improve maintainability.
 
 **key api endpoints**
--   : Significantly updated to handle  and the new  structure, and to correctly  out unused date fields.
--   : Updated to handle the new date/time fields.
+-   : Used by  to save user data. Needs to be updated for new settings.
+-   : Used by . Was enhanced to return tagpoints; needs further enhancement for interests and reviews.
+-   : Handles updates for events, including .
+-    (To be created)
+-    (To be created)
 
 **Critical Info for New Agent**
 -   **Language**: You MUST respond and communicate in **French**.
--   **CRITICAL WORKFLOW BLOCKER**: The Expo development environment does **NOT** hot-reload code changes reliably. The user will frequently report Pas de changement (No change). **Your immediate workaround is to run frontend: ERROR (no such process)
-frontend: ERROR (no such process) after making frontend code changes.** The root cause is a  environment variable that could not be overridden. Do not waste time trying to fix it unless you have a new approach.
--   **Immediate Task**: Your first priority is to continue implementing the **start/end time feature**. The backend is ready. You need to implement the frontend UI in  and update the display in .
+-   **CRITICAL WORKFLOW BLOCKER**: The Expo environment does **NOT** hot-reload. After making any frontend code changes, you **MUST** run expo: stopped
+expo: started to see them. Do not waste time trying to fix this.
+-   **Immediate Task**: Your first priority is to complete the implementation of the new profile features: phone visibility, interest display, and the review system. The backend database schema is ready, but the API logic and frontend UI are incomplete.
 
 **documents and test reports created in this job**
--   Multiple test reports were generated by the testing agent, located at .
+-    was generated after implementing the end-time feature. No subsequent reports were created for the numerous features added afterward.
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User**: Requested adding an end time for both unique and recurring dates. (**Led to current **)
-2.  **User**: Reported that after editing, he is returned to the detail page but pressing back returns him to the same detail page again. (**Fixed**)
-3.  **User**: Requested that after creating a tagpoint, the app should navigate directly to the detail page instead of showing a dialog. (**Fixed**)
-4.  **User**: Reported that after a code change, the app behavior was unchanged. (**Recurring environment issue, worked around**)
-5.  **User**: Requested that the app should prevent proceeding to the next step if date information is incomplete. (**Fixed**)
-6.  **User**: Clarified that the date validation alert should only appear when clicking Aperçu (Preview), not Publier (Publish). (**Fixed**)
-7.  **User**: Reported that the date display for recurring events was broken and inconsistent between the detail and edit screens. (**Fixed by handling legacy data format**)
-8.  **User**: Reported that updating photos and event dates was not working correctly. (**Fixed**)
-9.  **User**: Reported a login error after the environment was reset. (**Fixed by restarting backend**)
-10. **User**: Reported that an ngrok/Expo Go connection error occurred. (**Fixed by restarting services**)
+1.  **User**: Requested to add phone visibility toggle, display interests, and add a rating/comment system to profiles. (Current )
+2.  **User**: Woke up the backend. (Resolved)
+3.  **User**: Woke up the backend. (Resolved)
+4.  **User**: Requested that clicking the hero card on the menu should show the profile in view mode, not edit mode. (Fixed)
+5.  **User**: Requested to implement a full profile editing screen. (Implemented)
+6.  **User**: Requested to make the hero card on the new menu design navigate to their profile. (Implemented)
+7.  **User**: Requested a new design for the menu screen. (Implemented)
+8.  **User**: Requested to remove the Bientôt une nouvelle date toggle for recurring events. (Fixed)
+9.  **User**: Requested to add a Recurrent badge and a different icon for recurring events on the detail page. (Implemented)
+10. **User**: Requested to update all test tagpoints in the database with the new, complete data structure. (Completed)
 
 **Project Health Check:**
-- **Broken**:
-    - **Expo Developer Experience**: Hot-reloading is non-functional, severely impacting development speed.
-    - **Google Authentication**: The native Expo Go flow is broken (On Hold).
-- **Mocked**:
-    - Votes and comments in the  of the creation wizard are hardcoded.
+-   **Broken**:
+    -   **Expo Developer Experience**: Hot-reloading is non-functional, severely impacting development speed. The manual restart workaround is mandatory.
+    -   **Google Authentication**: The native Expo Go flow is broken (On Hold).
+-   **Mocked**:
+    -   User stats (reviews, etc.) on the new menu screen are hardcoded ().
 
 **3rd Party Integrations**
 -   **Emergent-managed Google Auth**: Integrated but currently broken on the native platform (ON HOLD).
@@ -215,16 +195,15 @@ frontend: ERROR (no such process) after making frontend code changes.** The root
 -   **OpenStreetMap Nominatim**: Used for reverse geocoding via direct API calls.
 
 **Testing status**
-- **Testing agent used after significant changes**: YES
-- **Troubleshoot agent used after agent stuck in loop**: NO
-- **Test files created**: None.
-- **Known regressions**: The developer workflow has regressed significantly due to the hot-reloading issue.
+-   **Testing agent used after significant changes**: YES, but only once early in the session. Many major features (profile editing, menu redesign) were added since the last test run.
+-   **Troubleshoot agent used after agent stuck in loop**: NO
+-   **Test files created**: None.
+-   **Known regressions**: The developer workflow has regressed significantly due to the persistent hot-reloading issue.
 
 **Credentials to test flow:**
 -   **Email**: 
 -   **Password**: 
 
 **What agent forgot to execute**
--   The agent did not find a permanent solution for the critical Expo hot-reloading issue.
--   The agent did not address the user's dissatisfaction with the action buttons' layout on the tagPoint detail screen ().
--   The monolithic  file was not refactored, and its complexity has increased.</analysis>
+-   The agent has not addressed the user's long-standing dissatisfaction with the action buttons' layout on the tagPoint detail screen ().
+-   The agent did not run the  after implementing several major features, including the complete menu redesign and the profile editing screen. This increases the risk of regressions.</analysis>
