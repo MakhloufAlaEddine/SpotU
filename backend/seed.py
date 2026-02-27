@@ -381,7 +381,7 @@ async def seed_initial_data():
                 "Coaching personnalisé - Fitness & Running",
                 "Programme sur mesure adapté à vos objectifs. Évaluation initiale incluse.",
                 60.0, 60,
-                json.dumps(["tag_musculation", "tag_cardio", "tag_hiit"]),
+                ["tag_musculation", "tag_cardio", "tag_hiit"],
                 "dom_coaching",
                 2.3522, 48.8566,
                 "Paris - à domicile ou en plein air", 1
