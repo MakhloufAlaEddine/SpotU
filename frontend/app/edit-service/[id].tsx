@@ -524,16 +524,21 @@ export default function EditServiceScreen() {
           )}
           {newSlotType !== 'single' && (
             <View style={s.field}>
-              <Text style={s.fieldLabel}>Jour de la semaine</Text>
+              <Text style={s.fieldLabel}>Jours de la semaine (plusieurs possibles)</Text>
               <View style={[s.chips, { flexWrap: 'wrap' }]}>
                 {DAYS_FR.map((day, i) => (
                   <TouchableOpacity key={i}
-                    style={[s.chip, newSlotDay === i && s.chipActive]}
-                    onPress={() => setNewSlotDay(i)} testID={`day-${i}`}>
-                    <Text style={[s.chipText, newSlotDay === i && s.chipTextActive]}>{day}</Text>
+                    style={[s.chip, newSlotDays.includes(i) && s.chipActive]}
+                    onPress={() => setNewSlotDays(prev =>
+                      prev.includes(i) ? prev.filter(d => d !== i) : [...prev, i]
+                    )} testID={`day-${i}`}>
+                    <Text style={[s.chipText, newSlotDays.includes(i) && s.chipTextActive]}>{day}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
+              {newSlotDays.length > 0 && (
+                <Text style={s.charCountGood}>{newSlotDays.length} jour(s) sélectionné(s)</Text>
+              )}
             </View>
           )}
           {renderTimePicker(newSlotStart, setNewSlotStart,
