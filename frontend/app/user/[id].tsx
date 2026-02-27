@@ -480,7 +480,7 @@ export default function UserProfileScreen() {
                     onPress={() => setShowAllReviews(v => !v)}
                     testID="see-more-reviews-btn">
                     <Text style={st.seeMoreText}>
-                      {showAllReviews ? 'Voir moins' : `Voir les ${reviews.length - REVIEWS_PREVIEW} autres avis`}
+                      {showAllReviews ? 'Voir moins' : `Voir ${reviews.length - REVIEWS_PREVIEW > 1 ? 'les' : 'le'} ${reviews.length - REVIEWS_PREVIEW} autre${reviews.length - REVIEWS_PREVIEW > 1 ? 's' : ''} avis`}
                     </Text>
                     <Ionicons name={showAllReviews ? 'chevron-up' : 'chevron-down'} size={14} color={Colors.primary} />
                   </TouchableOpacity>
