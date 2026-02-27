@@ -89,14 +89,18 @@ export default function CreateServiceScreen() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!user || (user.role !== 'coach' && user.role !== 'admin')) {
+    if (!user) return;
+    if (user.role !== 'coach' && user.role !== 'admin') {
       Alert.alert('', 'Rôle Coach requis pour créer un service');
-      router.back();
+      setTimeout(() => {
+        if (router.canGoBack()) router.back();
+        else router.replace('/(tabs)/profile' as any);
+      }, 100);
       return;
     }
     loadDomains();
     getUserLocation();
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (selectedDomain) loadTags(selectedDomain);
@@ -488,7 +492,8 @@ export default function CreateServiceScreen() {
             </View>
             {domainObj && (
               <View style={s.summaryMetaItem}>
-                <Text style={s.summaryMetaText}>{domainObj.icon} {domainObj.label_fr}</Text>
+                <Ionicons name="fitness-outline" size={14} color={ORANGE} />
+                <Text style={s.summaryMetaText}>{domainObj.label_fr}</Text>
               </View>
             )}
           </View>
