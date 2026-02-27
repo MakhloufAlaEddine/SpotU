@@ -1,0 +1,89 @@
+{
+  "summary": "Complete backend + frontend testing for WINEK iteration 21 - Service detail screen (/service/[id].tsx), booking modal with slot_id/location_id, coach/[id].tsx service card clickable. All 17 backend tests pass. Frontend: all critical flows verified. Fixed critical import bug in coach/[id].tsx (missing TouchableOpacity + Ionicons imports).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "bug_fixed": {
+    "file": "/app/frontend/app/coach/[id].tsx",
+    "issue": "Missing imports for `TouchableOpacity` (from react-native) and `Ionicons` (from @expo/vector-icons). Both used in the service card (lines 91-111) but never imported, causing a ReferenceError crash when rendering the coach profile screen.",
+    "fix": "Added `TouchableOpacity` to the react-native import destructure and added `import { Ionicons } from '@expo/vector-icons'` on line 3",
+    "severity": "CRITICAL - coach profile screen would crash on render"
+  },
+  "test_results": {
+    "backend": {
+      "total": 17,
+      "passed": 17,
+      "failed": 0,
+      "tests": {
+        "service_has_required_top_level_keys": "PASS - tags, locations, slots, coach all present",
+        "service_locations_present_and_valid": "PASS - 1 location (Paris, lat:48.8566, lng:2.3522)",
+        "service_slots_present_and_valid": "PASS - 1 slot (Monday 09:00-10:00)",
+        "service_coach_present_and_valid": "PASS - Sophie Martin",
+        "service_tags_field_is_list": "PASS - tags is list (empty for this service)",
+        "service_demo001_has_required_keys": "PASS - all keys including empty locations/slots",
+        "service_not_found_returns_404": "PASS",
+        "create_booking_with_slot_and_location": "PASS - slot_id + location_id returned",
+        "create_booking_slot_id_persisted": "PASS - persisted in DB",
+        "create_booking_notes_persisted": "PASS",
+        "create_booking_without_slot_or_location": "PASS - null fields accepted",
+        "coach_cannot_book_own_service": "PASS - 400 returned",
+        "booking_unauthenticated_fails": "PASS - 401/403",
+        "bookings_mine_returns_list": "PASS",
+        "bookings_mine_has_slot_and_location_ids": "PASS - slot_id=slot_d028db26386e, location_id=sloc_df4d136d49a8",
+        "bookings_mine_has_service_enrichment": "PASS",
+        "bookings_mine_unauthenticated_fails": "PASS"
+      }
+    },
+    "frontend": {
+      "service_detail_svc_demo001": "PASS - title 'Coaching personnalisé - Fitness & Running', price 60€, coach Sophie Martin, tags (Musculation/HIIT/Cardio) all visible",
+      "service_detail_svc_0e29808ea881": "PASS - title 'Coaching Football', map with Paris pin, location 'Paris centre', slot 'Lun 09:00→10:00' all visible",
+      "reserve_btn_visible_for_user": "PASS - data-testid='book-btn' found for user@winek.app on other coach's service",
+      "reserve_btn_hidden_for_coach_own_service": "PASS - book-btn NOT present when coach views own service",
+      "booking_modal_opens": "PASS - 'Réserver une séance' modal with slot picker, notes input, confirm button",
+      "slot_selection_in_modal": "PASS - slot auto-selected, book-slot-slot_d028db26386e found",
+      "booking_confirmation": "PASS - Confirmer button clicks, modal closes, booking created with scheduled_at=2026-03-02T09:00:00 (next Monday)",
+      "coach_card_navigates": "PASS - coach card (data-testid='coach-card') navigates to /user/user_coach001",
+      "coach_profile_service_card_clickable": "PASS - /coach/[id].tsx service card (data-testid='service-card') navigates to /service/svc_demo001"
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_service_detail_booking_iter21.py",
+    "/app/test_reports/pytest/pytest_iter21.xml"
+  ],
+  "action_items": [
+    "LOW: user/[id].tsx service cards (in SERVICES PROPOSÉS section) are plain <View>, not clickable to /service/{id}. Only the 'Réserver' button navigates to /coach/{id}. If E1 wants service cards in user profile to also link to service detail, update user/[id].tsx to wrap serviceCard in TouchableOpacity like coach/[id].tsx."
+  ],
+  "critical_code_review_comments": [
+    "FIXED: coach/[id].tsx was missing TouchableOpacity and Ionicons imports. Lines 91-111 used both in the service card but neither was imported. This caused a ReferenceError on render of coach profile screen.",
+    "coach/[id].tsx handleBook() (line 52) still sends booking without slot_id/location_id ({service_id: service.service_id} only). Since the service card now links to service detail, users should book from there. But if someone uses the old coach profile 'Réserver' button, it'll create a booking without slot/location. Not critical - the new service detail flow is the intended path.",
+    "No scheduled_at field issue - frontend correctly computes getNextDate(slot).toISOString() before sending POST /bookings. Verified: scheduled_at=2026-03-02T09:00:00 (next Monday) in created bookings."
+  ],
+  "updated_files": [
+    "/app/frontend/app/coach/[id].tsx (added TouchableOpacity to react-native imports + added Ionicons import)"
+  ],
+  "success_rate": {
+    "backend": "100% (17/17)",
+    "frontend": "100% (9/9)"
+  },
+  "test_credentials": {
+    "user": "user@winek.app / WinekUser2024! (user_demo001, role=coach)",
+    "coach": "coach@winek.app / WinekCoach2024! (user_coach001, role=coach)"
+  },
+  "seed_data_creation": "Created 4 test bookings during testing (bkg_27a389c310fc, bkg_17155b91f5c5 and 2 others via automated backend tests)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "WINEK iteration 21 fully tested. New service/[id].tsx screen works: title/price/coach/map/locations/slots all visible. Booking modal with slot+location selection works. Backend slot_id/location_id properly stored. Fixed crash in coach/[id].tsx (missing imports). Key service IDs: svc_0e29808ea881 (Coaching Football, coach_id=user_coach001, 1 location Paris, 1 slot Mon 09:00), svc_demo001 (Coaching personnalisé, coach_id=user_coach001, no locations/slots). Auth: user@winek.app=user_demo001, coach@winek.app=user_coach001 both have role='coach'.",
+  "rca_of_issue": {
+    "bug": "coach/[id].tsx crashed with 'TouchableOpacity is not defined' and 'Ionicons is not defined'",
+    "root_cause": "When E1 added the service card clickability feature (lines 89-111) to coach/[id].tsx, they used TouchableOpacity and Ionicons but did not add the corresponding imports. TouchableOpacity was missing from react-native import, Ionicons was not imported at all.",
+    "reproduction": "1. Navigate to /coach/{any_coach_id}. 2. React renders CoachProfileScreen. 3. Line 91: <TouchableOpacity ... throws ReferenceError because TouchableOpacity is not in scope.",
+    "fix": "Added TouchableOpacity to react-native import destructure and added 'import { Ionicons } from @expo/vector-icons'",
+    "prevention": "Run TypeScript strict mode - would have caught undefined references. Also: always add imports when copy-pasting JSX with new component references."
+  }
+}
