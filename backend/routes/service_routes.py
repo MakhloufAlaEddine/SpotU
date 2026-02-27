@@ -198,19 +198,48 @@ async def update_service(service_id: str, data: ServiceUpdate, request: Request)
         if existing["coach_id"] != user["user_id"] and user["role"] != "admin":
             raise HTTPException(status_code=403, detail="Not authorized")
 
-        update_dict = {k: v for k, v in data.model_dump().items() if v is not None}
-        if not update_dict:
-            row = await conn.fetchrow(
-                f"SELECT {SVC_FIELDS} FROM services WHERE service_id = $1", service_id
-            )
-            return await _enrich_service(conn, build_service(row_to_dict(row)))
+        # Update scalar fields only
+        SCALAR_FIELDS = {'title', 'description', 'price', 'duration_min', 'active',
+                         'location_description', 'max_participants', 'domain_id'}
+        raw = data.model_dump()
+        update_dict = {k: raw[k] for k in SCALAR_FIELDS if raw.get(k) is not None}
+        if raw.get('tag_ids') is not None:
+            update_dict['tag_ids'] = json.dumps(raw['tag_ids'])
 
-        set_clauses = [f"{k} = ${i+1}" for i, k in enumerate(update_dict.keys())]
-        set_clauses.append("updated_at = NOW()")
-        values = list(update_dict.values())
-        values.append(service_id)
-        query = f"UPDATE services SET {', '.join(set_clauses)} WHERE service_id = ${len(values)}"
-        await conn.execute(query, *values)
+        if update_dict:
+            set_clauses = [f"{k} = ${i+1}" for i, k in enumerate(update_dict.keys())]
+            set_clauses.append("updated_at = NOW()")
+            values = list(update_dict.values())
+            values.append(service_id)
+            await conn.execute(
+                f"UPDATE services SET {', '.join(set_clauses)} WHERE service_id = ${len(values)}",
+                *values
+            )
+
+        # Replace locations if provided (None = keep, [] = delete all)
+        if data.locations is not None:
+            await conn.execute("DELETE FROM service_locations WHERE service_id = $1", service_id)
+            for loc in data.locations:
+                lid = new_id("sloc")
+                await conn.execute(
+                    """INSERT INTO service_locations
+                       (location_id, service_id, location, precision, description)
+                       VALUES ($1, $2, ST_SetSRID(ST_MakePoint($3, $4), 4326), $5, $6)""",
+                    lid, service_id, loc.longitude, loc.latitude, loc.precision, loc.description
+                )
+
+        # Replace slots if provided (None = keep, [] = delete all)
+        if data.slots is not None:
+            await conn.execute("DELETE FROM service_slots WHERE service_id = $1", service_id)
+            for slot in data.slots:
+                slotid = new_id("slot")
+                await conn.execute(
+                    """INSERT INTO service_slots
+                       (slot_id, service_id, day_of_week, start_time, end_time)
+                       VALUES ($1, $2, $3, $4, $5)""",
+                    slotid, service_id, slot.day_of_week, slot.start_time, slot.end_time
+                )
+
         row = await conn.fetchrow(
             f"SELECT {SVC_FIELDS} FROM services WHERE service_id = $1", service_id
         )

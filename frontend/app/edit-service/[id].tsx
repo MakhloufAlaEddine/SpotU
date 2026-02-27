@@ -1,0 +1,673 @@
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  TextInput, KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { MapViewComponent } from '../../components/MapViewComponent';
+import { DomainPill } from '../../components/DomainPill';
+import { TagSelector } from '../../components/TagSelector';
+import { api } from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
+import { useLang } from '../../context/LanguageContext';
+import { Colors, Spacing, Radius } from '../../constants/Colors';
+import * as Location from 'expo-location';
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+const ORANGE = '#FF9500';
+const ORANGE_LIGHT = 'rgba(255,149,0,0.12)';
+const ORANGE_BORDER = 'rgba(255,149,0,0.3)';
+
+const STEP_LABELS = ['Infos', 'Sport', 'Lieux', 'Créneaux', 'Résumé'];
+const DAYS_FR = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+const DURATIONS = ['30', '45', '60', '90', '120'];
+const PRECISION_OPTIONS: { value: 'exact' | '100m' | '1000m'; label: string }[] = [
+  { value: 'exact', label: 'Précis' },
+  { value: '100m', label: '± 100m' },
+  { value: '1000m', label: '± 1km' },
+];
+const PRECISION_LABEL: Record<string, string> = { exact: 'Précis', '100m': '± 100m', '1000m': '± 1km' };
+
+type ServiceLocation = {
+  id: string; lat: number; lng: number;
+  precision: 'exact' | '100m' | '1000m'; description: string;
+};
+type ServiceSlot = { id: string; day: number; start: string; end: string };
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+export default function EditServiceScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  const { user } = useAuth();
+  const { lang } = useLang();
+  const scrollRef = useRef<ScrollView>(null);
+
+  const [loading, setLoading] = useState(true);
+  const [step, setStep] = useState(1);
+
+  // Step 1
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [price, setPrice] = useState('');
+  const [duration, setDuration] = useState('60');
+  const [maxParticipants, setMaxParticipants] = useState('1');
+
+  // Step 2
+  const [domains, setDomains] = useState<any[]>([]);
+  const [selectedDomain, setSelectedDomain] = useState('');
+  const [tags, setTags] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+
+  // Step 3 – Locations
+  const [locations, setLocations] = useState<ServiceLocation[]>([]);
+  const [addingLoc, setAddingLoc] = useState(false);
+  const [newLocLat, setNewLocLat] = useState<number | null>(null);
+  const [newLocLng, setNewLocLng] = useState<number | null>(null);
+  const [newLocPrecision, setNewLocPrecision] = useState<'exact' | '100m' | '1000m'>('exact');
+  const [newLocDesc, setNewLocDesc] = useState('');
+  const [mapCenterLat, setMapCenterLat] = useState(48.8566);
+  const [mapCenterLng, setMapCenterLng] = useState(2.3522);
+
+  // Step 4 – Slots
+  const [slots, setSlots] = useState<ServiceSlot[]>([]);
+  const [addingSlot, setAddingSlot] = useState(false);
+  const [newSlotDay, setNewSlotDay] = useState(0);
+  const [newSlotStart, setNewSlotStart] = useState('');
+  const [newSlotEnd, setNewSlotEnd] = useState('');
+
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => { if (id) loadService(); }, [id]);
+  useEffect(() => { if (selectedDomain) loadTags(selectedDomain); }, [selectedDomain]);
+
+  const loadService = async () => {
+    try {
+      const [data, doms] = await Promise.all([
+        api.get(`/services/${id}`),
+        api.get('/domains'),
+      ]);
+      setDomains(doms);
+      // Pre-populate step 1
+      setTitle(data.title || '');
+      setDescription(data.description || '');
+      setPrice(String(data.price || ''));
+      setDuration(String(data.duration_min || '60'));
+      setMaxParticipants(String(data.max_participants || '1'));
+      // Pre-populate step 2
+      setSelectedDomain(data.domain_id || doms[0]?.domain_id || '');
+      setSelectedTags(data.tag_ids || []);
+      // Pre-populate step 3
+      if (data.locations?.length > 0) {
+        setLocations(data.locations.map((loc: any) => ({
+          id: loc.location_id,
+          lat: loc.latitude,
+          lng: loc.longitude,
+          precision: loc.precision as 'exact' | '100m' | '1000m',
+          description: loc.description || '',
+        })));
+        setMapCenterLat(data.locations[0].latitude);
+        setMapCenterLng(data.locations[0].longitude);
+      }
+      // Pre-populate step 4
+      if (data.slots?.length > 0) {
+        setSlots(data.slots.map((s: any) => ({
+          id: s.slot_id,
+          day: s.day_of_week,
+          start: s.start_time,
+          end: s.end_time,
+        })));
+      }
+    } catch (e: any) {
+      Alert.alert('Erreur', 'Impossible de charger le service');
+      router.back();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadTags = async (domainId: string) => {
+    try {
+      const [tgs, cats] = await Promise.all([
+        api.get(`/tags?domain_id=${domainId}`),
+        api.get(`/tags/categories?domain_id=${domainId}`),
+      ]);
+      setTags(tgs || []);
+      setCategories(cats || []);
+    } catch {}
+  };
+
+  const scrollTop = () => scrollRef.current?.scrollTo({ y: 0, animated: true });
+
+  const goNext = () => {
+    if (step === 1) {
+      if (!title.trim()) { Alert.alert('', 'Le titre est requis'); return; }
+      const p = parseFloat(price);
+      if (!price || isNaN(p) || p <= 0) { Alert.alert('', 'Entrez un prix valide (> 0)'); return; }
+    }
+    if (step === 2 && !selectedDomain) { Alert.alert('', 'Sélectionnez un domaine'); return; }
+    setStep(s => Math.min(s + 1, 5));
+    scrollTop();
+  };
+
+  const goPrev = () => { setStep(s => Math.max(s - 1, 1)); scrollTop(); };
+
+  const addLocation = () => {
+    if (!newLocLat || !newLocLng) { Alert.alert('', 'Sélectionnez un point sur la carte'); return; }
+    setLocations(prev => [...prev, {
+      id: `loc_${Date.now()}`,
+      lat: newLocLat, lng: newLocLng,
+      precision: newLocPrecision, description: newLocDesc.trim(),
+    }]);
+    setNewLocLat(null); setNewLocLng(null);
+    setNewLocPrecision('exact'); setNewLocDesc('');
+    setAddingLoc(false);
+  };
+
+  const addSlot = () => {
+    const timeRegex = /^\d{2}:\d{2}$/;
+    if (!newSlotStart || !newSlotEnd) { Alert.alert('', 'Renseignez les horaires'); return; }
+    if (!timeRegex.test(newSlotStart) || !timeRegex.test(newSlotEnd)) {
+      Alert.alert('', 'Format HH:MM requis (ex: 09:00)'); return;
+    }
+    if (newSlotStart >= newSlotEnd) { Alert.alert('', "L'heure de fin doit être après le début"); return; }
+    setSlots(prev => [...prev, {
+      id: `slot_${Date.now()}`, day: newSlotDay,
+      start: newSlotStart, end: newSlotEnd,
+    }]);
+    setNewSlotStart(''); setNewSlotEnd('');
+    setAddingSlot(false);
+  };
+
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    try {
+      await api.put(`/services/${id}`, {
+        title: title.trim(),
+        description: description.trim() || null,
+        price: parseFloat(price),
+        duration_min: parseInt(duration) || 60,
+        max_participants: parseInt(maxParticipants) || 1,
+        domain_id: selectedDomain,
+        tag_ids: selectedTags,
+        locations: locations.map(l => ({
+          latitude: l.lat, longitude: l.lng,
+          precision: l.precision, description: l.description || null,
+        })),
+        slots: slots.map(s => ({
+          day_of_week: s.day, start_time: s.start, end_time: s.end,
+        })),
+      });
+      Alert.alert('Modifications sauvegardées !', '', [
+        { text: 'Voir le service', onPress: () => router.replace(`/service/${id}` as any) },
+      ]);
+    } catch (err: any) {
+      Alert.alert('Erreur', err.message || 'Impossible de modifier le service');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ─── Stepper Header ──────────────────────────────────────────────────────
+  const renderStepHeader = () => (
+    <View style={s.stepHeader}>
+      {STEP_LABELS.map((label, idx) => {
+        const num = idx + 1;
+        const done = step > num;
+        const active = step === num;
+        return (
+          <React.Fragment key={num}>
+            {idx > 0 && <View style={[s.stepLine, done && s.stepLineDone]} />}
+            <View style={s.stepItem}>
+              <View style={[s.stepCircle, active && s.stepCircleActive, done && s.stepCircleDone]}>
+                {done
+                  ? <Ionicons name="checkmark" size={13} color={Colors.background} />
+                  : <Text style={[s.stepNum, active && s.stepNumActive]}>{num}</Text>}
+              </View>
+              <Text style={[s.stepLabel, active && s.stepLabelActive]}>{label}</Text>
+            </View>
+          </React.Fragment>
+        );
+      })}
+    </View>
+  );
+
+  // ─── Step 1 ───────────────────────────────────────────────────────────────
+  const renderStep1 = () => (
+    <View style={s.stepContent}>
+      <Text style={s.stepTitle}>Informations de base</Text>
+      <View style={s.field}>
+        <Text style={s.fieldLabel}>Titre *</Text>
+        <TextInput style={s.input} value={title} onChangeText={setTitle}
+          placeholder="Titre du service" placeholderTextColor={Colors.muted} testID="edit-title-input" />
+      </View>
+      <View style={s.field}>
+        <Text style={s.fieldLabel}>Description</Text>
+        <TextInput style={[s.input, s.inputMulti]} value={description} onChangeText={setDescription}
+          placeholder="Description du service…" placeholderTextColor={Colors.muted}
+          multiline numberOfLines={4} textAlignVertical="top" testID="edit-desc-input" />
+      </View>
+      <View style={s.row}>
+        <View style={{ flex: 1 }}>
+          <Text style={s.fieldLabel}>Prix (€) *</Text>
+          <TextInput style={s.input} value={price} onChangeText={setPrice}
+            placeholder="60" placeholderTextColor={Colors.muted}
+            keyboardType="decimal-pad" testID="edit-price-input" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={s.fieldLabel}>Participants max</Text>
+          <TextInput style={s.input} value={maxParticipants} onChangeText={setMaxParticipants}
+            placeholder="1" placeholderTextColor={Colors.muted}
+            keyboardType="number-pad" testID="edit-max-input" />
+        </View>
+      </View>
+      <View style={s.field}>
+        <Text style={s.fieldLabel}>Durée par séance</Text>
+        <View style={s.chips}>
+          {DURATIONS.map(d => (
+            <TouchableOpacity key={d} style={[s.chip, duration === d && s.chipActive]}
+              onPress={() => setDuration(d)} testID={`duration-${d}`}>
+              <Text style={[s.chipText, duration === d && s.chipTextActive]}>{d} min</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+
+  // ─── Step 2 ───────────────────────────────────────────────────────────────
+  const renderStep2 = () => (
+    <View style={s.stepContent}>
+      <Text style={s.stepTitle}>Sport & Spécialité</Text>
+      <View style={s.field}>
+        <Text style={s.fieldLabel}>Domaine *</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {domains.map(d => (
+            <DomainPill key={d.domain_id} domain={d}
+              selected={selectedDomain === d.domain_id}
+              onPress={() => setSelectedDomain(d.domain_id)} lang={lang} />
+          ))}
+        </ScrollView>
+      </View>
+      {tags.length > 0 && (
+        <View style={s.field}>
+          <Text style={s.fieldLabel}>Tags</Text>
+          <TagSelector tags={tags} categories={categories} selectedIds={selectedTags}
+            onToggle={tagId => setSelectedTags(prev =>
+              prev.includes(tagId) ? prev.filter(t => t !== tagId) : [...prev, tagId]
+            )} lang={lang} maxSelect={5} />
+        </View>
+      )}
+    </View>
+  );
+
+  // ─── Step 3 ───────────────────────────────────────────────────────────────
+  const renderStep3 = () => (
+    <View style={s.stepContent}>
+      <Text style={s.stepTitle}>Lieux d'intervention</Text>
+      <Text style={s.stepHint}>Modifiez ou ajoutez des lieux</Text>
+      {locations.map((loc, i) => (
+        <View key={loc.id} style={s.itemCard}>
+          <View style={s.itemIconBox}><Ionicons name="location" size={16} color={ORANGE} /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.itemTitle}>{loc.description || `Lieu ${i + 1}`}</Text>
+            <Text style={s.itemMeta}>{PRECISION_LABEL[loc.precision]} · {loc.lat.toFixed(4)}, {loc.lng.toFixed(4)}</Text>
+          </View>
+          <TouchableOpacity onPress={() => setLocations(prev => prev.filter(l => l.id !== loc.id))}
+            testID={`remove-loc-${loc.id}`}>
+            <Ionicons name="trash-outline" size={18} color={Colors.destructive} />
+          </TouchableOpacity>
+        </View>
+      ))}
+      {addingLoc ? (
+        <View style={s.addCard}>
+          <Text style={s.addCardTitle}>Nouveau lieu</Text>
+          <Text style={s.hint}>Appuyez sur la carte pour sélectionner la position</Text>
+          <View style={s.mapWrap}>
+            <MapViewComponent centerLat={mapCenterLat} centerLng={mapCenterLng} zoom={13}
+              selectable showUserMarker
+              selectedLat={newLocLat ?? undefined} selectedLng={newLocLng ?? undefined}
+              onMapPress={(lat, lng) => { setNewLocLat(lat); setNewLocLng(lng); }}
+              style={{ flex: 1 }} />
+          </View>
+          {newLocLat && newLocLng && (
+            <Text style={s.coordsText}>{newLocLat.toFixed(5)}, {newLocLng.toFixed(5)}</Text>
+          )}
+          <Text style={[s.fieldLabel, { marginTop: 12 }]}>Précision</Text>
+          <View style={s.chips}>
+            {PRECISION_OPTIONS.map(opt => (
+              <TouchableOpacity key={opt.value}
+                style={[s.chip, newLocPrecision === opt.value && s.chipActive]}
+                onPress={() => setNewLocPrecision(opt.value)}>
+                <Text style={[s.chipText, newLocPrecision === opt.value && s.chipTextActive]}>{opt.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={[s.fieldLabel, { marginTop: 12 }]}>Description du lieu</Text>
+          <TextInput style={s.input} value={newLocDesc} onChangeText={setNewLocDesc}
+            placeholder="Ex: Parc, salle, adresse…" placeholderTextColor={Colors.muted} />
+          <View style={s.addCardActions}>
+            <TouchableOpacity style={s.cancelBtn}
+              onPress={() => { setAddingLoc(false); setNewLocLat(null); setNewLocLng(null); }}>
+              <Text style={s.cancelBtnText}>Annuler</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[s.confirmBtn, !newLocLat && s.disabledBtn]}
+              onPress={addLocation} disabled={!newLocLat} testID="confirm-loc-btn">
+              <Text style={s.confirmBtnText}>Valider ce lieu</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : (
+        locations.length < 5 && (
+          <TouchableOpacity style={s.addBtn} onPress={() => setAddingLoc(true)} testID="add-location-btn">
+            <Ionicons name="add-circle-outline" size={20} color={ORANGE} />
+            <Text style={s.addBtnText}>Ajouter un lieu</Text>
+          </TouchableOpacity>
+        )
+      )}
+    </View>
+  );
+
+  // ─── Step 4 ───────────────────────────────────────────────────────────────
+  const renderStep4 = () => (
+    <View style={s.stepContent}>
+      <Text style={s.stepTitle}>Créneaux récurrents</Text>
+      <Text style={s.stepHint}>Modifiez ou ajoutez des créneaux</Text>
+      {slots.map(slot => (
+        <View key={slot.id} style={s.itemCard}>
+          <View style={s.itemIconBox}><Ionicons name="time" size={16} color={ORANGE} /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.itemTitle}>{DAYS_FR[slot.day]}</Text>
+            <Text style={s.itemMeta}>{slot.start} → {slot.end}</Text>
+          </View>
+          <TouchableOpacity onPress={() => setSlots(prev => prev.filter(s => s.id !== slot.id))}
+            testID={`remove-slot-${slot.id}`}>
+            <Ionicons name="trash-outline" size={18} color={Colors.destructive} />
+          </TouchableOpacity>
+        </View>
+      ))}
+      {addingSlot ? (
+        <View style={s.addCard}>
+          <Text style={s.addCardTitle}>Nouveau créneau</Text>
+          <Text style={s.fieldLabel}>Jour</Text>
+          <View style={[s.chips, { flexWrap: 'wrap' }]}>
+            {DAYS_FR.map((day, i) => (
+              <TouchableOpacity key={i}
+                style={[s.chip, newSlotDay === i && s.chipActive]}
+                onPress={() => setNewSlotDay(i)} testID={`day-${i}`}>
+                <Text style={[s.chipText, newSlotDay === i && s.chipTextActive]}>{day}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={[s.row, { marginTop: 12 }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={s.fieldLabel}>Début</Text>
+              <TextInput style={s.input} value={newSlotStart} onChangeText={setNewSlotStart}
+                placeholder="09:00" placeholderTextColor={Colors.muted}
+                keyboardType="numbers-and-punctuation" testID="slot-start-input" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.fieldLabel}>Fin</Text>
+              <TextInput style={s.input} value={newSlotEnd} onChangeText={setNewSlotEnd}
+                placeholder="10:00" placeholderTextColor={Colors.muted}
+                keyboardType="numbers-and-punctuation" testID="slot-end-input" />
+            </View>
+          </View>
+          <View style={s.addCardActions}>
+            <TouchableOpacity style={s.cancelBtn}
+              onPress={() => { setAddingSlot(false); setNewSlotStart(''); setNewSlotEnd(''); }}>
+              <Text style={s.cancelBtnText}>Annuler</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={s.confirmBtn} onPress={addSlot} testID="confirm-slot-btn">
+              <Text style={s.confirmBtnText}>Ajouter ce créneau</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : (
+        <TouchableOpacity style={s.addBtn} onPress={() => setAddingSlot(true)} testID="add-slot-btn">
+          <Ionicons name="add-circle-outline" size={20} color={ORANGE} />
+          <Text style={s.addBtnText}>Ajouter un créneau</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+
+  // ─── Step 5 ───────────────────────────────────────────────────────────────
+  const renderStep5 = () => {
+    const domainObj = domains.find(d => d.domain_id === selectedDomain);
+    return (
+      <View style={s.stepContent}>
+        <Text style={s.stepTitle}>Résumé des modifications</Text>
+        <View style={s.summaryCard}>
+          <Text style={s.summaryTitle}>{title}</Text>
+          {description ? <Text style={s.summaryDesc}>{description}</Text> : null}
+          <View style={s.summaryMeta}>
+            <View style={s.summaryMetaItem}>
+              <Ionicons name="pricetag-outline" size={14} color={ORANGE} />
+              <Text style={s.summaryMetaText}>{price}€/séance</Text>
+            </View>
+            <View style={s.summaryMetaItem}>
+              <Ionicons name="time-outline" size={14} color={ORANGE} />
+              <Text style={s.summaryMetaText}>{duration} min</Text>
+            </View>
+            <View style={s.summaryMetaItem}>
+              <Ionicons name="people-outline" size={14} color={ORANGE} />
+              <Text style={s.summaryMetaText}>{maxParticipants} pers.</Text>
+            </View>
+            {domainObj && (
+              <View style={s.summaryMetaItem}>
+                <Ionicons name="fitness-outline" size={14} color={ORANGE} />
+                <Text style={s.summaryMetaText}>{domainObj.label_fr}</Text>
+              </View>
+            )}
+          </View>
+        </View>
+        {locations.length > 0 && (
+          <View style={s.summarySection}>
+            <Text style={s.summarySectionTitle}>Lieux ({locations.length})</Text>
+            {locations.map((loc, i) => (
+              <Text key={loc.id} style={s.summarySectionItem}>
+                • {loc.description || `Lieu ${i + 1}`} — {PRECISION_LABEL[loc.precision]}
+              </Text>
+            ))}
+          </View>
+        )}
+        {slots.length > 0 && (
+          <View style={s.summarySection}>
+            <Text style={s.summarySectionTitle}>Créneaux ({slots.length})</Text>
+            {slots.map(slot => (
+              <Text key={slot.id} style={s.summarySectionItem}>
+                • {DAYS_FR[slot.day]} : {slot.start} → {slot.end}
+              </Text>
+            ))}
+          </View>
+        )}
+        <TouchableOpacity
+          style={[s.saveBtn, submitting && s.disabledBtn]}
+          onPress={handleSubmit} disabled={submitting}
+          testID="save-service-btn">
+          {submitting
+            ? <ActivityIndicator color={Colors.background} />
+            : <>
+              <Ionicons name="checkmark-circle-outline" size={18} color={Colors.background} />
+              <Text style={s.saveBtnText}>Sauvegarder les modifications</Text>
+            </>
+          }
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  // ─── Loading ─────────────────────────────────────────────────────────────
+  if (loading) return (
+    <View style={{ flex: 1, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' }}>
+      <ActivityIndicator size="large" color={ORANGE} />
+    </View>
+  );
+
+  // ─── Main Render ──────────────────────────────────────────────────────────
+  return (
+    <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
+      <View style={s.header}>
+        <TouchableOpacity style={s.headerBackBtn} onPress={() => router.back()} testID="back-btn">
+          <Ionicons name="chevron-back" size={22} color={Colors.foreground} />
+        </TouchableOpacity>
+        <Text style={s.headerTitle}>Modifier le service</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
+      {renderStepHeader()}
+
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <ScrollView ref={scrollRef} style={{ flex: 1 }}
+          contentContainerStyle={s.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled">
+          {step === 1 && renderStep1()}
+          {step === 2 && renderStep2()}
+          {step === 3 && renderStep3()}
+          {step === 4 && renderStep4()}
+          {step === 5 && renderStep5()}
+        </ScrollView>
+
+        {step < 5 && (
+          <View style={s.bottomNav}>
+            {step > 1 ? (
+              <TouchableOpacity style={s.prevBtn} onPress={goPrev} testID="prev-step-btn">
+                <Ionicons name="chevron-back" size={18} color={Colors.foreground} />
+                <Text style={s.prevBtnText}>Précédent</Text>
+              </TouchableOpacity>
+            ) : <View style={{ flex: 1 }} />}
+            <TouchableOpacity style={s.nextBtn} onPress={goNext} testID="next-step-btn">
+              <Text style={s.nextBtnText}>{step === 4 ? 'Résumé' : 'Suivant'}</Text>
+              <Ionicons name="chevron-forward" size={18} color={Colors.background} />
+            </TouchableOpacity>
+          </View>
+        )}
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: Colors.background },
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: Spacing.md, paddingVertical: 12,
+    backgroundColor: Colors.backgroundSecondary,
+    borderBottomWidth: 1, borderBottomColor: Colors.border,
+  },
+  headerBackBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: Colors.foreground },
+  stepHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 14, paddingHorizontal: Spacing.xs,
+    backgroundColor: Colors.backgroundSecondary,
+    borderBottomWidth: 1, borderBottomColor: Colors.border,
+  },
+  stepItem: { alignItems: 'center', gap: 4 },
+  stepLine: { width: 20, height: 2, backgroundColor: Colors.border, marginBottom: 16 },
+  stepLineDone: { backgroundColor: ORANGE },
+  stepCircle: {
+    width: 28, height: 28, borderRadius: 14, borderWidth: 2,
+    borderColor: Colors.border, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: Colors.background,
+  },
+  stepCircleActive: { borderColor: ORANGE, backgroundColor: ORANGE_LIGHT },
+  stepCircleDone: { borderColor: ORANGE, backgroundColor: ORANGE },
+  stepNum: { fontSize: 12, fontWeight: '700', color: Colors.muted },
+  stepNumActive: { color: ORANGE },
+  stepLabel: { fontSize: 9, fontWeight: '700', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.3 },
+  stepLabelActive: { color: ORANGE },
+  scrollContent: { paddingBottom: 20 },
+  stepContent: { padding: Spacing.md, gap: 16 },
+  stepTitle: { fontSize: 20, fontWeight: '800', color: Colors.foreground },
+  stepHint: { fontSize: 13, color: Colors.muted, marginTop: -8 },
+  field: { gap: 6 },
+  fieldLabel: { fontSize: 11, fontWeight: '700', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.5 },
+  input: {
+    backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1,
+    borderColor: Colors.border, paddingHorizontal: 14, paddingVertical: 12,
+    fontSize: 14, color: Colors.foreground,
+  },
+  inputMulti: { minHeight: 100 },
+  row: { flexDirection: 'row', gap: Spacing.sm },
+  chips: { flexDirection: 'row', gap: 8 },
+  chip: {
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: Radius.full,
+    borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.background,
+  },
+  chipActive: { backgroundColor: ORANGE_LIGHT, borderColor: ORANGE },
+  chipText: { fontSize: 13, fontWeight: '600', color: Colors.muted },
+  chipTextActive: { color: ORANGE },
+  itemCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: Colors.card, borderRadius: Radius.lg,
+    padding: 14, borderWidth: 1, borderColor: Colors.border,
+  },
+  itemIconBox: {
+    width: 32, height: 32, borderRadius: 10, backgroundColor: ORANGE_LIGHT,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  itemTitle: { fontSize: 14, fontWeight: '600', color: Colors.foreground },
+  itemMeta: { fontSize: 12, color: Colors.muted, marginTop: 2 },
+  addCard: {
+    backgroundColor: Colors.card, borderRadius: Radius.xl,
+    padding: Spacing.md, borderWidth: 1, borderColor: ORANGE_BORDER, gap: 8,
+  },
+  addCardTitle: { fontSize: 15, fontWeight: '700', color: ORANGE, marginBottom: 2 },
+  hint: { fontSize: 12, color: Colors.muted },
+  mapWrap: { height: 200, borderRadius: Radius.lg, overflow: 'hidden' },
+  coordsText: { fontSize: 12, color: ORANGE, fontWeight: '600' },
+  addCardActions: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  cancelBtn: {
+    flex: 1, paddingVertical: 11, borderRadius: Radius.full,
+    borderWidth: 1, borderColor: Colors.border, alignItems: 'center',
+  },
+  cancelBtnText: { fontSize: 14, fontWeight: '600', color: Colors.muted },
+  confirmBtn: { flex: 2, paddingVertical: 11, borderRadius: Radius.full, backgroundColor: ORANGE, alignItems: 'center' },
+  disabledBtn: { opacity: 0.4 },
+  confirmBtnText: { fontSize: 14, fontWeight: '700', color: Colors.background },
+  addBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    padding: 14, borderRadius: Radius.lg, borderWidth: 1.5,
+    borderStyle: 'dashed', borderColor: ORANGE_BORDER,
+  },
+  addBtnText: { fontSize: 14, fontWeight: '700', color: ORANGE },
+  summaryCard: {
+    backgroundColor: Colors.card, borderRadius: Radius.xl,
+    padding: Spacing.md, borderWidth: 1, borderColor: ORANGE_BORDER, gap: 8,
+  },
+  summaryTitle: { fontSize: 18, fontWeight: '800', color: Colors.foreground },
+  summaryDesc: { fontSize: 14, color: Colors.muted, lineHeight: 20 },
+  summaryMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 4 },
+  summaryMetaItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  summaryMetaText: { fontSize: 13, fontWeight: '600', color: Colors.foreground },
+  summarySection: { gap: 6 },
+  summarySectionTitle: { fontSize: 14, fontWeight: '700', color: ORANGE },
+  summarySectionItem: { fontSize: 13, color: Colors.muted, paddingLeft: 4 },
+  saveBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+    backgroundColor: ORANGE, borderRadius: Radius.full, paddingVertical: 16, marginTop: 8,
+  },
+  saveBtnText: { fontSize: 16, fontWeight: '800', color: Colors.background },
+  bottomNav: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: Spacing.md, paddingVertical: 12,
+    backgroundColor: Colors.backgroundSecondary,
+    borderTopWidth: 1, borderTopColor: Colors.border,
+  },
+  prevBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 12, borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.border,
+  },
+  prevBtnText: { fontSize: 14, fontWeight: '600', color: Colors.foreground },
+  nextBtn: {
+    flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 12, borderRadius: Radius.full, backgroundColor: ORANGE,
+  },
+  nextBtnText: { fontSize: 15, fontWeight: '700', color: Colors.background },
+});
