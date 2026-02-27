@@ -84,8 +84,7 @@ export default function EditProfileScreen() {
     );
   };
 
-  const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  const pickImage = async () => {    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Permission requise', "L'accès à la galerie est nécessaire pour changer votre photo.");
       return;
