@@ -165,6 +165,8 @@ class ServiceUpdate(BaseModel):
 class BookingCreate(BaseModel):
     service_id: str
     scheduled_at: Optional[datetime] = None
+    slot_id: Optional[str] = None
+    location_id: Optional[str] = None
     notes: Optional[str] = None
 
 

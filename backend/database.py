@@ -237,6 +237,8 @@ async def connect_to_db():
             ALTER TABLE users ADD COLUMN IF NOT EXISTS bic TEXT NULL;
             ALTER TABLE users ADD COLUMN IF NOT EXISTS iban_name TEXT NULL;
             ALTER TABLE users DROP COLUMN IF EXISTS hourly_rate;
+            ALTER TABLE bookings ADD COLUMN IF NOT EXISTS slot_id TEXT;
+            ALTER TABLE bookings ADD COLUMN IF NOT EXISTS location_id TEXT;
         """)
 
     # 2. Seed données de base (users, tagpoints, tags, domaines...)
