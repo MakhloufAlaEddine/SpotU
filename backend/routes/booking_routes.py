@@ -4,8 +4,7 @@ from models import BookingCreate, BookingStatusUpdate, new_id
 from auth_utils import require_auth
 from database import get_pool, row_to_dict, rows_to_list
 
-router = APIRouter()
-COMMISSION_RATE = 0.15
+BOOKING_FIELDS = "booking_id, service_id, user_id, coach_id, status, scheduled_at, slot_id, location_id, notes, amount, commission, payment_status, payment_session_id, created_at"
 
 
 async def _enrich_bookings(conn, bookings: list) -> list:
