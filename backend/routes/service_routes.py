@@ -231,6 +231,7 @@ async def update_service(service_id: str, data: ServiceUpdate, request: Request)
             )
 
         # Replace locations if provided (None = keep, [] = delete all)
+        new_loc_ids: list[str] = []
         if data.locations is not None:
             await conn.execute("DELETE FROM service_locations WHERE service_id = $1", service_id)
             for loc in data.locations:
@@ -241,21 +242,33 @@ async def update_service(service_id: str, data: ServiceUpdate, request: Request)
                        VALUES ($1, $2, ST_SetSRID(ST_MakePoint($3, $4), 4326), $5, $6)""",
                     lid, service_id, loc.longitude, loc.latitude, loc.precision, loc.description
                 )
+                new_loc_ids.append(lid)
 
         # Replace slots if provided (None = keep, [] = delete all)
         if data.slots is not None:
             await conn.execute("DELETE FROM service_slots WHERE service_id = $1", service_id)
+            # If no new locations were inserted, fetch existing ones for FK resolution
+            loc_id_list = new_loc_ids
+            if not loc_id_list:
+                existing_locs = await conn.fetch(
+                    "SELECT location_id FROM service_locations WHERE service_id = $1 ORDER BY created_at",
+                    service_id
+                )
+                loc_id_list = [r["location_id"] for r in existing_locs]
             for slot in data.slots:
                 slotid = new_id("slot")
                 days = slot.days_of_week if slot.days_of_week is not None else (
                     [slot.day_of_week] if slot.day_of_week is not None else []
                 )
-                loc_id = slot.location_id if slot.location_id else None
+                if slot.location_index is not None and 0 <= slot.location_index < len(loc_id_list):
+                    resolved_loc_id = loc_id_list[slot.location_index]
+                else:
+                    resolved_loc_id = loc_id_list[0] if loc_id_list else None
                 await conn.execute(
                     """INSERT INTO service_slots
                        (slot_id, service_id, location_id, slot_type, days_of_week, day_of_week, start_time, end_time, slot_date)
                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)""",
-                    slotid, service_id, loc_id, slot.slot_type,
+                    slotid, service_id, resolved_loc_id, slot.slot_type,
                     days,
                     days[0] if days else None,
                     slot.start_time, slot.end_time, slot.slot_date
