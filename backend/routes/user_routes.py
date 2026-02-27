@@ -13,12 +13,19 @@ async def get_profile(request: Request):
     user = await require_auth(request, pool)
     async with pool.acquire() as conn:
         reviews = await conn.fetch("SELECT rating FROM reviews WHERE reviewee_id = $1", user["user_id"])
+        banking = await conn.fetchrow(
+            "SELECT iban, bic, iban_name FROM users WHERE user_id = $1", user["user_id"]
+        )
     if reviews:
         user["avg_rating"] = round(sum(r["rating"] for r in reviews) / len(reviews), 1)
         user["review_count"] = len(reviews)
     else:
         user["avg_rating"] = None
         user["review_count"] = 0
+    if banking:
+        user["iban"] = banking["iban"]
+        user["bic"] = banking["bic"]
+        user["iban_name"] = banking["iban_name"]
     return user
 
 
