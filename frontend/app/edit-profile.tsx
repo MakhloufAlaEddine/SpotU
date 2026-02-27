@@ -48,6 +48,8 @@ export default function EditProfileScreen() {
       setPhone(user?.phone || '');
       setHourlyRate(user?.hourly_rate ? String(user.hourly_rate) : '');
       setSelectedTagIds(user?.coach_tags || []);
+      setShowPhone(user?.show_phone ?? false);
+      setShowReviews(user?.show_reviews ?? true);
 
       const [tags, doms] = await Promise.all([
         api.get('/tags'),
