@@ -743,6 +743,14 @@ const s = StyleSheet.create({
   slotDayTextActive: { color: Colors.background },
   slotTime: { fontSize: 14, fontWeight: '700', color: Colors.foreground },
   slotNext: { fontSize: 11, color: Colors.muted, marginTop: 2 },
+  // Time chips (multiple per day row)
+  timeChip: {
+    paddingHorizontal: 10, paddingVertical: 5, borderRadius: Radius.md,
+    backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border,
+  },
+  timeChipActive: { backgroundColor: ORANGE_LIGHT, borderColor: ORANGE_BORDER },
+  timeChipText: { fontSize: 13, fontWeight: '700', color: Colors.foreground },
+  timeChipTextActive: { color: ORANGE },
   durationChip: {
     backgroundColor: Colors.background, borderRadius: Radius.full,
     paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: Colors.border,
