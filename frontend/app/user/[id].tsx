@@ -72,6 +72,14 @@ export default function UserProfileScreen() {
     if (id) load();
   }, [id]);
 
+  // Re-check alreadyReviewed when me (auth) or reviews list changes
+  useEffect(() => {
+    if (me && reviews.length > 0) {
+      const mine = reviews.find((r: any) => r.reviewer_id === me.user_id);
+      if (mine) setAlreadyReviewed(true);
+    }
+  }, [me, reviews]);
+
   const load = async () => {
     try {
       const data = await api.get(`/users/${id}/public`);
