@@ -174,9 +174,10 @@ async def create_service(data: ServiceCreate, request: Request):
             slotid = new_id("slot")
             await conn.execute(
                 """INSERT INTO service_slots
-                   (slot_id, service_id, day_of_week, start_time, end_time)
-                   VALUES ($1, $2, $3, $4, $5)""",
-                slotid, sid, slot.day_of_week, slot.start_time, slot.end_time
+                   (slot_id, service_id, slot_type, day_of_week, start_time, end_time, slot_date)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7)""",
+                slotid, sid, slot.slot_type, slot.day_of_week,
+                slot.start_time, slot.end_time, slot.slot_date
             )
         row = await conn.fetchrow(
             f"SELECT {SVC_FIELDS} FROM services WHERE service_id = $1", sid
