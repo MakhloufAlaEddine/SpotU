@@ -796,6 +796,15 @@ const s = StyleSheet.create({
   minChipTextActive: { color: ORANGE },
   timeHint: { fontSize: 12, color: Colors.muted, fontStyle: 'italic' },
   errorText: { fontSize: 12, color: Colors.destructive, fontWeight: '600', marginTop: 2 },
+  // Date button (DateTimePicker trigger)
+  dateBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: Colors.card, borderRadius: Radius.md,
+    padding: 12, borderWidth: 1, borderColor: Colors.border,
+  },
+  dateBtnValue: { fontSize: 16, fontWeight: '700', color: Colors.foreground },
+  dateBtnSub: { fontSize: 12, color: Colors.muted, marginTop: 2 },
+  dateBtnPlaceholder: { fontSize: 15, color: Colors.muted },
   // Precision cards
   precisionCard: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
