@@ -107,7 +107,7 @@ export default function CoachProfileScreen() {
             {displayService.location_description && (
               <Text style={styles.location}>📍 {displayService.location_description}</Text>
             )}
-          </View>
+          </TouchableOpacity>
         )}
 
         {/* Commission info */}
