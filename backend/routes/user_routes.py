@@ -10,7 +10,16 @@ router = APIRouter()
 @router.get("/profile")
 async def get_profile(request: Request):
     pool = get_pool()
-    return await require_auth(request, pool)
+    user = await require_auth(request, pool)
+    async with pool.acquire() as conn:
+        reviews = await conn.fetch("SELECT rating FROM reviews WHERE reviewee_id = $1", user["user_id"])
+    if reviews:
+        user["avg_rating"] = round(sum(r["rating"] for r in reviews) / len(reviews), 1)
+        user["review_count"] = len(reviews)
+    else:
+        user["avg_rating"] = None
+        user["review_count"] = 0
+    return user
 
 
 @router.put("/profile")
