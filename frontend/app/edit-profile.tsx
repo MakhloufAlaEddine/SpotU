@@ -255,6 +255,36 @@ export default function EditProfileScreen() {
           </View>
         </Section>
 
+        {/* ── CONFIDENTIALITÉ ────────────────────── */}
+        <Section title="Confidentialité" icon="shield-outline">
+          <View style={st.switchRow} testID="privacy-section">
+            <View style={{ flex: 1 }}>
+              <Text style={st.switchLabel}>Afficher mon téléphone</Text>
+              <Text style={st.switchDesc}>Visible sur votre profil public</Text>
+            </View>
+            <Switch
+              value={showPhone}
+              onValueChange={setShowPhone}
+              trackColor={{ false: Colors.border, true: Colors.primary }}
+              thumbColor={Colors.background}
+              testID="show-phone-toggle"
+            />
+          </View>
+          <View style={[st.switchRow, { borderBottomWidth: 0 }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={st.switchLabel}>Autoriser les avis</Text>
+              <Text style={st.switchDesc}>Les autres membres peuvent vous noter</Text>
+            </View>
+            <Switch
+              value={showReviews}
+              onValueChange={setShowReviews}
+              trackColor={{ false: Colors.border, true: Colors.primary }}
+              thumbColor={Colors.background}
+              testID="show-reviews-toggle"
+            />
+          </View>
+        </Section>
+
         {/* ── SECTION COACH ──────────────────────── */}
         {isCoach && (
           <>
