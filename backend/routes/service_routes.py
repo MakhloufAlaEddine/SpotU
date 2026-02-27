@@ -30,8 +30,8 @@ async def _get_service_locations(conn, service_id: str) -> list:
 
 async def _get_service_slots(conn, service_id: str) -> list:
     rows = await conn.fetch(
-        """SELECT slot_id, slot_type, day_of_week, start_time, end_time, slot_date
-           FROM service_slots WHERE service_id = $1 ORDER BY day_of_week, start_time""",
+        """SELECT slot_id, slot_type, day_of_week, days_of_week, start_time, end_time, slot_date
+           FROM service_slots WHERE service_id = $1 ORDER BY start_time""",
         service_id
     )
     return rows_to_list(rows)
