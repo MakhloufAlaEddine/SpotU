@@ -109,9 +109,10 @@ export default function EditServiceScreen() {
   const [addingSlot, setAddingSlot] = useState(false);
   const [newSlotType, setNewSlotType] = useState<SlotType>('recurring');
   const [newSlotDays, setNewSlotDays] = useState<number[]>([]);
-  const [newSlotDate, setNewSlotDate] = useState('');
-  const [newSlotStart, setNewSlotStart] = useState('');
-  const [newSlotEnd, setNewSlotEnd] = useState('');
+  const [newSlotStartDate, setNewSlotStartDate] = useState<Date | null>(null);
+  const [newSlotEndDate, setNewSlotEndDate] = useState<Date | null>(null);
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
   const [slotError, setSlotError] = useState('');
 
   const [submitting, setSubmitting] = useState(false);
