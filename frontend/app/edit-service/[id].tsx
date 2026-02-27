@@ -206,8 +206,6 @@ export default function EditServiceScreen() {
     setAddingLoc(false);
   };
 
-  const [slotError, setSlotError] = useState('');
-
   const addSlot = () => {
     if (!newSlotStart) { setSlotError('Sélectionnez une heure de début'); return; }
     if (!newSlotEnd) { setSlotError('Sélectionnez une heure de fin'); return; }
