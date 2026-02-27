@@ -334,50 +334,87 @@ export default function ServiceDetailScreen() {
                     </View>
                   )}
 
-                  {/* Slot rows */}
-                  {locSlots.length > 0 ? (
-                    <View style={s.locSlotList}>
-                      {locSlots.map((slot: any, si: number) => {
-                        const isSingle = slot.slot_type === 'single';
-                        const dayLabel = isSingle
-                          ? (slot.slot_date ? slot.slot_date.slice(5).replace('-', '/') : '?')
-                          : (slot.day_of_week !== null && slot.day_of_week !== undefined ? DAYS_SHORT[slot.day_of_week] : '?');
-                        const timeRange = `${slot.start_time}${slot.end_time ? ` → ${slot.end_time}` : ''}`;
-                        const nextLabel = !isSingle && slot.day_of_week !== null && slot.day_of_week !== undefined
-                          ? getNextOccurrence(slot)
-                          : isSingle && slot.slot_date ? `Date : ${slot.slot_date}` : '';
+                  {/* Slot rows — grouped by day, sorted by day index */}
+                  {locSlots.length > 0 ? (() => {
+                    // Group by day (or individual for 'single' type)
+                    const dayMap: Record<string, any[]> = {};
+                    for (const slot of locSlots) {
+                      const key = slot.slot_type === 'single'
+                        ? `single_${slot.slot_id}`
+                        : String(slot.day_of_week ?? 'x');
+                      if (!dayMap[key]) dayMap[key] = [];
+                      dayMap[key].push(slot);
+                    }
+                    // Sort keys: numeric day first (0→6), then 'single' last
+                    const sortedKeys = Object.keys(dayMap).sort((a, b) => {
+                      const na = isNaN(Number(a)) ? 99 : Number(a);
+                      const nb = isNaN(Number(b)) ? 99 : Number(b);
+                      return na - nb;
+                    });
 
-                        return (
-                          <TouchableOpacity
-                            key={slot.slot_id}
-                            style={[s.locSlotRow, si > 0 && s.locSlotRowBorder, selectedSlotId === slot.slot_id && s.locSlotRowActive]}
-                            onPress={() => {
-                              setSelectedSlotId(slot.slot_id);
-                              setSelectedLocationId(loc.location_id);
-                              setActiveLocIdx(locIdx);
-                            }}
-                            testID={`slot-row-${slot.slot_id}`}
-                            activeOpacity={0.7}
-                          >
-                            <View style={[s.slotDayBadge, selectedSlotId === slot.slot_id && s.slotDayBadgeActive]}>
-                              <Text style={[s.slotDayText, selectedSlotId === slot.slot_id && s.slotDayTextActive]}>
-                                {dayLabel}
-                              </Text>
+                    return (
+                      <View style={s.locSlotList}>
+                        {sortedKeys.map((key, gi) => {
+                          const group = dayMap[key];
+                          const firstSlot = group[0];
+                          const isSingle = firstSlot.slot_type === 'single';
+                          const dayLabel = isSingle
+                            ? (firstSlot.slot_date ? firstSlot.slot_date.slice(5).replace('-', '/') : '?')
+                            : (firstSlot.day_of_week !== null && firstSlot.day_of_week !== undefined
+                                ? DAYS_SHORT[firstSlot.day_of_week] : '?');
+
+                          // Is any slot in this day group selected?
+                          const isGroupSelected = group.some((sl: any) => sl.slot_id === selectedSlotId);
+
+                          return (
+                            <View
+                              key={key}
+                              style={[s.locSlotRow, gi > 0 && s.locSlotRowBorder, isGroupSelected && s.locSlotRowActive]}
+                            >
+                              {/* Day badge */}
+                              <View style={[s.slotDayBadge, isGroupSelected && s.slotDayBadgeActive]}>
+                                <Text style={[s.slotDayText, isGroupSelected && s.slotDayTextActive]}>
+                                  {dayLabel}
+                                </Text>
+                              </View>
+
+                              {/* Time chips — one per slot in this day */}
+                              <View style={{ flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                                {group.map((slot: any) => {
+                                  const isSelected = slot.slot_id === selectedSlotId;
+                                  const timeStr = `${slot.start_time}${slot.end_time ? ` → ${slot.end_time}` : ''}`;
+                                  return (
+                                    <TouchableOpacity
+                                      key={slot.slot_id}
+                                      style={[s.timeChip, isSelected && s.timeChipActive]}
+                                      onPress={() => {
+                                        setSelectedSlotId(slot.slot_id);
+                                        setSelectedLocationId(loc.location_id);
+                                        setActiveLocIdx(locIdx);
+                                      }}
+                                      testID={`slot-row-${slot.slot_id}`}
+                                      activeOpacity={0.7}
+                                    >
+                                      <Text style={[s.timeChipText, isSelected && s.timeChipTextActive]}>
+                                        {timeStr}
+                                      </Text>
+                                    </TouchableOpacity>
+                                  );
+                                })}
+                              </View>
+
+                              {/* Duration */}
+                              <View style={[s.durationChip, isGroupSelected && s.durationChipActive]}>
+                                <Text style={[s.durationChipText, isGroupSelected && { color: ORANGE }]}>
+                                  {service.duration_min}min
+                                </Text>
+                              </View>
                             </View>
-                            <View style={{ flex: 1 }}>
-                              <Text style={s.slotTime}>{timeRange}</Text>
-                              {nextLabel ? <Text style={s.slotNext}>{nextLabel}</Text> : null}
-                            </View>
-                            <View style={[s.durationChip, selectedSlotId === slot.slot_id && s.durationChipActive]}>
-                              <Text style={[s.durationChipText, selectedSlotId === slot.slot_id && { color: ORANGE }]}>
-                                {service.duration_min}min
-                              </Text>
-                            </View>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  ) : (
+                          );
+                        })}
+                      </View>
+                    );
+                  })() : (
                     <View style={s.noSlotsNote}>
                       <Ionicons name="calendar-outline" size={14} color={Colors.muted} />
                       <Text style={s.noSlotsText}>Aucun créneau configuré pour ce lieu</Text>
