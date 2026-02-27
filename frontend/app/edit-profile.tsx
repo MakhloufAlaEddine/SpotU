@@ -147,8 +147,7 @@ export default function EditProfileScreen() {
     );
   };
 
-  const handleDeleteService = (svcId: string, title: string) => {
-    Alert.alert('Supprimer', `Supprimer le service "${title}" ?`, [
+  const handleDeleteService = (svcId: string, title: string) => {    Alert.alert('Supprimer', `Supprimer le service "${title}" ?`, [
       { text: 'Annuler', style: 'cancel' },
       {
         text: 'Supprimer', style: 'destructive', onPress: async () => {
