@@ -113,7 +113,6 @@ export default function EditProfileScreen() {
       setName(user?.name || '');
       setBio(user?.bio || '');
       setPhone(user?.phone || '');
-      setHourlyRate(user?.hourly_rate ? String(user.hourly_rate) : '');
       setSelectedTagIds(user?.coach_tags || []);
       setShowPhone(user?.show_phone ?? false);
       setShowReviews(user?.show_reviews ?? true);
