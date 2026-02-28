@@ -79,13 +79,13 @@ export default function CreateServiceScreen() {
   // ─── Upload image helper (même pattern que TagPoint) ───────────────────────
   const uploadImage = async (uri: string): Promise<string> => {
     const token = (user as any)?.token || '';
-    const base = (process.env.EXPO_PUBLIC_API_URL || process.env.REACT_APP_BACKEND_URL || '');
+    const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
     const form = new FormData();
     const filename = uri.split('/').pop() || 'photo.jpg';
     const ext = filename.split('.').pop()?.toLowerCase() || 'jpg';
     const mime = ext === 'png' ? 'image/png' : ext === 'gif' ? 'image/gif' : 'image/jpeg';
     form.append('file', { uri, name: filename, type: mime } as any);
-    const res = await fetch(`${base}/api/upload-image`, {
+    const res = await fetch(`${BASE_URL}/api/upload-image`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: form,
