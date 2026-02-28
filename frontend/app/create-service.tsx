@@ -187,6 +187,9 @@ export default function CreateServiceScreen() {
       if (title.trim().length < 5) { Alert.alert('', 'Le titre doit avoir au moins 5 caractères'); return; }
       if (!coachDesc.trim()) { Alert.alert('', 'La description du coach est requise'); return; }
     }
+    if (step === 2) {
+      if (selectedTagIds.length === 0) { Alert.alert('Tags requis', 'Veuillez sélectionner au moins un tag pour catégoriser votre service.'); return; }
+    }
     if (step === 3) {
       const p = parseFloat(price);
       if (!price || isNaN(p) || p <= 0) { Alert.alert('Prix manquant', 'Renseignez le prix par séance'); return; }
