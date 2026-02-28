@@ -245,6 +245,7 @@ async def connect_to_db():
             ALTER TABLE service_slots ADD COLUMN IF NOT EXISTS raw_schedule JSONB;
             ALTER TABLE service_slots ADD COLUMN IF NOT EXISTS location_id TEXT REFERENCES service_locations(location_id) ON DELETE SET NULL;
             ALTER TABLE services ADD COLUMN IF NOT EXISTS address TEXT;
+            ALTER TABLE services ADD COLUMN IF NOT EXISTS images JSONB DEFAULT '[]'::jsonb;
             CREATE TABLE IF NOT EXISTS service_packages (
                 package_id TEXT PRIMARY KEY,
                 service_id TEXT REFERENCES services(service_id) ON DELETE CASCADE,
