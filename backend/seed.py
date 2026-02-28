@@ -372,18 +372,166 @@ async def seed_initial_data():
 
         logger.info("Updated event dates and schedules")
 
-        # Services
-        count = await conn.fetchval("SELECT COUNT(*) FROM services")
-        if count == 0:
-            await conn.execute(
-                "INSERT INTO services (service_id, coach_id, title, description, price, duration_min, tag_ids, domain_id, location, location_description, max_participants, active) VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,ST_SetSRID(ST_MakePoint($9,$10),4326),$11,$12,TRUE) ON CONFLICT DO NOTHING",
+        # ── Services demo (4 coaches, 1 service chacun) ──────────────────────
+        # Upgrade demo users → coach (idempotent)
+        await conn.execute("""
+            UPDATE users SET role='coach', is_coach_verified=TRUE
+            WHERE user_id IN ('user_demo001','user_demo002','user_demo003')
+        """)
+
+        demo_services = [
+            # (service_id, coach_id, title, description, price, tag_ids_json, domain_id, lng, lat, address, loc_desc, images_json)
+            (
                 "svc_demo001", "user_coach001",
-                "Coaching personnalisé - Fitness & Running",
-                "Programme sur mesure adapté à vos objectifs. Évaluation initiale incluse.",
-                60.0, 60,
-                ["tag_musculation", "tag_cardio", "tag_hiit"],
+                "Coaching fitness & running personnalisé",
+                "Programme sur mesure adapté à vos objectifs. Bilan initial + suivi hebdomadaire. 8 ans d'expérience certifiée.",
+                60.0,
+                json.dumps(["tag_musculation","tag_cardio","tag_hiit","tag_coach_perso"]),
                 "dom_coaching",
-                2.3522, 48.8566,
-                "Paris - à domicile ou en plein air", 1
-            )
-            logger.info("Seeded demo service")
+                2.3089, 48.8796,
+                "Paris 8ème - Parc Monceau",
+                "Parc Monceau, Paris 8",
+                json.dumps(["https://images.pexels.com/photos/1552242/pexels-photo-1552242.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+                             "https://images.pexels.com/photos/1552253/pexels-photo-1552253.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"])
+            ),
+            (
+                "svc_demo002", "user_demo001",
+                "Coaching Running — 5km au Semi-Marathon",
+                "Prépare ton prochain objectif : 5km, 10km ou semi. Plans personnalisés, sorties en groupe, analyse technique.",
+                40.0,
+                json.dumps(["tag_trail","tag_10k","tag_route","tag_coach_perso"]),
+                "dom_coaching",
+                2.3933, 48.8936,
+                "Paris 19ème - Parc de la Villette",
+                "Parc de la Villette, Paris 19",
+                json.dumps(["https://images.unsplash.com/photo-1750089440020-58fcbd0f0d89?crop=entropy&cs=srgb&fm=jpg&ixlib=rb-4.1.0&q=85"])
+            ),
+            (
+                "svc_demo003", "user_demo002",
+                "Initiation Basketball & Streetball",
+                "Découvre le basketball de rue ! Techniques de base, dribbles, tirs, stratégies. Adapté débutants et intermédiaires.",
+                15.0,
+                json.dumps(["tag_match_basket","tag_3x3","tag_streetball"]),
+                "dom_sport",
+                2.3773, 48.8647,
+                "Paris 11ème - Terrain Oberkampf",
+                "Terrain Oberkampf, Paris 11",
+                json.dumps(["https://images.pexels.com/photos/5274806/pexels-photo-5274806.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"])
+            ),
+            (
+                "svc_demo004", "user_demo003",
+                "Yoga & Méditation en Plein Air",
+                "Séances Hatha et Vinyasa yoga en plein air. Toutes conditions bienvenues. Tapis fourni. Ressourcement garanti.",
+                25.0,
+                json.dumps(["tag_hatha","tag_vinyasa","tag_meditation"]),
+                "dom_sport",
+                2.3841, 48.8701,
+                "Paris 20ème - Parc de Belleville",
+                "Parc de Belleville, Paris 20",
+                json.dumps(["https://images.unsplash.com/photo-1758274536083-b821befda77c?crop=entropy&cs=srgb&fm=jpg&ixlib=rb-4.1.0&q=85"])
+            ),
+        ]
+
+        for s in demo_services:
+            await conn.execute("""
+                INSERT INTO services
+                    (service_id, coach_id, title, description, price, tag_ids, domain_id,
+                     location, address, location_description, max_participants, active, images)
+                VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,
+                        ST_SetSRID(ST_MakePoint($8,$9),4326),$10,$11,1,TRUE,$12::jsonb)
+                ON CONFLICT (service_id) DO UPDATE SET
+                    title=EXCLUDED.title, description=EXCLUDED.description, price=EXCLUDED.price,
+                    tag_ids=EXCLUDED.tag_ids, domain_id=EXCLUDED.domain_id,
+                    location=EXCLUDED.location, address=EXCLUDED.address,
+                    location_description=EXCLUDED.location_description,
+                    images=EXCLUDED.images, active=TRUE
+            """, *s)
+
+        # Service locations (pour la recherche géographique)
+        demo_locations = [
+            ("loc_demo001", "svc_demo001", 2.3089, 48.8796, "exact", "Parc Monceau, Paris 8ème"),
+            ("loc_demo002", "svc_demo002", 2.3933, 48.8936, "exact", "Parc de la Villette, Paris 19ème"),
+            ("loc_demo003", "svc_demo003", 2.3773, 48.8647, "exact", "Terrain Oberkampf, Paris 11ème"),
+            ("loc_demo004", "svc_demo004", 2.3841, 48.8701, "exact", "Parc de Belleville, Paris 20ème"),
+        ]
+        for loc in demo_locations:
+            await conn.execute("""
+                INSERT INTO service_locations (location_id, service_id, location, precision, description)
+                VALUES ($1,$2,ST_SetSRID(ST_MakePoint($3,$4),4326),$5,$6)
+                ON CONFLICT (location_id) DO NOTHING
+            """, *loc)
+
+        # Service packages (2 par service)
+        demo_packages = [
+            ("pkg_d01a","svc_demo001","individual","Séance individuelle",60,1,60.0),
+            ("pkg_d01b","svc_demo001","small_group","Petit groupe (2-6 pers.)",60,6,25.0),
+            ("pkg_d02a","svc_demo002","individual","Séance individuelle",75,1,50.0),
+            ("pkg_d02b","svc_demo002","small_group","Groupe de running (2-6)",75,6,20.0),
+            ("pkg_d03a","svc_demo003","small_group","Cours collectif",90,8,15.0),
+            ("pkg_d03b","svc_demo003","workshop","Stage intensif",120,12,80.0),
+            ("pkg_d04a","svc_demo004","individual","Séance individuelle",60,1,70.0),
+            ("pkg_d04b","svc_demo004","small_group","Cours collectif",60,8,25.0),
+        ]
+        for pkg in demo_packages:
+            await conn.execute("""
+                INSERT INTO service_packages
+                    (package_id, service_id, type_id, type_label, duration_min, max_participants, price)
+                VALUES ($1,$2,$3,$4,$5,$6,$7)
+                ON CONFLICT (package_id) DO NOTHING
+            """, *pkg)
+
+        # Service slots (2 semaines à venir, dates relatives à NOW())
+        # Format: (slot_id, service_id, package_id, days_offset, start_time, end_time)
+        demo_slots = [
+            # svc_demo001 - individuel
+            ("slt_d01a1","svc_demo001","pkg_d01a",1,"09:00","10:00"),
+            ("slt_d01a2","svc_demo001","pkg_d01a",3,"09:00","10:00"),
+            ("slt_d01a3","svc_demo001","pkg_d01a",5,"10:00","11:00"),
+            ("slt_d01a4","svc_demo001","pkg_d01a",8,"09:00","10:00"),
+            ("slt_d01a5","svc_demo001","pkg_d01a",10,"09:00","10:00"),
+            # svc_demo001 - petit groupe
+            ("slt_d01b1","svc_demo001","pkg_d01b",2,"10:00","11:00"),
+            ("slt_d01b2","svc_demo001","pkg_d01b",7,"10:00","11:00"),
+            ("slt_d01b3","svc_demo001","pkg_d01b",9,"10:00","11:00"),
+            # svc_demo002 - individuel
+            ("slt_d02a1","svc_demo002","pkg_d02a",2,"07:00","08:15"),
+            ("slt_d02a2","svc_demo002","pkg_d02a",4,"07:00","08:15"),
+            ("slt_d02a3","svc_demo002","pkg_d02a",7,"08:00","09:15"),
+            ("slt_d02a4","svc_demo002","pkg_d02a",9,"07:00","08:15"),
+            # svc_demo002 - groupe
+            ("slt_d02b1","svc_demo002","pkg_d02b",3,"07:00","08:15"),
+            ("slt_d02b2","svc_demo002","pkg_d02b",6,"08:00","09:15"),
+            ("slt_d02b3","svc_demo002","pkg_d02b",10,"07:00","08:15"),
+            # svc_demo003 - collectif
+            ("slt_d03a1","svc_demo003","pkg_d03a",2,"18:00","19:30"),
+            ("slt_d03a2","svc_demo003","pkg_d03a",4,"18:00","19:30"),
+            ("slt_d03a3","svc_demo003","pkg_d03a",7,"14:00","15:30"),
+            ("slt_d03a4","svc_demo003","pkg_d03a",9,"14:00","15:30"),
+            ("slt_d03a5","svc_demo003","pkg_d03a",11,"18:00","19:30"),
+            # svc_demo003 - stage
+            ("slt_d03b1","svc_demo003","pkg_d03b",6,"10:00","12:00"),
+            ("slt_d03b2","svc_demo003","pkg_d03b",13,"10:00","12:00"),
+            # svc_demo004 - individuel
+            ("slt_d04a1","svc_demo004","pkg_d04a",1,"08:00","09:00"),
+            ("slt_d04a2","svc_demo004","pkg_d04a",3,"08:00","09:00"),
+            ("slt_d04a3","svc_demo004","pkg_d04a",5,"08:00","09:00"),
+            ("slt_d04a4","svc_demo004","pkg_d04a",8,"08:00","09:00"),
+            ("slt_d04a5","svc_demo004","pkg_d04a",10,"08:00","09:00"),
+            # svc_demo004 - collectif
+            ("slt_d04b1","svc_demo004","pkg_d04b",2,"09:30","10:30"),
+            ("slt_d04b2","svc_demo004","pkg_d04b",5,"09:30","10:30"),
+            ("slt_d04b3","svc_demo004","pkg_d04b",7,"09:30","10:30"),
+            ("slt_d04b4","svc_demo004","pkg_d04b",9,"09:30","10:30"),
+            ("slt_d04b5","svc_demo004","pkg_d04b",12,"09:30","10:30"),
+        ]
+        for slot in demo_slots:
+            await conn.execute("""
+                INSERT INTO service_slots
+                    (slot_id, service_id, package_id, slot_type, slot_date, start_time, end_time)
+                VALUES ($1,$2,$3,'specific',
+                    TO_CHAR((NOW() + ($4::TEXT || ' days')::INTERVAL)::date, 'YYYY-MM-DD'),
+                    $5,$6)
+                ON CONFLICT (slot_id) DO NOTHING
+            """, slot[0], slot[1], slot[2], str(slot[3]), slot[4], slot[5])
+
+        logger.info("Seeded 4 demo services with locations, packages and slots")
