@@ -366,80 +366,79 @@ export function WeekCalendar({ slots, durationMin, onSlotsChange }: WeekCalendar
         </View>
       )}
 
-      {/* ── Modal ────────────────────────────────────────────────────── */}
-      <Modal visible={showDayModal} animationType="slide" transparent={!showPicker} onRequestClose={() => { if (showPicker) { setPickerMode('idle'); } else { closeAll(); } }}>
-        {showPicker ? (
-          /* ── Full-screen Drum Picker ─────────────────────────── */
-          <DrumTimePicker
-            title={pickerTitle}
-            initHour={pickerInitHour}
-            initMinute={pickerInitMinute}
-            onConfirm={onDrumConfirm}
-            onCancel={() => setPickerMode('idle')}
-          />
-        ) : (
-          /* ── Bottom Sheet ────────────────────────────────────── */
-          <View style={s.overlayContainer}>
-            <TouchableOpacity style={s.backdropDismiss} activeOpacity={1} onPress={closeAll} />
-            <View style={s.sheet}>
-              <View style={s.sheetHandle} />
+      {/* ── Bottom Sheet Modal ───────────────────────────────────────── */}
+      <Modal visible={showDayModal && !showPicker} animationType="slide" transparent={true} onRequestClose={closeAll}>
+        <View style={s.overlayContainer}>
+          <TouchableOpacity style={s.backdropDismiss} activeOpacity={1} onPress={closeAll} />
+          <View style={s.sheet}>
+            <View style={s.sheetHandle} />
 
-              {/* Card header */}
-              <View style={s.cardHeader}>
-                <View style={s.cardDot} />
-                <Text style={s.cardTitle}>{selectedDayInfo ? (selectedDayInfo as any).dayLong : ''}</Text>
-                <Text style={s.cardCount}>{totalSlots} créneau{totalSlots !== 1 ? 'x' : ''}</Text>
-                <TouchableOpacity onPress={closeAll} style={s.closeBtn}>
-                  <Text style={s.closeBtnText}>×</Text>
+            {/* Card header */}
+            <View style={s.cardHeader}>
+              <View style={s.cardDot} />
+              <Text style={s.cardTitle}>{selectedDayInfo ? (selectedDayInfo as any).dayLong : ''}</Text>
+              <Text style={s.cardCount}>{totalSlots} créneau{totalSlots !== 1 ? 'x' : ''}</Text>
+              <TouchableOpacity onPress={closeAll} style={s.closeBtn}>
+                <Text style={s.closeBtnText}>×</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Saved slots */}
+            {selectedDaySlots.map(slot => (
+              <SlotRow
+                key={slot.id}
+                startTime={slot.startTime}
+                endTime={slot.endTime}
+                onDelete={() => onSlotsChange(slots.filter(ss => ss.id !== slot.id))}
+                testId={`saved-slot-${slot.id}`}
+              />
+            ))}
+
+            {/* Pending slot row */}
+            {hasPendingSlot && (
+              <View style={s.pendingRow}>
+                <TouchableOpacity style={[sr.timeBtn, s.timeBtnPending]} onPress={openStartPicker} testID="start-btn">
+                  <Ionicons name="play-circle-outline" size={18} color={TEAL} />
+                  <Text style={sr.timeBtnText}>{pendingStartStr}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[sr.timeBtn, !pendingEndStr && s.timeBtnEmpty]} onPress={openEndPicker} testID="end-btn">
+                  <Ionicons name="stop-circle-outline" size={18} color={pendingEndStr ? TEAL : Colors.muted} />
+                  <Text style={[sr.timeBtnText, !pendingEndStr && { color: Colors.muted }]}>{pendingEndStr || 'Fin ?'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={sr.deleteBtn} onPress={() => { setPendingStartStr(null); setPendingEndStr(null); }} testID="delete-pending">
+                  <Text style={sr.deleteBtnText}>×</Text>
                 </TouchableOpacity>
               </View>
+            )}
 
-              {/* Saved slots */}
-              {selectedDaySlots.map(slot => (
-                <SlotRow
-                  key={slot.id}
-                  startTime={slot.startTime}
-                  endTime={slot.endTime}
-                  onDelete={() => onSlotsChange(slots.filter(ss => ss.id !== slot.id))}
-                  testId={`saved-slot-${slot.id}`}
-                />
-              ))}
+            {/* Save pending slot */}
+            {hasPendingSlot && pendingEndStr && (
+              <TouchableOpacity style={s.confirmAddBtn} onPress={handleAddSlot} testID="confirm-slot">
+                <Ionicons name="add-circle" size={18} color={Colors.background} />
+                <Text style={s.confirmAddBtnText}>Enregistrer ce créneau</Text>
+              </TouchableOpacity>
+            )}
 
-              {/* Pending slot row */}
-              {hasPendingSlot && (
-                <View style={s.pendingRow}>
-                  <TouchableOpacity style={[sr.timeBtn, s.timeBtnPending]} onPress={openStartPicker} testID="start-btn">
-                    <Ionicons name="play-circle-outline" size={18} color={TEAL} />
-                    <Text style={sr.timeBtnText}>{pendingStartStr}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[sr.timeBtn, !pendingEndStr && s.timeBtnEmpty]} onPress={openEndPicker} testID="end-btn">
-                    <Ionicons name="stop-circle-outline" size={18} color={pendingEndStr ? TEAL : Colors.muted} />
-                    <Text style={[sr.timeBtnText, !pendingEndStr && { color: Colors.muted }]}>{pendingEndStr || 'Fin ?'}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={sr.deleteBtn} onPress={() => { setPendingStartStr(null); setPendingEndStr(null); }} testID="delete-pending">
-                    <Text style={sr.deleteBtnText}>×</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {/* Save pending slot */}
-              {hasPendingSlot && pendingEndStr && (
-                <TouchableOpacity style={s.confirmAddBtn} onPress={handleAddSlot} testID="confirm-slot">
-                  <Ionicons name="add-circle" size={18} color={Colors.background} />
-                  <Text style={s.confirmAddBtnText}>Enregistrer ce créneau</Text>
-                </TouchableOpacity>
-              )}
-
-              {/* Add dashed button */}
-              {!hasPendingSlot && (
-                <TouchableOpacity style={s.addDashedBtn} onPress={openStartPicker} testID="add-slot-btn">
-                  <Ionicons name="add-circle-outline" size={22} color={TEAL} />
-                  <Text style={s.addDashedBtnText}>Ajouter un créneau</Text>
-                </TouchableOpacity>
-              )}
-            </View>
+            {/* Add dashed button */}
+            {!hasPendingSlot && (
+              <TouchableOpacity style={s.addDashedBtn} onPress={openStartPicker} testID="add-slot-btn">
+                <Ionicons name="add-circle-outline" size={22} color={TEAL} />
+                <Text style={s.addDashedBtnText}>Ajouter un créneau</Text>
+              </TouchableOpacity>
+            )}
           </View>
-        )}
+        </View>
+      </Modal>
+
+      {/* ── Full-Screen Drum Picker Modal ────────────────────────────── */}
+      <Modal visible={showPicker} animationType="slide" transparent={false} onRequestClose={() => setPickerMode('idle')}>
+        <DrumTimePicker
+          title={pickerTitle}
+          initHour={pickerInitHour}
+          initMinute={pickerInitMinute}
+          onConfirm={onDrumConfirm}
+          onCancel={() => setPickerMode('idle')}
+        />
       </Modal>
     </View>
   );
