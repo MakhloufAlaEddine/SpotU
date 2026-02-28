@@ -28,13 +28,17 @@ const STATUS_CFG: Record<string, { label: string; color: string; icon: any }> = 
 
 function BookingRow({ item }: { item: any }) {
   const sc = STATUS_CFG[item.status] || STATUS_CFG.pending;
+  const img = item.service?.images?.[0];
 
   return (
     <View style={card.wrap} testID={`booking-${item.booking_id}`}>
       <View style={card.imgWrap}>
-        <View style={{ width: '100%', height: '100%', backgroundColor: '#1A1000', alignItems: 'center', justifyContent: 'center' }}>
-          <Ionicons name="calendar-outline" size={24} color="rgba(255,149,0,0.25)" />
-        </View>
+        {img
+          ? <Image source={{ uri: img }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+          : <View style={{ width: '100%', height: '100%', backgroundColor: '#1A1000', alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="calendar-outline" size={24} color="rgba(255,149,0,0.25)" />
+            </View>
+        }
       </View>
       <View style={card.info}>
         <Text style={card.title} numberOfLines={2}>{item.service?.title || 'Service'}</Text>
