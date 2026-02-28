@@ -329,7 +329,7 @@ export function WeekCalendar({ slots, durationMin, onSlotsChange }: WeekCalendar
     if (!selectedDate || !pendingStartStr || !pendingEndStr) return;
     const daySlots = getDateSlots(selectedDate);
     if (hasOverlap(daySlots, pendingStartStr, pendingEndStr)) {
-      Alert.alert('Chevauchement', `${pendingStartStr}→${pendingEndStr} chevauche un créneau existant.`);
+      showAlert('Chevauchement', `${pendingStartStr}→${pendingEndStr} chevauche un créneau existant.`);
       return;
     }
     onSlotsChange([...slots, {
