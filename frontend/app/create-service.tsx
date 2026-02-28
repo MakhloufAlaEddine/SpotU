@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, KeyboardAvoidingView, Platform, Alert, ActivityIndicator, Modal, Dimensions,
+  TextInput, KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
+  Modal, Dimensions, Image, Animated,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 
 const { height: SH } = Dimensions.get('window');
 import { SafeAreaView } from 'react-native-safe-area-context';
