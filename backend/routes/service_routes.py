@@ -8,7 +8,7 @@ import json
 router = APIRouter()
 
 SVC_FIELDS = """
-    service_id, coach_id, title, description, price, duration_min,
+    service_id, coach_id, title, description, address, price, duration_min,
     tag_ids, domain_id, location_description, max_participants, active, created_at, updated_at
 """
 
@@ -30,11 +30,28 @@ async def _get_service_locations(conn, service_id: str) -> list:
 
 async def _get_service_slots(conn, service_id: str) -> list:
     rows = await conn.fetch(
-        """SELECT slot_id, slot_type, location_id, day_of_week, days_of_week, start_time, end_time, slot_date
-           FROM service_slots WHERE service_id = $1 ORDER BY start_time""",
+        """SELECT slot_id, slot_type, location_id, package_id, day_of_week, days_of_week, start_time, end_time, slot_date
+           FROM service_slots WHERE service_id = $1 ORDER BY slot_date, start_time""",
         service_id
     )
     return rows_to_list(rows)
+
+
+async def _get_service_packages(conn, service_id: str) -> list:
+    pkgs = await conn.fetch(
+        "SELECT package_id, type_id, type_label, duration_min, max_participants, price FROM service_packages WHERE service_id = $1 ORDER BY created_at",
+        service_id
+    )
+    result = []
+    for pkg in pkgs:
+        pkg_dict = row_to_dict(pkg)
+        slots = await conn.fetch(
+            "SELECT slot_id, slot_date, start_time, end_time FROM service_slots WHERE package_id = $1 ORDER BY slot_date, start_time",
+            pkg["package_id"]
+        )
+        pkg_dict["slots"] = rows_to_list(slots)
+        result.append(pkg_dict)
+    return result
 
 
 async def _enrich_service(conn, svc: dict) -> dict:
@@ -50,6 +67,7 @@ async def _enrich_service(conn, svc: dict) -> dict:
     svc["review_count"] = len(reviews)
     svc["locations"] = await _get_service_locations(conn, svc["service_id"])
     svc["slots"] = await _get_service_slots(conn, svc["service_id"])
+    svc["packages"] = await _get_service_packages(conn, svc["service_id"])
     # Resolve tags
     import json as _json
     raw_tags = svc.get("tag_ids")
