@@ -22,6 +22,17 @@ async def _enrich_bookings(conn, bookings: list) -> list:
                 "SELECT user_id, name, picture FROM users WHERE user_id = $1", b["coach_id"]
             )
             b["coach"] = row_to_dict(coach_row)
+        if b.get("user_id"):
+            user_row = await conn.fetchrow(
+                "SELECT user_id, name, picture FROM users WHERE user_id = $1", b["user_id"]
+            )
+            b["user"] = row_to_dict(user_row)
+        if b.get("slot_id"):
+            slot_row = await conn.fetchrow(
+                "SELECT slot_id, slot_type, slot_date, day_of_week, start_time, end_time FROM service_slots WHERE slot_id = $1",
+                b["slot_id"]
+            )
+            b["slot"] = row_to_dict(slot_row)
         result.append(b)
     return result
 
