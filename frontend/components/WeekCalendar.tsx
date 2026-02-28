@@ -496,6 +496,26 @@ export function WeekCalendar({ slots, durationMin, onSlotsChange }: WeekCalendar
           onCancel={() => setPickerMode('idle')}
         />
       </Modal>
+
+      {/* ── Custom Dialog (remplace Alert.alert no-op sur web) ────────── */}
+      <Modal visible={!!dialog} animationType="fade" transparent={true} onRequestClose={() => dialog?.onCancel?.() ?? setDialog(null)}>
+        <View style={s.dialogOverlay}>
+          <View style={s.dialogCard} testID="inline-dialog">
+            <Text style={s.dialogTitle}>{dialog?.title}</Text>
+            <Text style={s.dialogMessage}>{dialog?.message}</Text>
+            <View style={[s.dialogActions, !dialog?.cancelText && s.dialogActionsSingle]}>
+              {dialog?.cancelText && (
+                <TouchableOpacity style={s.dialogBtnCancel} onPress={() => dialog?.onCancel?.()} testID="dialog-cancel">
+                  <Text style={s.dialogBtnCancelText}>{dialog.cancelText}</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity style={s.dialogBtnConfirm} onPress={() => dialog?.onConfirm()} testID="dialog-confirm">
+                <Text style={s.dialogBtnConfirmText}>{dialog?.confirmText}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
