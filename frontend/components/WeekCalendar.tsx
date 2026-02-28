@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, Alert, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { DateTimePickerModal } from './DateTimePicker';
 import { Colors, Spacing, Radius } from '../constants/Colors';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -25,6 +24,9 @@ const MONTHS_LONG = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet',
 const DAYS = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
 const DAYS_LONG = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
 
+const HOURS = [6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22];
+const MINUTES = [0,15,30,45];
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const toMins = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
 const addMins = (t: string, mins: number) => {
@@ -33,8 +35,8 @@ const addMins = (t: string, mins: number) => {
 };
 const fmtDateKey = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-const fmtTimeFromDate = (d: Date) =>
-  `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+const fmtTime = (h: number, m: number) =>
+  `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
 
 function getWeekDays(weekOffset: number) {
   const today = new Date();
@@ -80,15 +82,89 @@ function getPrevDateStr(dateStr: string): string {
   return fmtDateKey(d);
 }
 
+// ─── Inline Time Picker ───────────────────────────────────────────────────────
+interface InlineTimePickerProps {
+  title: string;
+  hour: number;
+  minute: number;
+  previewEnd?: string;
+  onHourChange: (h: number) => void;
+  onMinuteChange: (m: number) => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+function InlineTimePicker({ title, hour, minute, previewEnd, onHourChange, onMinuteChange, onConfirm, onCancel }: InlineTimePickerProps) {
+  return (
+    <View style={tp.container}>
+      <View style={tp.header}>
+        <Text style={tp.title}>{title}</Text>
+        <TouchableOpacity onPress={onCancel} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Ionicons name="close" size={20} color={Colors.muted} />
+        </TouchableOpacity>
+      </View>
+
+      <Text style={tp.label}>Heure</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <View style={{ flexDirection: 'row', gap: 6, paddingBottom: 2 }}>
+          {HOURS.map(h => (
+            <TouchableOpacity
+              key={h}
+              style={[tp.unit, hour === h && tp.unitActive]}
+              onPress={() => onHourChange(h)}
+              testID={`hour-${h}`}
+            >
+              <Text style={[tp.unitText, hour === h && tp.unitTextActive]}>{String(h).padStart(2,'0')}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </ScrollView>
+
+      <Text style={tp.label}>Minutes</Text>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        {MINUTES.map(m => (
+          <TouchableOpacity
+            key={m}
+            style={[tp.unit, tp.unitMin, minute === m && tp.unitActive]}
+            onPress={() => onMinuteChange(m)}
+            testID={`minute-${m}`}
+          >
+            <Text style={[tp.unitText, minute === m && tp.unitTextActive]}>{String(m).padStart(2,'0')}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <View style={tp.preview}>
+        <Ionicons name="time-outline" size={15} color={ORANGE} />
+        <Text style={tp.previewText}>
+          {fmtTime(hour, minute)}
+          {previewEnd ? ` → ${previewEnd}` : ''}
+        </Text>
+      </View>
+
+      <TouchableOpacity style={tp.confirmBtn} onPress={onConfirm} testID="confirm-time">
+        <Ionicons name="checkmark-circle" size={18} color={Colors.background} />
+        <Text style={tp.confirmBtnText}>Confirmer</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 // ─── WeekCalendar Component ────────────────────────────────────────────────────
 export function WeekCalendar({ slots, durationMin, onSlotsChange }: WeekCalendarProps) {
   const [weekOffset, setWeekOffset] = useState(0);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [showDayModal, setShowDayModal] = useState(false);
-  const [showStartPicker, setShowStartPicker] = useState(false);
-  const [showEndPicker, setShowEndPicker] = useState(false);
-  const [pendingStart, setPendingStart] = useState<Date | null>(null);
-  const [pendingEnd, setPendingEnd] = useState<Date | null>(null);
+
+  // Inline time picker state (no nested modals)
+  const [showPicker, setShowPicker] = useState(false);
+  const [pickingField, setPickingField] = useState<'start' | 'end'>('start');
+  const [pickerHour, setPickerHour] = useState(9);
+  const [pickerMinute, setPickerMinute] = useState(0);
+
+  // Pending slot times
+  const [pendingStartStr, setPendingStartStr] = useState<string | null>(null);
+  const [pendingEndStr, setPendingEndStr] = useState<string | null>(null);
 
   const today = useMemo(() => fmtDateKey(new Date()), []);
   const weekDays = useMemo(() => getWeekDays(weekOffset), [weekOffset]);
@@ -101,28 +177,22 @@ export function WeekCalendar({ slots, durationMin, onSlotsChange }: WeekCalendar
     const curHasSlots = weekDays.some(d => getDateSlots(d.dateStr).length > 0);
     const nextWeekDays = getWeekDays(nextOffset);
     const nextHasSlots = nextWeekDays.some(d => getDateSlots(d.dateStr).length > 0);
-
     if (curHasSlots && !nextHasSlots) {
-      Alert.alert(
-        'Semaine suivante',
-        'Copier les créneaux de cette semaine vers la semaine suivante ?',
-        [
-          { text: 'Non', style: 'cancel', onPress: () => setWeekOffset(nextOffset) },
-          {
-            text: 'Copier',
-            onPress: () => {
-              const newSlots: DaySlot[] = [];
-              for (let i = 0; i < 7; i++) {
-                for (const s of getDateSlots(weekDays[i].dateStr)) {
-                  newSlots.push({ ...s, id: `slot_${Date.now()}_${Math.random()}`, date: nextWeekDays[i].dateStr });
-                }
+      Alert.alert('Semaine suivante', 'Copier les créneaux de cette semaine ?', [
+        { text: 'Non', style: 'cancel', onPress: () => setWeekOffset(nextOffset) },
+        {
+          text: 'Copier', onPress: () => {
+            const newSlots: DaySlot[] = [];
+            for (let i = 0; i < 7; i++) {
+              for (const s of getDateSlots(weekDays[i].dateStr)) {
+                newSlots.push({ ...s, id: `slot_${Date.now()}_${Math.random()}`, date: nextWeekDays[i].dateStr });
               }
-              onSlotsChange([...slots, ...newSlots]);
-              setWeekOffset(nextOffset);
-            },
+            }
+            onSlotsChange([...slots, ...newSlots]);
+            setWeekOffset(nextOffset);
           },
-        ]
-      );
+        },
+      ]);
     } else {
       setWeekOffset(nextOffset);
     }
@@ -130,23 +200,74 @@ export function WeekCalendar({ slots, durationMin, onSlotsChange }: WeekCalendar
 
   const handleDayPress = (dateStr: string) => {
     setSelectedDate(dateStr);
-    setPendingStart(null);
-    setPendingEnd(null);
+    setPendingStartStr(null);
+    setPendingEndStr(null);
+    setShowPicker(false);
     setShowDayModal(true);
   };
 
+  const openStartPicker = () => {
+    setPickingField('start');
+    if (pendingStartStr) {
+      const [h, m] = pendingStartStr.split(':').map(Number);
+      setPickerHour(h); setPickerMinute(m);
+    } else {
+      setPickerHour(9); setPickerMinute(0);
+    }
+    setShowPicker(true);
+  };
+
+  const openEndPicker = () => {
+    if (!pendingStartStr) { Alert.alert('', "Définissez d'abord l'heure de début"); return; }
+    setPickingField('end');
+    if (pendingEndStr) {
+      const [h, m] = pendingEndStr.split(':').map(Number);
+      setPickerHour(h); setPickerMinute(m);
+    } else {
+      const autoEnd = addMins(pendingStartStr, durationMin);
+      const [h, m] = autoEnd.split(':').map(Number);
+      setPickerHour(h); setPickerMinute(m);
+    }
+    setShowPicker(true);
+  };
+
+  const confirmPickerTime = () => {
+    const timeStr = fmtTime(pickerHour, pickerMinute);
+    if (pickingField === 'start') {
+      setPendingStartStr(timeStr);
+      setPendingEndStr(addMins(timeStr, durationMin));
+    } else {
+      if (pendingStartStr) {
+        if (toMins(timeStr) <= toMins(pendingStartStr)) {
+          Alert.alert('Heure invalide', 'La fin doit être après le début');
+          return;
+        }
+        if (toMins(timeStr) - toMins(pendingStartStr) < durationMin) {
+          Alert.alert('Durée insuffisante', `Minimum ${durationMin} minutes`);
+          return;
+        }
+      }
+      setPendingEndStr(timeStr);
+    }
+    setShowPicker(false);
+  };
+
   const handleAddSlot = () => {
-    if (!selectedDate || !pendingStart || !pendingEnd) return;
-    const start = fmtTimeFromDate(pendingStart);
-    const end = fmtTimeFromDate(pendingEnd);
+    if (!selectedDate || !pendingStartStr || !pendingEndStr) return;
     const daySlots = getDateSlots(selectedDate);
-    if (hasOverlap(daySlots, start, end)) {
-      Alert.alert('Chevauchement', `${start}→${end} chevauche un créneau existant.`);
+    if (hasOverlap(daySlots, pendingStartStr, pendingEndStr)) {
+      Alert.alert('Chevauchement', `${pendingStartStr}→${pendingEndStr} chevauche un créneau existant.`);
       return;
     }
-    onSlotsChange([...slots, { id: `slot_${Date.now()}_${Math.random().toString(36).slice(2)}`, date: selectedDate, startTime: start, endTime: end }]);
-    setPendingStart(null);
-    setPendingEnd(null);
+    onSlotsChange([...slots, {
+      id: `slot_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+      date: selectedDate,
+      startTime: pendingStartStr,
+      endTime: pendingEndStr,
+    }]);
+    setPendingStartStr(null);
+    setPendingEndStr(null);
+    setShowPicker(false);
   };
 
   const handleCloneFromPrev = () => {
@@ -172,6 +293,10 @@ export function WeekCalendar({ slots, durationMin, onSlotsChange }: WeekCalendar
       const d = new Date(selectedDate + 'T00:00:00');
       return { dayLong: DAYS_LONG[d.getDay() === 0 ? 6 : d.getDay() - 1], dayNum: d.getDate(), monthLong: MONTHS_LONG[d.getMonth()] };
     })() : null;
+
+  const pickerPreviewEnd = pickingField === 'start'
+    ? addMins(fmtTime(pickerHour, pickerMinute), durationMin)
+    : undefined;
 
   return (
     <View>
@@ -220,7 +345,7 @@ export function WeekCalendar({ slots, durationMin, onSlotsChange }: WeekCalendar
             {getDateSlots(day.dateStr).map(slot => (
               <View key={slot.id} style={s.timeChip}>
                 <Text style={s.timeChipText}>{slot.startTime} → {slot.endTime}</Text>
-                <TouchableOpacity onPress={() => onSlotsChange(slots.filter(s => s.id !== slot.id))} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <TouchableOpacity onPress={() => onSlotsChange(slots.filter(ss => ss.id !== slot.id))} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                   <Ionicons name="close-circle" size={15} color={Colors.muted} />
                 </TouchableOpacity>
               </View>
@@ -231,7 +356,7 @@ export function WeekCalendar({ slots, durationMin, onSlotsChange }: WeekCalendar
 
       {slots.length === 0 && (
         <View style={s.emptyHint}>
-          <Ionicons name="tap-outline" size={16} color={Colors.muted} />
+          <Ionicons name="finger-print-outline" size={16} color={Colors.muted} />
           <Text style={s.emptyHintText}>Appuyez sur un jour pour ajouter un créneau</Text>
         </View>
       )}
@@ -239,7 +364,7 @@ export function WeekCalendar({ slots, durationMin, onSlotsChange }: WeekCalendar
       {/* ── Day Modal ────────────────────────────────────────────────── */}
       <Modal visible={showDayModal} animationType="slide" transparent onRequestClose={() => setShowDayModal(false)}>
         <View style={s.overlayContainer}>
-          <TouchableOpacity style={s.backdropDismiss} activeOpacity={1} onPress={() => setShowDayModal(false)} />
+          <TouchableOpacity style={s.backdropDismiss} activeOpacity={1} onPress={() => { setShowDayModal(false); setShowPicker(false); }} />
           <View style={s.sheet}>
             <View style={s.sheetHandle} />
 
@@ -253,13 +378,13 @@ export function WeekCalendar({ slots, durationMin, onSlotsChange }: WeekCalendar
                   {selectedDayInfo ? (selectedDayInfo as any).monthLong : ''}
                 </Text>
               </View>
-              <TouchableOpacity onPress={() => setShowDayModal(false)}>
+              <TouchableOpacity onPress={() => { setShowDayModal(false); setShowPicker(false); }}>
                 <Ionicons name="close" size={22} color={Colors.muted} />
               </TouchableOpacity>
             </View>
 
             {/* Clone from prev day */}
-            {prevDayHasSlots && (
+            {prevDayHasSlots && !showPicker && (
               <TouchableOpacity style={s.cloneBtn} onPress={handleCloneFromPrev} testID="clone-prev-day">
                 <Ionicons name="copy-outline" size={15} color={ORANGE} />
                 <Text style={s.cloneBtnText}>Copier les créneaux d'hier</Text>
@@ -267,14 +392,14 @@ export function WeekCalendar({ slots, durationMin, onSlotsChange }: WeekCalendar
             )}
 
             {/* Existing slots */}
-            {selectedDaySlots.length > 0 && (
+            {selectedDaySlots.length > 0 && !showPicker && (
               <View style={s.existingSection}>
                 <Text style={s.sectionLabel}>Créneaux ({selectedDaySlots.length})</Text>
                 {selectedDaySlots.map(slot => (
                   <View key={slot.id} style={s.existingRow}>
                     <Ionicons name="time-outline" size={15} color={ORANGE} />
                     <Text style={s.existingTime}>{slot.startTime} → {slot.endTime}</Text>
-                    <TouchableOpacity onPress={() => { onSlotsChange(slots.filter(s => s.id !== slot.id)); }} style={s.removeBtn}>
+                    <TouchableOpacity onPress={() => onSlotsChange(slots.filter(ss => ss.id !== slot.id))} style={s.removeBtn}>
                       <Ionicons name="trash-outline" size={15} color={Colors.destructive} />
                     </TouchableOpacity>
                   </View>
@@ -282,78 +407,78 @@ export function WeekCalendar({ slots, durationMin, onSlotsChange }: WeekCalendar
               </View>
             )}
 
-            {/* Add new slot */}
-            <View style={s.addSection}>
-              <Text style={s.sectionLabel}>Nouveau créneau</Text>
-              <View style={s.timeRow}>
-                <TouchableOpacity style={[s.timeBtn, pendingStart && s.timeBtnFilled]} onPress={() => setShowStartPicker(true)} testID="start-btn">
-                  <Ionicons name="play-circle-outline" size={16} color={pendingStart ? ORANGE : Colors.muted} />
-                  <Text style={[s.timeBtnText, !pendingStart && { color: Colors.muted }]}>
-                    {pendingStart ? fmtTimeFromDate(pendingStart) : 'Début'}
-                  </Text>
-                </TouchableOpacity>
-                <Ionicons name="arrow-forward" size={14} color={Colors.muted} />
-                <TouchableOpacity
-                  style={[s.timeBtn, pendingEnd && s.timeBtnFilled]}
-                  onPress={() => {
-                    if (!pendingStart) { Alert.alert('', "Définissez d'abord l'heure de début"); return; }
-                    setShowEndPicker(true);
-                  }}
-                  testID="end-btn"
-                >
-                  <Ionicons name="stop-circle-outline" size={16} color={pendingEnd ? ORANGE : Colors.muted} />
-                  <Text style={[s.timeBtnText, !pendingEnd && { color: Colors.muted }]}>
-                    {pendingEnd ? fmtTimeFromDate(pendingEnd) : 'Fin (auto)'}
-                  </Text>
-                </TouchableOpacity>
+            {/* ── Inline time picker ─────────────────────────────── */}
+            {showPicker ? (
+              <InlineTimePicker
+                title={pickingField === 'start' ? 'Heure de début' : 'Heure de fin'}
+                hour={pickerHour}
+                minute={pickerMinute}
+                previewEnd={pickerPreviewEnd}
+                onHourChange={setPickerHour}
+                onMinuteChange={setPickerMinute}
+                onConfirm={confirmPickerTime}
+                onCancel={() => setShowPicker(false)}
+              />
+            ) : (
+              /* ── Add new slot ──────────────────────────────────── */
+              <View style={s.addSection}>
+                <Text style={s.sectionLabel}>Nouveau créneau</Text>
+                <View style={s.timeRow}>
+                  <TouchableOpacity
+                    style={[s.timeBtn, pendingStartStr ? s.timeBtnFilled : null]}
+                    onPress={openStartPicker}
+                    testID="start-btn"
+                  >
+                    <Ionicons name="play-circle-outline" size={16} color={pendingStartStr ? ORANGE : Colors.muted} />
+                    <Text style={[s.timeBtnText, !pendingStartStr && { color: Colors.muted }]}>
+                      {pendingStartStr || 'Début'}
+                    </Text>
+                  </TouchableOpacity>
+                  <Ionicons name="arrow-forward" size={14} color={Colors.muted} />
+                  <TouchableOpacity
+                    style={[s.timeBtn, pendingEndStr ? s.timeBtnFilled : null]}
+                    onPress={openEndPicker}
+                    testID="end-btn"
+                  >
+                    <Ionicons name="stop-circle-outline" size={16} color={pendingEndStr ? ORANGE : Colors.muted} />
+                    <Text style={[s.timeBtnText, !pendingEndStr && { color: Colors.muted }]}>
+                      {pendingEndStr || 'Fin (auto)'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                {pendingStartStr && pendingEndStr && (
+                  <TouchableOpacity style={s.addSlotBtn} onPress={handleAddSlot} testID="confirm-slot">
+                    <Ionicons name="add-circle" size={18} color={Colors.background} />
+                    <Text style={s.addSlotBtnText}>Ajouter ce créneau</Text>
+                  </TouchableOpacity>
+                )}
               </View>
-              {pendingStart && pendingEnd && (
-                <TouchableOpacity style={s.addSlotBtn} onPress={handleAddSlot} testID="confirm-slot">
-                  <Ionicons name="add-circle" size={18} color={Colors.background} />
-                  <Text style={s.addSlotBtnText}>Ajouter ce créneau</Text>
-                </TouchableOpacity>
-              )}
-            </View>
+            )}
           </View>
         </View>
       </Modal>
-
-      {/* ── Time pickers ─────────────────────────────────────────────── */}
-      <DateTimePickerModal
-        visible={showStartPicker}
-        mode="time"
-        onClose={() => setShowStartPicker(false)}
-        onConfirm={d => {
-          setPendingStart(d);
-          const endStr = addMins(fmtTimeFromDate(d), durationMin);
-          const [eh, em] = endStr.split(':').map(Number);
-          const end = new Date(d); end.setHours(eh, em, 0, 0);
-          setPendingEnd(end);
-          setShowStartPicker(false);
-        }}
-        initialDate={pendingStart || undefined}
-      />
-      <DateTimePickerModal
-        visible={showEndPicker}
-        mode="time"
-        onClose={() => setShowEndPicker(false)}
-        onConfirm={d => {
-          if (pendingStart) {
-            const sm = toMins(fmtTimeFromDate(pendingStart));
-            const em = d.getHours() * 60 + d.getMinutes();
-            if (em <= sm) { Alert.alert('Heure invalide', "La fin doit être après le début"); setShowEndPicker(false); return; }
-            if (em - sm < durationMin) { Alert.alert('Durée insuffisante', `Minimum ${durationMin} minutes`); setShowEndPicker(false); return; }
-          }
-          setPendingEnd(d);
-          setShowEndPicker(false);
-        }}
-        initialDate={pendingEnd || undefined}
-      />
     </View>
   );
 }
 
-// ─── Styles ────────────────────────────────────────────────────────────────────
+// ─── InlineTimePicker Styles ──────────────────────────────────────────────────
+const tp = StyleSheet.create({
+  container: { gap: 10 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
+  title: { fontSize: 15, fontWeight: '700', color: Colors.foreground },
+  label: { fontSize: 10, fontWeight: '700', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.5 },
+  unit: { width: 42, height: 42, borderRadius: 10, backgroundColor: Colors.background, borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
+  unitMin: { width: 54 },
+  unitActive: { backgroundColor: ORANGE + '15', borderColor: ORANGE },
+  unitText: { fontSize: 14, fontWeight: '700', color: Colors.muted },
+  unitTextActive: { color: ORANGE },
+  preview: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: ORANGE + '10', borderRadius: Radius.md, padding: 10, borderWidth: 1, borderColor: ORANGE + '40' },
+  previewText: { fontSize: 15, fontWeight: '800', color: ORANGE },
+  confirmBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: ORANGE, borderRadius: Radius.full, paddingVertical: 12 },
+  confirmBtnText: { fontSize: 14, fontWeight: '700', color: Colors.background },
+});
+
+// ─── Main Styles ──────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
   // Navigation
   navRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
