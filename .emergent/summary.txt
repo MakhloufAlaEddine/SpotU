@@ -1,67 +1,55 @@
-<analysis>**original_problem_statement**: The user wants to build a mobile application called WINEK, a hyperlocal, tag-based connection platform. The initial focus was on sports and coaching.
+<analysis>**original_problem_statement**: The user wants to build a mobile application called WINEK, a hyperlocal, tag-based connection platform. The core feature is a multi-step service creation and management flow for coaches, with a focus on an intuitive user experience for scheduling and service discovery.
 
 **PRODUCT REQUIREMENTS**:
-A major pivot has occurred. The user has requested a complete overhaul of the service creation process into a 4-step stepper form for coaches to create their services.
-
--   **New Service Creation Stepper**:
-    -   **Step 1 (General Info)**: Title, Coach Description, Address.
-    -   **Step 2 (Service Types)**: A domain and tag selection system, similar to the existing TagPoint creation flow.
-    -   **Step 3 (Configuration)**: For each selected package, configure duration, max participants, price, and schedule using a custom calendar UI.
-    -   **Step 4 (Summary & Score)**: A recap of all entered information and a dynamic completion score.
--   **Calendar UI (Step 3)**:
-    -   A Microsoft Teams-style single-row calendar showing the current week, with navigation.
-    -   Clicking a date opens a modal to add/view time slots for that day.
-    -   The UI for displaying and creating time slots has gone through multiple user-driven design iterations.
--   **Data Model**: The backend supports a  structure.
--   **Old Requirements (Lower priority)**: PostGIS, Stripe payments, User Roles, Google Auth, Chat.
+-   **Service Creation/Update Stepper**: A unified 4-step form in  for both creating and editing services. This includes general info, image uploads, tag selection, package configuration, and scheduling.
+-   **Service Discovery**: Services created by coaches must be visible on the main map () and the search screen (). They need to be visually distinct from TagPoints (e.g., using an orange color).
+-   **Service Detail View**: A detailed view () that displays all service information, including an image carousel and an accordion-style list of available time slots grouped by date.
+-   **Database Persistence**: All database schema modifications must be included in the application's startup scripts to ensure they persist across environment restarts, preventing  issues.
 
 **User's preferred language**: French. The next agent MUST respond in **French**.
 
 **what currently exists?**
-The full 4-step service creation flow has been implemented on both the backend and frontend. The backend API () correctly handles the new nested data structure. The frontend features a stepper in  and a heavily customized  component.
-
-Multiple bugs reported by the user during this session have been fixed and validated by the testing agent, including:
-1.  An empty tag selection modal.
-2.  A broken time slot creation flow on React Native Web.
-3.  The service type selection was updated to use a Domain + Tag system as requested.
-
-The UI for the  has been iteratively redesigned twice to match user-provided mockups. The agent has just finished implementing the second design and is about to start the third.
+A full-stack React Native (Expo) and FastAPI application with PostgreSQL. The core service creation, update, and scheduling flow is fully implemented and has undergone multiple user-driven iterations and bug fixes. This includes a complex 4-step form, image uploads, a custom calendar with a full-screen time picker, and a Doctolib-style accordion view for service details. The system was recently refactored to reuse the creation component for updates. The agent was in the process of making services visible on the map screens and ensuring database schema changes are permanent.
 
 **Last working item**:
--   **Last item agent was working**: The user has requested another major UI change for the time picker. Instead of the current inline time picker, it must be replaced with a full-screen, drum-style selector component, as shown in the last user-provided image.
--   **Status**: NOT STARTED
+-   **Last item agent was working**: The agent was working on two parallel tasks requested by the user:
+    1.  **Display Services on Maps**: Modifying the search screen () to fetch and display services alongside the existing TagPoints, with distinct styling (orange color, Service badge).
+    2.  **Database Persistence**: Modifying the startup script () to include all necessary columns (, ) in the  statement, preventing schema loss on DB restarts.
+-   **Status**: IN PROGRESS
 -   **Agent Testing Done**: N
--   **Which testing method agent to use?**: Frontend testing agent
+-   **Which testing method agent to use?**: Both. Use the backend testing agent to verify DB persistence after a restart. Use the frontend testing agent to validate that services appear correctly on the search and home maps without regressions.
 -   **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: Implement New Full-Screen Time Picker (P0 - CRITICAL)**
--   **Issue 2: Intermittent Login/Backend Failure (P1 - RECURRING)**
+-   **Issue 1: Display Services on Map Screens (P0 - CRITICAL)**
+-   **Issue 2: Ensure DB Schema Persistence (P0 - CRITICAL)**
 -   **Issue 3: Expo Metro bundler does not hot-reload (P1 - RECURRING)**
 -   **Issue 4: User dissatisfaction with action buttons layout (P2)**
--   **Issue 5: Google Auth flow is broken on Expo Go (P2 - ON HOLD)**
 
 **Issues Detail**:
--   **Issue 1: Implement New Full-Screen Time Picker**
-    -   **Attempted fixes**: None. This is a new request. The agent has just acknowledged it.
+-   **Issue 1: Display Services on Map Screens**
+    -   **Attempted fixes**: The agent started modifying  by adding new state variables (), updating the  function to call , and planning changes to the rendering logic. The work is incomplete.
     -   **Next debug checklist**:
-        1.  Analyze the user's latest screenshot for the drum-style time picker.
-        2.  Modify .
-        3.  Replace the current  logic with a new component that opens a full-screen modal.
-        4.  Implement the drum-style UI with up/down controls, quick presets, and a confirm button.
-        5.  Ensure the selected time is correctly passed back to the day modal state.
-        6.  Call the  to verify the new UI and ensure no regressions were introduced.
-    -   **Why fix this issue and what will be achieved with the fix?**: This is the user's latest explicit design requirement for a core part of the application's UX.
-    -   **Status**: NOT STARTED
+        1.  Complete the modifications in :
+            -   Ensure the  function correctly fetches both  and  in parallel.
+            -   Combine and sort the results.
+            -   Update the  function to conditionally render TagPoint items and Service items with different styles (e.g., orange color, Service badge).
+        2.  Apply the same logic to the home screen map at .
+        3.  Test thoroughly to ensure both item types display correctly on the map and in lists.
+    -   **Why fix this issue and what will be achieved with the fix?**: This is a core product requirement to make the services created by coaches discoverable to users.
+    -   **Status**: IN PROGRESS
     -   **Is recurring issue?**: N
     -   **Should Test frontend/backend/both after fix?**: frontend
     -   **Blocked on other issue**: No.
 
--   **Issue 2: Intermittent Login/Backend Failure**
-    -   **Description**: The backend service has a recurring issue where it fails to connect to PostgreSQL because  resolves to IPv6 ().
-    -   **Attempted fixes**: The agent changed the  in  from  to  and restarted the service. This has fixed the problem for now.
-    -   **Why fix this issue and what will be achieved with the fix?**: A stable backend is critical for any development.
-    -   **Status**: TESTING PENDING (The fix works, but the issue has recurred before. It needs to be monitored).
+-   **Issue 2: Ensure DB Schema Persistence**
+    -   **Attempted fixes**: The agent identified that manual  commands were lost on DB reset. The agent began modifying  to add the  and  columns to the  string.
+    -   **Next debug checklist**:
+        1.  Verify that the  string in  contains the final, correct schema for the  table.
+        2.  Restart the backend and PostgreSQL services to trigger a fresh database creation.
+        3.  Connect to the database or test an API endpoint that uses the new columns to confirm they were created successfully.
+    -   **Why fix this issue and what will be achieved with the fix?**: This will prevent critical  errors at runtime and stabilize the application environment.
+    -   **Status**: IN PROGRESS
     -   **Is recurring issue?**: Y
     -   **Should Test frontend/backend/both after fix?**: backend
 
@@ -76,46 +64,32 @@ expo: started).
     -   **Status**: NOT STARTED
     -   **Is recurring issue?**: Y
 
--   **Issue 5: Google Auth flow is broken on Expo Go (ON HOLD)**
-    -   **Description**: The in-app browser for Google login does not close automatically on the native mobile app. Deprioritized by the user.
-    -   **Status**: BLOCKED
-    -   **Is recurring issue?**: Y
-
 **In progress Task List**:
--   **Task 1: Implement the new Full-Screen Time Picker UI (P0)**
-    -   **Where to resume**: In , replace the time selection logic with a new component matching the user's latest mockup (full-screen drum picker).
-    -   **What will be achieved with this?**: The service creation flow's UI will match the user's latest design specification.
-    -   **Status**: NOT STARTED
+-   **Task 1: Complete Service Display on Maps (P0)**
+    -   **Where to resume**: Finish the implementation in  and then replicate the logic in . The agent was last adding state and search logic to .
+    -   **What will be achieved with this?**: Users will be able to see and interact with coach services on the main discovery screens.
+    -   **Status**: IN PROGRESS
     -   **Should Test frontend/backend/both after fix?**: frontend
-    -   **Blocked on something**: No.
 
 **Upcoming and Future Tasks**
 -   **Upcoming Tasks (P1)**:
     -   Booking System V2: Coach acceptance/rejection of bookings.
-    -   Service Search: Search and filtering for services on the main map.
     -   Stripe Integration: Integrate payments for services.
     -   Bilingual Support (i18n): Add French/English translations.
     -   Chat Implementation.
 -   **Future Tasks (P2)**:
     -   Admin Dashboard.
     -   Fix Action Buttons UI (Issue #4).
-    -   Fix Google Auth on Expo Go (Issue #5).
+    -   Fix Google Auth on Expo Go (On Hold).
 
 **Completed work in this session**
--   **Service Creation Stepper (V1 Complete)**:
-    -   Implemented the full 4-step frontend stepper in .
-    -   Completed the backend  route in  to handle nested packages and slots.
-    -   Added a Create Service button on the coach profile page for better discoverability.
--   **Bug Fixes (User Verified via Testing Agent)**:
-    -   Fixed an empty tag selection modal by correcting its CSS height.
-    -   Resolved a bug preventing time slot creation on the web by replacing nested modals with an inline component.
-    -   Refactored Step 2 to use a Domain + Tag selection UI as requested.
--   **UI Refactoring (User Driven)**:
-    -   Iteratively redesigned the  component twice to match user-provided mockups for displaying and adding time slots.
--   **Environment Stability**:
-    -   Fixed the recurring backend-to-database connection failure by updating  to use .
--   **Documentation**:
-    -   Updated  with the latest progress.
+-   **Service Update Flow**: Successfully refactored the  form to handle both service creation () and updates (), including pre-filling data and image management.
+-   **Image Management**: Implemented image upload for services, added an image carousel to the service detail page, and fixed an upload bug related to incorrect environment variables.
+-   **UI/UX Enhancements**:
+    -   Refactored the service detail page to use a Doctolib-style accordion, grouping time slots by date.
+    -   Implemented show more functionality and updated time slot chips to show duration ().
+    -   Fixed a critical crash on web by replacing  with a custom dialog component.
+-   **DB Stability**: Diagnosed a recurring DB schema loss issue and started the permanent fix by modifying .
 
 **Earlier issues found/mentioned but not fixed**
 -   **Action Buttons UX**: The user's dissatisfaction with the action buttons on the tagPoint detail page  remains unaddressed.
@@ -123,66 +97,60 @@ expo: started).
 **Known issue recurrence from previous fork**
 -   **Expo Metro Bundler Cache Invalidation**: Persists. Workaround expo: stopped
 expo: started is mandatory after every frontend code change.
--   **Backend/DB Connectivity**: This was a major blocker that recurred in this session. The  fix was applied again, but it remains a high-risk issue.
+-   **DB Schema Volatility**: Recurred when the PostgreSQL service was re-installed. The agent is currently implementing a permanent fix by adding the schema to the startup script.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Architectural Pivot**: The core feature is now a complex, multi-step service creation form.
--   **Iterative UI Development**: The UI is being built and refined based on direct, frequent user feedback with mockups.
--   **Component-Based UI**: Heavy reliance on a complex, stateful  component.
--   **Environment Instability**: Development is hampered by a broken hot-reload and a historically unstable backend connection.
--   **React Native Web Quirks**: Encountered and fixed issues specific to web (nested modals, z-index).
+-   **Component Reusability**: Using  with a  URL parameter to handle both create and edit modes.
+-   **Declarative DB Schema**: Moving from imperative  commands to a declarative  string in  to ensure schema persistence in ephemeral environments.
+-   **Environment-Specific Code**: Using  for API calls from the client and creating a custom dialog to replace the native  for web compatibility.
+-   **Client-Side Data Transformation**: Grouping and sorting time slots by date on the frontend () to create the accordion UI.
 
 **key DB schema**
--   **services**: uid=0(root) gid=0(root) groups=0(root), , , , 
--   **packages**: uid=0(root) gid=0(root) groups=0(root),  (FK to services), , , , 
--   **slots**: uid=0(root) gid=0(root) groups=0(root),  (FK to packages), , 
+-   **services**: uid=0(root) gid=0(root) groups=0(root), , , ,  (JSON),  (JSONB)
+-   **packages**: uid=0(root) gid=0(root) groups=0(root),  (FK), , , , 
+-   **slots**: uid=0(root) gid=0(root) groups=0(root),  (FK), , 
 
 **All files of reference**
--   : The primary file for the next task.
--   : Contains the main stepper logic.
--   : Contains the working backend endpoint for service creation.
--   : Was modified to fix the database connection ().
--   : Contains updated product requirements.
-
-**Areas that need refactoring**:
--   The  component is becoming monolithic due to rapid, iterative changes. It should be broken down into smaller, more manageable sub-components (e.g., , , ).
+-   : **Currently being modified**.
+-   : **Next file to modify**.
+-   : **Currently being modified**.
+-   : Contains the unified create/edit logic.
+-   : Contains the service detail page UI.
 
 **key api endpoints**
--   : **Implemented & working**.
--   : Not yet implemented/refactored for the new data model.
--   : Not yet implemented/refactored for the new data model.
+-   : To be used for displaying services on map/search screens.
+-   : Used for the service update flow.
+-   : Used for uploading service images.
 
 **Critical Info for New Agent**
 -   **Language**: You MUST respond and communicate in **French**.
--   **IMMEDIATE TASK**: Your first and only task is to implement the new time picker UI. Go to  and replace the existing time selection logic with a new full-screen, drum-style picker as per the user's latest screenshot.
+-   **IMMEDIATE TASK**: Your top priority is to complete the two in-progress tasks:
+    1.  **Finish Displaying Services**: Complete the code in  to show services, then replicate the functionality in .
+    2.  **Finalize DB Persistence**: Double-check and confirm that  contains the complete and correct schema for the  table to prevent future startup errors.
 -   **CRITICAL WORKFLOW BLOCKERS**:
     1.  **Expo Hot-Reload IS BROKEN**: You **MUST** run expo: stopped
-expo: ERROR (abnormal termination) after every single change to a frontend file to see updates. Do not waste time trying to fix it; use the workaround.
-    2.  **Backend Instability History**: If the user reports login issues (Login ne marche pas), your first action should be to check the backend logs (==> /var/log/supervisor/backend.err.log <==
-
-==> /var/log/supervisor/backend.out.log <==). The previous fix was to use  in .
+expo: ERROR (abnormal termination) after every single change to a frontend file. Do not waste time trying to fix it; use the workaround.
+    2.  **DB Schema Volatility**: The work to make the schema persistent is in progress. You must complete and verify it. If you encounter  errors, the cause is likely an incomplete  in .
 
 **documents and test reports created in this job**
--   Multiple test reports in  were generated by , successfully validating bug fixes.
--    has been updated.
+-   Multiple test reports in  were generated by , successfully validating numerous features and bug fixes in this session.
+-    was updated after the last major feature completion.
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **LATEST (IN PROGRESS)**: User requested a new UI for the time picker via a screenshot, showing a full-screen drum-style selector.
-2.  **Completed**: User requested a new UI for displaying created time slots, provided via a screenshot.
-3.  **Completed**: User reported that time slot creation was not working.
-4.  **Completed**: User reported that the tag selection modal was showing an error (it was empty).
-5.  **Completed**: User clarified requirements for Step 2 (Domain + Tags) and reported the time slot bug for the first time.
-6.  **Completed**: User asked to start the backend and postgresql services.
+1.  **LATEST (IN PROGRESS)**: User asked to (1) make all DB changes permanent in startup scripts and (2) display created services on the search and home screens, colored differently from TagPoints.
+2.  **Completed**: User reported an error when clicking Become coach (caused by DB schema reset).
+3.  **Completed**: User asked to restart the backend and PostgreSQL twice (due to environment issues).
+4.  **Completed**: User asked to display the uploaded photos on the service detail page.
+5.  **Completed**: User reported an image upload error.
+6.  **Completed**: User asked to fix an error related to  and to add photo upload/update functionality to services.
 
 **Project Health Check:**
 -   **Broken**:
     -   **Expo Hot-Reload**: Completely non-functional. Requires a manual expo: stopped
 expo: started after every frontend change.
--   **Mocked**:
-    -   None.
 
 **3rd Party Integrations**
 -   **Emergent-managed Google Auth**: Integrated, but the native mobile flow is broken and on hold.
@@ -190,14 +158,13 @@ expo: started after every frontend change.
 -   **OpenStreetMap Nominatim**: Used for geocoding.
 
 **Testing status**
--   **Testing agent used after significant changes**: YES. The agent used  multiple times to validate bug fixes and UI changes, with 100% success on the latest runs.
--   **Troubleshoot agent used after agent stuck in loop**: NO
+-   **Testing agent used after significant changes**: YES. The agent has successfully used  multiple times to validate major features and bug fixes.
 -   **Test files created**: None.
--   **Known regressions**: None from the work done in this session. Pre-existing environment issues remain.
+-   **Known regressions**: None from the work done in this session. The pre-existing Expo hot-reload issue remains.
 
 **Credentials to test flow:**
--   **Email**: 
--   **Password**: 
+-   **Coach**:  / 
+-   **User**:  / 
 
 **What agent forgot to execute**
--   The user's long-standing request to fix the action buttons' layout on the tagPoint detail screen () is still pending and has not been addressed. This is a low-priority task.</analysis>
+-   The user's long-standing request to fix the action buttons' layout on the tagPoint detail screen () is still pending.</analysis>
