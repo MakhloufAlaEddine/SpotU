@@ -83,7 +83,15 @@ WINEK est une plateforme hyperlocale de connexion sportive basée sur des tags g
 - **WeekCalendar**: calendrier style Microsoft Teams (navigation semaine, clonage jour/semaine)
 - **API POST /api/services**: accepte packages + slots imbriqués
 - **Bouton coach** visible directement dans le profil (Espace Coach)
+- **Carousel d'images** sur la page détail service
+- **Vue Doctolib** : créneaux groupés par date en accordéon sur `/service/[id].tsx`
 - Score de complétion basé sur 6 critères (100 pts max)
+
+### ✅ Découverte des Services (Fév 2026)
+- **Accueil (map.tsx)** : section "Services Coaches" avec cartes orange distinctives, badge "SERVICE", prix "À partir de X€", distance
+- **Recherche (search.tsx)** : services et TagPoints mélangés avec badges distincts (SERVICE en orange, TAGPOINT en teal)
+- **Données de test persistantes** : 4 services (svc_demo001→004), 8 packages, 32 slots, 4 locations — survivent aux redémarrages DB grâce à ON CONFLICT DO UPDATE dans `seed.py`
+- Filtre par tags s'applique aussi aux services
 
 ### ✅ Réservations
 - Création de réservation sur un slot
