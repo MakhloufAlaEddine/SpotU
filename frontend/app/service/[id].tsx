@@ -594,7 +594,8 @@ export default function ServiceDetailScreen() {
         </View>
       )}
 
-      {/* ── Owner action bar ─────────────────────────────────────────────── */}      {isOwnService && (
+      {/* ── Owner action bar ─────────────────────────────────────────────── */}
+      {isOwnService && (
         <View style={s.bookBar}>
           <TouchableOpacity
             style={[s.bookBtn, { flex: 1, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border }]}
