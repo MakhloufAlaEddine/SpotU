@@ -152,4 +152,5 @@ WINEK est une plateforme hyperlocale de connexion sportive basée sur des tags g
 - [x] Route create_service ne gérait pas les packages → corrigée
 - [x] React Native Web warning "Unexpected text node" dans bouton Publier → corrigé
 - [x] `api.del` → `api.delete` corrigé dans `tag-point/[id].tsx` (leave, unsave, delete) et `events.tsx` (Fév 2026)
-- [x] PostgreSQL ne démarre pas automatiquement → confirmé workaround démarrage manuel (Fév 2026)
+- [x] PostgreSQL auto-start : retry logic ajoutée dans `database.py` (connect_to_db avec 15 tentatives backoff exponentiel) (Fév 2026)
+- [x] Bug crash "Text strings must be rendered within a <Text> component" dans `service/[id].tsx` ligne 597 : commentaire JSX et expression sur la même ligne créaient un nœud texte whitespace (Fév 2026)
