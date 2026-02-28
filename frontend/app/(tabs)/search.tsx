@@ -16,6 +16,10 @@ import { haversineDistance, formatDistance } from '../../utils/distance';
 interface Tag { tag_id: string; label_fr: string; label_en: string; name: string; }
 interface Category { category_id: string; label_fr: string; label_en: string; name: string; tags: Tag[]; }
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+const SERVICE_ORANGE = '#FF9500';
+const SERVICE_ORANGE_BG = 'rgba(255,149,0,0.10)';
+
 // ─── Star Rating ──────────────────────────────────────────────────────────────
 function StarRating({ rating = 0 }: { rating?: number }) {
   return (
@@ -29,23 +33,35 @@ function StarRating({ rating = 0 }: { rating?: number }) {
 }
 
 // ─── Result Item ──────────────────────────────────────────────────────────────
-function ResultItem({ image, title, author, distance, rating = 0, onPress }:
-  { image?: string; title: string; author: string; distance: string; rating?: number; onPress: () => void }) {
+function ResultItem({ image, title, author, distance, rating = 0, onPress, isService = false, price }:
+  { image?: string; title: string; author: string; distance: string; rating?: number;
+    onPress: () => void; isService?: boolean; price?: number }) {
+  const accent = isService ? SERVICE_ORANGE : Colors.primary;
   return (
-    <TouchableOpacity style={itemSt.container} onPress={onPress} activeOpacity={0.7}
-      testID="result-item">
+    <TouchableOpacity
+      style={[itemSt.container, isService && itemSt.serviceContainer]}
+      onPress={onPress} activeOpacity={0.7} testID={isService ? 'service-result-item' : 'result-item'}
+    >
       <View style={itemSt.imgBox}>
         {image
           ? <Image source={{ uri: image }} style={itemSt.img} />
-          : <View style={itemSt.imgPlaceholder}><Ionicons name="image-outline" size={24} color={Colors.muted} /></View>}
+          : <View style={[itemSt.imgPlaceholder, isService && { backgroundColor: SERVICE_ORANGE_BG }]}>
+              <Ionicons name={isService ? 'calendar-outline' : 'image-outline'} size={24} color={accent} />
+            </View>}
+        <View style={[itemSt.typeBadge, { backgroundColor: accent }]}>
+          <Text style={itemSt.typeBadgeText}>{isService ? 'Service' : 'TagPoint'}</Text>
+        </View>
       </View>
       <View style={itemSt.content}>
         <Text style={itemSt.title} numberOfLines={1}>{title}</Text>
         <Text style={itemSt.author} numberOfLines={1}>{author}</Text>
-        <Text style={itemSt.distance}>{distance}</Text>
+        {isService && price != null
+          ? <Text style={[itemSt.distance, { color: SERVICE_ORANGE }]}>À partir de {price}€</Text>
+          : <Text style={itemSt.distance}>{distance}</Text>}
       </View>
       <View style={itemSt.right}>
-        <StarRating rating={rating} />
+        {!isService && <StarRating rating={rating} />}
+        {isService && distance ? <Text style={[itemSt.viewText, { color: SERVICE_ORANGE, fontWeight: '600' }]}>{distance}</Text> : null}
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <Text style={itemSt.viewText}>Voir</Text>
           <Ionicons name="chevron-forward" size={16} color={Colors.muted} />
