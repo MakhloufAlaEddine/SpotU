@@ -122,11 +122,33 @@ export default function ServiceDetailScreen() {
       setService(data);
       if (data.locations?.length > 0) setSelectedLocationId(data.locations[0].location_id);
       if (data.slots?.length > 0) setSelectedSlotId(data.slots[0].slot_id);
+      // Check if saved
+      if (user) {
+        try {
+          const saved = await api.get('/services/saved');
+          setIsSaved((saved || []).some((s: any) => s.service_id === id));
+        } catch {}
+      }
     } catch (e: any) {
       Alert.alert('Erreur', e.message || 'Service introuvable');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleToggleSave = async () => {
+    if (!user) { router.push('/(auth)/login' as any); return; }
+    setSavingInProgress(true);
+    try {
+      if (isSaved) {
+        await api.del(`/services/${id}/unsave`);
+        setIsSaved(false);
+      } else {
+        await api.post(`/services/${id}/save`, {});
+        setIsSaved(true);
+      }
+    } catch {}
+    finally { setSavingInProgress(false); }
   };
 
   const handleBook = async () => {
