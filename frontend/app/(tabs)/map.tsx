@@ -247,10 +247,12 @@ function RecentRow({ point, userLat, userLng, onPress }: { point: any; userLat: 
       {/* Right: dist + votes */}
       <View style={recSt.right}>
         {dist ? <Text style={recSt.dist}>{dist}</Text> : null}
-        <View style={recSt.voteRow}>
-          <Ionicons name="arrow-up" size={10} color={votes >= 0 ? Colors.primary : Colors.muted} />
-          <Text style={[recSt.votes, { color: votes >= 0 ? Colors.primary : Colors.muted }]}>{votes}</Text>
-        </View>
+        {votes !== 0 && (
+          <View style={recSt.voteRow}>
+            <Ionicons name={votes > 0 ? 'arrow-up' : 'arrow-down'} size={10} color={votes > 0 ? Colors.primary : '#ff4444'} />
+            <Text style={[recSt.votes, { color: votes > 0 ? Colors.primary : '#ff4444' }]}>{votes > 0 ? '+' : ''}{votes}</Text>
+          </View>
+        )}
       </View>
     </TouchableOpacity>
   );
