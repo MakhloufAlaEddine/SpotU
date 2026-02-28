@@ -179,11 +179,11 @@ async def create_service(data: ServiceCreate, request: Request):
         await conn.execute(
             """INSERT INTO services
                (service_id, coach_id, title, description, address, price, duration_min,
-                tag_ids, domain_id, max_participants, active)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,TRUE)""",
+                tag_ids, domain_id, max_participants, images, active)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,TRUE)""",
             sid, user["user_id"], data.title, data.description, data.address,
             service_price, data.duration_min, data.tag_ids, data.domain_id,
-            data.max_participants
+            data.max_participants, json.dumps(data.images or [])
         )
 
         # Handle packages (new model)
