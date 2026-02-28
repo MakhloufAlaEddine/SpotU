@@ -400,7 +400,7 @@ export default function ServiceDetailScreen() {
 
                     return (
                       <View style={s.accordionList}>
-                        {sortedKeys.map(key => {
+                        {(showAllDates ? sortedKeys : sortedKeys.slice(0, 4)).map(key => {
                           const group = dayMap[key];
                           const firstSlot = group[0];
                           const isSingle = firstSlot.slot_type === 'single';
@@ -434,6 +434,9 @@ export default function ServiceDetailScreen() {
                                 <View style={s.accordionBody}>
                                   {group.map((slot: any) => {
                                     const isSelected = slot.slot_id === selectedSlotId;
+                                    const label = slot.end_time
+                                      ? `${slot.start_time} → ${slot.end_time}`
+                                      : slot.start_time;
                                     return (
                                       <TouchableOpacity
                                         key={slot.slot_id}
@@ -447,7 +450,7 @@ export default function ServiceDetailScreen() {
                                         activeOpacity={0.7}
                                       >
                                         <Text style={[s.slotChipText, isSelected && s.slotChipTextActive]}>
-                                          {slot.start_time}
+                                          {label}
                                         </Text>
                                       </TouchableOpacity>
                                     );
@@ -457,6 +460,19 @@ export default function ServiceDetailScreen() {
                             </View>
                           );
                         })}
+
+                        {/* Bouton "Voir plus" */}
+                        {!showAllDates && sortedKeys.length > 4 && (
+                          <TouchableOpacity
+                            style={s.showMoreBtn}
+                            onPress={() => setShowAllDates(true)}
+                            testID="show-more-dates-btn"
+                          >
+                            <Text style={s.showMoreBtnText}>
+                              VOIR PLUS DE DATES ({sortedKeys.length - 4} de plus)
+                            </Text>
+                          </TouchableOpacity>
+                        )}
                       </View>
                     );
                   })() : (
