@@ -381,6 +381,7 @@ export default function CreateServiceScreen() {
 
       <View style={s.field}>
         <Text style={s.fieldLabel}>Adresse principale</Text>
+        <TouchableOpacity
           style={[s.addressBtn, address ? s.addressBtnFilled : null]}
           onPress={() => setShowLocPicker(true)}
           testID="address-picker-btn"
@@ -397,6 +398,44 @@ export default function CreateServiceScreen() {
             <Ionicons name="chevron-forward" size={16} color={Colors.muted} />
           )}
         </TouchableOpacity>
+      </View>
+
+      {/* ── Photos du service (même design que TagPoint) ── */}
+      <View style={s.field}>
+        <View style={s.rowBetween}>
+          <Text style={s.fieldLabel}>Photos du service</Text>
+          <Text style={s.fieldHint}>{images.length}/5</Text>
+        </View>
+        <View style={s.photoGrid}>
+          {images.map((uri, i) => (
+            <View key={i} style={s.photoThumb}>
+              <Image source={{ uri }} style={s.photoThumbImg} />
+              <TouchableOpacity
+                style={s.photoRemoveBtn}
+                onPress={() => setImages(prev => prev.filter((_, idx) => idx !== i))}
+                testID={`remove-photo-${i}`}
+              >
+                <Ionicons name="close-circle" size={20} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          ))}
+          {images.length < 5 && (
+            <TouchableOpacity
+              style={[s.photoAddBtn, uploadingImages && { opacity: 0.6 }]}
+              onPress={pickImages}
+              disabled={uploadingImages}
+              testID="add-photos-btn"
+            >
+              {uploadingImages
+                ? <ActivityIndicator size="small" color={Colors.primary} />
+                : <>
+                    <Ionicons name="camera-outline" size={24} color={Colors.primary} />
+                    <Text style={s.photoAddBtnText}>Ajouter</Text>
+                  </>
+              }
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
     </View>
   );
