@@ -6,7 +6,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://service-map-hub.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://schedule-slots-1.preview.emergentagent.com").rstrip("/")
 
 SERVICE_ID = "svc_4842a8361c1f"  # Coaching Running Paris - coach@winek.app owns this
 
