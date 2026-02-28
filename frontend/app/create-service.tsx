@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
+  TextInput, KeyboardAvoidingView, Platform, Alert, ActivityIndicator, Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -11,6 +11,7 @@ import { WeekCalendar } from '../components/WeekCalendar';
 import type { DaySlot } from '../components/WeekCalendar';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import { useLang } from '../context/LanguageContext';
 import { Colors, Spacing, Radius } from '../constants/Colors';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -19,49 +20,39 @@ const ORANGE_LIGHT = 'rgba(255,149,0,0.12)';
 const ORANGE_BORDER = 'rgba(255,149,0,0.3)';
 const GREEN = '#1DBF73';
 
-const STEP_LABELS = ['Infos', 'Services', 'Config', 'Résumé'];
+const STEP_LABELS = ['Infos', 'Domaine', 'Config', 'Résumé'];
 const DURATIONS = [30, 45, 60, 90, 120];
 
-const PACKAGE_TYPES = [
-  { type_id: 'individual', type_label: 'Cours individuel', icon: 'person-outline', desc: 'Séance 1-on-1 avec le coach' },
-  { type_id: 'group_small', type_label: 'Petit groupe', icon: 'people-outline', desc: '2 à 8 personnes' },
-  { type_id: 'group_large', type_label: 'Grand groupe', icon: 'people-circle-outline', desc: '8+ personnes' },
-  { type_id: 'intensive', type_label: 'Stage intensif', icon: 'flame-outline', desc: 'Format immersif multi-jours' },
-  { type_id: 'online', type_label: 'Coaching en ligne', icon: 'videocam-outline', desc: 'Suivi à distance' },
-  { type_id: 'workshop', type_label: 'Atelier collectif', icon: 'construct-outline', desc: 'Atelier thématique collectif' },
-];
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-interface PackageConfig {
-  type_id: string;
-  type_label: string;
-  icon: string;
-  duration_min: number;
-  max_participants: number;
-  price: string;
-  slots: DaySlot[];
-}
+const CATEGORY_COLORS: Record<string, string> = {
+  cat_running: '#00BFA5', cat_football: '#4CAF50', cat_basketball: '#FF9800',
+  cat_tennis: '#E91E63', cat_yoga: '#9C27B0', cat_cycling: '#2196F3',
+  cat_fitness: '#F44336', cat_swimming: '#00BCD4', cat_boxing: '#FF5722',
+  cat_hiking: '#8BC34A', cat_volleyball: '#FF9500', cat_martial: '#FF5722',
+};
+const tagColor = (cat?: string) => (cat && CATEGORY_COLORS[cat]) ? CATEGORY_COLORS[cat] : Colors.primary;
 
 // ─── Score computation ────────────────────────────────────────────────────────
 function computeScore(
-  title: string, coachDesc: string, address: string, pkgs: PackageConfig[]
+  title: string, coachDesc: string, address: string,
+  tagIds: string[], price: string, slots: DaySlot[]
 ) {
   const criteria = [
     { label: 'Titre renseigné (5+ car.)', ok: title.trim().length >= 5, pts: 20 },
     { label: 'Description du coach (50+ car.)', ok: coachDesc.trim().length >= 50, pts: 20 },
-    { label: 'Adresse renseignée', ok: address.trim().length > 0, pts: 15 },
-    { label: 'Au moins 1 type de prestation', ok: pkgs.length > 0, pts: 15 },
-    { label: 'Prix défini pour chaque prestation', ok: pkgs.length > 0 && pkgs.every(p => parseFloat(p.price) > 0), pts: 15 },
-    { label: 'Créneaux configurés', ok: pkgs.length > 0 && pkgs.every(p => p.slots.length > 0), pts: 15 },
+    { label: 'Adresse renseignée', ok: address.trim().length > 0, pts: 10 },
+    { label: 'Tags sélectionnés', ok: tagIds.length > 0, pts: 15 },
+    { label: 'Prix défini', ok: parseFloat(price) > 0, pts: 20 },
+    { label: 'Créneaux configurés', ok: slots.length > 0, pts: 15 },
   ];
   const score = criteria.filter(c => c.ok).reduce((acc, c) => acc + c.pts, 0);
-  return { score, max: 100, criteria };
+  return { score, criteria };
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function CreateServiceScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { lang } = useLang();
   const scrollRef = useRef<ScrollView>(null);
 
   const [step, setStep] = useState(1);
@@ -75,12 +66,22 @@ export default function CreateServiceScreen() {
   const [addressLng, setAddressLng] = useState<number | null>(null);
   const [showLocPicker, setShowLocPicker] = useState(false);
 
-  // Step 2
-  const [selectedTypeIds, setSelectedTypeIds] = useState<string[]>([]);
+  // Step 2 - Domain & Tags
+  const [domainId, setDomainId] = useState('dom_sport');
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [domains, setDomains] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [showTagModal, setShowTagModal] = useState(false);
+  const loadVersionRef = useRef(0);
 
-  // Step 3
-  const [pkgConfigs, setPkgConfigs] = useState<PackageConfig[]>([]);
-  const [activePkgIdx, setActivePkgIdx] = useState(0);
+  // Step 3 - Configuration
+  const [price, setPrice] = useState('');
+  const [durationMin, setDurationMin] = useState(60);
+  const [maxParticipants, setMaxParticipants] = useState(1);
+  const [slots, setSlots] = useState<DaySlot[]>([]);
+
+  const allTags = categories.flatMap(c => c.tags || []);
+  const selectedTags = allTags.filter(t => selectedTagIds.includes(t.tag_id));
 
   useEffect(() => {
     if (!user) return;
@@ -93,35 +94,29 @@ export default function CreateServiceScreen() {
     }
   }, [user]);
 
-  // Keep activePkgIdx in bounds
-  useEffect(() => {
-    if (activePkgIdx >= pkgConfigs.length && pkgConfigs.length > 0) {
-      setActivePkgIdx(pkgConfigs.length - 1);
-    }
-  }, [pkgConfigs.length]);
+  useEffect(() => { loadDomains(); }, []);
+  useEffect(() => { loadCategories(); setSelectedTagIds([]); }, [domainId]);
+
+  const loadDomains = async () => {
+    try {
+      const data: any[] = await api.get('/domains');
+      data.sort((a, b) => (a.domain_id === 'dom_sport' ? -1 : b.domain_id === 'dom_sport' ? 1 : 0));
+      setDomains(data);
+    } catch {}
+  };
+
+  const loadCategories = useCallback(async () => {
+    const version = ++loadVersionRef.current;
+    try {
+      const data = await api.get(`/tags/categories?domain_id=${domainId}`);
+      if (version === loadVersionRef.current) setCategories(data);
+    } catch {}
+  }, [domainId]);
 
   const scrollTop = () => scrollRef.current?.scrollTo({ y: 0, animated: true });
 
-  // Sync pkgConfigs when entering Step 3
-  const syncPackageConfigs = (typeIds: string[]) => {
-    setPkgConfigs(prev => {
-      return typeIds.map(tid => {
-        const existing = prev.find(p => p.type_id === tid);
-        if (existing) return existing;
-        const typeInfo = PACKAGE_TYPES.find(t => t.type_id === tid)!;
-        const defaultMax = tid === 'individual' ? 1 : tid === 'group_small' ? 6 : 12;
-        return {
-          type_id: tid,
-          type_label: typeInfo.type_label,
-          icon: typeInfo.icon,
-          duration_min: 60,
-          max_participants: defaultMax,
-          price: '',
-          slots: [],
-        };
-      });
-    });
-    setActivePkgIdx(0);
+  const toggleTag = (tagId: string) => {
+    setSelectedTagIds(prev => prev.includes(tagId) ? prev.filter(id => id !== tagId) : [...prev, tagId]);
   };
 
   const goNext = () => {
@@ -129,18 +124,9 @@ export default function CreateServiceScreen() {
       if (title.trim().length < 5) { Alert.alert('', 'Le titre doit avoir au moins 5 caractères'); return; }
       if (!coachDesc.trim()) { Alert.alert('', 'La description du coach est requise'); return; }
     }
-    if (step === 2) {
-      if (selectedTypeIds.length === 0) { Alert.alert('', 'Sélectionnez au moins un type de prestation'); return; }
-      syncPackageConfigs(selectedTypeIds);
-    }
     if (step === 3) {
-      for (const pkg of pkgConfigs) {
-        const p = parseFloat(pkg.price);
-        if (!pkg.price || isNaN(p) || p <= 0) {
-          Alert.alert('Prix manquant', `Renseignez le prix pour "${pkg.type_label}"`);
-          return;
-        }
-      }
+      const p = parseFloat(price);
+      if (!price || isNaN(p) || p <= 0) { Alert.alert('Prix manquant', 'Renseignez le prix par séance'); return; }
     }
     setStep(s => Math.min(s + 1, 4));
     scrollTop();
@@ -148,50 +134,35 @@ export default function CreateServiceScreen() {
 
   const goPrev = () => { setStep(s => Math.max(s - 1, 1)); scrollTop(); };
 
-  const updatePkg = (idx: number, updates: Partial<PackageConfig>) => {
-    setPkgConfigs(prev => {
-      const next = [...prev];
-      next[idx] = { ...next[idx], ...updates };
-      return next;
-    });
-  };
-
-  const toggleTypeId = (tid: string) => {
-    setSelectedTypeIds(prev =>
-      prev.includes(tid) ? prev.filter(id => id !== tid) : [...prev, tid]
-    );
-  };
-
   // ─── Submit ──────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
-      const minPrice = pkgConfigs.length > 0
-        ? Math.min(...pkgConfigs.map(p => parseFloat(p.price) || 0))
-        : 0;
-
+      const priceNum = parseFloat(price) || 0;
       await api.post('/services', {
         title: title.trim(),
         description: coachDesc.trim() || null,
         address: address.trim() || null,
-        price: minPrice,
-        packages: pkgConfigs.map(pkg => ({
-          type_id: pkg.type_id,
-          type_label: pkg.type_label,
-          duration_min: pkg.duration_min,
-          max_participants: pkg.max_participants,
-          price: parseFloat(pkg.price) || 0,
-          slots: pkg.slots.map(s => ({
+        price: priceNum,
+        duration_min: durationMin,
+        max_participants: maxParticipants,
+        domain_id: domainId,
+        tag_ids: selectedTagIds,
+        packages: [{
+          type_id: 'main',
+          type_label: 'Service principal',
+          duration_min: durationMin,
+          max_participants: maxParticipants,
+          price: priceNum,
+          slots: slots.map(s => ({
             slot_date: s.date,
             start_time: s.startTime,
             end_time: s.endTime,
           })),
-        })),
+        }],
         locations: addressLat !== null && addressLng !== null ? [{
-          latitude: addressLat,
-          longitude: addressLng,
-          precision: 'exact',
-          description: address || null,
+          latitude: addressLat, longitude: addressLng,
+          precision: 'exact', description: address || null,
         }] : [],
         slots: [],
       });
@@ -288,43 +259,74 @@ export default function CreateServiceScreen() {
     </View>
   );
 
-  // ─── Step 2: Types de prestations ────────────────────────────────────────────
+  // ─── Step 2: Domaine & Tags ───────────────────────────────────────────────────
   const renderStep2 = () => (
     <View style={s.stepContent}>
-      <Text style={s.stepTitle}>Types de prestations</Text>
-      <Text style={s.stepHint}>Sélectionnez les types de séances que vous proposez</Text>
+      <Text style={s.stepTitle}>Domaine & Tags</Text>
+      <Text style={s.stepHint}>Catégorisez votre service pour être trouvé par les bons clients</Text>
 
-      {PACKAGE_TYPES.map(pt => {
-        const active = selectedTypeIds.includes(pt.type_id);
-        return (
-          <TouchableOpacity
-            key={pt.type_id}
-            style={[s.pkgTypeCard, active && s.pkgTypeCardActive]}
-            onPress={() => toggleTypeId(pt.type_id)}
-            testID={`pkg-type-${pt.type_id}`}
-          >
-            <View style={[s.pkgTypeIcon, active && s.pkgTypeIconActive]}>
-              <Ionicons name={pt.icon as any} size={24} color={active ? ORANGE : Colors.muted} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[s.pkgTypeLabel, active && { color: Colors.foreground }]}>{pt.type_label}</Text>
-              <Text style={s.pkgTypeDesc}>{pt.desc}</Text>
-            </View>
-            <View style={[s.pkgTypeCheck, active && s.pkgTypeCheckActive]}>
-              {active && <Ionicons name="checkmark" size={14} color={Colors.background} />}
-            </View>
-          </TouchableOpacity>
-        );
-      })}
+      {/* Domaine */}
+      <View style={s.field}>
+        <Text style={s.fieldLabel}>Domaine</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View style={{ flexDirection: 'row', gap: 8, paddingBottom: 2 }}>
+            {domains.map((d: any) => {
+              const sel = domainId === d.domain_id;
+              const col = d.color || Colors.primary;
+              return (
+                <TouchableOpacity
+                  key={d.domain_id}
+                  style={[s.domainPill, sel && { backgroundColor: col + '22', borderColor: col }]}
+                  onPress={() => setDomainId(d.domain_id)}
+                  testID={`domain-${d.domain_id}`}
+                >
+                  <Text style={[s.domainPillText, sel && { color: col, fontWeight: '700' }]}>
+                    {lang === 'fr' ? d.label_fr : d.label_en}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </ScrollView>
+      </View>
 
-      {selectedTypeIds.length > 0 && (
-        <View style={s.selectionSummary}>
-          <Ionicons name="checkmark-circle" size={16} color={GREEN} />
-          <Text style={s.selectionSummaryText}>
-            {selectedTypeIds.length} prestation{selectedTypeIds.length > 1 ? 's' : ''} sélectionnée{selectedTypeIds.length > 1 ? 's' : ''}
-          </Text>
+      {/* Tags */}
+      <View style={s.field}>
+        <View style={s.rowBetween}>
+          <Text style={s.fieldLabel}>Tags</Text>
+          {selectedTags.length > 0 && (
+            <Text style={[s.fieldLabel, { color: Colors.primary }]}>
+              {selectedTags.length} sélectionné{selectedTags.length > 1 ? 's' : ''}
+            </Text>
+          )}
         </View>
-      )}
+        <TouchableOpacity style={s.tagTrigger} onPress={() => setShowTagModal(true)} testID="open-tags-btn">
+          {selectedTags.length === 0 ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Ionicons name="pricetags-outline" size={18} color={Colors.muted} />
+              <Text style={{ color: Colors.muted, fontSize: 15 }}>Choisir des tags</Text>
+            </View>
+          ) : (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, flex: 1 }}>
+              {selectedTags.slice(0, 5).map((t: any) => {
+                const c = tagColor(t.category_id);
+                return (
+                  <View key={t.tag_id} style={[s.tagPill, { backgroundColor: c + '22', borderColor: c }]}>
+                    <Text style={[s.tagPillText, { color: c }]}>{lang === 'fr' ? t.label_fr : t.label_en}</Text>
+                  </View>
+                );
+              })}
+              {selectedTags.length > 5 && (
+                <Text style={{ color: Colors.primary, fontWeight: '700', fontSize: 12, alignSelf: 'center' }}>+{selectedTags.length - 5}</Text>
+              )}
+            </View>
+          )}
+          <Ionicons name="chevron-forward" size={16} color={Colors.muted} />
+        </TouchableOpacity>
+        {selectedTags.length === 0 && (
+          <Text style={s.fieldTip}>Les tags permettent à votre service d'apparaître dans les recherches filtrées</Text>
+        )}
+      </View>
     </View>
   );
 
@@ -332,140 +334,102 @@ export default function CreateServiceScreen() {
   const renderStep3 = () => (
     <View style={s.stepContent}>
       <Text style={s.stepTitle}>Configuration</Text>
-      <Text style={s.stepHint}>Configurez les détails de chaque type de prestation</Text>
+      <Text style={s.stepHint}>Définissez les modalités pratiques de votre service</Text>
 
-      {/* Package tabs */}
-      {pkgConfigs.length > 1 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View style={{ flexDirection: 'row', gap: 8, paddingBottom: 2 }}>
-            {pkgConfigs.map((pkg, i) => (
+      <View style={s.configCard}>
+        {/* Prix */}
+        <View style={s.field}>
+          <Text style={s.fieldLabel}>Prix (€) par séance *</Text>
+          <TextInput
+            style={s.input}
+            value={price}
+            onChangeText={setPrice}
+            placeholder="Ex: 60"
+            placeholderTextColor={Colors.muted}
+            keyboardType="decimal-pad"
+            testID="service-price-input"
+          />
+          {price && !isNaN(parseFloat(price)) && parseFloat(price) > 0 && (
+            <Text style={s.netEarning}>
+              Commission 15 % · Gain net : <Text style={{ fontWeight: '700', color: GREEN }}>{(parseFloat(price) * 0.85).toFixed(2)} €</Text>
+            </Text>
+          )}
+        </View>
+
+        {/* Durée */}
+        <View style={s.field}>
+          <Text style={s.fieldLabel}>Durée par séance</Text>
+          <View style={s.chips}>
+            {DURATIONS.map(d => (
               <TouchableOpacity
-                key={pkg.type_id}
-                style={[s.pkgTab, activePkgIdx === i && s.pkgTabActive]}
-                onPress={() => setActivePkgIdx(i)}
-                testID={`pkg-tab-${i}`}
+                key={d}
+                style={[s.chip, durationMin === d && s.chipActive]}
+                onPress={() => setDurationMin(d)}
+                testID={`duration-${d}`}
               >
-                <Ionicons name={pkg.icon as any} size={14} color={activePkgIdx === i ? ORANGE : Colors.muted} />
-                <Text style={[s.pkgTabText, activePkgIdx === i && { color: ORANGE }]}>{pkg.type_label}</Text>
-                {pkg.slots.length > 0 && (
-                  <View style={s.pkgTabBadge}>
-                    <Text style={s.pkgTabBadgeText}>{pkg.slots.length}</Text>
-                  </View>
-                )}
+                <Text style={[s.chipText, durationMin === d && s.chipTextActive]}>{d} min</Text>
               </TouchableOpacity>
             ))}
           </View>
-        </ScrollView>
-      )}
+        </View>
 
-      {pkgConfigs.length > 0 && (() => {
-        const pkg = pkgConfigs[activePkgIdx];
-        if (!pkg) return null;
-        return (
-          <View style={s.pkgConfigCard}>
-            {/* Header */}
-            <View style={s.pkgConfigHeader}>
-              <View style={s.pkgConfigIconBox}>
-                <Ionicons name={pkg.icon as any} size={20} color={ORANGE} />
-              </View>
-              <Text style={s.pkgConfigTitle}>{pkg.type_label}</Text>
-            </View>
-
-            {/* Prix */}
-            <View style={s.field}>
-              <Text style={s.fieldLabel}>Prix (€) par séance *</Text>
-              <TextInput
-                style={s.input}
-                value={pkg.price}
-                onChangeText={v => updatePkg(activePkgIdx, { price: v })}
-                placeholder="Ex: 60"
-                placeholderTextColor={Colors.muted}
-                keyboardType="decimal-pad"
-                testID={`pkg-price-${activePkgIdx}`}
-              />
-              {pkg.price && !isNaN(parseFloat(pkg.price)) && parseFloat(pkg.price) > 0 && (
-                <Text style={s.netEarning}>
-                  Commission 15 % · Gain net : <Text style={{ fontWeight: '700', color: GREEN }}>{(parseFloat(pkg.price) * 0.85).toFixed(2)} €</Text>
-                </Text>
-              )}
-            </View>
-
-            {/* Durée */}
-            <View style={s.field}>
-              <Text style={s.fieldLabel}>Durée par séance</Text>
-              <View style={s.chips}>
-                {DURATIONS.map(d => (
-                  <TouchableOpacity
-                    key={d}
-                    style={[s.chip, pkg.duration_min === d && s.chipActive]}
-                    onPress={() => updatePkg(activePkgIdx, { duration_min: d })}
-                    testID={`duration-${d}-${activePkgIdx}`}
-                  >
-                    <Text style={[s.chipText, pkg.duration_min === d && s.chipTextActive]}>{d} min</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            {/* Participants max */}
-            <View style={s.field}>
-              <Text style={s.fieldLabel}>Participants maximum</Text>
-              <View style={s.stepperRow}>
-                <TouchableOpacity
-                  style={s.stepperBtn}
-                  onPress={() => updatePkg(activePkgIdx, { max_participants: Math.max(1, pkg.max_participants - 1) })}
-                  testID={`max-dec-${activePkgIdx}`}
-                >
-                  <Ionicons name="remove" size={18} color={Colors.foreground} />
-                </TouchableOpacity>
-                <Text style={s.stepperVal}>{pkg.max_participants}</Text>
-                <TouchableOpacity
-                  style={s.stepperBtn}
-                  onPress={() => updatePkg(activePkgIdx, { max_participants: Math.min(100, pkg.max_participants + 1) })}
-                  testID={`max-inc-${activePkgIdx}`}
-                >
-                  <Ionicons name="add" size={18} color={Colors.foreground} />
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Calendrier */}
-            <View style={s.field}>
-              <Text style={s.fieldLabel}>Créneaux horaires</Text>
-              <WeekCalendar
-                slots={pkg.slots}
-                durationMin={pkg.duration_min}
-                onSlotsChange={newSlots => updatePkg(activePkgIdx, { slots: newSlots })}
-              />
-            </View>
+        {/* Participants max */}
+        <View style={s.field}>
+          <Text style={s.fieldLabel}>Participants maximum</Text>
+          <View style={s.stepperRow}>
+            <TouchableOpacity
+              style={s.stepperBtn}
+              onPress={() => setMaxParticipants(p => Math.max(1, p - 1))}
+              testID="max-dec"
+            >
+              <Ionicons name="remove" size={18} color={Colors.foreground} />
+            </TouchableOpacity>
+            <Text style={s.stepperVal}>{maxParticipants}</Text>
+            <TouchableOpacity
+              style={s.stepperBtn}
+              onPress={() => setMaxParticipants(p => Math.min(100, p + 1))}
+              testID="max-inc"
+            >
+              <Ionicons name="add" size={18} color={Colors.foreground} />
+            </TouchableOpacity>
           </View>
-        );
-      })()}
+        </View>
+
+        {/* Calendrier */}
+        <View style={s.field}>
+          <Text style={s.fieldLabel}>Créneaux horaires</Text>
+          <WeekCalendar
+            slots={slots}
+            durationMin={durationMin}
+            onSlotsChange={setSlots}
+          />
+        </View>
+      </View>
     </View>
   );
 
   // ─── Step 4: Résumé & Score ───────────────────────────────────────────────────
   const { score, criteria } = useMemo(
-    () => computeScore(title, coachDesc, address, pkgConfigs),
-    [title, coachDesc, address, pkgConfigs]
+    () => computeScore(title, coachDesc, address, selectedTagIds, price, slots),
+    [title, coachDesc, address, selectedTagIds, price, slots]
   );
-  const pct = score;
-  const scoreColor = pct >= 80 ? GREEN : pct >= 50 ? ORANGE : Colors.destructive;
+  const scoreColor = score >= 80 ? GREEN : score >= 50 ? ORANGE : Colors.destructive;
+  const selectedDomain = domains.find(d => d.domain_id === domainId);
 
   const renderStep4 = () => (
     <View style={s.stepContent}>
       <Text style={s.stepTitle}>Résumé & Publication</Text>
 
-      {/* Score de complétion */}
+      {/* Score */}
       <View style={[s.scoreCard, { borderColor: scoreColor + '40' }]}>
         <View style={s.scoreHeader}>
           <View style={[s.scoreBadge, { backgroundColor: scoreColor }]}>
-            <Text style={s.scoreBadgeText}>{pct}</Text>
+            <Text style={s.scoreBadgeText}>{score}</Text>
             <Text style={s.scoreBadgeSub}>/100</Text>
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[s.scoreTitle, { color: scoreColor }]}>
-              {pct === 100 ? 'Service parfait !' : pct >= 80 ? 'Très bon service !' : pct >= 50 ? 'Service correct' : 'Complétez votre service'}
+              {score === 100 ? 'Service parfait !' : score >= 80 ? 'Très bon service !' : score >= 50 ? 'Service correct' : 'Complétez votre service'}
             </Text>
             <Text style={s.scoreSubtitle}>Score de complétude</Text>
           </View>
@@ -479,45 +443,97 @@ export default function CreateServiceScreen() {
         ))}
       </View>
 
-      {/* Résumé service */}
+      {/* Service summary */}
       <View style={s.summaryCard}>
         <Text style={s.summaryTitle}>{title}</Text>
-        {coachDesc.length > 0 && (
-          <Text style={s.summaryDesc} numberOfLines={3}>{coachDesc}</Text>
-        )}
+        {coachDesc.length > 0 && <Text style={s.summaryDesc} numberOfLines={3}>{coachDesc}</Text>}
         {address.length > 0 && (
           <View style={s.summaryRow}>
             <Ionicons name="location-outline" size={14} color={ORANGE} />
             <Text style={s.summaryMeta}>{address}</Text>
           </View>
         )}
-      </View>
-
-      {/* Prestations */}
-      {pkgConfigs.length > 0 && (
-        <View style={s.pkgSummarySection}>
-          <Text style={s.summarySectionTitle}>Prestations ({pkgConfigs.length})</Text>
-          {pkgConfigs.map((pkg, i) => (
-            <View key={i} style={s.pkgSummaryRow}>
-              <View style={s.pkgSummaryIconBox}>
-                <Ionicons name={pkg.icon as any} size={16} color={ORANGE} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.pkgSummaryLabel}>{pkg.type_label}</Text>
-                <Text style={s.pkgSummaryMeta}>
-                  {pkg.price ? `${pkg.price} €` : '—'} · {pkg.duration_min} min · {pkg.max_participants} pers. max · {pkg.slots.length} créneau{pkg.slots.length !== 1 ? 'x' : ''}
-                </Text>
-              </View>
-              <Ionicons
-                name={pkg.slots.length > 0 && parseFloat(pkg.price) > 0 ? 'checkmark-circle' : 'alert-circle-outline'}
-                size={18}
-                color={pkg.slots.length > 0 && parseFloat(pkg.price) > 0 ? GREEN : ORANGE}
-              />
-            </View>
-          ))}
+        {selectedDomain && (
+          <View style={s.summaryRow}>
+            <Ionicons name="grid-outline" size={14} color={Colors.primary} />
+            <Text style={s.summaryMeta}>{lang === 'fr' ? selectedDomain.label_fr : selectedDomain.label_en}</Text>
+            {selectedTags.length > 0 && (
+              <Text style={s.summaryMeta}> · {selectedTags.slice(0, 3).map((t: any) => lang === 'fr' ? t.label_fr : t.label_en).join(', ')}</Text>
+            )}
+          </View>
+        )}
+        <View style={s.summaryStatsRow}>
+          {price ? <View style={s.statChip}><Text style={s.statChipText}>{price} €/séance</Text></View> : null}
+          <View style={s.statChip}><Text style={s.statChipText}>{durationMin} min</Text></View>
+          <View style={s.statChip}><Text style={s.statChipText}>{maxParticipants} pers. max</Text></View>
+          <View style={s.statChip}><Text style={s.statChipText}>{slots.length} créneau{slots.length !== 1 ? 'x' : ''}</Text></View>
         </View>
-      )}
+      </View>
     </View>
+  );
+
+  // ─── Tag Modal ────────────────────────────────────────────────────────────────
+  const renderTagModal = () => (
+    <Modal visible={showTagModal} animationType="slide" transparent onRequestClose={() => setShowTagModal(false)}>
+      <View style={s.tagModalOverlay}>
+        <TouchableOpacity style={s.tagModalBackdrop} activeOpacity={1} onPress={() => setShowTagModal(false)} />
+        <View style={s.tagModalSheet}>
+          <View style={s.sheetHandle} />
+          <View style={s.tagModalHeader}>
+            <TouchableOpacity onPress={() => setShowTagModal(false)}>
+              <Text style={s.modalCancel}>Annuler</Text>
+            </TouchableOpacity>
+            <Text style={s.tagModalTitle}>Choisir des tags</Text>
+            <TouchableOpacity onPress={() => setShowTagModal(false)} testID="close-tag-modal">
+              <Ionicons name="checkmark-circle" size={28} color={Colors.primary} />
+            </TouchableOpacity>
+          </View>
+          {selectedTagIds.length > 0 && (
+            <View style={s.selectedBanner}>
+              <Text style={s.selectedBannerText}>{selectedTagIds.length} tag{selectedTagIds.length > 1 ? 's' : ''} sélectionné{selectedTagIds.length > 1 ? 's' : ''}</Text>
+              <TouchableOpacity onPress={() => setSelectedTagIds([])}>
+                <Text style={s.clearText}>Effacer</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{ padding: Spacing.md, paddingBottom: 50 }}
+            showsVerticalScrollIndicator={false}
+          >
+            {categories.filter(c => (c.tags || []).length > 0).map((cat: any) => {
+              const col = tagColor(cat.category_id);
+              return (
+                <View key={cat.category_id} style={s.catGroup}>
+                  <View style={s.catRow}>
+                    <View style={[s.catDot, { backgroundColor: col }]} />
+                    <Text style={s.catLabel}>{lang === 'fr' ? cat.label_fr : cat.label_en}</Text>
+                  </View>
+                  <View style={s.tagsWrap}>
+                    {(cat.tags || []).map((tag: any) => {
+                      const sel = selectedTagIds.includes(tag.tag_id);
+                      return (
+                        <TouchableOpacity
+                          key={tag.tag_id}
+                          style={[s.tagChip, sel && { backgroundColor: col + '22', borderColor: col }]}
+                          onPress={() => toggleTag(tag.tag_id)}
+                          testID={`tag-chip-${tag.tag_id}`}
+                        >
+                          {sel && <Ionicons name="checkmark" size={12} color={col} style={{ marginRight: 3 }} />}
+                          <Text style={[s.tagChipText, sel && { color: col, fontWeight: '700' }]}>
+                            {lang === 'fr' ? tag.label_fr : tag.label_en}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              );
+            })}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
   );
 
   // ─── Main Render ──────────────────────────────────────────────────────────────
@@ -582,7 +598,7 @@ export default function CreateServiceScreen() {
         </View>
       </KeyboardAvoidingView>
 
-      {/* Location picker modal */}
+      {/* Location picker */}
       <LocationPicker
         visible={showLocPicker}
         onClose={() => setShowLocPicker(false)}
@@ -593,6 +609,9 @@ export default function CreateServiceScreen() {
           setShowLocPicker(false);
         }}
       />
+
+      {/* Tag modal */}
+      {renderTagModal()}
     </SafeAreaView>
   );
 }
@@ -635,6 +654,7 @@ const s = StyleSheet.create({
   stepTitle: { fontSize: 20, fontWeight: '800', color: Colors.foreground },
   stepHint: { fontSize: 13, color: Colors.muted, marginTop: -8 },
   field: { gap: 6 },
+  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   fieldLabel: { fontSize: 11, fontWeight: '700', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.5 },
   input: {
     backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1,
@@ -659,54 +679,26 @@ const s = StyleSheet.create({
   },
   addressBtnFilled: { borderColor: Colors.primary + '60' },
   addressBtnText: { flex: 1, fontSize: 14, color: Colors.foreground, lineHeight: 20 },
-  // Step 2 - package type cards
-  pkgTypeCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    backgroundColor: Colors.card, borderRadius: Radius.lg, padding: 16,
-    borderWidth: 1.5, borderColor: Colors.border,
+  // Domain + Tags
+  domainPill: {
+    paddingHorizontal: 16, paddingVertical: 10, borderRadius: Radius.full,
+    backgroundColor: Colors.card, borderWidth: 1.5, borderColor: Colors.border,
   },
-  pkgTypeCardActive: { borderColor: ORANGE, backgroundColor: ORANGE_LIGHT },
-  pkgTypeIcon: {
-    width: 46, height: 46, borderRadius: 14, backgroundColor: Colors.background,
-    alignItems: 'center', justifyContent: 'center',
+  domainPillText: { fontSize: 14, fontWeight: '600', color: Colors.muted },
+  tagTrigger: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.card,
+    borderRadius: Radius.md, padding: 14, borderWidth: 1, borderColor: Colors.border, gap: 8,
   },
-  pkgTypeIconActive: { backgroundColor: ORANGE + '20' },
-  pkgTypeLabel: { fontSize: 15, fontWeight: '700', color: Colors.muted },
-  pkgTypeDesc: { fontSize: 12, color: Colors.muted, marginTop: 2 },
-  pkgTypeCheck: {
-    width: 24, height: 24, borderRadius: 12, borderWidth: 2,
-    borderColor: Colors.border, alignItems: 'center', justifyContent: 'center',
+  tagPill: {
+    paddingHorizontal: 10, paddingVertical: 4, borderRadius: Radius.full, borderWidth: 1,
   },
-  pkgTypeCheckActive: { backgroundColor: ORANGE, borderColor: ORANGE },
-  selectionSummary: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: GREEN + '15', borderRadius: Radius.md, padding: 10,
-    borderWidth: 1, borderColor: GREEN + '30',
-  },
-  selectionSummaryText: { fontSize: 13, fontWeight: '600', color: GREEN },
-  // Step 3 - config
-  pkgTab: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 14, paddingVertical: 8, borderRadius: Radius.full,
-    backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border,
-  },
-  pkgTabActive: { borderColor: ORANGE, backgroundColor: ORANGE_LIGHT },
-  pkgTabText: { fontSize: 12, fontWeight: '600', color: Colors.muted },
-  pkgTabBadge: {
-    minWidth: 16, height: 16, borderRadius: 8, backgroundColor: ORANGE,
-    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3,
-  },
-  pkgTabBadgeText: { fontSize: 9, fontWeight: '800', color: Colors.background },
-  pkgConfigCard: {
+  tagPillText: { fontSize: 12, fontWeight: '600' },
+  fieldTip: { fontSize: 12, color: Colors.muted, fontStyle: 'italic', marginTop: 2 },
+  // Config card
+  configCard: {
     backgroundColor: Colors.card, borderRadius: Radius.xl, padding: Spacing.md,
     borderWidth: 1, borderColor: Colors.border, gap: 16,
   },
-  pkgConfigHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  pkgConfigIconBox: {
-    width: 38, height: 38, borderRadius: 12, backgroundColor: ORANGE + '20',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  pkgConfigTitle: { fontSize: 17, fontWeight: '800', color: Colors.foreground, flex: 1 },
   chips: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   chip: {
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: Radius.full,
@@ -717,7 +709,7 @@ const s = StyleSheet.create({
   chipTextActive: { color: ORANGE },
   stepperRow: { flexDirection: 'row', alignItems: 'center', gap: 20, paddingTop: 4 },
   stepperBtn: {
-    width: 38, height: 38, borderRadius: 19, backgroundColor: Colors.card,
+    width: 38, height: 38, borderRadius: 19, backgroundColor: Colors.background,
     borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center',
   },
   stepperVal: { fontSize: 22, fontWeight: '800', color: Colors.foreground, minWidth: 36, textAlign: 'center' },
@@ -736,28 +728,20 @@ const s = StyleSheet.create({
   criterionRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   criterionText: { flex: 1, fontSize: 13, color: Colors.foreground },
   criterionPts: { fontSize: 11, fontWeight: '700', color: Colors.muted },
-  // Summary
   summaryCard: {
     backgroundColor: Colors.card, borderRadius: Radius.xl, padding: Spacing.md,
-    borderWidth: 1, borderColor: ORANGE_BORDER, gap: 8,
+    borderWidth: 1, borderColor: ORANGE_BORDER, gap: 10,
   },
   summaryTitle: { fontSize: 18, fontWeight: '800', color: Colors.foreground },
   summaryDesc: { fontSize: 13, color: Colors.muted, lineHeight: 19 },
   summaryRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  summaryMeta: { fontSize: 13, color: Colors.foreground, flex: 1 },
-  pkgSummarySection: { gap: 8 },
-  summarySectionTitle: { fontSize: 14, fontWeight: '700', color: ORANGE, marginBottom: 2 },
-  pkgSummaryRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: Colors.card, borderRadius: Radius.lg, padding: 12,
-    borderWidth: 1, borderColor: Colors.border,
+  summaryMeta: { fontSize: 13, color: Colors.muted },
+  summaryStatsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
+  statChip: {
+    paddingHorizontal: 10, paddingVertical: 4, borderRadius: Radius.full,
+    backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border,
   },
-  pkgSummaryIconBox: {
-    width: 34, height: 34, borderRadius: 10, backgroundColor: ORANGE + '18',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  pkgSummaryLabel: { fontSize: 14, fontWeight: '700', color: Colors.foreground },
-  pkgSummaryMeta: { fontSize: 12, color: Colors.muted, marginTop: 2 },
+  statChipText: { fontSize: 12, fontWeight: '600', color: Colors.foreground },
   // Bottom nav
   bottomNav: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
@@ -778,4 +762,36 @@ const s = StyleSheet.create({
   publishBtn: { backgroundColor: GREEN },
   disabledBtn: { opacity: 0.4 },
   nextBtnText: { fontSize: 15, fontWeight: '700', color: Colors.background },
+  // Tag modal
+  tagModalOverlay: { flex: 1, justifyContent: 'flex-end' },
+  tagModalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
+  tagModalSheet: {
+    backgroundColor: Colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    maxHeight: '80%',
+  },
+  sheetHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: Colors.border, alignSelf: 'center', marginTop: 10, marginBottom: 8 },
+  tagModalHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border,
+  },
+  tagModalTitle: { fontSize: 17, fontWeight: '700', color: Colors.foreground },
+  modalCancel: { fontSize: 15, color: Colors.muted },
+  selectedBanner: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: Spacing.md, paddingVertical: 8,
+    backgroundColor: Colors.primary + '15', borderBottomWidth: 1, borderBottomColor: Colors.primary + '30',
+  },
+  selectedBannerText: { fontSize: 13, fontWeight: '600', color: Colors.primary },
+  clearText: { fontSize: 13, color: Colors.destructive, fontWeight: '600' },
+  catGroup: { marginBottom: 16 },
+  catRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+  catDot: { width: 8, height: 8, borderRadius: 4 },
+  catLabel: { fontSize: 13, fontWeight: '700', color: Colors.foreground, textTransform: 'uppercase', letterSpacing: 0.5 },
+  tagsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  tagChip: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: Radius.full,
+    backgroundColor: Colors.card, borderWidth: 1.5, borderColor: Colors.border,
+  },
+  tagChipText: { fontSize: 13, fontWeight: '500', color: Colors.muted },
 });
