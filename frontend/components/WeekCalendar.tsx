@@ -621,8 +621,17 @@ const s = StyleSheet.create({
   dialogMessage: { fontSize: 14, color: Colors.muted, textAlign: 'center', lineHeight: 20, marginBottom: 20 },
   dialogActions: { flexDirection: 'row', gap: 10 },
   dialogActionsSingle: { justifyContent: 'center' },
-  dialogBtnCancel: { flex: 1, paddingVertical: 13, borderRadius: 12, backgroundColor: Colors.backgroundSecondary, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
-  dialogBtnCancelText: { fontSize: 15, fontWeight: '600', color: Colors.muted },
-  dialogBtnConfirm: { flex: 1, paddingVertical: 13, borderRadius: 12, backgroundColor: TEAL, alignItems: 'center' },
-  dialogBtnConfirmText: { fontSize: 15, fontWeight: '700', color: '#000' },
+  dialogBtnCancel: {
+    flex: 1, paddingVertical: 14, paddingHorizontal: 8, borderRadius: 12,
+    backgroundColor: Colors.backgroundSecondary,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  dialogBtnCancelText: { fontSize: 13, fontWeight: '600', color: Colors.muted, textAlign: 'center' },
+  dialogBtnConfirm: {
+    flex: 1, paddingVertical: 14, paddingHorizontal: 8, borderRadius: 12,
+    backgroundColor: TEAL,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  dialogBtnConfirmText: { fontSize: 14, fontWeight: '700', color: '#000', textAlign: 'center' },
 });
