@@ -96,7 +96,8 @@ export default function ServiceDetailScreen() {
     if (!service?.slots?.length) return;
     const dateKeys = new Set<string>();
     for (const slot of (service.slots ?? [])) {
-      const key = slot.slot_type === 'single' && slot.slot_date
+      const isDateSlot = slot.slot_type === 'single' || slot.slot_type === 'specific';
+      const key = isDateSlot && slot.slot_date
         ? slot.slot_date
         : String(slot.day_of_week ?? 'x');
       dateKeys.add(key);
