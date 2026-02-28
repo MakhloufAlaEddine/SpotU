@@ -354,3 +354,61 @@ async def delete_service(service_id: str, request: Request):
             service_id
         )
     return {"success": True}
+
+
+# ── Favorites / Saves ────────────────────────────────────────
+
+@router.get("/services/saved")
+async def get_saved_services(request: Request):
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT s.service_id, s.title, s.price, s.images, s.address, s.location_description,
+                      ss.saved_at,
+                      json_build_object('user_id', u.user_id, 'name', u.name, 'picture', u.picture) as coach
+               FROM service_saves ss
+               JOIN services s ON ss.service_id = s.service_id
+               JOIN users u ON s.coach_id = u.user_id
+               WHERE ss.user_id = $1
+               ORDER BY ss.saved_at DESC""",
+            user["user_id"]
+        )
+        result = []
+        for row in rows:
+            d = dict(row)
+            d["images"] = d.get("images") or []
+            if isinstance(d["images"], str):
+                import json as _j; d["images"] = _j.loads(d["images"])
+            if isinstance(d.get("coach"), str):
+                import json as _j; d["coach"] = _j.loads(d["coach"])
+            result.append(d)
+        return result
+
+
+@router.post("/services/{service_id}/save")
+async def save_service(service_id: str, request: Request):
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    async with pool.acquire() as conn:
+        existing = await conn.fetchrow("SELECT 1 FROM services WHERE service_id=$1 AND active=TRUE", service_id)
+        if not existing:
+            raise HTTPException(status_code=404, detail="Service not found")
+        sid = new_id("svs")
+        await conn.execute(
+            "INSERT INTO service_saves (save_id, service_id, user_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING",
+            sid, service_id, user["user_id"]
+        )
+    return {"success": True, "is_saved": True}
+
+
+@router.delete("/services/{service_id}/unsave")
+async def unsave_service(service_id: str, request: Request):
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "DELETE FROM service_saves WHERE service_id=$1 AND user_id=$2",
+            service_id, user["user_id"]
+        )
+    return {"success": True, "is_saved": False}
