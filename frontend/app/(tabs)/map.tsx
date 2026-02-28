@@ -273,10 +273,12 @@ export default function HomeScreen() {
 
   const loadData = async () => {
     try {
-      const nearby = await api.get(
-        `/tag-points?lat=${location.lat}&lng=${location.lng}&radius=50000`
-      );
+      const [nearby, svcs] = await Promise.all([
+        api.get(`/tag-points?lat=${location.lat}&lng=${location.lng}&radius=50000`).catch(() => []),
+        api.get(`/services?lat=${location.lat}&lng=${location.lng}&radius=50000`).catch(() => []),
+      ]);
       setTagPoints(Array.isArray(nearby) ? nearby : []);
+      setServices(Array.isArray(svcs) ? svcs : []);
     } catch {}
     finally { setLoading(false); setRefreshing(false); }
   };
