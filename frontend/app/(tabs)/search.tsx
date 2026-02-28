@@ -73,9 +73,12 @@ function ResultItem({ image, title, author, distance, rating = 0, onPress, isSer
 
 const itemSt = StyleSheet.create({
   container: { flexDirection: 'row', paddingVertical: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border, gap: Spacing.md },
-  imgBox: { width: 80, height: 60, borderRadius: Radius.sm, overflow: 'hidden' },
+  serviceContainer: { backgroundColor: 'rgba(255,149,0,0.04)', borderRadius: Radius.md, paddingHorizontal: 8, marginHorizontal: -8, borderBottomWidth: 0, marginBottom: 2, borderWidth: 1, borderColor: 'rgba(255,149,0,0.15)' },
+  imgBox: { width: 80, height: 60, borderRadius: Radius.sm, overflow: 'hidden', position: 'relative' },
   img: { width: '100%', height: '100%' },
   imgPlaceholder: { width: '100%', height: '100%', backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center' },
+  typeBadge: { position: 'absolute', bottom: 3, left: 3, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2 },
+  typeBadgeText: { fontSize: 9, fontWeight: '700', color: '#fff', textTransform: 'uppercase', letterSpacing: 0.3 },
   content: { flex: 1, justifyContent: 'center' },
   title: { fontSize: 15, fontWeight: '600', color: Colors.foreground },
   author: { fontSize: 13, color: Colors.muted, marginTop: 2 },
