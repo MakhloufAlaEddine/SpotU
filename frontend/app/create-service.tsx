@@ -817,6 +817,19 @@ const s = StyleSheet.create({
   },
   headerBackBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 17, fontWeight: '700', color: Colors.foreground },
+  // Photo grid (même design que TagPoint)
+  photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 4 },
+  photoThumb: { width: 80, height: 80, borderRadius: Radius.md, overflow: 'hidden', position: 'relative' },
+  photoThumbImg: { width: '100%', height: '100%', resizeMode: 'cover' },
+  photoRemoveBtn: { position: 'absolute', top: 3, right: 3 },
+  photoAddBtn: {
+    width: 80, height: 80, borderRadius: Radius.md,
+    borderWidth: 1.5, borderColor: Colors.primary, borderStyle: 'dashed',
+    alignItems: 'center', justifyContent: 'center', gap: 4,
+    backgroundColor: Colors.card,
+  },
+  photoAddBtnText: { fontSize: 11, color: Colors.primary, fontWeight: '600' },
+  fieldHint: { fontSize: 12, color: Colors.muted },
   // Stepper
   stepHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
