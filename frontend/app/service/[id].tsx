@@ -81,6 +81,8 @@ export default function ServiceDetailScreen() {
   const [collapsedDates, setCollapsedDates] = useState<Set<string>>(new Set());
   const [visibleCount, setVisibleCount] = useState(4);
   const [photoIdx, setPhotoIdx] = useState(0);
+  const [isSaved, setIsSaved] = useState(false);
+  const [savingInProgress, setSavingInProgress] = useState(false);
   const photoListRef = useRef<FlatList>(null);
 
   const toggleDate = (key: string) => {
