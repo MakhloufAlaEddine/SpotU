@@ -503,4 +503,9 @@ const s = StyleSheet.create({
     borderRadius: Radius.full,
   },
   exploreBtnText: { fontSize: 15, fontWeight: '700', color: Colors.background },
+  tabs: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: Colors.border, backgroundColor: Colors.background },
+  tab: { flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  tabActive: { borderBottomColor: Colors.primary },
+  tabText: { fontSize: 14, fontWeight: '600', color: Colors.muted },
+  tabTextActive: { color: Colors.primary },
 });
