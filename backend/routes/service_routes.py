@@ -158,6 +158,34 @@ async def my_services(request: Request):
     return result
 
 
+@router.get("/services/saved")
+async def get_saved_services(request: Request):
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT s.service_id, s.title, s.price, s.images, s.address, s.location_description,
+                      ss.saved_at,
+                      json_build_object('user_id', u.user_id, 'name', u.name, 'picture', u.picture) as coach
+               FROM service_saves ss
+               JOIN services s ON ss.service_id = s.service_id
+               JOIN users u ON s.coach_id = u.user_id
+               WHERE ss.user_id = $1
+               ORDER BY ss.saved_at DESC""",
+            user["user_id"]
+        )
+        result = []
+        for row in rows:
+            d = dict(row)
+            d["images"] = d.get("images") or []
+            if isinstance(d["images"], str):
+                import json as _j; d["images"] = _j.loads(d["images"])
+            if isinstance(d.get("coach"), str):
+                import json as _j; d["coach"] = _j.loads(d["coach"])
+            result.append(d)
+        return result
+
+
 @router.get("/services/{service_id}")
 async def get_service(service_id: str):
     pool = get_pool()
