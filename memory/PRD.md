@@ -87,7 +87,11 @@ WINEK est une plateforme hyperlocale de connexion sportive basée sur des tags g
 - **Vue Doctolib** : créneaux groupés par date en accordéon sur `/service/[id].tsx`
 - Score de complétion basé sur 6 critères (100 pts max)
 
-### ✅ Redesign Accueil + Fix accordéon (Fév 2026)
+### ✅ 4 Fixes UX (Fév 2026)
+- **Chip localisation dynamique** : utilise `location.address` du contexte au lieu de "Paris, France" hardcodé
+- **Recherche triée par distance** : résultats (Services + TagPoints mélangés) triés du plus proche au plus éloigné
+- **Badge votes masqué** : flèche "+0" cachée si votes = 0 (HeroCard + RecentRow)
+- **Favoris services** : bouton bookmark dans `service/[id].tsx` + onglets TagPoints/Services dans `saved.tsx` + API save/unsave/saved
 - **Bug "?" corrigé** : accordéon service/[id].tsx gérait `slot_type='specific'` comme `'single'` → dates lisibles en français
 - **Home redesigné** : 3 sections (hero, services compacts, feed récents), header personnalisé avec salutation + localisation
 - **Section "Près de vous" supprimée** → moins de bruit visuel, meilleure hiérarchie
