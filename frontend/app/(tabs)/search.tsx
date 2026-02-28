@@ -211,16 +211,30 @@ export default function SearchScreen() {
     return formatDistance(haversineDistance(location.lat, location.lng, lat, lng));
   };
 
+  const getServiceDistance = (svc: any) => {
+    const loc = svc.locations?.[0];
+    if (!loc) return '';
+    return formatDistance(haversineDistance(location.lat, location.lng, loc.latitude, loc.longitude));
+  };
+
   // Filter by selected tags (OR / AND based on combineMode)
-  const filteredPoints = useMemo(() => {
-    if (selectedTags.length === 0) return tagPoints;
-    return tagPoints.filter(pt => {
-      const ptTags: string[] = pt.tag_ids || [];
-      return combineMode
-        ? selectedTags.every(t => ptTags.includes(t))   // AND
-        : selectedTags.some(t => ptTags.includes(t));    // OR
-    });
-  }, [tagPoints, selectedTags, combineMode]);
+  const combinedResults = useMemo(() => {
+    const filterByTags = (items: any[], getTagsFn: (i: any) => string[]) => {
+      if (selectedTags.length === 0) return items;
+      return items.filter(item => {
+        const itemTags = getTagsFn(item);
+        return combineMode
+          ? selectedTags.every(t => itemTags.includes(t))
+          : selectedTags.some(t => itemTags.includes(t));
+      });
+    };
+    const filteredTagPoints = filterByTags(tagPoints, pt => pt.tag_ids || []);
+    const filteredServices = filterByTags(services, svc => svc.tag_ids || []);
+    return [
+      ...filteredServices.map(s => ({ ...s, _type: 'service' as const })),
+      ...filteredTagPoints.map(p => ({ ...p, _type: 'tagpoint' as const })),
+    ];
+  }, [tagPoints, services, selectedTags, combineMode]);
 
   const toggleTag = (id: string) => {
     setSelectedTags(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]);
