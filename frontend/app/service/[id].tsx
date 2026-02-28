@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Alert, TextInput, Modal, Image,
-  KeyboardAvoidingView, Platform,
+  KeyboardAvoidingView, Platform, FlatList, Dimensions,
 } from 'react-native';
+
+const { width: SW } = Dimensions.get('window');
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
