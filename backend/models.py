@@ -169,6 +169,7 @@ class ServiceCreate(BaseModel):
     tag_ids: List[str] = []
     domain_id: Optional[str] = None
     max_participants: Optional[int] = 1
+    images: Optional[List[str]] = []
     locations: List[ServiceLocationItem] = []
     packages: List[ServicePackageItem] = []
     slots: List[ServiceSlotItem] = []
@@ -184,6 +185,7 @@ class ServiceUpdate(BaseModel):
     tag_ids: Optional[List[str]] = None
     active: Optional[bool] = None
     location_description: Optional[str] = None
+    images: Optional[List[str]] = None
     locations: Optional[List[ServiceLocationItem]] = None
     slots: Optional[List[ServiceSlotItem]] = None
 
