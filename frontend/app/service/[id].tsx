@@ -226,7 +226,19 @@ export default function ServiceDetailScreen() {
           <Ionicons name="chevron-back" size={22} color={Colors.foreground} />
         </TouchableOpacity>
         <Text style={s.headerTitle} numberOfLines={1}>Détail du service</Text>
-        <View style={{ width: 40 }} />
+        {/* Bouton favoris */}
+        <TouchableOpacity
+          style={s.headerBackBtn}
+          onPress={handleToggleSave}
+          disabled={savingInProgress}
+          testID="save-service-btn"
+        >
+          <Ionicons
+            name={isSaved ? 'bookmark' : 'bookmark-outline'}
+            size={22}
+            color={isSaved ? Colors.primary : Colors.foreground}
+          />
+        </TouchableOpacity>
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
