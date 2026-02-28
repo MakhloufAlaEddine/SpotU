@@ -335,7 +335,7 @@ export default function HomeScreen() {
             <Text style={hdrSt.greet}>{greeting()}{user?.name ? `, ${user.name.split(' ')[0]}` : ''} 👋</Text>
             <TouchableOpacity style={hdrSt.locRow} onPress={() => router.push('/set-location' as any)}>
               <Ionicons name="location" size={13} color={Colors.primary} />
-              <Text style={hdrSt.locTxt} numberOfLines={1}>Paris, France</Text>
+              <Text style={hdrSt.locTxt} numberOfLines={1}>{location.address || 'Paris, France'}</Text>
               <Ionicons name="chevron-down" size={12} color={Colors.muted} />
             </TouchableOpacity>
           </View>
