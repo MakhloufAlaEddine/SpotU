@@ -245,6 +245,7 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [tagPoints, setTagPoints] = useState<any[]>([]);
+  const [services, setServices] = useState<any[]>([]);
 
   // Carousel state
   const [heroIndex, setHeroIndex] = useState(0);
