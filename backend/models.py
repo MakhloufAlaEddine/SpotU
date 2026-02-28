@@ -134,7 +134,20 @@ class ServiceLocationItem(BaseModel):
     description: Optional[str] = None
 
 
-class ServiceSlotItem(BaseModel):
+class DaySlotPayload(BaseModel):
+    slot_date: str   # 'YYYY-MM-DD'
+    start_time: str  # 'HH:MM'
+    end_time: str    # 'HH:MM'
+
+class ServicePackageItem(BaseModel):
+    type_id: str
+    type_label: str
+    duration_min: int = 60
+    max_participants: int = 1
+    price: float = 0.0
+    slots: List[DaySlotPayload] = []
+
+
     slot_type: str = 'recurring'  # 'recurring' | 'single' | 'availability'
     location_id: Optional[str] = None   # legacy / direct DB id (ignored in write paths)
     location_index: Optional[int] = None  # index into the locations array (used on create/update)
