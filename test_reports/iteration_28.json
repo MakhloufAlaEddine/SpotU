@@ -1,0 +1,60 @@
+{
+  "summary": "Iteration 28 - Full testing of the new 4-step service creation stepper (packages model). Backend 16/16 PASS. Frontend e2e flow fully working. POST /api/services with packages correctly stores packages + slots. All 4 steps validated: Step1 (title/desc/validation), Step2 (multi-select packages), Step3 (price/duration/WeekCalendar), Step4 (score 85/100, Publier). Submit redirects to profile after API call.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "GET /api/services/mine",
+        "issue": "Does not filter by active=TRUE - soft-deleted services still appear (inherited from iteration 27)",
+        "priority": "LOW"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "PublishButton (create-service.tsx line 574)",
+        "issue": "CONSOLE error: 'Unexpected text node: . A text node cannot be a child of a <View>.' - caused by React Fragment <><Ionicons/><Text/></> inside TouchableOpacity on web. Non-breaking warning.",
+        "selector": "[data-testid='create-service-submit-btn']",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Profile page",
+        "issues": ["No direct 'Créer un service' link on the main profile tab. Coach must go: Profile → Edit Profile → scroll to 'Mes Services' section → click '+ Créer'. Not immediately discoverable for new coaches."]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_service_packages_iter28.py",
+    "/app/test_reports/pytest/test_service_packages_iter28.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: Fix React Native Web 'Unexpected text node' warning in create-service.tsx line 574 by wrapping Ionicons+Text in a View: <View style={{flexDirection:'row', gap:6, alignItems:'center'}}><Ionicons.../><Text.../></View>",
+    "OPTIONAL: Consider adding a shortcut button to create-service directly from the Profile tab (currently hidden behind Edit Profile) to improve UX discoverability for coaches"
+  ],
+  "critical_code_review_comments": [
+    "create-service.tsx line 574: Fragment <><Ionicons><Text></> inside TouchableOpacity causes React Native Web 'Unexpected text node' warning - wrap in View instead",
+    "Step 1 description validation only checks non-empty, not 50+ chars minimum (though score incentivizes 50+). This is a UX choice, not a bug.",
+    "Service price when price=None is correctly computed as min(package prices) - edge case: if all packages have price=0, service price=0. Valid behavior.",
+    "WeekCalendar time picker auto-calculates end time based on duration_min - works correctly (11:33 start + 60min = 12:33 end).",
+    "Score computation (85/100 when no address): 20+20+0+15+15+15 = correct"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_service_packages_iter28.py"
+  ],
+  "success_rate": {
+    "backend": "100% (16/16)",
+    "frontend": "100% - all 10 test scenarios passed"
+  },
+  "test_credentials": {
+    "coach": "coach@winek.app / WinekCoach2024!",
+    "user": "user@winek.app / WinekUser2024!"
+  },
+  "seed_data_creation": "Several TEST_ services created and cleaned up during backend tests",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 28 - New 4-step service creation stepper (packages model) fully validated. Key facts: (1) /create-service accessible via edit-profile 'Mes Services → + Créer', (2) Step 3 WeekCalendar: click day → modal → click 'Début' → time picker → 'Confirmer' → 'Ajouter ce créneau' → close with backdrop click, (3) POST /api/services accepts packages[] with type_id, type_label, duration_min, max_participants, price, slots[{slot_date, start_time, end_time}], (4) Score is computed client-side: 20+20+15+15+15+15=100 (title>=5, desc filled, address, pkg>0, price>0, slots>0), (5) Minor console warning about 'Unexpected text node' on publish button (React Native Web). Backend tests in /app/backend/tests/test_service_packages_iter28.py. testIDs: service-title-input, service-desc-input, address-picker-btn, pkg-type-{type_id}, pkg-price-{idx}, cal-day-{date}, start-btn, end-btn, confirm-slot, prev-step-btn, next-step-btn, create-service-submit-btn."
+}
