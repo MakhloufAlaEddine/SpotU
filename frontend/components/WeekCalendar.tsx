@@ -261,7 +261,7 @@ export function WeekCalendar({ slots, durationMin, onSlotsChange }: WeekCalendar
   const handleDayPress = (dateStr: string) => {
     // Bloquer les dates passées
     if (dateStr < today) {
-      Alert.alert('Date passée', 'Impossible d\'ajouter des créneaux dans le passé.');
+      showAlert('Date passée', 'Impossible d\'ajouter des créneaux dans le passé.');
       return;
     }
 
@@ -271,23 +271,21 @@ export function WeekCalendar({ slots, durationMin, onSlotsChange }: WeekCalendar
 
     // Proposer de cloner J-1 si J est vide et J-1 a des créneaux
     if (daySlots.length === 0 && prevDaySlots.length > 0) {
-      Alert.alert(
+      showConfirm(
         'Copier les créneaux de la veille ?',
         `${prevDaySlots.length} créneau${prevDaySlots.length > 1 ? 'x' : ''} disponible${prevDaySlots.length > 1 ? 's' : ''} la veille. Voulez-vous les copier pour ce jour ?`,
-        [
-          { text: 'Non, créer manuellement', style: 'cancel', onPress: () => openDayModal(dateStr) },
-          {
-            text: 'Copier', onPress: () => {
-              const newSlots: DaySlot[] = prevDaySlots.map(s => ({
-                ...s,
-                id: `slot_${Date.now()}_${Math.random().toString(36).slice(2)}`,
-                date: dateStr,
-              }));
-              onSlotsChange([...slots, ...newSlots]);
-              openDayModal(dateStr);
-            },
-          },
-        ]
+        'Copier', 'Non, créer manuellement',
+        () => {
+          const newSlots: DaySlot[] = prevDaySlots.map(s => ({
+            ...s,
+            id: `slot_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+            date: dateStr,
+          }));
+          onSlotsChange([...slots, ...newSlots]);
+          setDialog(null);
+          openDayModal(dateStr);
+        },
+        () => { setDialog(null); openDayModal(dateStr); },
       );
       return;
     }
