@@ -482,8 +482,7 @@ async def seed_initial_data():
 
         # Service slots (2 semaines à venir, dates relatives à NOW())
         # Format: (slot_id, service_id, package_id, days_offset, start_time, end_time)
-        demo_slots = [
-            # svc_demo001 - individuel
+        demo_slots = [            # svc_demo001 - individuel
             ("slt_d01a1","svc_demo001","pkg_d01a",1,"09:00","10:00"),
             ("slt_d01a2","svc_demo001","pkg_d01a",3,"09:00","10:00"),
             ("slt_d01a3","svc_demo001","pkg_d01a",5,"10:00","11:00"),
