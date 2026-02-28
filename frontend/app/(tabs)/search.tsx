@@ -366,30 +366,46 @@ export default function SearchScreen() {
             {selectedTags.length > 0 && (
               <View style={styles.filterBadge} testID="filter-badge">
                 <Text style={styles.filterBadgeText}>
-                  {filteredPoints.length} résultat{filteredPoints.length !== 1 ? 's' : ''} · {selectedTags.length} tag{selectedTags.length !== 1 ? 's' : ''} {combineMode ? '(ET)' : '(OU)'}
+                  {combinedResults.length} résultat{combinedResults.length !== 1 ? 's' : ''} · {selectedTags.length} tag{selectedTags.length !== 1 ? 's' : ''} {combineMode ? '(ET)' : '(OU)'}
                 </Text>
                 <TouchableOpacity onPress={() => setSelectedTags([])} testID="clear-filter-btn">
                   <Text style={styles.filterClearText}>Effacer</Text>
                 </TouchableOpacity>
               </View>
             )}
-            {filteredPoints.length === 0 ? (
+            {combinedResults.length === 0 ? (
               <View style={styles.empty}>
                 <Ionicons name="search-outline" size={48} color={Colors.muted} />
                 <Text style={styles.emptyText}>Aucun résultat trouvé</Text>
               </View>
             ) : (
-              filteredPoints.map((pt) => (
-                <ResultItem
-                  key={pt.point_id}
-                  image={pt.image_url}
-                  title={pt.title || 'Sans titre'}
-                  author={pt.owner?.name || 'Anonyme'}
-                  distance={getDistance(pt)}
-                  rating={pt.rating || 0}
-                  onPress={() => router.push(`/tag-point/${pt.point_id}`)}
-                />
-              ))
+              combinedResults.map((item) => {
+                if (item._type === 'service') {
+                  return (
+                    <ResultItem
+                      key={'svc_' + item.service_id}
+                      isService
+                      image={item.images?.[0]}
+                      title={item.title || 'Sans titre'}
+                      author={item.coach?.name || 'Coach'}
+                      distance={getServiceDistance(item)}
+                      price={item.price}
+                      onPress={() => router.push(`/service/${item.service_id}` as any)}
+                    />
+                  );
+                }
+                return (
+                  <ResultItem
+                    key={item.point_id}
+                    image={item.image_url}
+                    title={item.title || 'Sans titre'}
+                    author={item.owner?.name || 'Anonyme'}
+                    distance={getDistance(item)}
+                    rating={item.rating || 0}
+                    onPress={() => router.push(`/tag-point/${item.point_id}`)}
+                  />
+                );
+              })
             )}
           </View>
         )}
