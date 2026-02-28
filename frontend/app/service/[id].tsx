@@ -77,7 +77,7 @@ export default function ServiceDetailScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [activeLocIdx, setActiveLocIdx] = useState(0);
   const [collapsedDates, setCollapsedDates] = useState<Set<string>>(new Set());
-  const [showAllDates, setShowAllDates] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(4);
 
   const toggleDate = (key: string) => {
     setCollapsedDates(prev => {
