@@ -1,0 +1,33 @@
+{
+  "summary": "Iteration 34 - Testing WeekCalendar dialog features: past dates blocking + clone J-1→J + next week copy. ALL 8 test scenarios PASS.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/test_reports/iteration_34.json"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Minor console warning: 'Unexpected text node: . A text node cannot be a child of a <View>.' - appears when adding slots. Non-blocking React Native Web rendering warning.",
+    "All dialog features work correctly. testID attributes (inline-dialog, dialog-confirm, dialog-cancel) are properly implemented and selectable."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A (frontend-only test)",
+    "frontend": "100% (8/8 scenarios passed)"
+  },
+  "test_credentials": {
+    "coach": "coach@winek.app / WinekCoach2024!"
+  },
+  "seed_data_creation": "No services published (tested within create-service flow only)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 34 - WeekCalendar dialog features VERIFIED. All 8 tests PASS:\n(1) Click LUN 23 (past day) → 'Date passée' dialog with message 'Impossible d'ajouter des créneaux dans le passé.' and OK button ✓\n(2) Click OK on 'Date passée' dialog → dialog closes, no bottom sheet opens ✓\n(3) Add 09:00 slot on SAM 28 (today) via bottom sheet → preset-9 → confirm-time → confirm-slot → day card shows 09:00→10:00 ✓\n(4) Click DIM 1 Mars (tomorrow, empty) with SAM 28 having slot → dialog 'Copier les créneaux de la veille ?' with buttons 'Non, créer manuellement' (dialog-cancel) and 'Copier' (dialog-confirm) ✓\n(5) Click 'Non, créer manuellement' → dialog closes, Dimanche bottom sheet opens empty (0 créneaux) ✓\n(6) Click DIM 1 again → dialog clone → click 'Copier' → Dimanche bottom sheet opens with 1 cloned slot 09:00→10:00 ✓\n(7) Click next-week arrow with SAM 28 having slot → 'Semaine suivante' dialog with 'Non' / 'Copier' buttons ✓\n(8) Past days LUN 23, MAR 24, MER 25, JEU 26, VEN 27 all have opacity=0.35 (greyed), SAM 28 has opacity=1 ✓\nNavigation: login (coach@winek.app/WinekCoach2024!) → /create-service → Step1 (fill title+desc) → Suivant (next-step-btn) → Step2 Domaine & Tags → Suivant → Step3 CONFIG (WeekCalendar).",
+  "rca_of_issue": "All features working correctly. The custom dialog system (Modal transparent=true overlay with dialogCard) successfully replaces Alert.alert() no-op on React Native Web. State `dialog` controls visibility; showAlert() for simple alert, showConfirm() for yes/no confirmation. testID='inline-dialog' on the dialog card, testID='dialog-confirm' and testID='dialog-cancel' on buttons."
+}
