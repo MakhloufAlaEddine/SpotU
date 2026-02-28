@@ -360,12 +360,13 @@ export function WeekCalendar({ slots, durationMin, onSlotsChange }: WeekCalendar
         {weekDays.map((day, i) => {
           const daySlots = getDateSlots(day.dateStr);
           const isToday = day.dateStr === today;
+          const isPast = day.dateStr < today;
           const hasSlots = daySlots.length > 0;
           return (
-            <TouchableOpacity key={i} style={s.dayCell} onPress={() => handleDayPress(day.dateStr)} testID={`cal-day-${day.dateStr}`}>
-              <Text style={s.dayName}>{day.dayName}</Text>
+            <TouchableOpacity key={i} style={[s.dayCell, isPast && s.dayCellPast]} onPress={() => handleDayPress(day.dateStr)} testID={`cal-day-${day.dateStr}`}>
+              <Text style={[s.dayName, isPast && s.dayNamePast]}>{day.dayName}</Text>
               <View style={[s.dayCircle, isToday && s.dayCircleToday, hasSlots && s.dayCircleSlots]}>
-                <Text style={[s.dayNum, (isToday || hasSlots) && s.dayNumActive]}>{day.dayNum}</Text>
+                <Text style={[s.dayNum, (isToday || hasSlots) && s.dayNumActive, isPast && !hasSlots && s.dayNumPast]}>{day.dayNum}</Text>
               </View>
               {day.showMonth && <Text style={s.monthLabel}>{day.monthAbbr}</Text>}
               {hasSlots && (
