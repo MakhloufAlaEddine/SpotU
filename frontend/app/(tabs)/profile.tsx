@@ -239,6 +239,22 @@ export default function MenuScreen() {
               </View>
               <Ionicons name="chevron-forward" size={18} color="#FF9500" />
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[st.coachCreateBtn, { marginTop: 10, borderColor: 'rgba(29,191,115,0.3)' }]}
+              onPress={() => router.push('/coach/bookings' as any)}
+              activeOpacity={0.85}
+              testID="coach-bookings-btn"
+            >
+              <View style={[st.coachCreateIconBox, { backgroundColor: 'rgba(29,191,115,0.1)' }]}>
+                <Ionicons name="calendar" size={26} color={Colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={st.coachCreateTitle}>Demandes de réservation</Text>
+                <Text style={st.coachCreateSub}>Acceptez ou refusez les demandes</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
+            </TouchableOpacity>
           </View>
         )}
 
