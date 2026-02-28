@@ -244,6 +244,18 @@ async def connect_to_db():
             ALTER TABLE service_slots ADD COLUMN IF NOT EXISTS days_of_week JSONB DEFAULT '[]';
             ALTER TABLE service_slots ADD COLUMN IF NOT EXISTS raw_schedule JSONB;
             ALTER TABLE service_slots ADD COLUMN IF NOT EXISTS location_id TEXT REFERENCES service_locations(location_id) ON DELETE SET NULL;
+            ALTER TABLE services ADD COLUMN IF NOT EXISTS address TEXT;
+            CREATE TABLE IF NOT EXISTS service_packages (
+                package_id TEXT PRIMARY KEY,
+                service_id TEXT REFERENCES services(service_id) ON DELETE CASCADE,
+                type_id TEXT NOT NULL,
+                type_label TEXT NOT NULL,
+                duration_min INTEGER DEFAULT 60,
+                max_participants INTEGER DEFAULT 1,
+                price DECIMAL(10,2) DEFAULT 0,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+            ALTER TABLE service_slots ADD COLUMN IF NOT EXISTS package_id TEXT REFERENCES service_packages(package_id) ON DELETE SET NULL;
         """)
 
     # 2. Seed données de base (users, tagpoints, tags, domaines...)
