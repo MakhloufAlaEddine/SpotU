@@ -187,6 +187,14 @@ CREATE TABLE IF NOT EXISTS tag_point_saves (
     saved_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(point_id, user_id)
 );
+
+CREATE TABLE IF NOT EXISTS service_saves (
+    save_id TEXT PRIMARY KEY,
+    service_id TEXT REFERENCES services(service_id) ON DELETE CASCADE,
+    user_id TEXT REFERENCES users(user_id) ON DELETE CASCADE,
+    saved_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(service_id, user_id)
+);
 """
 
 

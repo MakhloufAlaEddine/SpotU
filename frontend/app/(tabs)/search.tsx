@@ -217,8 +217,19 @@ export default function SearchScreen() {
     return formatDistance(haversineDistance(location.lat, location.lng, loc.latitude, loc.longitude));
   };
 
-  // Filter by selected tags (OR / AND based on combineMode)
+  // Filter + sort by distance (closest first)
   const combinedResults = useMemo(() => {
+    const getDistVal = (item: any) => {
+      if (item._type === 'service') {
+        const loc = item.locations?.[0];
+        if (!loc) return Infinity;
+        return haversineDistance(location.lat, location.lng, loc.latitude, loc.longitude);
+      }
+      const lat = item.latitude ?? item.location?.coordinates?.[1];
+      const lng = item.longitude ?? item.location?.coordinates?.[0];
+      if (lat == null || lng == null) return Infinity;
+      return haversineDistance(location.lat, location.lng, lat, lng);
+    };
     const filterByTags = (items: any[], getTagsFn: (i: any) => string[]) => {
       if (selectedTags.length === 0) return items;
       return items.filter(item => {
@@ -230,11 +241,12 @@ export default function SearchScreen() {
     };
     const filteredTagPoints = filterByTags(tagPoints, pt => pt.tag_ids || []);
     const filteredServices = filterByTags(services, svc => svc.tag_ids || []);
-    return [
+    const mixed = [
       ...filteredServices.map(s => ({ ...s, _type: 'service' as const })),
       ...filteredTagPoints.map(p => ({ ...p, _type: 'tagpoint' as const })),
     ];
-  }, [tagPoints, services, selectedTags, combineMode]);
+    return mixed.sort((a, b) => getDistVal(a) - getDistVal(b));
+  }, [tagPoints, services, selectedTags, combineMode, location.lat, location.lng]);
 
   const toggleTag = (id: string) => {
     setSelectedTags(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]);
