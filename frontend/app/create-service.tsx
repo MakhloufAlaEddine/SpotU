@@ -190,7 +190,7 @@ export default function CreateServiceScreen() {
     setSubmitting(true);
     try {
       const priceNum = parseFloat(price) || 0;
-      await api.post('/services', {
+      const payload = {
         title: title.trim(),
         description: coachDesc.trim() || null,
         address: address.trim() || null,
@@ -216,10 +216,16 @@ export default function CreateServiceScreen() {
           precision: 'exact', description: address || null,
         }] : [],
         slots: [],
-      });
-      router.replace('/(tabs)/profile' as any);
+      };
+      if (isEditMode) {
+        await api.put(`/services/${serviceId}`, payload);
+        router.replace(`/service/${serviceId}` as any);
+      } else {
+        const created = await api.post('/services', payload);
+        router.replace(`/service/${created.service_id ?? created.id}` as any);
+      }
     } catch (err: any) {
-      Alert.alert('Erreur', err.message || 'Impossible de créer le service');
+      Alert.alert('Erreur', err.message || (isEditMode ? 'Impossible de mettre à jour le service' : 'Impossible de créer le service'));
     } finally {
       setSubmitting(false);
     }
