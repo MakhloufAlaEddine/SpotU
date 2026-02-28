@@ -855,6 +855,9 @@ const s = StyleSheet.create({
     backgroundColor: ORANGE, borderRadius: Radius.full,
     paddingHorizontal: 24, paddingVertical: 13,
   },
+  bookBtnDisabled: {
+    backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border,
+  },
   bookBtnText: { fontSize: 15, fontWeight: '800', color: Colors.background },
 });
 
