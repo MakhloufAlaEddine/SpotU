@@ -63,10 +63,10 @@
   },
   "seed_data_creation": "Seeded 2 images on svc_b184a9f7f6db: ['https://images.pexels.com/photos/1552252/pexels-photo-1552252.jpeg', 'https://images.pexels.com/photos/841130/pexels-photo-841130.jpeg'] via PUT as owner (user_demo001). These are now persisted in the database.",
   "rca_of_issue": {
-    "bug": "Ownership check timing issue in create-service.tsx",
-    "root_cause": "useEffect(() => { if (isEditMode && serviceId) loadServiceForEdit(); }, [serviceId]) fires immediately on component mount. When page is directly loaded, AuthContext.checkAuth() is still async (reads token from storage, then calls /api/auth/me). The user state is null at mount time. loadServiceForEdit() captures user=null in its closure. When the API call resolves, user?.user_id is undefined, making the ownership condition false (data.coach_id && undefined = false).",
-    "reproduction": "Login as coach@winek.app, then directly navigate to /create-service?serviceId=svc_b184a9f7f6db via browser URL bar or page.goto(). Ownership check skipped, edit form loads.",
-    "mitigation": "Change useEffect dependency from [serviceId] to [serviceId, user?.user_id] OR guard with: if (isEditMode && serviceId && user !== null) loadServiceForEdit(); Note: also need to handle the case where user changes from null to a loaded user."
+    "bug": "Ownership check in create-service.tsx does not redirect on direct page load",
+    "root_cause": "Backend logs confirm /api/auth/me is called and completes BEFORE /api/services/{id}, so user state IS loaded when loadServiceForEdit runs. The condition (data.coach_id !== user.user_id) evaluates to TRUE and Alert.alert is called. However: (1) React Native Web Alert.alert renders as a custom modal (not window.alert), so Playwright's page.on('dialog') cannot capture it. (2) router.back() fails silently when page is directly loaded (no browser history entry). There is NO fallback route when canGoBack()=false, unlike the role check which uses: if (router.canGoBack()) router.back(); else router.replace('/(tabs)/profile').",
+    "reproduction": "Login as coach@winek.app, then directly navigate to /create-service?serviceId=svc_b184a9f7f6db. Alert.alert is likely called but invisible (RN custom modal). router.back() fails silently (no history). Edit form stays open.",
+    "mitigation": "In loadServiceForEdit ownership check, replace router.back() with the same pattern as the role check: setTimeout(() => { if (router.canGoBack()) router.back(); else router.replace('/(tabs)/profile' as any); }, 100). This ensures redirect even when page is loaded directly."
   },
   "retest_needed": true,
   "main_agent_can_self_test": true,
