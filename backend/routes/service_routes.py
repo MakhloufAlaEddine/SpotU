@@ -14,6 +14,15 @@ SVC_FIELDS = """
 
 
 def build_service(row_dict: dict) -> dict:
+    # Parse images JSON string → list
+    raw_images = row_dict.get("images")
+    if isinstance(raw_images, str):
+        try:
+            row_dict["images"] = json.loads(raw_images)
+        except (json.JSONDecodeError, TypeError):
+            row_dict["images"] = []
+    elif raw_images is None:
+        row_dict["images"] = []
     return row_dict
 
 
