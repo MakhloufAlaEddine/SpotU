@@ -462,14 +462,14 @@ export default function ServiceDetailScreen() {
                         })}
 
                         {/* Bouton "Voir plus" */}
-                        {!showAllDates && sortedKeys.length > 4 && (
+                        {!showAllDates && sortedKeys.length > visibleCount && (
                           <TouchableOpacity
                             style={s.showMoreBtn}
-                            onPress={() => setShowAllDates(true)}
+                            onPress={() => setVisibleCount(c => c + 3)}
                             testID="show-more-dates-btn"
                           >
                             <Text style={s.showMoreBtnText}>
-                              VOIR PLUS DE DATES ({sortedKeys.length - 4} de plus)
+                              VOIR PLUS DE DATES ({Math.min(3, sortedKeys.length - visibleCount)} DE PLUS)
                             </Text>
                           </TouchableOpacity>
                         )}
