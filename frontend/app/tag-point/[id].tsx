@@ -738,7 +738,7 @@ export default function TagPointDetail() {
                     size={16} color={Colors.primary}
                   />
                   <Text style={st.newDateToggleText}>
-                    {point.new_date_coming ? 'Retirer "Nouvelle date"' : 'Annoncer que prochainement il y aura une nouvelle date'}
+                    {point.new_date_coming ? 'Retirer' : 'Annoncer que prochainement il y aura une nouvelle date'}
                   </Text>
                 </TouchableOpacity>
               )}
