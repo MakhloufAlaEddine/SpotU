@@ -6,7 +6,7 @@ import {
 
 const { height: SH } = Dimensions.get('window');
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LocationPicker } from '../components/LocationPicker';
 import { WeekCalendar } from '../components/WeekCalendar';
