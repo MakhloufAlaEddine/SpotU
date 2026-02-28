@@ -40,7 +40,22 @@ async def _get_service_locations(conn, service_id: str) -> list:
 async def _get_service_slots(conn, service_id: str) -> list:
     rows = await conn.fetch(
         """SELECT slot_id, slot_type, location_id, package_id, day_of_week, days_of_week, start_time, end_time, slot_date
-           FROM service_slots WHERE service_id = $1 ORDER BY slot_date, start_time""",
+           FROM service_slots ss
+           WHERE ss.service_id = $1
+           AND (
+               -- Créneaux récurrents (sans date fixe) : toujours visibles
+               ss.slot_date IS NULL
+               OR
+               -- Créneaux avec date fixe : uniquement dans le futur
+               (ss.slot_date || ' ' || ss.start_time)::timestamp > NOW()::timestamp
+           )
+           AND NOT EXISTS (
+               -- Masquer les créneaux avec une réservation active (en attente ou acceptée)
+               SELECT 1 FROM bookings b
+               WHERE b.slot_id = ss.slot_id
+               AND b.status IN ('pending', 'accepted')
+           )
+           ORDER BY ss.slot_date NULLS LAST, ss.start_time""",
         service_id
     )
     return rows_to_list(rows)
