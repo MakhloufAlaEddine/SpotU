@@ -228,7 +228,17 @@ async def _init_connection(conn):
 async def connect_to_db():
     global pool
     database_url = os.environ.get("DATABASE_URL")
-    pool = await asyncpg.create_pool(database_url, min_size=2, max_size=10, init=_init_connection, ssl=False)
+    import asyncio
+    for attempt in range(15):
+        try:
+            pool = await asyncpg.create_pool(database_url, min_size=2, max_size=10, init=_init_connection, ssl=False, timeout=10)
+            break
+        except Exception as e:
+            if attempt == 14:
+                raise
+            wait = min(2 ** attempt, 20)
+            logger.warning(f"DB not ready (attempt {attempt+1}/15), retrying in {wait}s… ({e})")
+            await asyncio.sleep(wait)
 
     # 1. Tables + migrations
     async with pool.acquire() as conn:
