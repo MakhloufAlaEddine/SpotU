@@ -1,0 +1,34 @@
+{
+  "summary": "Iteration 31 - Testing WeekCalendar InlineTimePicker fix (no nested modals). All 10 test scenarios PASS. The rewrite from DateTimePickerModal to InlineTimePicker works correctly on React Native Web.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/test_reports/iteration_31.json"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Fix confirmed: WeekCalendar.tsx fully rewritten with InlineTimePicker component that renders INSIDE the day sheet (no nested modals). Root cause fixed: DateTimePickerModal was a second Modal inside the day Modal, causing overlay conflicts on React Native Web.",
+    "All 10 test scenarios PASSED with full e2e flow: Login → create-service → Step 1 → Step 2 → Step 3 → WeekCalendar → Click day → Inline picker → Select hour/minute → Preview → Confirm → Add slot → Badge visible.",
+    "data-testid attributes working correctly: cal-day-{dateStr}, start-btn, end-btn, hour-{h}, minute-{m}, confirm-time, confirm-slot all accessible and functional."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A (frontend-only test)",
+    "frontend": "100% (10/10 scenarios passed)"
+  },
+  "test_credentials": {
+    "coach": "coach@winek.app / WinekCoach2024!"
+  },
+  "seed_data_creation": "No services created (tested slot config within create-service flow only, did not publish)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 31 - WeekCalendar InlineTimePicker fully verified. Fix works: no nested modals, InlineTimePicker renders inside the day sheet. Tests passed: (1) Day click opens modal with correct title (Mardi 24 / Février), (2) Clicking Début shows InlineTimePicker INLINE in same sheet, (3) Hours 06-22 scrollable horizontally with orange highlight on selection, (4) Minutes 00/15/30/45 with orange highlight, (5) Preview shows 09:00 → 10:00 (for 60min duration), (6) Confirmer returns to main view with 09:00 in Début field, (7) End time 10:00 auto-calculated, (8) Ajouter ce créneau adds slot and modal stays open for more, (9) Orange badge count '1' appears on day in calendar grid, (10) Slot preview 'Mar 24 Fév - 09:00 → 10:00' shown below calendar. Credentials: coach@winek.app / WinekCoach2024!",
+  "rca_of_issue": "Root cause: DateTimePickerModal was a React Native Modal nested inside the day Modal. On React Native Web, two overlapping Modals cause z-index/overlay conflicts making the second modal invisible or inaccessible. Fix: Replaced DateTimePickerModal with InlineTimePicker component (a plain View, not a Modal) that renders conditionally inside the sheet view using showPicker state flag. When showPicker=true, the InlineTimePicker replaces the AddSection view within the same sheet. No nested modals = no web overlay conflict."
+}
