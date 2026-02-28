@@ -614,4 +614,15 @@ const s = StyleSheet.create({
   confirmAddBtnText: { fontSize: 15, fontWeight: '700', color: Colors.background },
   addDashedBtn: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: Radius.lg, padding: 18, marginTop: 4, borderWidth: 2, borderColor: TEAL, borderStyle: 'dashed', backgroundColor: TEAL_BG },
   addDashedBtnText: { fontSize: 16, fontWeight: '700', color: TEAL },
+  // Dialog styles
+  dialogOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
+  dialogCard: { backgroundColor: Colors.card, borderRadius: 20, padding: 24, width: '100%', borderWidth: 1, borderColor: Colors.border },
+  dialogTitle: { fontSize: 17, fontWeight: '800', color: Colors.foreground, marginBottom: 8, textAlign: 'center' },
+  dialogMessage: { fontSize: 14, color: Colors.muted, textAlign: 'center', lineHeight: 20, marginBottom: 20 },
+  dialogActions: { flexDirection: 'row', gap: 10 },
+  dialogActionsSingle: { justifyContent: 'center' },
+  dialogBtnCancel: { flex: 1, paddingVertical: 13, borderRadius: 12, backgroundColor: Colors.backgroundSecondary, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
+  dialogBtnCancelText: { fontSize: 15, fontWeight: '600', color: Colors.muted },
+  dialogBtnConfirm: { flex: 1, paddingVertical: 13, borderRadius: 12, backgroundColor: TEAL, alignItems: 'center' },
+  dialogBtnConfirmText: { fontSize: 15, fontWeight: '700', color: '#000' },
 });
