@@ -69,6 +69,15 @@ export default function ServiceDetailScreen() {
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [activeLocIdx, setActiveLocIdx] = useState(0);
+  const [collapsedDates, setCollapsedDates] = useState<Set<string>>(new Set());
+
+  const toggleDate = (key: string) => {
+    setCollapsedDates(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
 
   useEffect(() => { if (id) loadService(); }, [id]);
 
