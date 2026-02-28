@@ -77,6 +77,7 @@ export default function ServiceDetailScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [activeLocIdx, setActiveLocIdx] = useState(0);
   const [collapsedDates, setCollapsedDates] = useState<Set<string>>(new Set());
+  const [showAllDates, setShowAllDates] = useState(false);
 
   const toggleDate = (key: string) => {
     setCollapsedDates(prev => {
@@ -85,6 +86,26 @@ export default function ServiceDetailScreen() {
       return next;
     });
   };
+
+  // Ouvrir seulement le 1er accordéon par défaut après chargement des données
+  useEffect(() => {
+    if (!service?.slots?.length) return;
+    const dateKeys = new Set<string>();
+    for (const slot of (service.slots ?? [])) {
+      const key = slot.slot_type === 'single' && slot.slot_date
+        ? slot.slot_date
+        : String(slot.day_of_week ?? 'x');
+      dateKeys.add(key);
+    }
+    const sorted = [...dateKeys].sort((a, b) => {
+      const aIsDate = /^\d{4}-\d{2}-\d{2}$/.test(a);
+      const bIsDate = /^\d{4}-\d{2}-\d{2}$/.test(b);
+      if (aIsDate && bIsDate) return a.localeCompare(b);
+      return (isNaN(Number(a)) ? 99 : Number(a)) - (isNaN(Number(b)) ? 99 : Number(b));
+    });
+    // Fermer tout sauf le premier
+    setCollapsedDates(new Set(sorted.slice(1)));
+  }, [service]);
 
   useEffect(() => { if (id) loadService(); }, [id]);
 
