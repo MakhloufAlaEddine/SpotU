@@ -168,11 +168,24 @@ export default function CreateServiceScreen() {
   const loadServiceForEdit = async () => {
     try {
       const data = await api.get(`/services/${serviceId}`);
+      // ─── Vérification de la propriété ─────────────────────────────────────
+      if (data.coach_id && user?.user_id && data.coach_id !== user.user_id && (user as any)?.role !== 'admin') {
+        Alert.alert('Accès refusé', 'Vous ne pouvez modifier que vos propres services.');
+        router.back();
+        return;
+      }
       setTitle(data.title || '');
       setCoachDesc(data.description || '');
       setPrice(String(data.price || ''));
       setDurationMin(data.duration_min || 60);
       setMaxParticipants(data.max_participants || 1);
+      // Photos existantes
+      const rawImages = data.images;
+      setImages(
+        Array.isArray(rawImages) ? rawImages
+          : typeof rawImages === 'string' ? (() => { try { return JSON.parse(rawImages); } catch { return []; } })()
+          : []
+      );
       if (data.domain_id) {
         // Stocker les tags AVANT de changer le domainId pour que useEffect les restaure
         const parsedTags = Array.isArray(data.tag_ids) ? data.tag_ids
