@@ -56,9 +56,12 @@ export default function CreateServiceScreen() {
   const { user } = useAuth();
   const { lang } = useLang();
   const scrollRef = useRef<ScrollView>(null);
+  const { serviceId } = useLocalSearchParams<{ serviceId?: string }>();
+  const isEditMode = !!serviceId;
 
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
+  const [loadingEdit, setLoadingEdit] = useState(isEditMode);
 
   // Step 1
   const [title, setTitle] = useState('');
