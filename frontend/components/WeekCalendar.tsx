@@ -232,17 +232,21 @@ export function WeekCalendar({ slots, durationMin, onSlotsChange }: WeekCalendar
     const nextWeekDays = getWeekDays(nextOffset);
     const nextHasSlots = nextWeekDays.some(d => getDateSlots(d.dateStr).length > 0);
     if (curHasSlots && !nextHasSlots) {
-      Alert.alert('Semaine suivante', 'Copier les créneaux de cette semaine ?', [
-        { text: 'Non', style: 'cancel', onPress: () => setWeekOffset(nextOffset) },
-        { text: 'Copier', onPress: () => {
+      showConfirm(
+        'Semaine suivante',
+        'Copier les créneaux de cette semaine ?',
+        'Copier', 'Non',
+        () => {
           const newSlots: DaySlot[] = [];
           for (let i = 0; i < 7; i++)
             for (const ss of getDateSlots(weekDays[i].dateStr))
               newSlots.push({ ...ss, id: `slot_${Date.now()}_${Math.random()}`, date: getWeekDays(nextOffset)[i].dateStr });
           onSlotsChange([...slots, ...newSlots]);
           setWeekOffset(nextOffset);
-        }},
-      ]);
+          setDialog(null);
+        },
+        () => { setWeekOffset(nextOffset); setDialog(null); },
+      );
     } else { setWeekOffset(nextOffset); }
   };
 
