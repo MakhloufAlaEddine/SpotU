@@ -72,6 +72,51 @@ export default function CreateServiceScreen() {
   const [addressLat, setAddressLat] = useState<number | null>(null);
   const [addressLng, setAddressLng] = useState<number | null>(null);
   const [showLocPicker, setShowLocPicker] = useState(false);
+  // Photos
+  const [images, setImages] = useState<string[]>([]);
+  const [uploadingImages, setUploadingImages] = useState(false);
+
+  // ─── Upload image helper (même pattern que TagPoint) ───────────────────────
+  const uploadImage = async (uri: string): Promise<string> => {
+    const token = (user as any)?.token || '';
+    const base = (process.env.EXPO_PUBLIC_API_URL || process.env.REACT_APP_BACKEND_URL || '');
+    const form = new FormData();
+    const filename = uri.split('/').pop() || 'photo.jpg';
+    const ext = filename.split('.').pop()?.toLowerCase() || 'jpg';
+    const mime = ext === 'png' ? 'image/png' : ext === 'gif' ? 'image/gif' : 'image/jpeg';
+    form.append('file', { uri, name: filename, type: mime } as any);
+    const res = await fetch(`${base}/api/upload-image`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+    });
+    if (!res.ok) throw new Error(`Upload failed ${res.status}`);
+    const data = await res.json();
+    return data.url;
+  };
+
+  const pickImages = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') { Alert.alert('Permission refusée', 'Accès à la galerie nécessaire'); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'], allowsMultipleSelection: true,
+      quality: 0.7, selectionLimit: 5,
+    });
+    if (result.canceled || !result.assets?.length) return;
+    setUploadingImages(true);
+    try {
+      const urls: string[] = [];
+      for (const asset of result.assets) {
+        const url = await uploadImage(asset.uri);
+        urls.push(url);
+      }
+      setImages(prev => [...prev, ...urls].slice(0, 5));
+    } catch (e: any) {
+      Alert.alert('Erreur upload', e.message || 'Échec de l\'envoi de l\'image');
+    } finally {
+      setUploadingImages(false);
+    }
+  };
 
   // Step 2 - Domain & Tags
   const [domainId, setDomainId] = useState('dom_sport');
