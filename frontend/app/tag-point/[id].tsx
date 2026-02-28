@@ -406,7 +406,7 @@ export default function TagPointDetail() {
           text: 'Supprimer', style: 'destructive',
           onPress: () => {
             setOwnerActionLoading(true);
-            api.del(`/tag-points/${id}`)
+            api.delete(`/tag-points/${id}`)
               .then(() => {
                 triggerProfileRefresh();
                 setTimeout(() => router.replace('/(tabs)/map' as any), 100);
