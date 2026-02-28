@@ -381,7 +381,6 @@ export default function CreateServiceScreen() {
 
       <View style={s.field}>
         <Text style={s.fieldLabel}>Adresse principale</Text>
-        <TouchableOpacity
           style={[s.addressBtn, address ? s.addressBtnFilled : null]}
           onPress={() => setShowLocPicker(true)}
           testID="address-picker-btn"
