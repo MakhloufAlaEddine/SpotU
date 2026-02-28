@@ -9,7 +9,7 @@ router = APIRouter()
 
 SVC_FIELDS = """
     service_id, coach_id, title, description, address, price, duration_min,
-    tag_ids, domain_id, location_description, max_participants, active, created_at, updated_at
+    tag_ids, domain_id, location_description, max_participants, active, images, created_at, updated_at
 """
 
 
