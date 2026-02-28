@@ -1,0 +1,61 @@
+{
+  "summary": "Iteration 43 - Testing 4 fixes: (1) Dynamic location chip, (2) Distance-sorted search, (3) Hide +0 vote badge on hero cards, (4) Service bookmark in detail + saved screen with 2 tabs. Critical bug found and fixed in saved.tsx (duplicate export default). All 8 features tested and passing after fix.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Home - Derniers ajouts feed (RecentRow)",
+        "issues": ["RecentRow still shows '↑ 0' for items with 0 votes. The fix was applied to HeroCard only (hero cards hide badge when votes=0). RecentRow code always shows votes count. Minor cosmetic issue - may need same fix: {votes !== 0 && <voteRow>}"]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_service_save_iter43.py",
+    "/app/test_reports/pytest/iter43_service_save.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: Apply same votes=0 hide logic to RecentRow in map.tsx (currently only HeroCard has the fix, but the requirement 'masquée si votes = 0' may apply to RecentRow too). RecentRow line 251-253 should add: {votes !== 0 && <View style={recSt.voteRow}>...}",
+    "NOTE: Location chip shows 'Paris, France' fallback (correct behavior since location.address is empty in default state). The dynamic implementation is correct: `location.address || 'Paris, France'`."
+  ],
+  "critical_code_review_comments": [
+    "CRITICAL BUG FOUND AND FIXED: saved.tsx had duplicate content - the new SavedScreen (with tabs) at lines 1-288 was followed by the OLD SavedScreen code (lines 289-469) including a second 'export default function SavedScreen()'. This caused Babel SyntaxError: 'Identifier timeAgo has already been declared' → Metro bundler 500 error → blank white app. Fixed by removing lines 289-469 (old duplicate code). The 's' StyleSheet at line 471+ already contains all needed styles including tabs/tab/tabActive etc."
+  ],
+  "updated_files": [
+    "/app/frontend/app/saved.tsx (FIXED: removed duplicate old code lines 289-469 that caused SyntaxError)"
+  ],
+  "success_rate": {
+    "backend": "100% (13/13 tests pass)",
+    "frontend": "100% (all 8 features pass after saved.tsx fix)"
+  },
+  "scenarios_tested": {
+    "S1_backend_services_saved_GET": "✅ PASS - GET /api/services/saved returns 401 without auth (route NOT swallowed by /services/{id}), 200 with auth returning array",
+    "S2_backend_save_POST": "✅ PASS - POST /api/services/{id}/save returns {success: True, is_saved: True}. Idempotent (ON CONFLICT DO NOTHING). 404 for non-existent service",
+    "S3_backend_unsave_DELETE": "✅ PASS - DELETE /api/services/{id}/unsave returns {success: True, is_saved: False}. Idempotent (no error when not saved)",
+    "S4_service_detail_bookmark_visible": "✅ PASS - Bookmark button (data-testid=save-service-btn) visible in service detail header (top-right)",
+    "S5_service_detail_bookmark_toggle": "✅ PASS - Clicking bookmark changes color from white (rgb(255,255,255), outline, not-saved) to teal (rgb(0,191,165), filled, saved). Clicking again reverts to outline",
+    "S6_saved_screen_tabs": "✅ PASS - Saved screen shows 'TagPoints (3)' and 'Services (1)' tabs. TagPoints tab is default active. Services tab has orange active indicator",
+    "S7_saved_screen_services_tab": "✅ PASS - Services tab shows saved service card with: orange SERVICE badge, 'À partir de 60€' price in orange, coach name, saved date",
+    "S8_home_hero_votes_badge": "✅ PASS - Hero cards do NOT show vote badge when votes=0 (condition: votes !== 0). No '+0' found in hero carousel area",
+    "S9_home_location_chip_dynamic": "✅ PASS - Location chip uses location.address dynamically. Shows 'Paris, France' as fallback when location.address is empty (correct behavior)",
+    "S10_search_distance_sort": "✅ PASS - Search results sorted by distance ascending. 19 items in order: 1.5km, 1.8km, 2.0km, 2.0km, 2.2km, 2.8km... mixing TAGPOINTs and SERVICEs correctly"
+  },
+  "seed_data_creation": "None (used existing svc_demo001-004). svc_demo001 was temporarily saved/unsaved during testing (cleaned up)",
+  "test_credentials": {
+    "user": "user@winek.app / WinekUser2024! (Thomas Dupont)"
+  },
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All 4 features from iter_43 pass. Critical fix applied: saved.tsx had duplicate export default (old code appended after new code) causing Metro bundler crash (Babel SyntaxError). Fixed by removing lines 289-469. Backend: /api/services/saved, /save, /unsave all work correctly (13/13 tests). Frontend: service detail bookmark toggles, saved screen shows 2 tabs (TagPoints/Services), search sorted by distance, hero cards hide +0 votes. Minor open item: RecentRow in map.tsx still shows '↑ 0' for items with 0 votes (only hero cards got the fix)",
+  "rca_of_issue": {
+    "bug": "saved.tsx SyntaxError - Babel parse failure causing Metro bundler 500 error",
+    "root_cause": "When the main agent added the new SavedScreen with tabs (lines 1-288), the OLD SavedScreen code was not removed - it was left appended in the same file starting at line 289. This created duplicate function declarations: 'timeAgo' declared twice, 'SavedCard' declared twice, 'card' StyleSheet declared twice, and two 'export default function SavedScreen()'. The TypeScript/Babel parser threw: 'Identifier timeAgo has already been declared'",
+    "fix_applied": "Removed duplicate old code (lines 289-469 of the original 511-line file) while keeping the new SavedScreen (lines 1-288) and the unified 's' StyleSheet (lines 470-511 / now 289-330 in the fixed file). The 's' StyleSheet already includes all needed styles for both old and new components including tabs/tab/tabActive/tabText/tabTextActive",
+    "reproduction_steps": "1. Navigate to saved.tsx 2. Check for duplicate 'export default function' 3. Metro bundler log shows: ERROR SyntaxError: Identifier 'timeAgo' has already been declared"
+  }
+}
