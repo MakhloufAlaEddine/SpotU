@@ -384,6 +384,38 @@ export default function HomeScreen() {
             </View>
           )}
 
+          {/* ── Section Services Coaches ── */}
+          {services.length > 0 && (
+            <View style={[styles.section, { marginTop: Spacing.lg }]}>
+              <View style={styles.sectionHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={styles.sectionTitle}>Services Coaches</Text>
+                  <View style={{ backgroundColor: SERVICE_ORANGE, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#fff' }}>{services.length}</Text>
+                  </View>
+                </View>
+                <TouchableOpacity onPress={() => router.push('/(tabs)/search' as any)}>
+                  <Text style={[styles.seeAll, { color: SERVICE_ORANGE }]}>Voir tout</Text>
+                </TouchableOpacity>
+              </View>
+              <FlatList
+                data={services}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                keyExtractor={i => i.service_id + '_s'}
+                renderItem={({ item }) => (
+                  <ServiceCard
+                    svc={item}
+                    userLat={location.lat}
+                    userLng={location.lng}
+                    onPress={() => router.push(`/service/${item.service_id}` as any)}
+                  />
+                )}
+                contentContainerStyle={{ paddingHorizontal: Spacing.md, gap: Spacing.sm }}
+              />
+            </View>
+          )}
+
           {/* ── Section Récents ── */}
           {recentPoints.length > 0 && (
             <View style={[styles.section, { paddingHorizontal: Spacing.md }]}>
