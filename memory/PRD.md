@@ -154,3 +154,5 @@ WINEK est une plateforme hyperlocale de connexion sportive basée sur des tags g
 - [x] `api.del` → `api.delete` corrigé dans `tag-point/[id].tsx` (leave, unsave, delete) et `events.tsx` (Fév 2026)
 - [x] PostgreSQL auto-start : retry logic ajoutée dans `database.py` (connect_to_db avec 15 tentatives backoff exponentiel) (Fév 2026)
 - [x] Bug crash "Text strings must be rendered within a <Text> component" dans `service/[id].tsx` ligne 597 : commentaire JSX et expression sur la même ligne créaient un nœud texte whitespace (Fév 2026)
+- [x] Filtrage créneaux passés : les slots avec date+heure passées ne s'affichent plus dans le service detail (Fév 2026)
+- [x] Disponibilité des créneaux selon réservations : slot masqué si booking pending/accepted, visible à nouveau si refused (Fév 2026)
