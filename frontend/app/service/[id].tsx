@@ -726,6 +726,21 @@ const s = StyleSheet.create({
   headerTitle: { fontSize: 17, fontWeight: '700', color: Colors.foreground, flex: 1, textAlign: 'center' },
 
   scrollContent: { paddingBottom: 20 },
+  // Carrousel photos
+  carousel: { width: SW, height: 240, backgroundColor: Colors.backgroundSecondary },
+  carouselImg: { width: SW, height: 240 },
+  carouselDots: {
+    position: 'absolute', bottom: 10, left: 0, right: 0,
+    flexDirection: 'row', justifyContent: 'center', gap: 6,
+  },
+  carouselDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.5)' },
+  carouselDotActive: { backgroundColor: '#fff', width: 18 },
+  carouselCounter: {
+    position: 'absolute', top: 10, right: 12,
+    backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 12,
+    paddingHorizontal: 9, paddingVertical: 3,
+  },
+  carouselCounterText: { color: '#fff', fontSize: 12, fontWeight: '600' },
 
   // Hero
   hero: {
