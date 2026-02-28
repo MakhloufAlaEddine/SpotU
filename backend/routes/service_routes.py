@@ -170,16 +170,42 @@ async def create_service(data: ServiceCreate, request: Request):
     if user["role"] not in ("coach", "admin"):
         raise HTTPException(status_code=403, detail="Coach role required")
     sid = new_id("svc")
+    # Compute service-level price: use data.price or min from packages, default 0
+    service_price = data.price
+    if service_price is None:
+        service_price = min((p.price for p in data.packages), default=0.0)
+
     async with pool.acquire() as conn:
         await conn.execute(
             """INSERT INTO services
-               (service_id, coach_id, title, description, price, duration_min,
+               (service_id, coach_id, title, description, address, price, duration_min,
                 tag_ids, domain_id, max_participants, active)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,TRUE)""",
-            sid, user["user_id"], data.title, data.description, data.price,
-            data.duration_min, data.tag_ids, data.domain_id,
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,TRUE)""",
+            sid, user["user_id"], data.title, data.description, data.address,
+            service_price, data.duration_min, data.tag_ids, data.domain_id,
             data.max_participants
         )
+
+        # Handle packages (new model)
+        for pkg in data.packages:
+            pkg_id = new_id("pkg")
+            await conn.execute(
+                """INSERT INTO service_packages
+                   (package_id, service_id, type_id, type_label, duration_min, max_participants, price)
+                   VALUES ($1,$2,$3,$4,$5,$6,$7)""",
+                pkg_id, sid, pkg.type_id, pkg.type_label, pkg.duration_min,
+                pkg.max_participants, pkg.price
+            )
+            for slot in pkg.slots:
+                slotid = new_id("slot")
+                await conn.execute(
+                    """INSERT INTO service_slots
+                       (slot_id, service_id, package_id, slot_type, slot_date, start_time, end_time)
+                       VALUES ($1,$2,$3,'single',$4,$5,$6)""",
+                    slotid, sid, pkg_id, slot.slot_date, slot.start_time, slot.end_time
+                )
+
+        # Handle legacy locations
         loc_ids: list[str] = []
         for loc in data.locations:
             lid = new_id("sloc")
@@ -190,12 +216,13 @@ async def create_service(data: ServiceCreate, request: Request):
                 lid, sid, loc.longitude, loc.latitude, loc.precision, loc.description
             )
             loc_ids.append(lid)
+
+        # Handle legacy slots
         for slot in data.slots:
             slotid = new_id("slot")
             days = slot.days_of_week if slot.days_of_week is not None else (
                 [slot.day_of_week] if slot.day_of_week is not None else []
             )
-            # Resolve to actual DB location_id using the slot's location_index
             if slot.location_index is not None and 0 <= slot.location_index < len(loc_ids):
                 resolved_loc_id = loc_ids[slot.location_index]
             else:
@@ -205,10 +232,10 @@ async def create_service(data: ServiceCreate, request: Request):
                    (slot_id, service_id, location_id, slot_type, days_of_week, day_of_week, start_time, end_time, slot_date)
                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)""",
                 slotid, sid, resolved_loc_id, slot.slot_type,
-                days,
-                days[0] if days else None,
+                days, days[0] if days else None,
                 slot.start_time, slot.end_time, slot.slot_date
             )
+
         row = await conn.fetchrow(
             f"SELECT {SVC_FIELDS} FROM services WHERE service_id = $1", sid
         )
