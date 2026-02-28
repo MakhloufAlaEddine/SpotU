@@ -449,7 +449,7 @@ export default function ServiceDetailScreen() {
                         {(sortedKeys.slice(0, visibleCount)).map(key => {
                           const group = dayMap[key];
                           const firstSlot = group[0];
-                          const isSingle = firstSlot.slot_type === 'single';
+                          const isSingle = firstSlot.slot_type === 'single' || firstSlot.slot_type === 'specific';
                           const dateLabel = isSingle
                             ? formatFullDate(key)
                             : (firstSlot.day_of_week != null ? DAYS_FULL[firstSlot.day_of_week] : '?');
