@@ -121,7 +121,7 @@ export default function ServiceDetailScreen() {
       const data = await api.get(`/services/${id}`);
       setService(data);
       if (data.locations?.length > 0) setSelectedLocationId(data.locations[0].location_id);
-      if (data.slots?.length > 0) setSelectedSlotId(data.slots[0].slot_id);
+      // PAS de slot pré-sélectionné par défaut
       // Check if saved
       if (user) {
         try {
