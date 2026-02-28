@@ -477,6 +477,19 @@ const st = StyleSheet.create({
   },
   logoutText: { fontSize: 15, fontWeight: '700', color: '#FF453A' },
 
+  // COACH CREATE SERVICE
+  coachCreateBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    backgroundColor: 'rgba(255,149,0,0.10)', borderRadius: 16, padding: 16,
+    borderWidth: 1.5, borderColor: 'rgba(255,149,0,0.35)',
+  },
+  coachCreateIconBox: {
+    width: 46, height: 46, borderRadius: 14,
+    backgroundColor: 'rgba(255,149,0,0.18)', alignItems: 'center', justifyContent: 'center',
+  },
+  coachCreateTitle: { fontSize: 15, fontWeight: '700', color: Colors.foreground },
+  coachCreateSub: { fontSize: 12, color: Colors.muted, marginTop: 2 },
+
   // MODAL
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'center', alignItems: 'center', padding: 24 },
   modalCard: { backgroundColor: Colors.card, borderRadius: 20, padding: 24, width: '100%', maxWidth: 320 },
