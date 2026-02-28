@@ -126,13 +126,14 @@ export default function CreateServiceScreen() {
       setPrice(String(data.price || ''));
       setDurationMin(data.duration_min || 60);
       setMaxParticipants(data.max_participants || 1);
-      if (data.domain_id) setDomainId(data.domain_id);
-      const rawTagIds = data.tag_ids;
-      setSelectedTagIds(
-        Array.isArray(rawTagIds) ? rawTagIds
-          : typeof rawTagIds === 'string' ? (() => { try { return JSON.parse(rawTagIds); } catch { return []; } })()
-          : []
-      );
+      if (data.domain_id) {
+        // Stocker les tags AVANT de changer le domainId pour que useEffect les restaure
+        const parsedTags = Array.isArray(data.tag_ids) ? data.tag_ids
+          : typeof data.tag_ids === 'string' ? (() => { try { return JSON.parse(data.tag_ids); } catch { return []; } })()
+          : [];
+        pendingTagIdsRef.current = parsedTags;
+        setDomainId(data.domain_id);
+      }
       // Address from first location
       const firstLoc = (data.locations || [])[0];
       if (firstLoc) {
