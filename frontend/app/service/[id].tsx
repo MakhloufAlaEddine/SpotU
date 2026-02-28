@@ -48,6 +48,13 @@ function getNextDate(slot: any): Date {
   return d;
 }
 
+function formatFullDate(dateStr: string): string {
+  // dateStr = "2026-02-28" → "Vendredi 28 février 2026"
+  const d = new Date(dateStr + 'T00:00:00');
+  const dow = d.getDay() === 0 ? 6 : d.getDay() - 1;
+  return `${DAYS_FULL[dow]} ${d.getDate()} ${MONTHS_LONG[d.getMonth()]} ${d.getFullYear()}`;
+}
+
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function ServiceDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
