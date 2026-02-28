@@ -29,6 +29,8 @@ class Precision(str, Enum):
 
 class BookingStatus(str, Enum):
     pending = "pending"
+    accepted = "accepted"
+    refused = "refused"
     confirmed = "confirmed"
     completed = "completed"
     cancelled = "cancelled"
