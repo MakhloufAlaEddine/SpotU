@@ -206,6 +206,47 @@ export default function ServiceDetailScreen() {
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
 
+        {/* ── Carrousel photos ─────────────────────────────────────────────── */}
+        {Array.isArray(service.images) && service.images.length > 0 && (() => {
+          const imgs: string[] = service.images;
+          return (
+            <View style={s.carousel} testID="photo-carousel">
+              <FlatList
+                ref={photoListRef}
+                data={imgs}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                keyExtractor={(_, i) => String(i)}
+                onMomentumScrollEnd={e => {
+                  const idx = Math.round(e.nativeEvent.contentOffset.x / SW);
+                  setPhotoIdx(idx);
+                }}
+                renderItem={({ item }) => (
+                  <Image
+                    source={{ uri: item }}
+                    style={s.carouselImg}
+                    resizeMode="cover"
+                    testID="carousel-photo"
+                  />
+                )}
+              />
+              {/* Dots */}
+              {imgs.length > 1 && (
+                <View style={s.carouselDots}>
+                  {imgs.map((_, i) => (
+                    <View key={i} style={[s.carouselDot, i === photoIdx && s.carouselDotActive]} />
+                  ))}
+                </View>
+              )}
+              {/* Compteur */}
+              <View style={s.carouselCounter}>
+                <Text style={s.carouselCounterText}>{photoIdx + 1} / {imgs.length}</Text>
+              </View>
+            </View>
+          );
+        })()}
+
         {/* ── Hero ─────────────────────────────────────────────────────────── */}
         <View style={s.hero}>
           <View style={s.heroPriceRow}>
