@@ -163,12 +163,14 @@ class ServiceSlotItem(BaseModel):
 class ServiceCreate(BaseModel):
     title: str
     description: Optional[str] = None
-    price: float
-    duration_min: int = 60
+    address: Optional[str] = None
+    price: Optional[float] = None
+    duration_min: Optional[int] = 60
     tag_ids: List[str] = []
-    domain_id: str
-    max_participants: int = 1
+    domain_id: Optional[str] = None
+    max_participants: Optional[int] = 1
     locations: List[ServiceLocationItem] = []
+    packages: List[ServicePackageItem] = []
     slots: List[ServiceSlotItem] = []
 
 
