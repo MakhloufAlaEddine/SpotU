@@ -1,0 +1,42 @@
+{
+  "summary": "Iteration 29 - Testing new create-service flow: Step 2 Domaine+Tags (replacing package types), WeekCalendar modal fix. Backend 15/15 PASS. Frontend E2E all 10 scenarios PASS. Both bug fixes verified working.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "create-service Step 3 - WeekCalendar day modal",
+        "issues": ["On web, closing the day modal via X button requires keyboard Escape or backdrop click. The Ionicons close icon button in sheetHeader is technically clickable but JS-driven click test required Escape key fallback. On native this is fine; on web the backdrop click (clicking above the sheet) also works."]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_service_domain_tags_iter29.py",
+    "/app/test_reports/pytest/pytest_iter29.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "WeekCalendar modal fix verified: The 'overlayContainer + backdropDismiss + View sheet' structure correctly prevents modal from closing when interacting inside it. Bug fix confirmed working.",
+    "Step 2 Domain+Tags: loadCategories correctly resets selectedTagIds when domainId changes (useEffect dependency). This is correct UX behavior - switching domain clears tags.",
+    "Score computation: 20(title)+20(desc)+0(no address)+15(tags)+20(price)+15(slots)=90/100 verified client-side. Address adds 10pts.",
+    "Service payload uses new format: domain_id + tag_ids at top level + packages:[{type_id:'main'}]. Backend ServiceCreate model fully supports this."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_service_domain_tags_iter29.py"
+  ],
+  "success_rate": {
+    "backend": "100% (15/15)",
+    "frontend": "100% (all 10 scenarios passed)"
+  },
+  "test_credentials": {
+    "coach": "coach@winek.app / WinekCoach2024!"
+  },
+  "seed_data_creation": "TEST services created during E2E tests deleted after testing",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 29 - Both bug fixes verified: (1) Step 2 now shows Domaine+Tags (4 domain chips scrollable: dom_sport/dom_coaching/dom_service/dom_social, tag modal groups tags by category, tags persist as pills in trigger). (2) WeekCalendar modal no longer closes when clicking inside it - backdropDismiss (absoluteFillObject TouchableOpacity) + View sheet structure prevents immediate close. Full E2E flow: create-service 4 steps → score 90/100 (no address) → POST /api/services → redirect to /profile. data-testids: domain-{domain_id}, open-tags-btn, tag-chip-{tag_id}, close-tag-modal, cal-day-{YYYY-MM-DD}, start-btn, end-btn, confirm-slot, duration-{min}, max-inc, max-dec, service-price-input, next-step-btn, prev-step-btn, create-service-submit-btn. WeekCalendar modal close: Escape key or backdrop click work on web."
+}
