@@ -1,0 +1,33 @@
+{
+  "summary": "Iteration 30 - Testing tag modal visibility fix in create-service Step 2. The fix (tagModalSheet.height: SH * 0.82 instead of maxHeight: '80%') verified working. All 5 test scenarios PASS.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/test_reports/iteration_30.json"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Fix confirmed: tagModalSheet uses height: SH * 0.82 (line ~773 in styles) - modal sheet now occupies 82% of screen height, allowing inner ScrollView to render correctly.",
+    "All 5 test scenarios PASSED: (1) Modal visible with content, (2) Sport domain shows Football/Basketball/etc categories, (3) Switching to Coaching domain reloads Coaching-specific tags and clears previous selection, (4) Selected tags appear as pills in the trigger, (5) Green banner shows selected count ('1 tag sélectionné' → '2 tags sélectionnés')."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A (frontend-only test)",
+    "frontend": "100% (5/5 scenarios passed)"
+  },
+  "test_credentials": {
+    "coach": "coach@winek.app / WinekCoach2024!"
+  },
+  "seed_data_creation": "No services created (navigated to Step 2 only)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 30 - Tag modal fix verified: tagModalSheet.height: SH * 0.82 ensures the modal ScrollView has a proper height and all tag categories are visible. Steps tested: login → create-service → Step 1 fill → Step 2 → open tag modal → verify categories → select tags → verify pills & banner → switch domain → verify different tags. All passing. data-testid attributes are present as 'testid' attribute on inputs (use input[testid=] or textarea selectors in Playwright). Use text-based selectors like 'text=Choisir des tags' for buttons.",
+  "rca_of_issue": "Root cause: tagModalSheet had maxHeight: '80%' which is a relative constraint. In React Native Web, the inner ScrollView had flex:1 but with no fixed parent height, it would collapse to 0px height rendering only the backdrop (black). Fix: height: SH * 0.82 gives the sheet a fixed pixel height based on screen height (same pattern as create.tsx), so ScrollView has a deterministic parent height to flex into."
+}
