@@ -1,0 +1,48 @@
+{
+  "summary": "Iteration 35 - Testing service detail page accordion slots feature. ALL 8 core test scenarios PASS. Service svc_b184a9f7f6db tested at /service/svc_b184a9f7f6db with 13 slots across 5 dates.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Booking Modal (bottom sheet) - slot picker",
+        "issue": "Single-type slots (slot_type='single') with day_of_week=null show 'undefined · 09:00 → 10:00' in booking modal slot picker because DAYS_FULL[null]=undefined. Sub-text also shows 'undefined · ...' via getNextOccurrence(). Line 553: {DAYS_FULL[slot.day_of_week]} should handle null day_of_week for single slots.",
+        "selector": "[data-testid^='book-slot-']",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Booking modal slot list",
+        "issues": ["Each slot card shows 'undefined · 09:00 → 10:00' and 'undefined · 09:00 → 10:00' for single-type slots - day name rendering broken for single slots"]
+      }
+    ]
+  },
+  "test_report_links": ["/app/test_reports/iteration_35.json"],
+  "action_items": [
+    "Fix booking modal slot picker: for slot_type='single', display slot_date formatted label instead of DAYS_FULL[slot.day_of_week] (which is undefined when day_of_week=null). E.g.: isSingle ? formatFullDate(slot.slot_date) : DAYS_FULL[slot.day_of_week]",
+    "Fix getNextOccurrence() to handle single slots (day_of_week=null) - use slot_date directly instead of day_of_week calculation"
+  ],
+  "critical_code_review_comments": [
+    "Booking modal (lines 539-563): slot picker renders DAYS_FULL[slot.day_of_week] which is 'undefined' for single slots (day_of_week=null). Fix: check slot_type and use formatFullDate(slot.slot_date) for single slots.",
+    "getNextOccurrence() function (line 26-37): only handles recurring slots. For single type slots, should use slot.slot_date directly to compute next occurrence, not day_of_week math.",
+    "handleBook() (line 109-110): getNextDate(selectedSlot) will fail for single slots since day_of_week=null. Should use slot.slot_date directly for single slot scheduling."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A (frontend-only test)",
+    "frontend": "100% (8/8 accordion scenarios passed)"
+  },
+  "test_credentials": {
+    "user_owner": "user@winek.app / WinekUser2024! (owns svc_b184a9f7f6db)",
+    "coach_non_owner": "coach@winek.app / WinekCoach2024! (non-owner, sees Réserver button)"
+  },
+  "seed_data_creation": "Used existing service svc_b184a9f7f6db with 13 single-type slots across 5 dates: 2026-02-28 (3 slots: 09:00, 10:00, 17:00), 2026-03-03 (2 slots: 09:00, 12:00), 2026-03-04 (3 slots: 11:15, 12:00, 14:00), 2026-03-10 (2 slots: 09:00, 12:00), 2026-03-11 (3 slots: 12:00, 14:00, 17:00)",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iteration 35 - Accordion slots on /service/svc_b184a9f7f6db VERIFIED. All 8 tests PASS:\n(1) service-title testID found ✓\n(2) 5 date groups, one per date (date-group-2026-02-28, date-group-2026-03-03, date-group-2026-03-04, date-group-2026-03-10, date-group-2026-03-11) ✓\n(3) Dates sorted chronologically ✓\n(4) Toggle collapse/expand works: clicking date-group-2026-02-28 hid 3 chips, re-click restored them ✓\n(5) All 13 chips show only start_time (no arrow '→ end_time') ✓\n(6) Selecting chip turns orange (rgb(255,149,0)) and deselects previous ✓\n(7) 2026-02-28 has exactly ONE header with 3 chips (09:00, 10:00, 17:00) under it ✓\n(8) Réserver button opens bottom sheet (tested with coach@winek.app) ✓\nBUG FOUND: Booking modal slot picker shows 'undefined · 09:00 → 10:00' for single-type slots because DAYS_FULL[null]=undefined. Needs fix for single slot display in booking modal.",
+  "rca_of_issue": "Booking modal bug: The slot picker in the booking modal (lines 539-563 in [id].tsx) uses {DAYS_FULL[slot.day_of_week]} which evaluates to 'undefined' when slot_type='single' and day_of_week=null. Same issue in getNextOccurrence() used for the sub-text. Fix: add conditional rendering - if slot.slot_type === 'single', show formatFullDate(slot.slot_date) instead of DAYS_FULL[slot.day_of_week]."
+}
