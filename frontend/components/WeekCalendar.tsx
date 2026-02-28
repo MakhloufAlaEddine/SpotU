@@ -314,8 +314,8 @@ export function WeekCalendar({ slots, durationMin, onSlotsChange }: WeekCalendar
                 </TouchableOpacity>
               )}
             </View>
-          </TouchableOpacity>
-        </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
 
       {/* ── Time pickers ─────────────────────────────────────────────── */}
