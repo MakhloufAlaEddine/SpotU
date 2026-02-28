@@ -19,6 +19,9 @@ const HERO_H = 220;
 const NEARBY_CARD_W = SCREEN_WIDTH * 0.7;
 const NEARBY_CARD_H = 200;
 
+const SERVICE_ORANGE = '#FF9500';
+const SERVICE_ORANGE_BG = 'rgba(255,149,0,0.12)';
+
 const DOMAIN_COLORS: Record<string, string> = {
   dom_sport: '#1A5C4A',
   dom_coaching: '#1A3A5C',
