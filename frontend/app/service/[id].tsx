@@ -557,7 +557,10 @@ export default function ServiceDetailScreen() {
                           color={selectedSlotId === slot.slot_id ? ORANGE : Colors.muted} />
                         <View style={{ flex: 1 }}>
                           <Text style={[ms.optText, selectedSlotId === slot.slot_id && ms.optTextActive]}>
-                            {DAYS_FULL[slot.day_of_week]} · {slot.start_time}{slot.end_time ? ` → ${slot.end_time}` : ''}
+                            {slot.slot_type === 'single' && slot.slot_date
+                              ? `${formatFullDate(slot.slot_date)} · ${slot.start_time}${slot.end_time ? ` → ${slot.end_time}` : ''}`
+                              : `${DAYS_FULL[slot.day_of_week] ?? '?'} · ${slot.start_time}${slot.end_time ? ` → ${slot.end_time}` : ''}`
+                            }
                           </Text>
                           <Text style={ms.optSub}>{getNextOccurrence(slot)}</Text>
                         </View>
