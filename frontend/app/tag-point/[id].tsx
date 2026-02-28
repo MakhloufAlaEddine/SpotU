@@ -486,7 +486,7 @@ export default function TagPointDetail() {
     setRsvpLoading(true);
     try {
       const res = isParticipant
-        ? await api.del(`/tag-points/${id}/leave`)
+        ? await api.delete(`/tag-points/${id}/leave`)
         : await api.post(`/tag-points/${id}/join`, {});
       setIsParticipant(res.is_participant);
       setParticipantsCount(res.participants_count);
@@ -507,7 +507,7 @@ export default function TagPointDetail() {
     setSaveLoading(true);
     try {
       const res = isSaved
-        ? await api.del(`/tag-points/${id}/unsave`)
+        ? await api.delete(`/tag-points/${id}/unsave`)
         : await api.post(`/tag-points/${id}/save`, {});
       setIsSaved(res.is_saved);
     } catch (e: any) { Alert.alert('Erreur', e.message); }

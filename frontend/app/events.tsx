@@ -165,7 +165,7 @@ export default function EventsScreen() {
         text: 'Retirer', style: 'destructive',
         onPress: async () => {
           try {
-            await api.del(`/tag-points/${pointId}/leave`);
+            await api.delete(`/tag-points/${pointId}/leave`);
             setItems(prev => prev.filter(p => p.point_id !== pointId));
           } catch {}
         }
