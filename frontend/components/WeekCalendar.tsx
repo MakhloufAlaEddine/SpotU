@@ -316,7 +316,7 @@ export function WeekCalendar({ slots, durationMin, onSlotsChange }: WeekCalendar
     } else if (pickerMode === 'picking-end') {
       if (pendingStartStr) {
         if (toMins(timeStr) <= toMins(pendingStartStr)) {
-          Alert.alert('Heure invalide', 'La fin doit être après le début');
+          showAlert('Heure invalide', 'La fin doit être après le début');
           return;
         }
       }
