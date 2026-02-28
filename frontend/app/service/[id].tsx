@@ -41,6 +41,9 @@ function getNextOccurrence(slot: any): string {
 }
 
 function getNextDate(slot: any): Date {
+  if (slot.slot_type === 'single' && slot.slot_date) {
+    return new Date(slot.slot_date + 'T' + slot.start_time);
+  }
   const now = new Date();
   const todayIdx = now.getDay() === 0 ? 6 : now.getDay() - 1;
   const [h, m] = slot.start_time.split(':').map(Number);
