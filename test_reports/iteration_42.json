@@ -1,0 +1,41 @@
+{
+  "summary": "Iteration 42 - Testing bug fix (accordion dates '?' → readable dates) and home screen redesign. All features verified: date display fixed, 3-section home screen working, search regression passes.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "MINOR: useEffect at [id].tsx line 99 still uses `slot.slot_type === 'single' && slot.slot_date` (does NOT handle 'specific' type), while the accordion render at line 432 correctly uses `slot.slot_type === 'single' || slot.slot_type === 'specific'`. This mismatch means the 'collapse all except first' behavior in useEffect does not work for 'specific' slots — all accordion groups open by default instead of only the first. Fix: change line 99 to: `const isDateSlot = slot.slot_type === 'single' || slot.slot_type === 'specific'; const key = isDateSlot && slot.slot_date ? slot.slot_date : String(slot.day_of_week ?? 'x');`"
+  ],
+  "critical_code_review_comments": [
+    "useEffect initial collapsed state mismatch: line 99 only checks slot_type === 'single' but render logic checks 'single' || 'specific'. The collapsedDates set contains wrong keys (day_of_week numbers) for 'specific' slots, causing ALL accordion groups to display expanded instead of only the first being open."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A (frontend-only test)",
+    "frontend": "100% (all 5 scenarios pass)"
+  },
+  "scenarios_tested": {
+    "S1_service_detail_date_fix": "✅ PASS - svc_demo002 'Lieux & Disponibilités' accordion shows 'Lundi 2 mars 2026', 'Mardi 3 mars 2026' etc. NO '?' found. 4 date groups rendered with times.",
+    "S2_home_header_greeting": "✅ PASS - Header shows 'Bonsoir, Thomas 👋' (personalized greeting + first name + wave emoji) with 'Paris, France' location chip",
+    "S3_home_coachs_services_section": "✅ PASS - 'Coachs & Services' section shows 4 landscape SERVICE cards with orange badges, coach name, price (À partir de Xé), distance, slot count",
+    "S4_home_derniers_ajouts_feed": "✅ PASS - 'Derniers ajouts' section shows vertical feed with distance and votes for each TagPoint",
+    "S5_regression_search_badges": "✅ PASS - Search screen (/search) shows 4 SERVICE (orange) + TAGPOINT (teal) badges. No regression detected.",
+    "S6_home_pres_de_vous_removed": "✅ PASS - Old 'Près de vous' section no longer present in home screen (3 sections only: hero carousel, coaches, recent feed)"
+  },
+  "test_credentials": {
+    "user": "user@winek.app / WinekUser2024! (displays as Thomas Dupont)"
+  },
+  "seed_data_creation": "None (existing seed data used: svc_demo001-004)",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All features from iter_42 review request pass. Bug fixed: service detail accordion now shows readable French dates (Lundi 2 mars 2026) instead of '?'. Home screen redesigned with 3 sections (hero carousel, Coachs & Services landscape, Derniers ajouts feed) and personalized header. Search screen regression passes. One minor open item: useEffect for initial collapsed state in [id].tsx line 99 doesn't handle slot_type='specific' - all accordion groups are expanded by default instead of only the first. Not blocking.",
+  "rca_of_issue": "Bug root cause: DB slots have slot_type='specific' but the accordion grouping key computation at line 432 only checked slot_type='single'. Fixed by also checking slot_type='specific' in the condition `slot.slot_type === 'single' || slot.slot_type === 'specific'`. Residual minor issue: useEffect (line 99) computing initial collapsed state still only checks for 'single', causing mismatched keys vs render keys for 'specific' slots → all groups open initially."
+}
