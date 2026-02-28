@@ -274,6 +274,7 @@ export default function CreateServiceScreen() {
         max_participants: maxParticipants,
         domain_id: domainId,
         tag_ids: selectedTagIds,
+        images,
         packages: [{
           type_id: 'main',
           type_label: 'Service principal',
