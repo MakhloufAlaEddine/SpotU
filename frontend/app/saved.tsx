@@ -184,14 +184,14 @@ export default function SavedScreen() {
 
   const handleUnsavePoint = async (pointId: string) => {
     try {
-      await api.del(`/tag-points/${pointId}/unsave`);
+      await api.delete(`/tag-points/${pointId}/unsave`);
       setTagPoints(prev => prev.filter(p => p.point_id !== pointId));
     } catch {}
   };
 
   const handleUnsaveService = async (serviceId: string) => {
     try {
-      await api.del(`/services/${serviceId}/unsave`);
+      await api.delete(`/services/${serviceId}/unsave`);
       setServices(prev => prev.filter(s => s.service_id !== serviceId));
     } catch {}
   };
