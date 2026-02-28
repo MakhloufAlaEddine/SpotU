@@ -238,8 +238,9 @@ export function WeekCalendar({ slots, durationMin, onSlotsChange }: WeekCalendar
 
       {/* ── Day Modal ────────────────────────────────────────────────── */}
       <Modal visible={showDayModal} animationType="slide" transparent onRequestClose={() => setShowDayModal(false)}>
-        <TouchableOpacity style={s.overlay} activeOpacity={1} onPress={() => setShowDayModal(false)}>
-          <TouchableOpacity activeOpacity={1} style={s.sheet}>
+        <View style={s.overlayContainer}>
+          <TouchableOpacity style={s.backdropDismiss} activeOpacity={1} onPress={() => setShowDayModal(false)} />
+          <View style={s.sheet}>
             <View style={s.sheetHandle} />
 
             {/* Header */}
