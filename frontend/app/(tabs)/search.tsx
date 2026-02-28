@@ -161,6 +161,7 @@ export default function SearchScreen() {
   const [radiusKm, setRadiusKm] = useState(40);
   const [combineMode, setCombineMode] = useState(false);
   const [tagPoints, setTagPoints] = useState<any[]>([]);
+  const [services, setServices] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const { location } = useLocation();
 
