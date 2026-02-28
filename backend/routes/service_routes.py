@@ -264,6 +264,8 @@ async def update_service(service_id: str, data: ServiceUpdate, request: Request)
         update_dict = {k: raw[k] for k in SCALAR_FIELDS if raw.get(k) is not None}
         if raw.get('tag_ids') is not None:
             update_dict['tag_ids'] = raw['tag_ids']
+        if raw.get('images') is not None:
+            update_dict['images'] = json.dumps(raw['images'])
 
         if update_dict:
             set_clauses = [f"{k} = ${i+1}" for i, k in enumerate(update_dict.keys())]
