@@ -171,7 +171,10 @@ export default function CreateServiceScreen() {
       // ─── Vérification de la propriété ─────────────────────────────────────
       if (data.coach_id && user?.user_id && data.coach_id !== user.user_id && (user as any)?.role !== 'admin') {
         Alert.alert('Accès refusé', 'Vous ne pouvez modifier que vos propres services.');
-        router.back();
+        setTimeout(() => {
+          if (router.canGoBack()) router.back();
+          else router.replace('/(tabs)/profile' as any);
+        }, 100);
         return;
       }
       setTitle(data.title || '');
