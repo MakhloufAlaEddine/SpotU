@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, KeyboardAvoidingView, Platform, Alert, ActivityIndicator, Modal,
+  TextInput, KeyboardAvoidingView, Platform, Alert, ActivityIndicator, Modal, Dimensions,
 } from 'react-native';
+
+const { height: SH } = Dimensions.get('window');
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
