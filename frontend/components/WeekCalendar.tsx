@@ -204,6 +204,22 @@ export function WeekCalendar({ slots, durationMin, onSlotsChange }: WeekCalendar
   const [pendingStartStr, setPendingStartStr] = useState<string | null>(null);
   const [pendingEndStr, setPendingEndStr] = useState<string | null>(null);
 
+  // ── Custom dialog (replaces Alert.alert which is a no-op on web) ──────────
+  const [dialog, setDialog] = useState<{
+    title: string; message: string;
+    confirmText: string; cancelText?: string;
+    onConfirm: () => void; onCancel?: () => void;
+  } | null>(null);
+
+  const showAlert = (title: string, message: string) =>
+    setDialog({ title, message, confirmText: 'OK', onConfirm: () => setDialog(null) });
+
+  const showConfirm = (
+    title: string, message: string,
+    confirmText: string, cancelText: string,
+    onConfirm: () => void, onCancel: () => void,
+  ) => setDialog({ title, message, confirmText, cancelText, onConfirm, onCancel });
+
   const today = useMemo(() => fmtDateKey(new Date()), []);
   const weekDays = useMemo(() => getWeekDays(weekOffset), [weekOffset]);
 
