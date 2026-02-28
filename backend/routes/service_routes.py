@@ -70,7 +70,19 @@ async def _get_service_packages(conn, service_id: str) -> list:
     for pkg in pkgs:
         pkg_dict = row_to_dict(pkg)
         slots = await conn.fetch(
-            "SELECT slot_id, slot_date, start_time, end_time FROM service_slots WHERE package_id = $1 ORDER BY slot_date, start_time",
+            """SELECT slot_id, slot_date, start_time, end_time
+               FROM service_slots ss
+               WHERE ss.package_id = $1
+               AND (
+                   ss.slot_date IS NULL
+                   OR (ss.slot_date || ' ' || ss.start_time)::timestamp > NOW()::timestamp
+               )
+               AND NOT EXISTS (
+                   SELECT 1 FROM bookings b
+                   WHERE b.slot_id = ss.slot_id
+                   AND b.status IN ('pending', 'accepted')
+               )
+               ORDER BY ss.slot_date, ss.start_time""",
             pkg["package_id"]
         )
         pkg_dict["slots"] = rows_to_list(slots)
