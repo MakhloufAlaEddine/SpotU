@@ -568,11 +568,28 @@ export default function ServiceDetailScreen() {
         <View style={s.bookBar}>
           <View style={{ flex: 1 }}>
             <Text style={s.bookBarPrice}>{service.price}€ / séance</Text>
-            <Text style={s.bookBarMeta}>{service.duration_min} min · {service.max_participants} pers. max</Text>
+            <Text style={s.bookBarMeta}>
+              {selectedSlotId
+                ? (() => {
+                    const sl = service.slots?.find((sl: any) => sl.slot_id === selectedSlotId);
+                    if (!sl) return 'Créneau sélectionné';
+                    const isDate = sl.slot_type === 'single' || sl.slot_type === 'specific';
+                    return isDate && sl.slot_date
+                      ? `${formatFullDate(sl.slot_date)} · ${sl.start_time}`
+                      : `${DAYS_FULL[sl.day_of_week] ?? ''} · ${sl.start_time}`;
+                  })()
+                : 'Sélectionnez un créneau ci-dessus'
+              }
+            </Text>
           </View>
-          <TouchableOpacity style={s.bookBtn} onPress={() => setShowBooking(true)} testID="book-btn">
-            <Ionicons name="calendar" size={18} color={Colors.background} />
-            <Text style={s.bookBtnText}>Réserver</Text>
+          <TouchableOpacity
+            style={[s.bookBtn, !selectedSlotId && s.bookBtnDisabled]}
+            onPress={handleBook}
+            disabled={!selectedSlotId}
+            testID="book-btn"
+          >
+            <Ionicons name="calendar" size={18} color={selectedSlotId ? Colors.background : Colors.muted} />
+            <Text style={[s.bookBtnText, !selectedSlotId && { color: Colors.muted }]}>Réserver</Text>
           </TouchableOpacity>
         </View>
       )}
