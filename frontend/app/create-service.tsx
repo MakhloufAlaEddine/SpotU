@@ -769,7 +769,7 @@ const s = StyleSheet.create({
   tagModalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
   tagModalSheet: {
     backgroundColor: Colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    maxHeight: '80%',
+    height: SH * 0.82, overflow: 'hidden',
   },
   sheetHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: Colors.border, alignSelf: 'center', marginTop: 10, marginBottom: 8 },
   tagModalHeader: {
