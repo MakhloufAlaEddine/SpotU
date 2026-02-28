@@ -594,6 +594,15 @@ export default function CreateServiceScreen() {
   );
 
   // ─── Main Render ──────────────────────────────────────────────────────────────
+  if (loadingEdit) {
+    return (
+      <SafeAreaView style={[s.safe, { alignItems: 'center', justifyContent: 'center' }]} edges={['top', 'bottom']}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+        <Text style={{ color: Colors.muted, marginTop: 12, fontSize: 14 }}>Chargement du service...</Text>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
       {/* Header */}
@@ -601,7 +610,7 @@ export default function CreateServiceScreen() {
         <TouchableOpacity style={s.headerBackBtn} onPress={() => router.back()} testID="back-btn">
           <Ionicons name="chevron-back" size={22} color={Colors.foreground} />
         </TouchableOpacity>
-        <Text style={s.headerTitle}>Créer un service</Text>
+        <Text style={s.headerTitle}>{isEditMode ? 'Modifier le service' : 'Créer un service'}</Text>
         <View style={{ width: 40 }} />
       </View>
 
