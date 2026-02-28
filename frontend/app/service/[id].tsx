@@ -351,81 +351,81 @@ export default function ServiceDetailScreen() {
                     </View>
                   )}
 
-                  {/* Slot rows — grouped by day, sorted by day index */}
+                  {/* Slot accordéon — groupé par date, trié par date croissante */}
                   {locSlots.length > 0 ? (() => {
-                    // Group by day (or individual for 'single' type)
+                    // Grouper : single → par slot_date ; recurring → par day_of_week
                     const dayMap: Record<string, any[]> = {};
                     for (const slot of locSlots) {
                       const key = slot.slot_type === 'single'
-                        ? `single_${slot.slot_id}`
+                        ? (slot.slot_date ?? 'unknown')
                         : String(slot.day_of_week ?? 'x');
                       if (!dayMap[key]) dayMap[key] = [];
                       dayMap[key].push(slot);
                     }
-                    // Sort keys: numeric day first (0→6), then 'single' last
+                    // Trier : dates ISO croissantes, puis day_of_week numérique
                     const sortedKeys = Object.keys(dayMap).sort((a, b) => {
-                      const na = isNaN(Number(a)) ? 99 : Number(a);
-                      const nb = isNaN(Number(b)) ? 99 : Number(b);
-                      return na - nb;
+                      const aIsDate = /^\d{4}-\d{2}-\d{2}$/.test(a);
+                      const bIsDate = /^\d{4}-\d{2}-\d{2}$/.test(b);
+                      if (aIsDate && bIsDate) return a.localeCompare(b);
+                      return (isNaN(Number(a)) ? 99 : Number(a)) - (isNaN(Number(b)) ? 99 : Number(b));
                     });
 
                     return (
-                      <View style={s.locSlotList}>
-                        {sortedKeys.map((key, gi) => {
+                      <View style={s.accordionList}>
+                        {sortedKeys.map(key => {
                           const group = dayMap[key];
                           const firstSlot = group[0];
                           const isSingle = firstSlot.slot_type === 'single';
-                          const dayLabel = isSingle
-                            ? (firstSlot.slot_date ? firstSlot.slot_date.slice(5).replace('-', '/') : '?')
-                            : (firstSlot.day_of_week !== null && firstSlot.day_of_week !== undefined
-                                ? DAYS_SHORT[firstSlot.day_of_week] : '?');
-
-                          // Is any slot in this day group selected?
+                          const dateLabel = isSingle
+                            ? formatFullDate(key)
+                            : (firstSlot.day_of_week != null ? DAYS_FULL[firstSlot.day_of_week] : '?');
+                          const isExpanded = !collapsedDates.has(key);
                           const isGroupSelected = group.some((sl: any) => sl.slot_id === selectedSlotId);
 
                           return (
-                            <View
-                              key={key}
-                              style={[s.locSlotRow, gi > 0 && s.locSlotRowBorder, isGroupSelected && s.locSlotRowActive]}
-                            >
-                              {/* Day badge */}
-                              <View style={[s.slotDayBadge, isGroupSelected && s.slotDayBadgeActive]}>
-                                <Text style={[s.slotDayText, isGroupSelected && s.slotDayTextActive]}>
-                                  {dayLabel}
+                            <View key={key} style={s.accordionGroup}>
+                              {/* Header date */}
+                              <TouchableOpacity
+                                style={[s.accordionHeader, isGroupSelected && s.accordionHeaderSelected]}
+                                onPress={() => toggleDate(key)}
+                                testID={`date-group-${key}`}
+                                activeOpacity={0.7}
+                              >
+                                <Text style={[s.accordionDateLabel, isGroupSelected && s.accordionDateLabelSelected]}>
+                                  {dateLabel}
                                 </Text>
-                              </View>
+                                <Ionicons
+                                  name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                                  size={16}
+                                  color={isGroupSelected ? ORANGE : Colors.muted}
+                                />
+                              </TouchableOpacity>
 
-                              {/* Time chips — one per slot in this day */}
-                              <View style={{ flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                                {group.map((slot: any) => {
-                                  const isSelected = slot.slot_id === selectedSlotId;
-                                  const timeStr = `${slot.start_time}${slot.end_time ? ` → ${slot.end_time}` : ''}`;
-                                  return (
-                                    <TouchableOpacity
-                                      key={slot.slot_id}
-                                      style={[s.timeChip, isSelected && s.timeChipActive]}
-                                      onPress={() => {
-                                        setSelectedSlotId(slot.slot_id);
-                                        setSelectedLocationId(loc.location_id);
-                                        setActiveLocIdx(locIdx);
-                                      }}
-                                      testID={`slot-row-${slot.slot_id}`}
-                                      activeOpacity={0.7}
-                                    >
-                                      <Text style={[s.timeChipText, isSelected && s.timeChipTextActive]}>
-                                        {timeStr}
-                                      </Text>
-                                    </TouchableOpacity>
-                                  );
-                                })}
-                              </View>
-
-                              {/* Duration */}
-                              <View style={[s.durationChip, isGroupSelected && s.durationChipActive]}>
-                                <Text style={[s.durationChipText, isGroupSelected && { color: ORANGE }]}>
-                                  {service.duration_min}min
-                                </Text>
-                              </View>
+                              {/* Chips horaires */}
+                              {isExpanded && (
+                                <View style={s.accordionBody}>
+                                  {group.map((slot: any) => {
+                                    const isSelected = slot.slot_id === selectedSlotId;
+                                    return (
+                                      <TouchableOpacity
+                                        key={slot.slot_id}
+                                        style={[s.slotChip, isSelected && s.slotChipActive]}
+                                        onPress={() => {
+                                          setSelectedSlotId(slot.slot_id);
+                                          setSelectedLocationId(loc.location_id);
+                                          setActiveLocIdx(locIdx);
+                                        }}
+                                        testID={`slot-chip-${slot.slot_id}`}
+                                        activeOpacity={0.7}
+                                      >
+                                        <Text style={[s.slotChipText, isSelected && s.slotChipTextActive]}>
+                                          {slot.start_time}
+                                        </Text>
+                                      </TouchableOpacity>
+                                    );
+                                  })}
+                                </View>
+                              )}
                             </View>
                           );
                         })}
