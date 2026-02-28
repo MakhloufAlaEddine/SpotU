@@ -1,0 +1,64 @@
+{
+  "summary": "Iteration 37 - Testing 2 features: (1) Voir Plus dates pagination, (2) Edit Service mode. CRITICAL BUG FOUND AND FIXED: `showAllDates is not defined` ReferenceError crashed the entire /service/[id].tsx page. Additional CRITICAL BUG FIXED: handleSubmit sent `slots: []` in PUT payload which deleted all service slots on every edit save. Both bugs fixed. After fixes: all 7 test scenarios pass.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Service detail /service/svc_b184a9f7f6db",
+        "issues": [
+          "Description field shows 'ffhjk' (only 5 chars) - test data artifact, not a real design issue"
+        ]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_voir_plus_edit_service.py",
+    "/app/test_reports/pytest/pytest_results_37.xml"
+  ],
+  "action_items": [
+    "CONTEXT: Test 7 says 'en tant que coach@winek.app' but service svc_b184a9f7f6db is owned by user@winek.app (user_demo001, user_coach001 is different). The Modifier button would NOT show for coach@winek.app. Test was run with user@winek.app (the actual owner). Main agent should clarify if coach@winek.app should own svc_b184a9f7f6db."
+  ],
+  "critical_code_review_comments": [
+    "BUG FIXED in service/[id].tsx line 465: `!showAllDates &&` removed - showAllDates was never declared, causing ReferenceError that crashed ServiceDetailScreen for any service with slots",
+    "BUG FIXED in create-service.tsx handleSubmit: `slots: []` in PUT payload caused backend to DELETE ALL service slots on every edit save. Fixed to pass proper ServiceSlotItem[] from DaySlot[] state",
+    "NOTE: Backend update_service treats slots=[] as 'delete all' and slots=null as 'keep existing' - this is correct behavior but the frontend was incorrectly sending slots:[] instead of the loaded slots",
+    "Ownership mismatch: service svc_b184a9f7f6db is owned by user_demo001 (user@winek.app) NOT user_coach001 (coach@winek.app). Test requirement 7 specifies coach@winek.app but this user cannot see the Modifier button"
+  ],
+  "updated_files": [
+    "/app/frontend/app/service/[id].tsx",
+    "/app/frontend/app/create-service.tsx"
+  ],
+  "success_rate": {
+    "backend": "100% (12/12 tests passed)",
+    "frontend": "100% (7/7 scenarios passed after bug fixes)"
+  },
+  "test_credentials": {
+    "service_owner": "user@winek.app / WinekUser2024! (user_id: user_demo001, role: coach - OWNS svc_b184a9f7f6db)",
+    "coach_non_owner": "coach@winek.app / WinekCoach2024! (user_id: user_coach001 - does NOT own svc_b184a9f7f6db)"
+  },
+  "seed_data_creation": "Restored 13 slots to svc_b184a9f7f6db after bug reproduction testing. Final state: title='Coaching Football Paris', 13 slots, 5 unique dates (2026-02-28, 03-03, 03-04, 03-10, 03-11)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 37 - ALL 7 scenarios PASS after 2 critical bug fixes:\n(1) VOIR PLUS: visibleCount=4 default, 5 dates exist, shows '(1 DE PLUS)', click shows 5th date, button disappears ✓\n(2) Edit mode URL /create-service?serviceId=svc_b184a9f7f6db: header 'Modifier le service' ✓, step 1 pre-filled (title, desc, address) ✓, step 4 shows 'Sauvegarder' ✓, PUT called and data persisted with slots preserved (13 slots) ✓\n(3) Modifier button: visible for owner (user@winek.app) on service detail page, navigates to /create-service?serviceId=svc_b184a9f7f6db ✓\nBUGS FIXED:\n- showAllDates ReferenceError in service/[id].tsx:465 → removed `!showAllDates &&`\n- slots cleared on edit save (handleSubmit sent slots:[] → backend deleted all) → fixed to send proper ServiceSlotItem[] from DaySlot[] state\nNOTE: service svc_b184a9f7f6db is owned by user@winek.app (user_demo001), NOT coach@winek.app (user_coach001)",
+  "rca_of_issues": [
+    {
+      "bug": "showAllDates is not defined - ReferenceError crashes ServiceDetailScreen",
+      "location": "service/[id].tsx:465",
+      "root_cause": "Variable `showAllDates` referenced in JSX condition but never declared in the component. Likely leftover from a previous implementation that was partially refactored when adding visibleCount pagination.",
+      "fix": "Removed `!showAllDates &&` from condition - the remaining `sortedKeys.length > visibleCount` is the correct condition",
+      "reproduction": "Navigate to any service detail page with slots (e.g., /service/svc_b184a9f7f6db). Page crashes immediately with ReferenceError."
+    },
+    {
+      "bug": "Edit service save clears all slots",
+      "location": "create-service.tsx:handleSubmit",
+      "root_cause": "The PUT payload always included `slots: []` at the top level. Backend update_service interprets `slots` as `Optional[List[ServiceSlotItem]] = None`: None=keep, []=delete all, [...]=replace. The frontend sent [] meaning 'delete all' instead of the loaded slots.",
+      "fix": "For edit mode, build proper ServiceSlotItem[] from the DaySlot[] state and pass in editPayload.slots",
+      "reproduction": "Login as user@winek.app, navigate to /create-service?serviceId=svc_b184a9f7f6db, click Next 3 times, click Sauvegarder → service slots cleared to 0."
+    }
+  ]
+}
