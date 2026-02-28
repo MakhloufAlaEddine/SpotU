@@ -429,7 +429,8 @@ export default function ServiceDetailScreen() {
                     // Grouper : single → par slot_date ; recurring → par day_of_week
                     const dayMap: Record<string, any[]> = {};
                     for (const slot of locSlots) {
-                      const key = slot.slot_type === 'single'
+                      const isDateSlot = slot.slot_type === 'single' || slot.slot_type === 'specific';
+                      const key = isDateSlot
                         ? (slot.slot_date ?? 'unknown')
                         : String(slot.day_of_week ?? 'x');
                       if (!dayMap[key]) dayMap[key] = [];
