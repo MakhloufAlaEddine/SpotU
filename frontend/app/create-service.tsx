@@ -102,7 +102,16 @@ export default function CreateServiceScreen() {
   }, [user]);
 
   useEffect(() => { loadDomains(); }, []);
-  useEffect(() => { loadCategories(); setSelectedTagIds([]); }, [domainId]);
+  useEffect(() => {
+    loadCategories();
+    // Si des tags sont en attente (mode édition), les restaurer au lieu de vider
+    if (pendingTagIdsRef.current !== null) {
+      setSelectedTagIds(pendingTagIdsRef.current);
+      pendingTagIdsRef.current = null;
+    } else {
+      setSelectedTagIds([]);
+    }
+  }, [domainId]);
 
   // ─── Load existing service for edit mode ───────────────────────────────────
   useEffect(() => {
