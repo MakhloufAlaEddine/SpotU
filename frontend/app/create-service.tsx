@@ -571,7 +571,12 @@ export default function CreateServiceScreen() {
             >
               {submitting
                 ? <ActivityIndicator color={Colors.background} />
-                : <><Ionicons name="rocket-outline" size={18} color={Colors.background} /><Text style={s.nextBtnText}>Publier mon service</Text></>}
+                : (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Ionicons name="rocket-outline" size={18} color={Colors.background} />
+                    <Text style={s.nextBtnText}>Publier mon service</Text>
+                  </View>
+                )}
             </TouchableOpacity>
           )}
         </View>
