@@ -87,7 +87,15 @@ WINEK est une plateforme hyperlocale de connexion sportive basée sur des tags g
 - **Vue Doctolib** : créneaux groupés par date en accordéon sur `/service/[id].tsx`
 - Score de complétion basé sur 6 critères (100 pts max)
 
-### ✅ 4 Fixes UX (Fév 2026)
+### ✅ Système de Réservation V1 (Fév 2026)
+- **Service detail** : bouton "Réserver" grisé jusqu'à sélection d'un créneau, affiche le slot choisi dans la barre bas
+- **Écran de confirmation** (`/booking/confirm`) : récap créneau + prix + message optionnel + note "paiement après validation coach"
+- **Écran succès** (`/booking/success`) : avec liens "Voir mes réservations" et "Retour à l'accueil"
+- **Dashboard coach** (`/coach/bookings`) : filtre En attente / Tout, Accepter / Refuser en temps réel
+- **Mes réservations** (`/(tabs)/bookings`) : liste avec statuts colorés (En attente=orange, Acceptée=vert, Refusée=rouge)
+- **Profile coach** : lien "Demandes de réservation" visible dans l'espace coach
+- **Paiement** : intentionnellement différé (sans Stripe pour l'instant, payment_status='pending')
+- Tested: 18/18 backend + 15/15 frontend (iter_44)
 - **Chip localisation dynamique** : utilise `location.address` du contexte au lieu de "Paris, France" hardcodé
 - **Recherche triée par distance** : résultats (Services + TagPoints mélangés) triés du plus proche au plus éloigné
 - **Badge votes masqué** : flèche "+0" cachée si votes = 0 (HeroCard + RecentRow)
