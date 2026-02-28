@@ -19,6 +19,7 @@ const ORANGE_LIGHT = 'rgba(255,149,0,0.12)';
 const ORANGE_BORDER = 'rgba(255,149,0,0.3)';
 const DAYS_FULL = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 const DAYS_SHORT = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+const MONTHS_LONG = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
 const PRECISION_LABEL: Record<string, string> = { exact: 'Précis', '100m': '± 100m', '1000m': '± 1km' };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
