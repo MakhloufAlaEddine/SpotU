@@ -807,8 +807,18 @@ const s = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.border,
   },
   slotChipActive: { backgroundColor: ORANGE, borderColor: ORANGE },
-  slotChipText: { fontSize: 15, fontWeight: '600', color: Colors.foreground },
+  slotChipText: { fontSize: 13, fontWeight: '600', color: Colors.foreground },
   slotChipTextActive: { color: Colors.background },
+  // Bouton "Voir plus de dates"
+  showMoreBtn: {
+    alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 14, borderTopWidth: 1, borderTopColor: Colors.border,
+    backgroundColor: Colors.card,
+  },
+  showMoreBtnText: {
+    fontSize: 13, fontWeight: '700', color: ORANGE, letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
   // (kept for booking modal compatibility)
   locSlotList: { borderTopWidth: 1, borderTopColor: Colors.border },
   locSlotRow: {
