@@ -1,196 +1,150 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, RefreshControl, Alert,
+  View, Text, StyleSheet, FlatList, TouchableOpacity,
+  Image, ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
-import { useAuth } from '../../context/AuthContext';
-import { useLang } from '../../context/LanguageContext';
-import { Colors, Spacing, Radius, Shadow } from '../../constants/Colors';
+import { Colors, Spacing, Radius } from '../../constants/Colors';
 
-type BookingTab = 'mine' | 'coach';
+const ORANGE = '#FF9500';
+const DAYS = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+const MONTHS = ['jan','fév','mars','avr','mai','juin','juil','aoû','sep','oct','nov','déc'];
 
-const STATUS_COLORS: Record<string, string> = {
-  pending: Colors.warning,
-  confirmed: Colors.accent,
-  completed: Colors.success,
-  cancelled: Colors.destructive,
+function fmtDate(iso?: string) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+}
+
+const STATUS_CFG: Record<string, { label: string; color: string; icon: any }> = {
+  pending:   { label: 'En attente du coach', color: ORANGE,         icon: 'time-outline' },
+  accepted:  { label: 'Acceptée',            color: Colors.primary, icon: 'checkmark-circle-outline' },
+  refused:   { label: 'Refusée',             color: '#FF4444',      icon: 'close-circle-outline' },
+  cancelled: { label: 'Annulée',             color: Colors.muted,   icon: 'ban-outline' },
 };
 
-export default function BookingsScreen() {
+function BookingRow({ item }: { item: any }) {
+  const sc = STATUS_CFG[item.status] || STATUS_CFG.pending;
+
+  return (
+    <View style={card.wrap} testID={`booking-${item.booking_id}`}>
+      <View style={card.imgWrap}>
+        <View style={{ width: '100%', height: '100%', backgroundColor: '#1A1000', alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name="calendar-outline" size={24} color="rgba(255,149,0,0.25)" />
+        </View>
+      </View>
+      <View style={card.info}>
+        <Text style={card.title} numberOfLines={2}>{item.service?.title || 'Service'}</Text>
+        <View style={card.coachRow}>
+          <Ionicons name="person-outline" size={12} color={Colors.muted} />
+          <Text style={card.coachName}>{item.coach?.name || 'Coach'}</Text>
+        </View>
+        {item.slot && (
+          <View style={card.slotRow}>
+            <Ionicons name="time-outline" size={12} color={ORANGE} />
+            <Text style={card.slotTxt}>
+              {item.slot.slot_date
+                ? `${fmtDate(item.slot.slot_date + 'T00:00:00')} · ${item.slot.start_time}`
+                : item.scheduled_at ? fmtDate(item.scheduled_at) : item.slot.start_time}
+            </Text>
+          </View>
+        )}
+        <View style={[card.status, { backgroundColor: sc.color + '1A' }]}>
+          <Ionicons name={sc.icon} size={12} color={sc.color} />
+          <Text style={[card.statusTxt, { color: sc.color }]}>{sc.label}</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const card = StyleSheet.create({
+  wrap: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  imgWrap: { width: 72, height: 72, borderRadius: 12, overflow: 'hidden', backgroundColor: Colors.card },
+  info: { flex: 1, gap: 5 },
+  title: { fontSize: 14, fontWeight: '700', color: Colors.foreground },
+  coachRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  coachName: { fontSize: 12, color: Colors.muted },
+  slotRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  slotTxt: { fontSize: 12, color: ORANGE, fontWeight: '600' },
+  status: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start', marginTop: 2 },
+  statusTxt: { fontSize: 11, fontWeight: '700' },
+});
+
+export default function MyBookingsScreen() {
   const router = useRouter();
-  const { user, loading, refreshUser } = useAuth();
-  const { t } = useLang();
-  const [tab, setTab] = useState<BookingTab>('mine');
   const [bookings, setBookings] = useState<any[]>([]);
-  const [fetching, setFetching] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [isRefreshingUser, setIsRefreshingUser] = useState(false);
 
-  // Fallback: si le token est en storage mais user pas encore résolu, on rafraîchit
-  useEffect(() => {
-    if (!loading && !user) {
-      setIsRefreshingUser(true);
-      refreshUser().finally(() => setIsRefreshingUser(false));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading]);
-
-  useEffect(() => {
-    loadBookings();
-  }, [tab, user]);
-
-  const loadBookings = async () => {
-    if (!user) { setFetching(false); return; }
+  const load = async () => {
     try {
-      const endpoint = tab === 'mine' ? '/bookings/mine' : '/bookings/coach';
-      const data = await api.get(endpoint);
-      setBookings(data);
-    } catch {}
-    finally {
-      setFetching(false);
+      const data = await api.get('/bookings/mine');
+      setBookings(Array.isArray(data) ? data : []);
+    } catch {
+      setBookings([]);
+    } finally {
+      setLoading(false);
       setRefreshing(false);
     }
   };
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    loadBookings();
-  }, [tab, user]);
-
-  if (loading || isRefreshingUser) {
-    return (
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.center}><ActivityIndicator size="large" color={Colors.primary} /></View>
-      </SafeAreaView>
-    );
-  }
-
-  if (!user) {
-    return (
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.center}>
-          <Text style={styles.emptyIcon}>🔒</Text>
-          <Text style={styles.emptyText}>Connectez-vous pour voir vos réservations</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  useFocusEffect(useCallback(() => {
+    setLoading(true);
+    load();
+  }, []));
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* Tabs */}
-      <View style={styles.tabs}>
-        <TouchableOpacity
-          style={[styles.tabBtn, tab === 'mine' && styles.tabBtnActive]}
-          onPress={() => setTab('mine')}
-          testID="tab-my-bookings"
-        >
-          <Text style={[styles.tabText, tab === 'mine' && styles.tabTextActive]}>
-            📅 {t('myBookings')}
-          </Text>
-        </TouchableOpacity>
-        {user.role === 'coach' || user.role === 'admin' ? (
-          <TouchableOpacity
-            style={[styles.tabBtn, tab === 'coach' && styles.tabBtnActive]}
-            onPress={() => setTab('coach')}
-            testID="tab-coach-bookings"
-          >
-            <Text style={[styles.tabText, tab === 'coach' && styles.tabTextActive]}>
-              🎯 {t('coachBookings')}
-            </Text>
+    <View style={{ flex: 1, backgroundColor: Colors.background }}>
+      <SafeAreaView edges={['top']}>
+        <View style={s.header}>
+          <TouchableOpacity style={s.backBtn} onPress={() => router.back()} testID="back-btn">
+            <Ionicons name="chevron-back" size={22} color={Colors.foreground} />
           </TouchableOpacity>
-        ) : null}
-      </View>
+          <Text style={s.headerTitle}>Mes réservations</Text>
+          <View style={{ width: 40 }} />
+        </View>
+      </SafeAreaView>
 
-      {fetching ? (
-        <View style={styles.center}><ActivityIndicator size="large" color={Colors.primary} /></View>
+      {loading ? (
+        <View style={s.center}><ActivityIndicator size="large" color={Colors.primary} /></View>
+      ) : bookings.length === 0 ? (
+        <View style={s.center} testID="empty-bookings">
+          <Ionicons name="calendar-outline" size={56} color={Colors.muted} />
+          <Text style={s.emptyTitle}>Aucune réservation</Text>
+          <Text style={s.emptySub}>Réservez une séance auprès d'un coach pour commencer.</Text>
+          <TouchableOpacity style={s.exploreBtn} onPress={() => router.push('/(tabs)/search' as any)}>
+            <Text style={s.exploreBtnTxt}>Trouver un coach</Text>
+          </TouchableOpacity>
+        </View>
       ) : (
-        <ScrollView
-          contentContainerStyle={styles.scroll}
+        <FlatList
+          data={bookings}
+          keyExtractor={item => item.booking_id}
+          contentContainerStyle={{ paddingHorizontal: 16 }}
           showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={Colors.primary} />}
+          renderItem={({ item }) => <BookingRow item={item} />}
+          ListHeaderComponent={
+            <Text style={s.count}>{bookings.length} réservation{bookings.length > 1 ? 's' : ''}</Text>
           }
-        >
-          {bookings.length === 0 ? (
-            <View style={styles.empty}>
-              <Text style={styles.emptyIcon}>📅</Text>
-              <Text style={styles.emptyText}>{t('noBookings')}</Text>
-            </View>
-          ) : (
-            bookings.map((b) => (
-              <TouchableOpacity
-                key={b.booking_id}
-                style={styles.card}
-                onPress={() => router.push(`/booking/${b.booking_id}`)}
-                activeOpacity={0.85}
-                testID={`booking-card-${b.booking_id}`}
-              >
-                <View style={[styles.statusStrip, { backgroundColor: STATUS_COLORS[b.status] || Colors.muted }]} />
-                <View style={styles.cardContent}>
-                  <View style={styles.cardHeader}>
-                    <Text style={styles.serviceTitle} numberOfLines={1}>
-                      {b.service?.title ?? 'Service'}
-                    </Text>
-                    <View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[b.status] + '20' }]}>
-                      <Text style={[styles.statusText, { color: STATUS_COLORS[b.status] }]}>
-                        {t(b.status) || b.status}
-                      </Text>
-                    </View>
-                  </View>
-                  {b.coach && (
-                    <Text style={styles.coachName}>👤 {b.coach.name}</Text>
-                  )}
-                  <View style={styles.cardFooter}>
-                    <Text style={styles.amount}>{b.amount}€</Text>
-                    {b.payment_status === 'paid' ? (
-                      <Text style={styles.paidTag}>✅ {t('paid')}</Text>
-                    ) : b.status !== 'cancelled' ? (
-                      <Text style={styles.payHint}>💳 {t('payNow')}</Text>
-                    ) : null}
-                  </View>
-                </View>
-              </TouchableOpacity>
-            ))
-          )}
-        </ScrollView>
+        />
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.secondary },
-  tabs: { flexDirection: 'row', backgroundColor: Colors.background, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  tabBtn: { flex: 1, paddingVertical: 14, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabBtnActive: { borderBottomColor: Colors.primary },
-  tabText: { fontSize: 14, fontWeight: '600', color: Colors.muted },
-  tabTextActive: { color: Colors.primary },
-  scroll: { padding: Spacing.md, paddingBottom: 40 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl, gap: 12 },
-  empty: { alignItems: 'center', padding: Spacing.xxl, gap: 12 },
-  emptyIcon: { fontSize: 48 },
-  emptyText: { fontSize: 15, color: Colors.muted, textAlign: 'center' },
-  card: {
-    flexDirection: 'row',
-    backgroundColor: Colors.background,
-    borderRadius: Radius.lg,
-    marginBottom: Spacing.sm,
-    overflow: 'hidden',
-    ...Shadow.soft,
-  },
-  statusStrip: { width: 5 },
-  cardContent: { flex: 1, padding: Spacing.md },
-  cardHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 },
-  serviceTitle: { fontSize: 15, fontWeight: '700', color: Colors.foreground, flex: 1, marginRight: 8 },
-  statusBadge: { borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 3 },
-  statusText: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
-  coachName: { fontSize: 13, color: Colors.muted, marginBottom: 8 },
-  cardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  amount: { fontSize: 18, fontWeight: '900', color: Colors.primary },
-  paidTag: { fontSize: 12, color: Colors.success, fontWeight: '700' },
-  payHint: { fontSize: 13, color: Colors.accent, fontWeight: '700' },
+const s = StyleSheet.create({
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '700', color: Colors.foreground },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16, padding: 32 },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: Colors.foreground },
+  emptySub: { fontSize: 14, color: Colors.muted, textAlign: 'center', lineHeight: 20 },
+  exploreBtn: { backgroundColor: Colors.primary, borderRadius: Radius.full, paddingHorizontal: 28, paddingVertical: 12 },
+  exploreBtnTxt: { fontSize: 15, fontWeight: '700', color: Colors.background },
+  count: { fontSize: 13, color: Colors.muted, paddingVertical: 14 },
 });
