@@ -98,6 +98,7 @@ WINEK est une plateforme hyperlocale de connexion sportive basée sur des tags g
 
 ### P0 - Critique
 - [x] Formulaire création service 4 étapes (packages) - TERMINÉ Fév 2026
+- [x] DrumTimePicker plein écran dans WeekCalendar - TERMINÉ Fév 2026
 - [ ] Backend instabilité récurrente (connexion PostgreSQL) - MONITORING
 
 ### P1 - Important
