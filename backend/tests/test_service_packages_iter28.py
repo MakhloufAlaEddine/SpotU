@@ -9,7 +9,7 @@ import os
 
 BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "").rstrip("/")
 if not BASE_URL:
-    BASE_URL = "https://tag-based-platform.preview.emergentagent.com"
+    BASE_URL = "https://winek-hyperlocal.preview.emergentagent.com"
 
 
 @pytest.fixture(scope="module")
