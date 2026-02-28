@@ -74,6 +74,8 @@ export default function CreateServiceScreen() {
   // Step 2 - Domain & Tags
   const [domainId, setDomainId] = useState('dom_sport');
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  // Ref pour préserver les tags chargés en mode édition (évite que useEffect[domainId] les efface)
+  const pendingTagIdsRef = useRef<string[] | null>(null);
   const [domains, setDomains] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [showTagModal, setShowTagModal] = useState(false);
