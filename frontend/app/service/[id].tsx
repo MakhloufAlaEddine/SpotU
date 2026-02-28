@@ -400,7 +400,7 @@ export default function ServiceDetailScreen() {
 
                     return (
                       <View style={s.accordionList}>
-                        {(showAllDates ? sortedKeys : sortedKeys.slice(0, 4)).map(key => {
+                        {(showAllDates ? sortedKeys : sortedKeys.slice(0, visibleCount)).map(key => {
                           const group = dayMap[key];
                           const firstSlot = group[0];
                           const isSingle = firstSlot.slot_type === 'single';
