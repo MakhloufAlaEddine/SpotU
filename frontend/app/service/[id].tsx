@@ -727,7 +727,7 @@ const s = StyleSheet.create({
 
   scrollContent: { paddingBottom: 20 },
   // Carrousel photos
-  carousel: { width: SW, height: 240, backgroundColor: Colors.backgroundSecondary },
+  carousel: { height: 240, backgroundColor: Colors.backgroundSecondary, overflow: 'hidden' },
   carouselImg: { width: SW, height: 240 },
   carouselDots: {
     position: 'absolute', bottom: 10, left: 0, right: 0,
