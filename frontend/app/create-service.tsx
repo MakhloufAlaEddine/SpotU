@@ -218,7 +218,17 @@ export default function CreateServiceScreen() {
         slots: [],
       };
       if (isEditMode) {
-        await api.put(`/services/${serviceId}`, payload);
+        // For edit mode: build ServiceSlotItem[] (slot_type:'single') from DaySlot[] state
+        // Backend PUT: slots=null keeps existing; slots=[] deletes all; slots=[...] replaces
+        const editSlots = slots.map(s => ({
+          slot_type: 'single',
+          slot_date: s.date,
+          start_time: s.startTime,
+          end_time: s.endTime || '00:00',
+          location_index: 0,
+        }));
+        const editPayload = { ...payload, slots: editSlots };
+        await api.put(`/services/${serviceId}`, editPayload);
         router.replace(`/service/${serviceId}` as any);
       } else {
         const created = await api.post('/services', payload);
