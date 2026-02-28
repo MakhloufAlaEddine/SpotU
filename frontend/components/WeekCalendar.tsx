@@ -322,10 +322,7 @@ export function WeekCalendar({ slots, durationMin, onSlotsChange }: WeekCalendar
           <View style={s.dayCardSlots}>
             {getDateSlots(day.dateStr).map(slot => (
               <View key={slot.id} style={s.dayCardSlotRow}>
-                <Ionicons name="play-circle-outline" size={14} color={TEAL} />
-                <Text style={s.dayCardSlotTime}>{slot.startTime}</Text>
-                <Ionicons name="arrow-forward" size={11} color={Colors.muted} />
-                <Text style={s.dayCardSlotTime}>{slot.endTime}</Text>
+                <Ionicons name="play-circle-outline" size={14} color={TEAL} /><Text style={s.dayCardSlotTime}>{slot.startTime}</Text><Ionicons name="arrow-forward" size={11} color={Colors.muted} /><Text style={s.dayCardSlotTime}>{slot.endTime}</Text>
               </View>
             ))}
           </View>
