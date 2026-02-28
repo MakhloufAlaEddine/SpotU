@@ -1,150 +1,138 @@
 {
-  "project_name": "WINEK - Hyperlocal Sports App",
-  "theme": "dark",
-  "design_philosophy": {
-    "archetype": "THE PERFORMANCE PRO (Digital Athlete)",
-    "keywords": ["Kinetic", "Neon", "Precision", "Night Mode"],
-    "core_principles": [
-      "Dark backgrounds with high-contrast teal accents",
-      "Asymmetrical layouts to create visual tension",
-      "Card-based UI with deep depth (shadows + borders)",
-      "Immersive imagery for locations (TagPoints)"
-    ]
-  },
-  "typography": {
-    "font_family": "System (San Francisco / Roboto)",
-    "weights": {
-      "heading": "800",
-      "subheading": "600",
-      "body": "400"
-    },
-    "styles": {
-      "hero_title": {
-        "fontSize": 32,
-        "fontWeight": "800",
-        "color": "#FFFFFF",
-        "letterSpacing": -0.5
+  "design_guidelines": {
+    "project_name": "WINEK",
+    "persona": "E1_Anti_AI_Designer",
+    "theme_mode": "dark",
+    "platform": "mobile_web_app",
+    "typography": {
+      "font_family": "System",
+      "headings": {
+        "weight": "800",
+        "size_xl": 32,
+        "size_lg": 24,
+        "size_md": 20,
+        "letter_spacing": -0.5
       },
-      "section_header": {
-        "fontSize": 14,
-        "fontWeight": "700",
-        "color": "#00BFA5",
-        "textTransform": "uppercase",
-        "letterSpacing": 1.2,
-        "marginBottom": 12
-      },
-      "card_title": {
-        "fontSize": 18,
-        "fontWeight": "700",
-        "color": "#FFFFFF"
-      },
-      "body_text": {
-        "fontSize": 14,
-        "color": "#A1A1AA"
+      "body": {
+        "weight": "400",
+        "size_regular": 16,
+        "size_small": 14,
+        "size_tiny": 12,
+        "line_height": 1.5
       }
-    }
-  },
-  "colors": {
-    "background": "#000000",
-    "surface": "#1C1C1E",
-    "primary": "#00BFA5",
-    "primary_dim": "rgba(0, 191, 165, 0.15)",
-    "text_primary": "#FFFFFF",
-    "text_secondary": "#A1A1AA",
-    "border": "#2C2C2E",
-    "overlay": "rgba(0,0,0,0.7)"
-  },
-  "layout": {
+    },
+    "colors": {
+      "palette": {
+        "background": "#0D1117",
+        "surface": "#161B22",
+        "surface_highlight": "#21262D",
+        "border": "#30363D",
+        "primary": "#1DBF73",
+        "primary_dim": "rgba(29, 191, 115, 0.15)",
+        "accent": "#FF9500",
+        "accent_dim": "rgba(255, 149, 0, 0.15)",
+        "text_primary": "#F0F6FC",
+        "text_secondary": "#8B949E",
+        "text_tertiary": "#6E7681",
+        "error": "#F85149"
+      },
+      "usage": {
+        "hero_gradient": ["transparent", "rgba(13, 17, 23, 0.9)"],
+        "service_border": "#FF9500",
+        "tab_bar_bg": "#0D1117"
+      }
+    },
     "spacing": {
-      "container_padding": 20,
-      "section_gap": 32,
-      "item_gap": 16
+      "xs": 4,
+      "sm": 8,
+      "md": 16,
+      "lg": 24,
+      "xl": 32,
+      "xxl": 48
     },
-    "border_radius": {
-      "card": 20,
-      "button": 12,
-      "pill": 100
+    "layout_strategy": {
+      "concept": "Breathing Room & Hierarchy",
+      "header": {
+        "style": "Minimal",
+        "background": "Blur or Solid #0D1117",
+        "elements": ["Location (Left)", "Search (Right)"]
+      },
+      "sections": [
+        {
+          "id": "hero",
+          "type": "carousel_parallax",
+          "height": 280,
+          "card_style": "Rounded XL, Full Bleed Image, Gradient Overlay"
+        },
+        {
+          "id": "services",
+          "title": "Coachs & Services",
+          "style": "Horizontal Scroll",
+          "card_aspect": "Landscape Compact",
+          "accent_color": "#FF9500"
+        },
+        {
+          "id": "nearby",
+          "title": "À proximité",
+          "style": "Horizontal List",
+          "card_style": "Vertical Card, Image Top, Info Bottom"
+        },
+        {
+          "id": "recent",
+          "title": "Derniers ajouts",
+          "style": "Vertical List (Feed)",
+          "card_style": "Row Layout, Thumbnail Left"
+        }
+      ]
+    },
+    "components": {
+      "HeroCard": {
+        "radius": 24,
+        "shadow": "soft_glow_green",
+        "typography": "Heading LG White"
+      },
+      "ServiceCard": {
+        "radius": 16,
+        "border": "1px solid #FF9500",
+        "badge": "Top Right Orange"
+      },
+      "StandardCard": {
+        "radius": 16,
+        "background": "#161B22",
+        "border": "1px solid #30363D"
+      }
+    },
+    "motion": {
+      "library": "react-native-reanimated",
+      "type": "Micro-interactions",
+      "entrance": "FadeInDown",
+      "press": "Scale 0.98"
     }
   },
-  "components": {
-    "ProfileHeader": {
-      "description": "A 'Player Card' style header. Dark teal background with a bottom curve.",
-      "style": {
-        "backgroundColor": "#0D1F1F",
-        "paddingTop": 60,
-        "paddingBottom": 40,
-        "paddingHorizontal": 24,
-        "borderBottomLeftRadius": 32,
-        "borderBottomRightRadius": 32,
-        "marginBottom": 24
-      }
+  "implementation_plan": [
+    {
+      "step": 1,
+      "action": "update_constants",
+      "file": "/app/frontend/constants/Colors.ts",
+      "details": "Update Colors object to match the 'palette' defined in design_guidelines. Ensure 'primary' is #1DBF73 and 'background' is #0D1117."
     },
-    "ActionGrid": {
-      "description": "2-column grid for 'Saved' and 'Events'. Tech-inspired with thin borders.",
-      "container_style": {
-        "flexDirection": "row",
-        "gap": 12,
-        "marginBottom": 32,
-        "paddingHorizontal": 20
-      },
-      "item_style": {
-        "flex": 1,
-        "backgroundColor": "#1C1C1E",
-        "padding": 20,
-        "borderRadius": 16,
-        "borderWidth": 1,
-        "borderColor": "rgba(0, 191, 165, 0.3)",
-        "alignItems": "center",
-        "justifyContent": "center"
-      }
+    {
+      "step": 2,
+      "action": "refactor_home",
+      "file": "/app/frontend/app/(tabs)/map.tsx",
+      "details": "Rewrite the file. Extract sub-components (HeroCard, ServiceCard, etc.) into the same file or separate files if preferred, but keep it clean. Implement the new layout strategy. Use 'react-native-reanimated' for smooth entry animations if possible."
     },
-    "TagPointCard": {
-      "description": "Horizontal scrolling cards. Image background with dark overlay.",
-      "container_style": {
-        "width": 200,
-        "height": 140,
-        "marginRight": 12,
-        "borderRadius": 16,
-        "overflow": "hidden",
-        "backgroundColor": "#1C1C1E"
-      },
-      "overlay_style": {
-        "flex": 1,
-        "backgroundColor": "rgba(0,0,0,0.5)",
-        "padding": 16,
-        "justifyContent": "flex-end"
-      }
-    },
-    "SettingsItem": {
-      "description": "Clean list items with high contrast.",
-      "container_style": {
-        "flexDirection": "row",
-        "alignItems": "center",
-        "justifyContent": "space-between",
-        "paddingVertical": 16,
-        "borderBottomWidth": 1,
-        "borderBottomColor": "#2C2C2E"
-      }
+    {
+      "step": 3,
+      "action": "styling",
+      "details": "Apply 'E1' spacing rules. Use gap: 16 or 24. Avoid clutter. Ensure text contrast is high."
     }
-  },
-  "assets": {
-    "avatar_placeholder": "https://images.unsplash.com/photo-1627625591960-0e3e8e23e0e7?auto=format&fit=crop&w=200&q=80",
-    "tagpoints": [
-      "https://images.unsplash.com/photo-1552984418-b55abf780dd4?auto=format&fit=crop&w=600&q=80",
-      "https://images.pexels.com/photos/16955709/pexels-photo-16955709.jpeg?auto=compress&cs=tinysrgb&w=600",
-      "https://images.unsplash.com/photo-1552984418-e47d59632489?auto=format&fit=crop&w=600&q=80"
-    ]
-  },
-  "instructions_to_main_agent": [
-    "1. Replace the entire styles object with a new StyleSheet based on the guidelines above.",
-    "2. Use 'Colors' from '@/constants/Colors' but override specific values (like backgrounds) if needed to match the '#121212' aesthetic.",
-    "3. Implement the ProfileHeader as a distinct visual block at the top.",
-    "4. Convert the 'Quick Actions' into a 2-column grid using flexbox.",
-    "5. Change the 'My TagPoints' section to a horizontal ScrollView with image-based cards.",
-    "6. Ensure all interactive elements (TouchableOpacities) have 'activeOpacity={0.8}' for better feel.",
-    "7. Add 'data-testid' to all buttons and list items.",
-    "8. Use Ionicons: 'bookmark-outline' for Saved, 'calendar-outline' for Events, 'settings-outline', 'log-out-outline'.",
-    "9. DO NOT remove any existing functionality or navigation calls.",
-    "10. For the TagPoint images, cycle through the provided 'assets.tagpoints' array."
+  ],
+  "universal_guidelines": [
+    "Do not use gradients for backgrounds, use solid dark colors #0D1117.",
+    "Use 'Inter' or System font with high weight (800) for headings.",
+    "Ensure all interactive elements have hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}.",
+    "Images must have 'backgroundColor' placeholder while loading.",
+    "Use SafeAreaView correctly."
   ]
 }
