@@ -102,11 +102,13 @@ function HeroCard({ point, onPress }: { point: any; onPress: () => void }) {
           <Text style={heroSt.tagText}>{tag.label_fr || tag.label_en || ''}</Text>
         </View>
       )}
-      {/* Votes top-right */}
-      <View style={heroSt.voteBadge}>
-        <Ionicons name="arrow-up" size={10} color={Colors.primary} />
-        <Text style={heroSt.voteText}>{votes >= 0 ? '+' : ''}{votes}</Text>
-      </View>
+      {/* Votes top-right — seulement si > 0 */}
+      {(votes !== 0) && (
+        <View style={heroSt.voteBadge}>
+          <Ionicons name={votes > 0 ? 'arrow-up' : 'arrow-down'} size={10} color={votes > 0 ? Colors.primary : '#ff4444'} />
+          <Text style={[heroSt.voteText, { color: votes > 0 ? Colors.primary : '#ff4444' }]}>{votes > 0 ? '+' : ''}{votes}</Text>
+        </View>
+      )}
       {/* Bottom info */}
       <View style={heroSt.bottom}>
         <Text style={heroSt.title} numberOfLines={2}>{point.title}</Text>
