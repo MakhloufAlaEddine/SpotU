@@ -1,0 +1,74 @@
+{
+  "summary": "Iteration 39 - Backend + Frontend testing of 3 features: (1) images JSONB in services, (2) Photos section in create-service Step 1, (3) Ownership check in edit mode. Backend bug FIXED: images returned as JSON string instead of list. Frontend: Photos section working, images pre-fill in edit mode working, ownership check has a timing bug (user=null when loadServiceForEdit runs).",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "GET /api/services/{id}, POST /api/services, PUT /api/services/{id}",
+        "issue": "FIXED: images field was returned as JSON string ('[\\'url1\\',\\'url2\\']') instead of a parsed list. build_service() function did not parse the images JSON string back to a list.",
+        "priority": "HIGH",
+        "status": "FIXED - added JSON parsing in build_service() in /app/backend/routes/service_routes.py"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Edit service ownership check",
+        "issue": "CRITICAL: The ownership check in loadServiceForEdit() does not redirect non-owner coaches when the page is directly loaded (via URL/page.goto). Root cause: useEffect([serviceId]) fires immediately on mount when user=null (AuthContext.checkAuth() is still async-loading user from storage). user?.user_id is undefined, condition short-circuits to FALSE, no Alert + no redirect. The backend correctly returns 403 on PUT, but the non-owner can still VIEW and interact with the pre-filled edit form.",
+        "affected_selectors": ["create-service?serviceId=svc_b184a9f7f6db"],
+        "priority": "HIGH",
+        "reproduction": "Login as coach@winek.app (user_coach001), navigate directly to /create-service?serviceId=svc_b184a9f7f6db (service owned by user_demo001) - edit form loads with no redirect"
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_service_images_iter39.py",
+    "/app/test_reports/pytest/pytest_results_39.xml"
+  ],
+  "action_items": [
+    "FIX ownership check timing bug: In create-service.tsx, loadServiceForEdit useEffect depends on [serviceId] but user may be null (auth not loaded). Fix: change useEffect dependency to [serviceId, user?.user_id] or check `if (isEditMode && serviceId && user)` before calling loadServiceForEdit. Alternatively use a ref for user in the async function.",
+    "VERIFY: images fix in build_service() is working - all 9 backend tests pass after the fix. This fix is critical as the frontend's loadServiceForEdit parses the images field and needs it as a list, not string."
+  ],
+  "critical_code_review_comments": [
+    "BUG FIXED: build_service() in service_routes.py was not parsing JSON string images field to list. Added: if isinstance(raw_images, str): row_dict['images'] = json.loads(raw_images). Pattern similar to _enrich_service's tag_ids parsing.",
+    "BUG (main agent action needed): create-service.tsx ownership check in loadServiceForEdit() uses user from closure, but when page is directly loaded (refresh/direct URL), user=null at the time useEffect fires because AuthContext.checkAuth() is still running. Fix: add user as dependency or use AuthContext loading state.",
+    "NOTE: svc_b184a9f7f6db is owned by user_demo001 (user@winek.app, role=coach). Both test users have role=coach. The review_request's agent note stating 'user@winek.app has role=user' was incorrect - both accounts have role=coach."
+  ],
+  "updated_files": [
+    "/app/backend/routes/service_routes.py"
+  ],
+  "success_rate": {
+    "backend": "100% (9/9 after fix)",
+    "frontend": "75% (6/8 scenarios pass - ownership check fails, counter selector minor)"
+  },
+  "scenarios_tested": {
+    "S1_step1_photos_section_visible": "PASS - 'PHOTOS DU SERVICE' section visible on step 1 in create mode",
+    "S2_counter_0_5_visible": "PASS - '0/5' counter shown in photos section header (confirmed visually in screenshot)",
+    "S3_add_photos_btn_present": "PASS - [data-testid='add-photos-btn'] found and visible",
+    "S4_add_photos_btn_clickable": "PASS - button click does not crash, ImagePicker permission request handled",
+    "S5_ownership_check_nonowner": "FAIL - Non-owner coach@winek.app can access svc_b184a9f7f6db edit mode. No alert, no redirect. Root cause: timing bug (user=null when check runs on direct page load)",
+    "S6_owner_images_prefilled": "PASS - user@winek.app (owner) edit mode shows 2 pre-filled images (seeded images) with 2/5 counter and 2 remove buttons",
+    "S7_backend_GET_images_list": "PASS - GET /api/services/svc_b184a9f7f6db returns images as list []",
+    "S8_backend_PUT_images_update": "PASS - PUT with images list updates correctly and persists",
+    "S9_backend_PUT_nonowner_403": "PASS - Non-owner PUT returns 403",
+    "S10_backend_POST_with_images": "PASS - POST creates service with images list correctly"
+  },
+  "test_credentials": {
+    "coach_tested_as": "coach@winek.app / WinekCoach2024! (user_coach001, role: coach) - NOT owner of svc_b184a9f7f6db",
+    "owner_tested_as": "user@winek.app / WinekUser2024! (user_demo001, role: coach) - OWNER of svc_b184a9f7f6db",
+    "service_used": "svc_b184a9f7f6db (coach_id=user_demo001)"
+  },
+  "seed_data_creation": "Seeded 2 images on svc_b184a9f7f6db: ['https://images.pexels.com/photos/1552252/pexels-photo-1552252.jpeg', 'https://images.pexels.com/photos/841130/pexels-photo-841130.jpeg'] via PUT as owner (user_demo001). These are now persisted in the database.",
+  "rca_of_issue": {
+    "bug": "Ownership check timing issue in create-service.tsx",
+    "root_cause": "useEffect(() => { if (isEditMode && serviceId) loadServiceForEdit(); }, [serviceId]) fires immediately on component mount. When page is directly loaded, AuthContext.checkAuth() is still async (reads token from storage, then calls /api/auth/me). The user state is null at mount time. loadServiceForEdit() captures user=null in its closure. When the API call resolves, user?.user_id is undefined, making the ownership condition false (data.coach_id && undefined = false).",
+    "reproduction": "Login as coach@winek.app, then directly navigate to /create-service?serviceId=svc_b184a9f7f6db via browser URL bar or page.goto(). Ownership check skipped, edit form loads.",
+    "mitigation": "Change useEffect dependency from [serviceId] to [serviceId, user?.user_id] OR guard with: if (isEditMode && serviceId && user !== null) loadServiceForEdit(); Note: also need to handle the case where user changes from null to a loaded user."
+  },
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 39: (1) FIXED: images JSON string bug in build_service() - all backend tests pass. (2) Frontend Photos section in Step 1 works correctly (0/5, add-photos-btn). (3) Images pre-fill in owner edit mode works (2/5, 2 remove buttons). (4) UNRESOLVED: Ownership check in create-service.tsx fails on direct page load - non-owner coach can access edit mode because user=null when loadServiceForEdit runs. Backend correctly returns 403 on PUT. Next agent should verify ownership check fix was applied and test again. Service svc_b184a9f7f6db has 2 seeded images."
+}
