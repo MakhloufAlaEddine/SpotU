@@ -151,42 +151,24 @@ export default function ServiceDetailScreen() {
     finally { setSavingInProgress(false); }
   };
 
-  const handleBook = async () => {
+  const handleBook = () => {
     if (!user) {
       Alert.alert('', 'Connectez-vous pour réserver');
       router.push('/(auth)/login' as any);
       return;
     }
-    if (!selectedSlotId && service.slots?.length > 0) {
-      Alert.alert('', 'Sélectionnez un créneau');
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const selectedSlot = service.slots?.find((s: any) => s.slot_id === selectedSlotId);
-      const scheduledAt = selectedSlot ? getNextDate(selectedSlot).toISOString() : null;
-      await api.post('/bookings', {
-        service_id: service.service_id,
-        slot_id: selectedSlotId || null,
-        location_id: selectedLocationId || null,
-        scheduled_at: scheduledAt,
-        notes: notes.trim() || null,
-      });
-      setShowBooking(false);
-      setNotes('');
-      Alert.alert(
-        'Demande envoyée !',
-        'Le coach va examiner votre demande. Vous serez notifié de sa réponse.',
-        [
-          { text: 'Mes réservations', onPress: () => router.push('/(tabs)/bookings' as any) },
-          { text: 'OK', style: 'cancel' },
-        ]
-      );
-    } catch (err: any) {
-      Alert.alert('Erreur', err.message || 'Impossible de créer la réservation');
-    } finally {
-      setSubmitting(false);
-    }
+    if (!selectedSlotId) return;
+    const selectedSlot = service.slots?.find((s: any) => s.slot_id === selectedSlotId);
+    const scheduledAt = selectedSlot ? getNextDate(selectedSlot).toISOString() : null;
+    router.push({
+      pathname: '/booking/confirm',
+      params: {
+        serviceId: service.service_id,
+        slotId: selectedSlotId,
+        locationId: selectedLocationId || '',
+        scheduledAt: scheduledAt || '',
+      },
+    } as any);
   };
 
   if (loading) {
