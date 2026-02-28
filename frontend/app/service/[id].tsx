@@ -80,6 +80,8 @@ export default function ServiceDetailScreen() {
   const [activeLocIdx, setActiveLocIdx] = useState(0);
   const [collapsedDates, setCollapsedDates] = useState<Set<string>>(new Set());
   const [visibleCount, setVisibleCount] = useState(4);
+  const [photoIdx, setPhotoIdx] = useState(0);
+  const photoListRef = useRef<FlatList>(null);
 
   const toggleDate = (key: string) => {
     setCollapsedDates(prev => {
