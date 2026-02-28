@@ -182,6 +182,61 @@ function ListCard({ point, userLat, userLng, onPress }: { point: any; userLat: n
   );
 }
 
+// ── Service Card (orange) ────────────────────────────────────
+function ServiceCard({ svc, userLat, userLng, onPress }: { svc: any; userLat: number; userLng: number; onPress: () => void }) {
+  const loc = svc.locations?.[0];
+  const dist = loc ? formatDistance(haversineDistance(userLat, userLng, loc.latitude, loc.longitude)) : '';
+  const image = svc.images?.[0];
+  return (
+    <TouchableOpacity
+      style={[styles.nearbyCard, { width: NEARBY_CARD_W, borderWidth: 1.5, borderColor: 'rgba(255,149,0,0.35)' }]}
+      onPress={onPress}
+      activeOpacity={0.88}
+    >
+      {image ? (
+        <Image source={{ uri: image }} style={styles.nearbyImage} />
+      ) : (
+        <View style={[styles.nearbyImage, { backgroundColor: '#3A2000', alignItems: 'center', justifyContent: 'center' }]}>
+          <Ionicons name="calendar-outline" size={56} color="rgba(255,149,0,0.3)" />
+        </View>
+      )}
+      <View style={[styles.nearbyOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]} />
+      {/* Badge Service */}
+      <View style={svcCardSt.badge}>
+        <Text style={svcCardSt.badgeText}>SERVICE</Text>
+      </View>
+      {/* Title */}
+      <View style={styles.nearbyTop}>
+        <Text style={styles.nearbyTitle} numberOfLines={2}>{svc.title}</Text>
+      </View>
+      {/* Bottom: coach + price + dist */}
+      <View style={styles.nearbyBottom}>
+        <View style={styles.ownerRow}>
+          {svc.coach?.picture ? (
+            <Image source={{ uri: svc.coach.picture }} style={styles.ownerAvatar} />
+          ) : (
+            <View style={[styles.ownerAvatar, { backgroundColor: SERVICE_ORANGE, alignItems: 'center', justifyContent: 'center' }]}>
+              <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>
+                {svc.coach?.name?.charAt(0)?.toUpperCase() || 'C'}
+              </Text>
+            </View>
+          )}
+          <Text style={styles.ownerName} numberOfLines={1}>{svc.coach?.name || 'Coach'}</Text>
+        </View>
+        <View style={{ alignItems: 'flex-end' }}>
+          <Text style={[styles.nearbyDist, { color: SERVICE_ORANGE }]}>À partir de {svc.price}€</Text>
+          {dist ? <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 1 }}>{dist}</Text> : null}
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+const svcCardSt = StyleSheet.create({
+  badge: { position: 'absolute', top: 10, right: 10, backgroundColor: SERVICE_ORANGE, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  badgeText: { fontSize: 9, fontWeight: '800', color: '#fff', letterSpacing: 0.5 },
+});
+
 // ── Main Screen ──────────────────────────────────────────────
 export default function HomeScreen() {
   const router = useRouter();
