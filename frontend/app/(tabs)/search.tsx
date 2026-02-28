@@ -194,8 +194,12 @@ export default function SearchScreen() {
         lng: location.lng.toString(),
         radius: (radiusKm * 1000).toString(),
       });
-      const pts = await api.get(`/tag-points?${params.toString()}`);
-      setTagPoints(pts);
+      const [pts, svcs] = await Promise.all([
+        api.get(`/tag-points?${params.toString()}`).catch(() => []),
+        api.get(`/services?${params.toString()}`).catch(() => []),
+      ]);
+      setTagPoints(Array.isArray(pts) ? pts : []);
+      setServices(Array.isArray(svcs) ? svcs : []);
     } catch {}
     finally { setLoading(false); }
   }, [location.lat, location.lng, radiusKm]);
