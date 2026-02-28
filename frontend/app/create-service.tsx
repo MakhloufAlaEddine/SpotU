@@ -102,6 +102,52 @@ export default function CreateServiceScreen() {
   useEffect(() => { loadDomains(); }, []);
   useEffect(() => { loadCategories(); setSelectedTagIds([]); }, [domainId]);
 
+  // ─── Load existing service for edit mode ───────────────────────────────────
+  useEffect(() => {
+    if (isEditMode && serviceId) loadServiceForEdit();
+  }, [serviceId]);
+
+  const loadServiceForEdit = async () => {
+    try {
+      const data = await api.get(`/services/${serviceId}`);
+      setTitle(data.title || '');
+      setCoachDesc(data.description || '');
+      setPrice(String(data.price || ''));
+      setDurationMin(data.duration_min || 60);
+      setMaxParticipants(data.max_participants || 1);
+      if (data.domain_id) setDomainId(data.domain_id);
+      const rawTagIds = data.tag_ids;
+      setSelectedTagIds(
+        Array.isArray(rawTagIds) ? rawTagIds
+          : typeof rawTagIds === 'string' ? (() => { try { return JSON.parse(rawTagIds); } catch { return []; } })()
+          : []
+      );
+      // Address from first location
+      const firstLoc = (data.locations || [])[0];
+      if (firstLoc) {
+        setAddress(firstLoc.description || '');
+        setAddressLat(firstLoc.latitude ?? null);
+        setAddressLng(firstLoc.longitude ?? null);
+      }
+      // Slots → DaySlot format
+      const apiSlots: any[] = data.slots || [];
+      const daySlots: DaySlot[] = apiSlots
+        .filter((s: any) => s.slot_date && s.start_time)
+        .map((s: any) => ({
+          id: s.slot_id || `slot_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+          date: s.slot_date,
+          startTime: s.start_time,
+          endTime: s.end_time || null,
+        }));
+      setSlots(daySlots);
+    } catch (err: any) {
+      Alert.alert('Erreur', 'Impossible de charger le service');
+      router.back();
+    } finally {
+      setLoadingEdit(false);
+    }
+  };
+
   const loadDomains = async () => {
     try {
       const data: any[] = await api.get('/domains');
