@@ -148,6 +148,7 @@ class ServicePackageItem(BaseModel):
     slots: List[DaySlotPayload] = []
 
 
+class ServiceSlotItem(BaseModel):
     slot_type: str = 'recurring'  # 'recurring' | 'single' | 'availability'
     location_id: Optional[str] = None   # legacy / direct DB id (ignored in write paths)
     location_index: Optional[int] = None  # index into the locations array (used on create/update)
