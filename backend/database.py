@@ -86,6 +86,7 @@ CREATE TABLE IF NOT EXISTS services (
     coach_id TEXT REFERENCES users(user_id),
     title TEXT NOT NULL,
     description TEXT,
+    address TEXT,
     price NUMERIC(10,2) NOT NULL,
     duration_min INTEGER DEFAULT 60,
     tag_ids JSONB DEFAULT '[]',
@@ -94,6 +95,7 @@ CREATE TABLE IF NOT EXISTS services (
     location_description TEXT,
     max_participants INTEGER DEFAULT 1,
     active BOOLEAN DEFAULT TRUE,
+    images JSONB DEFAULT '[]'::jsonb,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
