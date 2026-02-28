@@ -144,10 +144,12 @@ WINEK est une plateforme hyperlocale de connexion sportive basée sur des tags g
 ## Issues Techniques Connues
 
 ### Récurrentes
-- **Backend connectivity**: Le backend peut perdre la connexion PostgreSQL au démarrage (IPv6 vs IPv4). Fix: s'assurer que DATABASE_URL utilise 127.0.0.1 et redémarrer avec supervisorctl.
+- **Backend connectivity**: Le backend peut perdre la connexion PostgreSQL au démarrage. Fix: `sudo service postgresql start && sudo supervisorctl restart backend`
 - **Expo hot-reload**: Ne fonctionne pas. Workaround: `sudo supervisorctl restart expo` après chaque changement frontend.
 
 ### Résolues
 - [x] Tables packages/slots manquantes → ajoutées dans database.py
 - [x] Route create_service ne gérait pas les packages → corrigée
 - [x] React Native Web warning "Unexpected text node" dans bouton Publier → corrigé
+- [x] `api.del` → `api.delete` corrigé dans `tag-point/[id].tsx` (leave, unsave, delete) et `events.tsx` (Fév 2026)
+- [x] PostgreSQL ne démarre pas automatiquement → confirmé workaround démarrage manuel (Fév 2026)
