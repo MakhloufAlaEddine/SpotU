@@ -24,6 +24,10 @@ const PRECISION_LABEL: Record<string, string> = { exact: 'Précis', '100m': '± 
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function getNextOccurrence(slot: any): string {
+  if (slot.slot_type === 'single' && slot.slot_date) {
+    const d = new Date(slot.slot_date + 'T' + slot.start_time);
+    return `${formatFullDate(slot.slot_date)} · ${slot.start_time}${slot.end_time ? ` → ${slot.end_time}` : ''}`;
+  }
   const now = new Date();
   const todayIdx = now.getDay() === 0 ? 6 : now.getDay() - 1;
   const [h, m] = slot.start_time.split(':').map(Number);
