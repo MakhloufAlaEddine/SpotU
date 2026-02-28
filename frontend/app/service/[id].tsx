@@ -141,7 +141,7 @@ export default function ServiceDetailScreen() {
     setSavingInProgress(true);
     try {
       if (isSaved) {
-        await api.del(`/services/${id}/unsave`);
+        await api.delete(`/services/${id}/unsave`);
         setIsSaved(false);
       } else {
         await api.post(`/services/${id}/save`, {});
