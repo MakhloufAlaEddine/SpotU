@@ -20,17 +20,15 @@ interface WeekCalendarProps {
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TEAL = '#00BFA5';
 const TEAL_BG = 'rgba(0,191,165,0.10)';
-const TEAL_BORDER = 'rgba(0,191,165,0.35)';
-const TEAL_DASHED = '#00BFA5';
+const PICKER_BG = '#111111';
+const PICKER_CARD = '#1E1E1E';
 
 const MONTHS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
 const MONTHS_LONG = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 const DAYS = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
 const DAYS_LONG = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
-const DAYS_SHORT3 = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
 
-const HOURS = [6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22];
-const MINUTES = [0,15,30,45];
+const QUICK_PRESETS = [7, 8, 9, 10, 12, 17, 18, 19, 20, 21];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const toMins = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
@@ -55,7 +53,7 @@ function getWeekDays(weekOffset: number) {
     d.setDate(mon.getDate() + i);
     return {
       date: d, dateStr: fmtDateKey(d),
-      dayName: DAYS[i], dayLong: DAYS_LONG[i], dayShort: DAYS_SHORT3[i],
+      dayName: DAYS[i], dayLong: DAYS_LONG[i],
       dayNum: d.getDate(), monthAbbr: MONTHS[d.getMonth()], monthLong: MONTHS_LONG[d.getMonth()],
       showMonth: d.getDate() === 1,
     };
@@ -64,9 +62,9 @@ function getWeekDays(weekOffset: number) {
 
 function getWeekRangeLabel(days: ReturnType<typeof getWeekDays>) {
   const f = days[0], l = days[6];
-  if (f.date.getMonth() === l.date.getMonth())
-    return `${f.dayNum} – ${l.dayNum} ${MONTHS[l.date.getMonth()]}`;
-  return `${f.dayNum} ${MONTHS[f.date.getMonth()]} – ${l.dayNum} ${MONTHS[l.date.getMonth()]}`;
+  return f.date.getMonth() === l.date.getMonth()
+    ? `${f.dayNum} – ${l.dayNum} ${MONTHS[l.date.getMonth()]}`
+    : `${f.dayNum} ${MONTHS[f.date.getMonth()]} – ${l.dayNum} ${MONTHS[l.date.getMonth()]}`;
 }
 
 function hasOverlap(daySlots: DaySlot[], start: string, end: string, excludeId?: string) {
@@ -82,77 +80,112 @@ function getPrevDateStr(dateStr: string) {
   return fmtDateKey(d);
 }
 
-// ─── Inline Time Picker ───────────────────────────────────────────────────────
-function InlineTimePicker({ title, hour, minute, previewEnd, onHourChange, onMinuteChange, onConfirm, onCancel }: {
-  title: string; hour: number; minute: number; previewEnd?: string;
-  onHourChange: (h: number) => void; onMinuteChange: (m: number) => void;
-  onConfirm: () => void; onCancel: () => void;
+// ─── Drum Time Picker ─────────────────────────────────────────────────────────
+function DrumTimePicker({ title, initHour, initMinute, onConfirm, onCancel }: {
+  title: string; initHour: number; initMinute: number;
+  onConfirm: (h: number, m: number) => void; onCancel: () => void;
 }) {
+  const [h, setH] = useState(initHour);
+  const [m, setM] = useState(initMinute);
+
+  const incH = () => setH(p => (p + 1) % 24);
+  const decH = () => setH(p => (p + 23) % 24);
+  const incM = () => setM(p => (p + 15) % 60);
+  const decM = () => setM(p => (p + 45) % 60);
+
   return (
-    <View style={tp.container}>
-      <View style={tp.header}>
-        <Text style={tp.title}>{title}</Text>
-        <TouchableOpacity onPress={onCancel} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Ionicons name="close" size={20} color={Colors.muted} />
+    <View style={dt.root}>
+      {/* Header */}
+      <View style={dt.header}>
+        <TouchableOpacity onPress={onCancel} style={dt.headerSide} testID="picker-cancel">
+          <Text style={dt.cancelText}>Annuler</Text>
+        </TouchableOpacity>
+        <Text style={dt.headerTitle}>{title}</Text>
+        <TouchableOpacity onPress={() => onConfirm(h, m)} style={[dt.headerSide, dt.headerSideRight]} testID="picker-confirm-header">
+          <Text style={dt.confirmHeaderText}>Confirmer</Text>
         </TouchableOpacity>
       </View>
-      <Text style={tp.label}>Heure</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <View style={{ flexDirection: 'row', gap: 6, paddingBottom: 2 }}>
-          {HOURS.map(h => (
-            <TouchableOpacity key={h} style={[tp.unit, hour === h && tp.unitActive]} onPress={() => onHourChange(h)} testID={`hour-${h}`}>
-              <Text style={[tp.unitText, hour === h && tp.unitTextActive]}>{String(h).padStart(2,'0')}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </ScrollView>
-      <Text style={tp.label}>Minutes</Text>
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        {MINUTES.map(m => (
-          <TouchableOpacity key={m} style={[tp.unit, tp.unitMin, minute === m && tp.unitActive]} onPress={() => onMinuteChange(m)} testID={`minute-${m}`}>
-            <Text style={[tp.unitText, minute === m && tp.unitTextActive]}>{String(m).padStart(2,'0')}</Text>
+      <View style={dt.separator} />
+
+      {/* Drum */}
+      <View style={dt.drumRow}>
+        {/* Hours drum */}
+        <View style={dt.drumCol}>
+          <TouchableOpacity onPress={incH} style={dt.arrowBtn} testID="hour-inc">
+            <Ionicons name="chevron-up" size={30} color="#666" />
           </TouchableOpacity>
-        ))}
+          <View style={dt.displayBox}>
+            <Text style={dt.displayText}>{String(h).padStart(2,'0')}</Text>
+          </View>
+          <TouchableOpacity onPress={decH} style={dt.arrowBtn} testID="hour-dec">
+            <Ionicons name="chevron-down" size={30} color="#666" />
+          </TouchableOpacity>
+          <Text style={dt.drumLabel}>HEURE</Text>
+        </View>
+
+        {/* Colon */}
+        <View style={dt.colonBox}>
+          <Text style={dt.colonDot}>·</Text>
+          <Text style={dt.colonDot}>·</Text>
+        </View>
+
+        {/* Minutes drum */}
+        <View style={dt.drumCol}>
+          <TouchableOpacity onPress={incM} style={dt.arrowBtn} testID="min-inc">
+            <Ionicons name="chevron-up" size={30} color="#666" />
+          </TouchableOpacity>
+          <View style={dt.displayBox}>
+            <Text style={dt.displayText}>{String(m).padStart(2,'0')}</Text>
+          </View>
+          <TouchableOpacity onPress={decM} style={dt.arrowBtn} testID="min-dec">
+            <Ionicons name="chevron-down" size={30} color="#666" />
+          </TouchableOpacity>
+          <Text style={dt.drumLabel}>MIN</Text>
+        </View>
       </View>
-      <View style={tp.preview}>
-        <Ionicons name="time-outline" size={15} color={TEAL} />
-        <Text style={tp.previewText}>
-          {fmtTime(hour, minute)}{previewEnd ? ` → ${previewEnd}` : ''}
-        </Text>
+
+      {/* Quick presets */}
+      <View style={dt.presetsGrid}>
+        {QUICK_PRESETS.map(ph => {
+          const active = h === ph && m === 0;
+          return (
+            <TouchableOpacity
+              key={ph}
+              style={[dt.presetChip, active && dt.presetChipActive]}
+              onPress={() => { setH(ph); setM(0); }}
+              testID={`preset-${ph}`}
+            >
+              <Text style={[dt.presetText, active && dt.presetTextActive]}>
+                {String(ph).padStart(2,'0')}:00
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
-      <TouchableOpacity style={tp.confirmBtn} onPress={onConfirm} testID="confirm-time">
-        <Ionicons name="checkmark-circle" size={18} color={Colors.background} />
-        <Text style={tp.confirmBtnText}>Confirmer</Text>
+
+      {/* Big confirm button */}
+      <TouchableOpacity style={dt.bigBtn} onPress={() => onConfirm(h, m)} testID="confirm-time">
+        <Ionicons name="checkmark-circle" size={22} color="#000" />
+        <Text style={dt.bigBtnText}>Confirmer {String(h).padStart(2,'0')}:{String(m).padStart(2,'0')}</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
 // ─── Slot Row Component ───────────────────────────────────────────────────────
-function SlotRow({ startTime, endTime, onStartPress, onEndPress, onDelete, startActive, endActive, testId }: {
-  startTime: string; endTime: string | null;
-  onStartPress: () => void; onEndPress?: () => void; onDelete: () => void;
-  startActive?: boolean; endActive?: boolean; testId?: string;
+function SlotRow({ startTime, endTime, onDelete, testId }: {
+  startTime: string; endTime: string; onDelete: () => void; testId?: string;
 }) {
   return (
     <View style={sr.row} testID={testId}>
-      {/* Start time button */}
-      <TouchableOpacity style={[sr.timeBtn, startActive && sr.timeBtnActive]} onPress={onStartPress} testID="start-btn">
-        <Ionicons name="play-circle-outline" size={18} color={startTime !== 'Début' ? TEAL : Colors.muted} />
-        <Text style={[sr.timeBtnText, startTime !== 'Début' && sr.timeBtnTextFilled]}>{startTime}</Text>
+      <TouchableOpacity style={sr.timeBtn} activeOpacity={1}>
+        <Ionicons name="play-circle-outline" size={18} color={TEAL} />
+        <Text style={sr.timeBtnText}>{startTime}</Text>
       </TouchableOpacity>
-      {/* End time button */}
-      <TouchableOpacity
-        style={[sr.timeBtn, endActive && sr.timeBtnActive]}
-        onPress={onEndPress}
-        testID="end-btn"
-      >
-        <Ionicons name="stop-circle-outline" size={18} color={endTime ? TEAL : Colors.muted} />
-        <Text style={[sr.timeBtnText, endTime ? sr.timeBtnTextFilled : sr.timeBtnTextMuted]}>
-          {endTime || 'Fin ?'}
-        </Text>
+      <TouchableOpacity style={sr.timeBtn} activeOpacity={1}>
+        <Ionicons name="stop-circle-outline" size={18} color={TEAL} />
+        <Text style={sr.timeBtnText}>{endTime}</Text>
       </TouchableOpacity>
-      {/* Delete X button */}
       <TouchableOpacity style={sr.deleteBtn} onPress={onDelete} testID="delete-slot">
         <Text style={sr.deleteBtnText}>×</Text>
       </TouchableOpacity>
@@ -166,13 +199,8 @@ export function WeekCalendar({ slots, durationMin, onSlotsChange }: WeekCalendar
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [showDayModal, setShowDayModal] = useState(false);
 
-  // Inline time picker state
-  const [showPicker, setShowPicker] = useState(false);
-  const [pickingField, setPickingField] = useState<'start' | 'end'>('start');
-  const [pickerHour, setPickerHour] = useState(9);
-  const [pickerMinute, setPickerMinute] = useState(0);
-
-  // Pending new slot
+  // 'idle' | 'picking-start' | 'picking-end'
+  const [pickerMode, setPickerMode] = useState<'idle' | 'picking-start' | 'picking-end'>('idle');
   const [pendingStartStr, setPendingStartStr] = useState<string | null>(null);
   const [pendingEndStr, setPendingEndStr] = useState<string | null>(null);
 
@@ -206,45 +234,48 @@ export function WeekCalendar({ slots, durationMin, onSlotsChange }: WeekCalendar
     setSelectedDate(dateStr);
     setPendingStartStr(null);
     setPendingEndStr(null);
-    setShowPicker(false);
+    setPickerMode('idle');
     setShowDayModal(true);
   };
 
-  const openStartPicker = () => {
-    setPickingField('start');
-    if (pendingStartStr) { const [h, m] = pendingStartStr.split(':').map(Number); setPickerHour(h); setPickerMinute(m); }
-    else { setPickerHour(9); setPickerMinute(0); }
-    setShowPicker(true);
+  const closeAll = () => {
+    setShowDayModal(false);
+    setPickerMode('idle');
   };
 
+  // Called when user taps "Ajouter un créneau"
+  const openStartPicker = () => setPickerMode('picking-start');
+
+  // Called when user taps the "Fin ?" button in pending row
   const openEndPicker = () => {
-    if (!pendingStartStr) { Alert.alert('', "Définissez d'abord l'heure de début"); return; }
-    setPickingField('end');
-    if (pendingEndStr) { const [h, m] = pendingEndStr.split(':').map(Number); setPickerHour(h); setPickerMinute(m); }
-    else { const ae = addMins(pendingStartStr, durationMin); const [h, m] = ae.split(':').map(Number); setPickerHour(h); setPickerMinute(m); }
-    setShowPicker(true);
+    if (!pendingStartStr) return;
+    setPickerMode('picking-end');
   };
 
-  const confirmPickerTime = () => {
-    const timeStr = fmtTime(pickerHour, pickerMinute);
-    if (pickingField === 'start') {
+  const onDrumConfirm = (h: number, m: number) => {
+    const timeStr = fmtTime(h, m);
+    if (pickerMode === 'picking-start') {
       setPendingStartStr(timeStr);
       setPendingEndStr(addMins(timeStr, durationMin));
-    } else {
+      setPickerMode('idle');
+    } else if (pickerMode === 'picking-end') {
       if (pendingStartStr) {
-        if (toMins(timeStr) <= toMins(pendingStartStr)) { Alert.alert('Heure invalide', 'La fin doit être après le début'); return; }
-        if (toMins(timeStr) - toMins(pendingStartStr) < durationMin) { Alert.alert('Durée insuffisante', `Minimum ${durationMin} minutes`); return; }
+        if (toMins(timeStr) <= toMins(pendingStartStr)) {
+          Alert.alert('Heure invalide', 'La fin doit être après le début');
+          return;
+        }
       }
       setPendingEndStr(timeStr);
+      setPickerMode('idle');
     }
-    setShowPicker(false);
   };
 
   const handleAddSlot = () => {
     if (!selectedDate || !pendingStartStr || !pendingEndStr) return;
     const daySlots = getDateSlots(selectedDate);
     if (hasOverlap(daySlots, pendingStartStr, pendingEndStr)) {
-      Alert.alert('Chevauchement', `${pendingStartStr}→${pendingEndStr} chevauche un créneau existant.`); return;
+      Alert.alert('Chevauchement', `${pendingStartStr}→${pendingEndStr} chevauche un créneau existant.`);
+      return;
     }
     onSlotsChange([...slots, {
       id: `slot_${Date.now()}_${Math.random().toString(36).slice(2)}`,
@@ -252,22 +283,27 @@ export function WeekCalendar({ slots, durationMin, onSlotsChange }: WeekCalendar
     }]);
     setPendingStartStr(null);
     setPendingEndStr(null);
-    setShowPicker(false);
+    setPickerMode('idle');
   };
 
   const selectedDaySlots = selectedDate ? getDateSlots(selectedDate) : [];
   const selectedDayInfo = selectedDate
     ? weekDays.find(d => d.dateStr === selectedDate) || (() => {
         const d = new Date(selectedDate + 'T00:00:00');
-        return { dayShort: DAYS_SHORT3[d.getDay() === 0 ? 6 : d.getDay() - 1], dayLong: DAYS_LONG[d.getDay() === 0 ? 6 : d.getDay() - 1], dayNum: d.getDate(), monthLong: MONTHS_LONG[d.getMonth()] };
+        return { dayLong: DAYS_LONG[d.getDay() === 0 ? 6 : d.getDay() - 1], dayNum: d.getDate(), monthLong: MONTHS_LONG[d.getMonth()] };
       })() : null;
 
   const hasPendingSlot = pendingStartStr !== null;
   const totalSlots = selectedDaySlots.length + (hasPendingSlot && pendingEndStr ? 1 : 0);
 
-  const pickerPreviewEnd = pickingField === 'start'
-    ? addMins(fmtTime(pickerHour, pickerMinute), durationMin)
-    : undefined;
+  const showPicker = pickerMode !== 'idle';
+  const pickerTitle = pickerMode === 'picking-start' ? 'Heure' : 'Heure de fin';
+  const pickerInitHour = pickerMode === 'picking-start'
+    ? (pendingStartStr ? parseInt(pendingStartStr.split(':')[0]) : 9)
+    : (pendingEndStr ? parseInt(pendingEndStr.split(':')[0]) : 10);
+  const pickerInitMinute = pickerMode === 'picking-start'
+    ? (pendingStartStr ? parseInt(pendingStartStr.split(':')[1]) : 0)
+    : (pendingEndStr ? parseInt(pendingEndStr.split(':')[1]) : 0);
 
   return (
     <View>
@@ -305,18 +341,12 @@ export function WeekCalendar({ slots, durationMin, onSlotsChange }: WeekCalendar
         })}
       </View>
 
-      {/* ── Day cards (slot summary below calendar) ───────────────────── */}
+      {/* ── Day cards below calendar ──────────────────────────────────── */}
       {weekDays.filter(d => getDateSlots(d.dateStr).length > 0).map(day => (
-        <TouchableOpacity
-          key={day.dateStr}
-          style={s.dayCard}
-          onPress={() => handleDayPress(day.dateStr)}
-          activeOpacity={0.8}
-          testID={`day-card-${day.dateStr}`}
-        >
+        <TouchableOpacity key={day.dateStr} style={s.dayCard} onPress={() => handleDayPress(day.dateStr)} activeOpacity={0.8} testID={`day-card-${day.dateStr}`}>
           <View style={s.dayCardHeader}>
             <View style={s.dayCardDot} />
-            <Text style={s.dayCardTitle}>{day.dayShort}</Text>
+            <Text style={s.dayCardTitle}>{day.dayName}</Text>
             <Text style={s.dayCardCount}>{getDateSlots(day.dateStr).length} créneau{getDateSlots(day.dateStr).length > 1 ? 'x' : ''}</Text>
           </View>
           <View style={s.dayCardSlots}>
@@ -336,93 +366,118 @@ export function WeekCalendar({ slots, durationMin, onSlotsChange }: WeekCalendar
         </View>
       )}
 
-      {/* ── Day Modal ────────────────────────────────────────────────── */}
-      <Modal visible={showDayModal} animationType="slide" transparent onRequestClose={() => { setShowDayModal(false); setShowPicker(false); }}>
-        <View style={s.overlayContainer}>
-          <TouchableOpacity style={s.backdropDismiss} activeOpacity={1} onPress={() => { setShowDayModal(false); setShowPicker(false); }} />
-          <View style={s.sheet}>
-            <View style={s.sheetHandle} />
+      {/* ── Modal ────────────────────────────────────────────────────── */}
+      <Modal visible={showDayModal} animationType="slide" transparent={!showPicker} onRequestClose={() => { if (showPicker) { setPickerMode('idle'); } else { closeAll(); } }}>
+        {showPicker ? (
+          /* ── Full-screen Drum Picker ─────────────────────────── */
+          <DrumTimePicker
+            title={pickerTitle}
+            initHour={pickerInitHour}
+            initMinute={pickerInitMinute}
+            onConfirm={onDrumConfirm}
+            onCancel={() => setPickerMode('idle')}
+          />
+        ) : (
+          /* ── Bottom Sheet ────────────────────────────────────── */
+          <View style={s.overlayContainer}>
+            <TouchableOpacity style={s.backdropDismiss} activeOpacity={1} onPress={closeAll} />
+            <View style={s.sheet}>
+              <View style={s.sheetHandle} />
 
-            {/* ── Card header: dot + day + count + close ── */}
-            <View style={s.cardHeader}>
-              <View style={s.cardDot} />
-              <Text style={s.cardTitle}>
-                {selectedDayInfo ? (selectedDayInfo as any).dayLong : ''}
-              </Text>
-              <Text style={s.cardCount}>
-                {totalSlots} créneau{totalSlots !== 1 ? 'x' : ''}
-              </Text>
-              <TouchableOpacity onPress={() => { setShowDayModal(false); setShowPicker(false); }} style={s.closeBtn}>
-                <Text style={s.closeBtnText}>×</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* ── Time picker inline ── */}
-            {showPicker ? (
-              <InlineTimePicker
-                title={pickingField === 'start' ? 'Heure de début' : 'Heure de fin'}
-                hour={pickerHour}
-                minute={pickerMinute}
-                previewEnd={pickerPreviewEnd}
-                onHourChange={setPickerHour}
-                onMinuteChange={setPickerMinute}
-                onConfirm={confirmPickerTime}
-                onCancel={() => setShowPicker(false)}
-              />
-            ) : (
-              <View style={s.slotsSection}>
-                {/* ── Existing saved slots ── */}
-                {selectedDaySlots.map(slot => (
-                  <SlotRow
-                    key={slot.id}
-                    startTime={slot.startTime}
-                    endTime={slot.endTime}
-                    startActive={false}
-                    endActive={false}
-                    onStartPress={() => {}}
-                    onEndPress={() => {}}
-                    onDelete={() => onSlotsChange(slots.filter(ss => ss.id !== slot.id))}
-                    testId={`existing-slot-${slot.id}`}
-                  />
-                ))}
-
-                {/* ── Pending new slot ── */}
-                {hasPendingSlot && (
-                  <SlotRow
-                    startTime={pendingStartStr || 'Début'}
-                    endTime={pendingEndStr}
-                    startActive={true}
-                    endActive={false}
-                    onStartPress={openStartPicker}
-                    onEndPress={openEndPicker}
-                    onDelete={() => { setPendingStartStr(null); setPendingEndStr(null); }}
-                    testId="pending-slot-row"
-                  />
-                )}
-
-                {/* ── Add confirm button (when pending slot is ready) ── */}
-                {hasPendingSlot && pendingEndStr && (
-                  <TouchableOpacity style={s.confirmAddBtn} onPress={handleAddSlot} testID="confirm-slot">
-                    <Ionicons name="add-circle" size={18} color={Colors.background} />
-                    <Text style={s.confirmAddBtnText}>Enregistrer ce créneau</Text>
-                  </TouchableOpacity>
-                )}
-
-                {/* ── Add new créneau dashed button ── */}
-                {!hasPendingSlot && (
-                  <TouchableOpacity style={s.addDashedBtn} onPress={openStartPicker} testID="add-slot-btn">
-                    <Ionicons name="add-circle-outline" size={22} color={TEAL} />
-                    <Text style={s.addDashedBtnText}>Ajouter un créneau</Text>
-                  </TouchableOpacity>
-                )}
+              {/* Card header */}
+              <View style={s.cardHeader}>
+                <View style={s.cardDot} />
+                <Text style={s.cardTitle}>{selectedDayInfo ? (selectedDayInfo as any).dayLong : ''}</Text>
+                <Text style={s.cardCount}>{totalSlots} créneau{totalSlots !== 1 ? 'x' : ''}</Text>
+                <TouchableOpacity onPress={closeAll} style={s.closeBtn}>
+                  <Text style={s.closeBtnText}>×</Text>
+                </TouchableOpacity>
               </View>
-            )}
+
+              {/* Saved slots */}
+              {selectedDaySlots.map(slot => (
+                <SlotRow
+                  key={slot.id}
+                  startTime={slot.startTime}
+                  endTime={slot.endTime}
+                  onDelete={() => onSlotsChange(slots.filter(ss => ss.id !== slot.id))}
+                  testId={`saved-slot-${slot.id}`}
+                />
+              ))}
+
+              {/* Pending slot row */}
+              {hasPendingSlot && (
+                <View style={s.pendingRow}>
+                  <TouchableOpacity style={[sr.timeBtn, s.timeBtnPending]} onPress={openStartPicker} testID="start-btn">
+                    <Ionicons name="play-circle-outline" size={18} color={TEAL} />
+                    <Text style={sr.timeBtnText}>{pendingStartStr}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[sr.timeBtn, !pendingEndStr && s.timeBtnEmpty]} onPress={openEndPicker} testID="end-btn">
+                    <Ionicons name="stop-circle-outline" size={18} color={pendingEndStr ? TEAL : Colors.muted} />
+                    <Text style={[sr.timeBtnText, !pendingEndStr && { color: Colors.muted }]}>{pendingEndStr || 'Fin ?'}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={sr.deleteBtn} onPress={() => { setPendingStartStr(null); setPendingEndStr(null); }} testID="delete-pending">
+                    <Text style={sr.deleteBtnText}>×</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {/* Save pending slot */}
+              {hasPendingSlot && pendingEndStr && (
+                <TouchableOpacity style={s.confirmAddBtn} onPress={handleAddSlot} testID="confirm-slot">
+                  <Ionicons name="add-circle" size={18} color={Colors.background} />
+                  <Text style={s.confirmAddBtnText}>Enregistrer ce créneau</Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Add dashed button */}
+              {!hasPendingSlot && (
+                <TouchableOpacity style={s.addDashedBtn} onPress={openStartPicker} testID="add-slot-btn">
+                  <Ionicons name="add-circle-outline" size={22} color={TEAL} />
+                  <Text style={s.addDashedBtnText}>Ajouter un créneau</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
-        </View>
+        )}
       </Modal>
     </View>
   );
 }
+
+// ─── Drum Picker Styles ───────────────────────────────────────────────────────
+const dt = StyleSheet.create({
+  root: { flex: 1, backgroundColor: PICKER_BG, paddingHorizontal: 32, paddingBottom: 48 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 60, paddingBottom: 20 },
+  headerSide: { minWidth: 90 },
+  headerSideRight: { alignItems: 'flex-end' },
+  headerTitle: { fontSize: 20, fontWeight: '700', color: '#FFF' },
+  cancelText: { fontSize: 16, color: '#888', fontWeight: '500' },
+  confirmHeaderText: { fontSize: 16, fontWeight: '700', color: TEAL },
+  separator: { height: 1, backgroundColor: '#2A2A2A' },
+  drumRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 24, paddingVertical: 32 },
+  drumCol: { alignItems: 'center', gap: 14 },
+  arrowBtn: { padding: 8 },
+  displayBox: {
+    width: 140, height: 140, borderRadius: 28,
+    backgroundColor: PICKER_CARD, borderWidth: 2, borderColor: TEAL,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  displayText: { fontSize: 64, fontWeight: '800', color: TEAL },
+  drumLabel: { fontSize: 11, fontWeight: '700', color: '#666', letterSpacing: 1.5, textTransform: 'uppercase', marginTop: 4 },
+  colonBox: { alignItems: 'center', gap: 10, paddingBottom: 60 },
+  colonDot: { fontSize: 16, color: '#666', fontWeight: '900' },
+  presetsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center', marginBottom: 28 },
+  presetChip: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 24, backgroundColor: PICKER_CARD },
+  presetChipActive: { backgroundColor: TEAL + '25', borderWidth: 1.5, borderColor: TEAL },
+  presetText: { fontSize: 14, fontWeight: '600', color: '#888' },
+  presetTextActive: { color: TEAL, fontWeight: '700' },
+  bigBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12,
+    backgroundColor: TEAL, borderRadius: 60, paddingVertical: 18, marginTop: 4,
+  },
+  bigBtnText: { fontSize: 18, fontWeight: '800', color: '#000' },
+});
 
 // ─── SlotRow Styles ───────────────────────────────────────────────────────────
 const sr = StyleSheet.create({
@@ -431,35 +486,11 @@ const sr = StyleSheet.create({
     flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10,
     backgroundColor: Colors.background, borderRadius: Radius.lg,
     paddingHorizontal: 14, paddingVertical: 16,
-    borderWidth: 1.5, borderColor: Colors.border,
+    borderWidth: 1.5, borderColor: TEAL + '60',
   },
-  timeBtnActive: { borderColor: TEAL, backgroundColor: 'rgba(0,191,165,0.08)' },
-  timeBtnText: { fontSize: 17, fontWeight: '800' },
-  timeBtnTextFilled: { color: TEAL },
-  timeBtnTextMuted: { color: Colors.muted, fontWeight: '600', fontSize: 15 },
-  deleteBtn: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  deleteBtnText: { fontSize: 20, fontWeight: '400', color: Colors.muted, lineHeight: 22 },
-});
-
-// ─── InlineTimePicker Styles ──────────────────────────────────────────────────
-const tp = StyleSheet.create({
-  container: { gap: 10, paddingTop: 4 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
-  title: { fontSize: 15, fontWeight: '700', color: Colors.foreground },
-  label: { fontSize: 10, fontWeight: '700', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.5 },
-  unit: { width: 42, height: 42, borderRadius: 10, backgroundColor: Colors.background, borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
-  unitMin: { width: 54 },
-  unitActive: { backgroundColor: 'rgba(0,191,165,0.15)', borderColor: TEAL },
-  unitText: { fontSize: 14, fontWeight: '700', color: Colors.muted },
-  unitTextActive: { color: TEAL },
-  preview: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0,191,165,0.10)', borderRadius: Radius.md, padding: 10, borderWidth: 1, borderColor: 'rgba(0,191,165,0.30)' },
-  previewText: { fontSize: 15, fontWeight: '800', color: TEAL },
-  confirmBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: TEAL, borderRadius: Radius.full, paddingVertical: 12 },
-  confirmBtnText: { fontSize: 14, fontWeight: '700', color: Colors.background },
+  timeBtnText: { fontSize: 17, fontWeight: '800', color: TEAL },
+  deleteBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
+  deleteBtnText: { fontSize: 20, color: Colors.muted, lineHeight: 22 },
 });
 
 // ─── Main Styles ──────────────────────────────────────────────────────────────
@@ -478,43 +509,31 @@ const s = StyleSheet.create({
   monthLabel: { fontSize: 8, color: Colors.muted, fontWeight: '600' },
   slotBadge: { position: 'absolute', top: 2, right: 2, width: 14, height: 14, borderRadius: 7, backgroundColor: TEAL, alignItems: 'center', justifyContent: 'center' },
   slotBadgeText: { fontSize: 8, fontWeight: '800', color: Colors.background },
-  // Day cards below calendar
-  dayCard: {
-    marginTop: 10, backgroundColor: Colors.card, borderRadius: Radius.xl,
-    padding: 14, borderWidth: 1, borderColor: Colors.border, gap: 10,
-  },
+  dayCard: { marginTop: 10, backgroundColor: Colors.card, borderRadius: Radius.xl, padding: 14, borderWidth: 1, borderColor: Colors.border, gap: 10 },
   dayCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   dayCardDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: TEAL },
   dayCardTitle: { fontSize: 16, fontWeight: '800', color: Colors.foreground, flex: 1 },
-  dayCardCount: { fontSize: 13, color: Colors.muted, fontWeight: '500' },
+  dayCardCount: { fontSize: 13, color: Colors.muted },
   dayCardSlots: { gap: 4, paddingLeft: 16 },
   dayCardSlotRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   dayCardSlotTime: { fontSize: 13, fontWeight: '700', color: TEAL },
   emptyHint: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10, paddingHorizontal: 4 },
   emptyHintText: { fontSize: 12, color: Colors.muted, fontStyle: 'italic' },
-  // Modal
   overlayContainer: { flex: 1, justifyContent: 'flex-end' },
   backdropDismiss: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)' },
   sheet: { backgroundColor: Colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: 40, paddingHorizontal: Spacing.md },
   sheetHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: Colors.border, alignSelf: 'center', marginTop: 10, marginBottom: 16 },
-  // Card header in modal
-  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 20 },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
   cardDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: TEAL },
   cardTitle: { fontSize: 20, fontWeight: '800', color: Colors.foreground, flex: 1 },
   cardCount: { fontSize: 13, color: Colors.muted },
   closeBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.backgroundSecondary, alignItems: 'center', justifyContent: 'center' },
   closeBtnText: { fontSize: 22, color: Colors.muted, lineHeight: 24 },
-  // Slots section
-  slotsSection: { gap: 4 },
-  // Confirm add button
+  pendingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  timeBtnPending: { borderColor: TEAL },
+  timeBtnEmpty: { borderColor: Colors.border },
   confirmAddBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: TEAL, borderRadius: Radius.full, paddingVertical: 13, marginTop: 4 },
   confirmAddBtnText: { fontSize: 15, fontWeight: '700', color: Colors.background },
-  // Add dashed button
-  addDashedBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    borderRadius: Radius.lg, padding: 18, marginTop: 4,
-    borderWidth: 2, borderColor: TEAL_DASHED, borderStyle: 'dashed',
-    backgroundColor: TEAL_BG,
-  },
+  addDashedBtn: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: Radius.lg, padding: 18, marginTop: 4, borderWidth: 2, borderColor: TEAL, borderStyle: 'dashed', backgroundColor: TEAL_BG },
   addDashedBtnText: { fontSize: 16, fontWeight: '700', color: TEAL },
 });
