@@ -462,7 +462,7 @@ export default function ServiceDetailScreen() {
                         })}
 
                         {/* Bouton "Voir plus" */}
-                        {!showAllDates && sortedKeys.length > visibleCount && (
+                        {sortedKeys.length > visibleCount && (
                           <TouchableOpacity
                             style={s.showMoreBtn}
                             onPress={() => setVisibleCount(c => c + 3)}
