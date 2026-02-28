@@ -220,6 +220,28 @@ export default function MenuScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* ── COACH SECTION ─────────────────────────────────── */}
+        {isCoach && (
+          <View style={st.section}>
+            <Text style={st.sectionTitle}>Espace Coach</Text>
+            <TouchableOpacity
+              style={st.coachCreateBtn}
+              onPress={() => router.push('/create-service' as any)}
+              activeOpacity={0.85}
+              testID="coach-create-service-btn"
+            >
+              <View style={st.coachCreateIconBox}>
+                <Ionicons name="add-circle" size={26} color="#FF9500" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={st.coachCreateTitle}>Créer un service</Text>
+                <Text style={st.coachCreateSub}>Publiez vos prestations de coaching</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#FF9500" />
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* ── MY TAGPOINTS (horizontal scroll) ──────────────── */}
         {myTagPoints.length > 0 && (
           <View style={st.section}>
