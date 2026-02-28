@@ -736,7 +736,33 @@ const s = StyleSheet.create({
   weekDayTextActive: { color: Colors.background },
   weekDayDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: ORANGE },
 
-  // Per-location slot list
+  // Per-location slot list → Accordion
+  accordionList: { borderTopWidth: 1, borderTopColor: Colors.border },
+  accordionGroup: { borderTopWidth: 1, borderTopColor: Colors.border },
+  accordionHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 14, paddingVertical: 14,
+    backgroundColor: Colors.card,
+  },
+  accordionHeaderSelected: { backgroundColor: ORANGE_LIGHT },
+  accordionDateLabel: { fontSize: 15, fontWeight: '700', color: Colors.foreground, flex: 1 },
+  accordionDateLabelSelected: { color: ORANGE },
+  accordionBody: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: 10,
+    paddingHorizontal: 14, paddingBottom: 14, paddingTop: 4,
+    backgroundColor: Colors.card,
+  },
+  // Slot chips (style Doctolib)
+  slotChip: {
+    paddingHorizontal: 18, paddingVertical: 10,
+    borderRadius: 8, minWidth: 72, alignItems: 'center',
+    backgroundColor: Colors.backgroundSecondary,
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  slotChipActive: { backgroundColor: ORANGE, borderColor: ORANGE },
+  slotChipText: { fontSize: 15, fontWeight: '600', color: Colors.foreground },
+  slotChipTextActive: { color: Colors.background },
+  // (kept for booking modal compatibility)
   locSlotList: { borderTopWidth: 1, borderTopColor: Colors.border },
   locSlotRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
