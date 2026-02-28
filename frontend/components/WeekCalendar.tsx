@@ -545,6 +545,7 @@ const s = StyleSheet.create({
   dayCircleSlots: { backgroundColor: TEAL },
   dayNum: { fontSize: 14, fontWeight: '700', color: Colors.muted },
   dayNumActive: { color: Colors.background },
+  dayNumPast: { color: Colors.muted },
   monthLabel: { fontSize: 8, color: Colors.muted, fontWeight: '600' },
   slotBadge: { position: 'absolute', top: 2, right: 2, width: 14, height: 14, borderRadius: 7, backgroundColor: TEAL, alignItems: 'center', justifyContent: 'center' },
   slotBadgeText: { fontSize: 8, fontWeight: '800', color: Colors.background },
