@@ -360,6 +360,12 @@ export default function PlanningScreen() {
           showsVerticalScrollIndicator={false}
           initialScrollIndex={initialScrollIndex}
           getItemLayout={(_, index) => ({ length: 72, offset: 72 * index, index })}
+          onScrollToIndexFailed={(info) => {
+            // Fallback si getItemLayout est imprécis
+            setTimeout(() => {
+              flatRef.current?.scrollToIndex({ index: info.index, animated: true });
+            }, 200);
+          }}
           onViewableItemsChanged={onViewableItemsChanged.current}
           viewabilityConfig={viewabilityConfig.current}
           refreshControl={
