@@ -346,8 +346,19 @@ async def ws_chat(websocket: WebSocket, conv_id: str, token: str = Query(...)):
                     "SELECT user_id FROM conversation_participants WHERE conversation_id = $1 AND user_id != $2",
                     conv_id, user_id
                 )
+                participant_ids = [p["user_id"] for p in participants]
                 for p in participants:
                     await _push_unread(conn2, p["user_id"])
+
+            # Envoyer push notification aux autres participants (en arrière-plan)
+            import asyncio
+            for pid in participant_ids:
+                asyncio.create_task(send_push_to_user(
+                    pool, pid,
+                    title=user_info["name"],
+                    body=content[:100],
+                    data={"type": "chat_message", "conversationId": conv_id}
+                ))
 
     except WebSocketDisconnect:
         manager.disconnect(conv_id, websocket)

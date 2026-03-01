@@ -3,6 +3,8 @@ from datetime import datetime, timezone
 from models import BookingCreate, BookingStatusUpdate, new_id
 from auth_utils import require_auth
 from database import get_pool, row_to_dict, rows_to_list
+from push_service import send_push_to_user
+import asyncio
 
 router = APIRouter()
 COMMISSION_RATE = 0.15
