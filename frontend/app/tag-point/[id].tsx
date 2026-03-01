@@ -798,10 +798,23 @@ export default function TagPointDetail() {
 
           <TouchableOpacity
             style={st.msgBtn}
-            onPress={() => Alert.alert('Chat', 'Bientôt disponible !')}
+            onPress={openPrivateChat}
+            disabled={chatLoading}
             testID="message-button"
           >
-            <Ionicons name="chatbubble-ellipses-outline" size={20} color={Colors.foreground} />
+            {chatLoading
+              ? <ActivityIndicator size="small" color={Colors.foreground} />
+              : <Ionicons name="chatbubble-ellipses-outline" size={20} color={Colors.foreground} />
+            }
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[st.msgBtn, { backgroundColor: Colors.primaryLight }]}
+            onPress={openGroupChat}
+            disabled={chatLoading}
+            testID="group-chat-button"
+          >
+            <Ionicons name="people-outline" size={20} color={Colors.primary} />
           </TouchableOpacity>
         </View>
         )}
