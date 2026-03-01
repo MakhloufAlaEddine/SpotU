@@ -523,6 +523,27 @@ export default function TagPointDetail() {
     } catch (e: any) { Alert.alert('Erreur', e.message); }
   };
 
+  const [chatLoading, setChatLoading] = useState(false);
+  const openPrivateChat = async () => {
+    if (!user) { Alert.alert('', 'Connectez-vous pour envoyer un message'); return; }
+    setChatLoading(true);
+    try {
+      const conv = await getOrCreateConversation('tagpoint_private', id as string);
+      router.push(`/chat/${conv.conversation_id}` as any);
+    } catch { Alert.alert('Erreur', 'Impossible d\'ouvrir la conversation'); }
+    finally { setChatLoading(false); }
+  };
+
+  const openGroupChat = async () => {
+    if (!user) { Alert.alert('', 'Connectez-vous pour accéder au groupe'); return; }
+    setChatLoading(true);
+    try {
+      const conv = await getOrCreateConversation('tagpoint_group', id as string);
+      router.push(`/chat/${conv.conversation_id}` as any);
+    } catch { Alert.alert('Erreur', 'Impossible d\'ouvrir le groupe'); }
+    finally { setChatLoading(false); }
+  };
+
   const getPrecisionRadius = (p: string) => p === '100m' ? 100 : p === '1000m' ? 1000 : 0;
 
   if (loading) return (
