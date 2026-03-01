@@ -352,3 +352,35 @@ async def ws_chat(websocket: WebSocket, conv_id: str, token: str = Query(...)):
         manager.disconnect(conv_id, websocket)
     except Exception:
         manager.disconnect(conv_id, websocket)
+
+
+# ── WebSocket Notifications (unread count) ─────────────────────────────────────
+
+@router.websocket("/ws/notifications")
+async def ws_notifications(websocket: WebSocket, token: str = Query(...)):
+    """Canal personnel de notifications en temps réel (total non-lus)."""
+    pool = get_pool()
+    try:
+        payload = decode_jwt(token)
+    except Exception:
+        await websocket.close(code=4001)
+        return
+
+    user_id = payload["user_id"]
+    await notif_manager.connect(user_id, websocket)
+
+    try:
+        # Envoyer le total initial dès la connexion
+        async with pool.acquire() as conn:
+            total = await _get_unread_total(conn, user_id)
+        await websocket.send_json({"type": "unread_total", "count": total})
+
+        # Maintenir la connexion ouverte
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        pass
+    finally:
+        notif_manager.disconnect(user_id, websocket)
