@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from models import new_id
 from auth_utils import require_auth, decode_jwt
 from database import get_pool, row_to_dict, rows_to_list
-from chat_manager import manager
+from chat_manager import manager, notif_manager
 
 router = APIRouter()
 
