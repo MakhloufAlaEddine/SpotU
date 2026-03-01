@@ -348,10 +348,13 @@ export default function PlanningScreen() {
           <TouchableOpacity style={s.backBtn} onPress={() => router.back()} testID="back-btn">
             <Ionicons name="chevron-back" size={22} color={Colors.foreground} />
           </TouchableOpacity>
-          <Text style={s.headerTitle}>
-            {MONTHS_LONG[parseDate(selectedDate).getMonth()].charAt(0).toUpperCase()
-              + MONTHS_LONG[parseDate(selectedDate).getMonth()].slice(1)}
-          </Text>
+          <View style={s.headerCenter}>
+            <Text style={s.headerMonth}>
+              {MONTHS_LONG[parseDate(selectedDate).getMonth()].charAt(0).toUpperCase()
+                + MONTHS_LONG[parseDate(selectedDate).getMonth()].slice(1)}
+            </Text>
+            <Text style={s.headerYear}>{parseDate(selectedDate).getFullYear()}</Text>
+          </View>
           <View style={{ width: 40 }} />
         </View>
 
@@ -375,7 +378,6 @@ export default function PlanningScreen() {
           keyExtractor={keyExtractor}
           renderItem={renderItem}
           showsVerticalScrollIndicator={false}
-          initialScrollIndex={initialScrollIndex}
           getItemLayout={(_, index) => ({ length: 72, offset: 72 * index, index })}
           onScrollToIndexFailed={(info) => {
             // Fallback si getItemLayout est imprécis
