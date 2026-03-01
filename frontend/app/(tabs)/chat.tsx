@@ -24,10 +24,10 @@ function timeAgo(iso: string): string {
 
 function TypeBadge({ type }: { type: string }) {
   const label = type === 'service' ? 'SERVICE'
-    : type === 'spotyou_group' ? 'GROUPE'
+    : type === 'tagpoint_group' ? 'GROUPE'
     : 'PRIVÉ';
   const color = type === 'service' ? Colors.service
-    : type === 'spotyou_group' ? Colors.primary
+    : type === 'tagpoint_group' ? Colors.primary
     : Colors.coaching;
   return (
     <View style={[st.badge, { borderColor: color }]}>
@@ -39,7 +39,7 @@ function TypeBadge({ type }: { type: string }) {
 function ConvItem({ item, currentUserId }: { item: Conversation; currentUserId: string }) {
   const router = useRouter();
   const other = item.other_participant;
-  const isGroup = item.type === 'spotyou_group';
+  const isGroup = item.type === 'tagpoint_group';
 
   const title = isGroup
     ? item.context_title
