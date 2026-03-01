@@ -147,4 +147,16 @@ async def update_booking_status(booking_id: str, data: BookingStatusUpdate, requ
             "SELECT booking_id, service_id, user_id, coach_id, status, amount, commission, payment_status, created_at FROM bookings WHERE booking_id = $1",
             booking_id
         )
-    return row_to_dict(updated)
+    booking = row_to_dict(updated)
+    # Push notification à l'utilisateur
+    async with pool.acquire() as conn2:
+        svc_row = await conn2.fetchrow("SELECT title FROM services WHERE service_id = $1", booking["service_id"])
+    svc_name = svc_row["title"] if svc_row else "votre service"
+    status_fr = "acceptée ✅" if data.status == "accepted" else "refusée ❌"
+    asyncio.create_task(send_push_to_user(
+        pool, booking["user_id"],
+        title=f"Réservation {status_fr}",
+        body=f"Votre réservation pour {svc_name} a été {status_fr}",
+        data={"type": "booking_status", "bookingId": booking_id, "status": data.status}
+    ))
+    return booking
