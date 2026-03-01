@@ -176,7 +176,7 @@ export default function ChatListScreen() {
           data={conversations}
           keyExtractor={c => c.conversation_id}
           renderItem={({ item }) => <ConvItem item={item} currentUserId={currentUserId} />}
-          refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={Colors.primary} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={Colors.primary} />}
           ItemSeparatorComponent={() => <View style={st.separator} />}
           contentContainerStyle={{ paddingBottom: 24 }}
         />
