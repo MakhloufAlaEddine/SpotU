@@ -17,7 +17,7 @@ export interface ChatMessage {
 
 export interface Conversation {
   conversation_id: string;
-  type: 'service' | 'spotyou_group' | 'spotyou_private';
+  type: 'service' | 'tagpoint_group' | 'tagpoint_private';
   context_id: string;
   context_title: string;
   created_by: string;
