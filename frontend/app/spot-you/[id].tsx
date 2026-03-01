@@ -528,7 +528,7 @@ export default function SpotYouDetail() {
     if (!user) { Alert.alert('', 'Connectez-vous pour envoyer un message'); return; }
     setChatLoading(true);
     try {
-      const conv = await getOrCreateConversation('spotyou_private', id as string);
+      const conv = await getOrCreateConversation('tagpoint_private', id as string);
       router.push(`/chat/${conv.conversation_id}` as any);
     } catch { Alert.alert('Erreur', 'Impossible d\'ouvrir la conversation'); }
     finally { setChatLoading(false); }
@@ -538,7 +538,7 @@ export default function SpotYouDetail() {
     if (!user) { Alert.alert('', 'Connectez-vous pour accéder au groupe'); return; }
     setChatLoading(true);
     try {
-      const conv = await getOrCreateConversation('spotyou_group', id as string);
+      const conv = await getOrCreateConversation('tagpoint_group', id as string);
       router.push(`/chat/${conv.conversation_id}` as any);
     } catch { Alert.alert('Erreur', 'Impossible d\'ouvrir le groupe'); }
     finally { setChatLoading(false); }
