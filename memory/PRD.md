@@ -158,3 +158,4 @@ WINEK est une plateforme hyperlocale de connexion sportive basée sur des tags g
 - [x] Disponibilité des créneaux selon réservations : slot masqué si booking pending/accepted, visible à nouveau si refused (Fév 2026)
 - [x] Système de chat WebSocket temps réel : 3 types (service 1-1, tagpoint_group, tagpoint_private), tables DB, routes HTTP + WS, liste conversations, écran chat, boutons dans fiches service et tagpoint (Fév 2026)
 - [x] Badge non-lus 100% WebSocket : canal `/ws/notifications` par utilisateur, push en temps réel à chaque message envoyé ET à chaque lecture de conversation, zéro polling (Fév 2026)
+- [x] Push Notifications iOS + Android via Expo : table `push_tokens`, enregistrement/suppression token, envoi sur 3 événements : nouveau message chat, nouvelle réservation (coach), réservation acceptée/refusée (utilisateur) (Fév 2026)
