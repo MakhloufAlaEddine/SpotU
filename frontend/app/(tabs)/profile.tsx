@@ -194,7 +194,7 @@ export default function MenuScreen() {
         </TouchableOpacity>
 
         {/* ── QUICK ACTIONS ─────────────────────────────────── */}
-        <View style={st.actionsRow}>
+        <View style={st.actionsGrid}>
           <TouchableOpacity style={st.actionCard} onPress={() => router.push('/saved' as any)} activeOpacity={0.8} testID="saved-nav-btn">
             <View style={st.actionIconBox}>
               <Ionicons name="bookmark" size={22} color={Colors.primary} />
@@ -217,6 +217,14 @@ export default function MenuScreen() {
             </View>
             <Text style={st.actionLabel}>Mes Points</Text>
             <Text style={st.actionSub}>{mySpotYou.length} créés</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={st.actionCard} onPress={() => router.push('/planning' as any)} activeOpacity={0.8} testID="planning-nav-btn">
+            <View style={st.actionIconBox}>
+              <Ionicons name="calendar-number" size={22} color={Colors.primary} />
+            </View>
+            <Text style={st.actionLabel}>Planning</Text>
+            <Text style={st.actionSub}>Mes séances</Text>
           </TouchableOpacity>
         </View>
 
