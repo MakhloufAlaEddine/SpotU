@@ -107,9 +107,14 @@ function ConvItem({ item, currentUserId }: { item: Conversation; currentUserId: 
 export default function ChatListScreen() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [currentUserId, setCurrentUserId] = useState('');
 
-  const load = useCallback(async () => {
+  // Canal notifications WS — rechargement automatique quand un nouveau message arrive
+  const { unreadTotal } = useNotifications();
+
+  const load = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
     try {
       const [me, convs] = await Promise.all([
         api.get<any>('/auth/me'),
@@ -120,10 +125,24 @@ export default function ChatListScreen() {
     } catch {
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
-  useEffect(() => { load(); }, []);
+  // Rechargement à chaque fois que l'onglet prend le focus (retour depuis un chat)
+  useFocusEffect(
+    useCallback(() => { load(); }, [load])
+  );
+
+  // Rechargement en temps réel quand le total non-lus change (nouveau message reçu)
+  // useEffect avec unreadTotal pour détecter les changements WS
+  const prevUnreadRef = React.useRef(unreadTotal);
+  React.useEffect(() => {
+    if (prevUnreadRef.current !== unreadTotal) {
+      prevUnreadRef.current = unreadTotal;
+      load();
+    }
+  }, [unreadTotal]);
 
   const totalUnread = conversations.reduce((s, c) => s + (c.unread_count || 0), 0);
 
