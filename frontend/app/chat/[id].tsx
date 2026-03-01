@@ -78,10 +78,14 @@ export default function ChatScreen() {
     }
   }, [id]);
 
-  // Scroll to bottom on new messages
+  // Scroll to bottom on new messages + mark as read (conversation active)
   useEffect(() => {
     if (messages.length > 0) {
       setTimeout(() => flatRef.current?.scrollToEnd({ animated: true }), 100);
+      // Marquer comme lu en temps réel quand on est dans la conversation
+      if (id) {
+        api.put(`/conversations/${id}/read`).catch(() => {});
+      }
     }
   }, [messages.length]);
 
