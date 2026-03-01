@@ -19,6 +19,7 @@ from routes.booking_routes import router as booking_router
 from routes.payment_routes import router as payment_router
 from routes.admin_routes import router as admin_router
 from routes.upload_routes import router as upload_router
+from routes.chat_routes import router as chat_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
