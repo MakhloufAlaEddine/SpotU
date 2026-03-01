@@ -242,7 +242,7 @@ export default function MenuScreen() {
 
             <TouchableOpacity
               style={[st.coachCreateBtn, { marginTop: 10, borderColor: 'rgba(29,191,115,0.3)' }]}
-              onPress={() => router.push('/coach/bookings' as any)}
+              onPress={() => router.push('/planning' as any)}
               activeOpacity={0.85}
               testID="coach-bookings-btn"
             >
@@ -250,8 +250,8 @@ export default function MenuScreen() {
                 <Ionicons name="calendar" size={26} color={Colors.primary} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={st.coachCreateTitle}>Demandes de réservation</Text>
-                <Text style={st.coachCreateSub}>Acceptez ou refusez les demandes</Text>
+                <Text style={st.coachCreateTitle}>Mon Planning</Text>
+                <Text style={st.coachCreateSub}>Voir mes séances à venir</Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
             </TouchableOpacity>
