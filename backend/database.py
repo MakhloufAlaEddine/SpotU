@@ -224,6 +224,17 @@ CREATE TABLE IF NOT EXISTS messages (
 
 CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages(conversation_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_conv_participants ON conversation_participants(user_id);
+
+CREATE TABLE IF NOT EXISTS push_tokens (
+    token_id TEXT PRIMARY KEY,
+    user_id TEXT REFERENCES users(user_id) ON DELETE CASCADE,
+    token TEXT NOT NULL UNIQUE,
+    platform TEXT DEFAULT 'expo',
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    last_used_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_push_tokens_user ON push_tokens(user_id, is_active);
 """
 
 
