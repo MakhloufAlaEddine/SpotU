@@ -195,6 +195,35 @@ CREATE TABLE IF NOT EXISTS service_saves (
     saved_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(service_id, user_id)
 );
+
+CREATE TABLE IF NOT EXISTS conversations (
+    conversation_id TEXT PRIMARY KEY,
+    type TEXT NOT NULL CHECK (type IN ('service', 'tagpoint_group', 'tagpoint_private')),
+    context_id TEXT NOT NULL,
+    context_title TEXT NOT NULL,
+    created_by TEXT REFERENCES users(user_id),
+    last_message_at TIMESTAMPTZ DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS conversation_participants (
+    conversation_id TEXT REFERENCES conversations(conversation_id) ON DELETE CASCADE,
+    user_id TEXT REFERENCES users(user_id) ON DELETE CASCADE,
+    joined_at TIMESTAMPTZ DEFAULT NOW(),
+    last_read_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (conversation_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS messages (
+    message_id TEXT PRIMARY KEY,
+    conversation_id TEXT REFERENCES conversations(conversation_id) ON DELETE CASCADE,
+    sender_id TEXT REFERENCES users(user_id),
+    content TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages(conversation_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_conv_participants ON conversation_participants(user_id);
 """
 
 
