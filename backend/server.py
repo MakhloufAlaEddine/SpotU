@@ -37,6 +37,7 @@ api_router.include_router(booking_router, tags=["bookings"])
 api_router.include_router(payment_router, tags=["payments"])
 api_router.include_router(admin_router, prefix="/admin", tags=["admin"])
 api_router.include_router(chat_router, tags=["chat"])
+api_router.include_router(push_router, prefix="/users", tags=["push"])
 api_router.include_router(upload_router)
 
 app.include_router(api_router)

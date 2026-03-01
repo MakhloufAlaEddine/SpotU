@@ -6,6 +6,7 @@ from models import new_id
 from auth_utils import require_auth, decode_jwt
 from database import get_pool, row_to_dict, rows_to_list
 from chat_manager import manager, notif_manager
+from push_service import send_push_to_user
 
 router = APIRouter()
 
