@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   ScrollView, Image, ActivityIndicator, RefreshControl,
@@ -9,157 +9,173 @@ import { Ionicons } from '@expo/vector-icons';
 import { api } from '../lib/api';
 import { Colors, Spacing, Radius } from '../constants/Colors';
 
-const DAYS_SHORT = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
-const MONTHS = ['jan', 'fév', 'mar', 'avr', 'mai', 'juin', 'juil', 'aoû', 'sep', 'oct', 'nov', 'déc'];
+// ── Constantes ─────────────────────────────────────────────────────────────────
+const DAYS_SHORT  = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+const DAYS_LONG   = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+const MONTHS_LONG = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 
-const STATUS: Record<string, { label: string; color: string; icon: any }> = {
-  pending:   { label: 'En attente',  color: '#FF9500',       icon: 'time-outline' },
-  accepted:  { label: 'Acceptée',   color: Colors.primary,  icon: 'checkmark-circle' },
-  refused:   { label: 'Refusée',    color: '#FF4444',       icon: 'close-circle' },
-  cancelled: { label: 'Annulée',    color: Colors.muted,    icon: 'ban-outline' },
+const STATUS_CFG: Record<string, { color: string }> = {
+  accepted:  { color: Colors.primary },
+  pending:   { color: '#FF9500' },
+  refused:   { color: '#FF4444' },
+  cancelled: { color: Colors.muted },
 };
 
-function isoDate(d: Date) {
+function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
-
+function parseDate(s: string): Date {
+  const [y, m, day] = s.split('-').map(Number);
+  return new Date(y, m - 1, day);
+}
 function bookingDate(b: any): string | null {
-  if (b.slot?.slot_date) return b.slot.slot_date;
-  if (b.scheduled_at) return b.scheduled_at.slice(0, 10);
-  return null;
+  return b?.slot?.slot_date ?? b?.scheduled_at?.slice(0, 10) ?? null;
+}
+function formatDuration(start: string, end: string): string {
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  const mins = (eh * 60 + em) - (sh * 60 + sm);
+  if (mins >= 60) return `${Math.floor(mins / 60)}h${mins % 60 > 0 ? (mins % 60) + 'min' : ''}`;
+  return `${mins} min`;
 }
 
-// ── Mini calendrier semaine ────────────────────────────────────────────────────
+// ── Types d'items de l'agenda ─────────────────────────────────────────────────
+type AgendaItem =
+  | { kind: 'header'; date: string }
+  | { kind: 'booking'; date: string; booking: any }
+  | { kind: 'empty'; date: string };
+
+// ── Bande de semaine ───────────────────────────────────────────────────────────
+const DAY_W = 48;
+
 function WeekStrip({
-  weekStart, selected, dotDates, onSelect, onPrev, onNext,
+  selectedDate,
+  dotDates,
+  onSelectDate,
 }: {
-  weekStart: Date; selected: Date;
+  selectedDate: string;
   dotDates: Set<string>;
-  onSelect: (d: Date) => void;
-  onPrev: () => void; onNext: () => void;
+  onSelectDate: (d: string) => void;
 }) {
-  const days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(weekStart);
-    d.setDate(weekStart.getDate() + i);
-    return d;
-  });
-  const selStr = isoDate(selected);
-  const todayStr = isoDate(new Date());
+  const stripRef = useRef<ScrollView>(null);
+  const today = isoDate(new Date());
+
+  // Générer 90 jours autour d'aujourd'hui
+  const days = useMemo(() => {
+    const list: string[] = [];
+    const base = new Date();
+    base.setDate(base.getDate() - 30);
+    for (let i = 0; i < 90; i++) {
+      list.push(isoDate(base));
+      base.setDate(base.getDate() + 1);
+    }
+    return list;
+  }, []);
+
+  const dayIndex = days.indexOf(selectedDate);
+
+  // Centrer la date sélectionnée
+  useEffect(() => {
+    if (dayIndex >= 0) {
+      const offset = dayIndex * DAY_W - 160;
+      stripRef.current?.scrollTo({ x: Math.max(0, offset), animated: true });
+    }
+  }, [selectedDate]);
 
   return (
-    <View style={wk.wrap}>
-      <View style={wk.monthRow}>
-        <TouchableOpacity onPress={onPrev} style={wk.arrow} testID="week-prev">
-          <Ionicons name="chevron-back" size={20} color={Colors.foreground} />
-        </TouchableOpacity>
-        <Text style={wk.monthLabel}>
-          {MONTHS[weekStart.getMonth()]} {weekStart.getFullYear()}
-        </Text>
-        <TouchableOpacity onPress={onNext} style={wk.arrow} testID="week-next">
-          <Ionicons name="chevron-forward" size={20} color={Colors.foreground} />
-        </TouchableOpacity>
-      </View>
-
-      <View style={wk.daysRow}>
+    <View style={ws.container}>
+      {/* En-têtes jours de la semaine */}
+      <ScrollView
+        ref={stripRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        scrollEventThrottle={16}
+        contentContainerStyle={ws.scroll}
+      >
         {days.map((d) => {
-          const ds = isoDate(d);
-          const active = ds === selStr;
-          const isToday = ds === todayStr;
-          const hasDot = dotDates.has(ds);
+          const date = parseDate(d);
+          const isSelected = d === selectedDate;
+          const isToday = d === today;
+          const hasDot = dotDates.has(d);
+          const dayName = DAYS_SHORT[date.getDay()];
+
           return (
             <TouchableOpacity
-              key={ds}
-              style={[wk.day, active && wk.dayActive]}
-              onPress={() => onSelect(d)}
-              testID={`day-${ds}`}
+              key={d}
+              style={ws.dayWrap}
+              onPress={() => onSelectDate(d)}
+              testID={`strip-day-${d}`}
+              activeOpacity={0.7}
             >
-              <Text style={[wk.dayName, active && wk.dayNameActive]}>
-                {DAYS_SHORT[d.getDay()]}
+              <Text style={[ws.dayName, isSelected && ws.dayNameSel, isToday && !isSelected && ws.dayNameToday]}>
+                {dayName}
               </Text>
-              <Text style={[wk.dayNum, active && wk.dayNumActive, isToday && !active && wk.dayNumToday]}>
-                {d.getDate()}
-              </Text>
-              {hasDot && <View style={[wk.dot, active && wk.dotActive]} />}
+              <View style={[ws.bubble, isSelected && ws.bubbleSel, isToday && !isSelected && ws.bubbleToday]}>
+                <Text style={[ws.dayNum, isSelected && ws.dayNumSel, isToday && !isSelected && ws.dayNumToday]}>
+                  {date.getDate()}
+                </Text>
+              </View>
+              {hasDot && <View style={[ws.dot, isSelected && ws.dotSel]} />}
             </TouchableOpacity>
           );
         })}
-      </View>
+      </ScrollView>
     </View>
   );
 }
 
-// ── Carte réservation (timeline) ──────────────────────────────────────────────
-function BookingCard({ item, onPress }: { item: any; onPress: () => void }) {
-  const sc = STATUS[item.status] || STATUS.pending;
-  const img = item.service?.images?.[0];
-  const time = item.slot?.start_time ?? '--:--';
+// ── Carte de réservation style Teams ──────────────────────────────────────────
+function BookingCard({ booking, onPress }: { booking: any; onPress: () => void }) {
+  const sc = STATUS_CFG[booking.status] || STATUS_CFG.pending;
+  const slot = booking.slot || {};
+  const time = slot.start_time || '--:--';
+  const duration = slot.start_time && slot.end_time
+    ? formatDuration(slot.start_time, slot.end_time)
+    : null;
+  const title = booking.service?.title || 'Séance';
+  const coach = booking.coach?.name || 'Coach';
 
   return (
-    <TouchableOpacity style={bc.row} onPress={onPress} activeOpacity={0.75} testID={`booking-${item.booking_id}`}>
+    <TouchableOpacity
+      style={bc.row}
+      onPress={onPress}
+      activeOpacity={0.75}
+      testID={`booking-${booking.booking_id}`}
+    >
       {/* Colonne heure */}
       <View style={bc.timeCol}>
-        <Text style={bc.timeText}>{time}</Text>
-        <View style={bc.line} />
+        <Text style={bc.time}>{time}</Text>
+        {duration && <Text style={bc.duration}>{duration}</Text>}
       </View>
 
-      {/* Carte */}
-      <View style={[bc.card, { borderLeftColor: sc.color }]}>
-        <View style={bc.cardRow}>
-          {/* Image */}
-          <View style={bc.imgWrap}>
-            {img
-              ? <Image source={{ uri: img }} style={bc.img} resizeMode="cover" />
-              : <View style={[bc.img, bc.imgFallback]}>
-                  <Ionicons name="barbell-outline" size={18} color={sc.color} />
-                </View>
-            }
-          </View>
-
-          {/* Infos */}
-          <View style={bc.info}>
-            <Text style={bc.title} numberOfLines={1}>{item.service?.title || 'Service'}</Text>
-            <View style={bc.metaRow}>
-              <Ionicons name="person-outline" size={11} color={Colors.muted} />
-              <Text style={bc.meta}>{item.coach?.name || 'Coach'}</Text>
-              {item.slot?.duration_minutes && (
-                <>
-                  <Text style={bc.sep}>·</Text>
-                  <Text style={bc.meta}>{item.slot.duration_minutes}min</Text>
-                </>
-              )}
-            </View>
-          </View>
-
-          {/* Badge statut */}
-          <View style={[bc.badge, { backgroundColor: sc.color + '22' }]}>
-            <Ionicons name={sc.icon} size={13} color={sc.color} />
-            <Text style={[bc.badgeTxt, { color: sc.color }]}>{sc.label}</Text>
-          </View>
-        </View>
+      {/* Barre de couleur + Contenu */}
+      <View style={[bc.stripe, { backgroundColor: sc.color }]} />
+      <View style={bc.content}>
+        <Text style={bc.title} numberOfLines={1}>{title}</Text>
+        <Text style={bc.sub} numberOfLines={1}>
+          {coach}
+          {booking.service?.category ? ` · ${booking.service.category}` : ''}
+        </Text>
       </View>
+
+      <Ionicons name="chevron-forward" size={14} color={Colors.muted} />
     </TouchableOpacity>
   );
 }
 
-// ── Ecran principal ───────────────────────────────────────────────────────────
+// ── Écran principal ────────────────────────────────────────────────────────────
 export default function PlanningScreen() {
   const router = useRouter();
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = isoDate(new Date());
 
-  const getWeekStart = (d: Date) => {
-    const ws = new Date(d);
-    ws.setDate(d.getDate() - d.getDay());
-    ws.setHours(0, 0, 0, 0);
-    return ws;
-  };
-
-  const [selected, setSelected] = useState(new Date(today));
-  const [weekStart, setWeekStart] = useState(getWeekStart(today));
-  const [tab, setTab] = useState<'upcoming' | 'history'>('upcoming');
-  const [bookings, setBookings] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [bookings, setBookings]     = useState<any[]>([]);
+  const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(today);
+  const [showTodayBtn, setShowTodayBtn] = useState(false);
+
+  const flatRef = useRef<FlatList>(null);
+  const dateIndexMap = useRef<Record<string, number>>({});
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -176,182 +192,252 @@ export default function PlanningScreen() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  // Dates avec réservations → points sur le calendrier
-  const dotDates = React.useMemo(() => {
-    const s = new Set<string>();
-    bookings.forEach(b => { const d = bookingDate(b); if (d) s.add(d); });
-    return s;
+  // ── Construire la liste agenda ──────────────────────────────────────────────
+  const { items, dotDates } = useMemo(() => {
+    // Plage : J-30 → J+60 ou jusqu'au dernier booking
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 30);
+    const endDate = new Date();
+    endDate.setDate(endDate.getDate() + 60);
+
+    // Étendre si on a des bookings plus loin
+    bookings.forEach(b => {
+      const d = bookingDate(b);
+      if (d) {
+        const bd = parseDate(d);
+        if (bd > endDate) endDate.setTime(bd.getTime());
+      }
+    });
+
+    // Index bookings par date
+    const byDate: Record<string, any[]> = {};
+    const dots = new Set<string>();
+    bookings.forEach(b => {
+      const d = bookingDate(b);
+      if (d) {
+        if (!byDate[d]) byDate[d] = [];
+        byDate[d].push(b);
+        dots.add(d);
+      }
+    });
+
+    // Générer les items
+    const result: AgendaItem[] = [];
+    const cursor = new Date(startDate);
+    let idx = 0;
+    const idxMap: Record<string, number> = {};
+
+    while (cursor <= endDate) {
+      const ds = isoDate(cursor);
+      idxMap[ds] = idx;
+      result.push({ kind: 'header', date: ds });
+      idx++;
+
+      const dayBookings = byDate[ds] || [];
+      if (dayBookings.length > 0) {
+        // Trier par heure
+        dayBookings.sort((a, b) => (a.slot?.start_time || '') < (b.slot?.start_time || '') ? -1 : 1);
+        dayBookings.forEach(bk => {
+          result.push({ kind: 'booking', date: ds, booking: bk });
+          idx++;
+        });
+      } else {
+        result.push({ kind: 'empty', date: ds });
+        idx++;
+      }
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    dateIndexMap.current = idxMap;
+    return { items: result, dotDates: dots };
   }, [bookings]);
 
-  // Filtres
-  const todayStr = isoDate(today);
-  const selStr = isoDate(selected);
+  // ── Quand on tape une date dans le strip → scroll ───────────────────────────
+  const handleSelectDate = useCallback((date: string) => {
+    setSelectedDate(date);
+    const idx = dateIndexMap.current[date];
+    if (idx !== undefined && flatRef.current) {
+      flatRef.current.scrollToIndex({ index: idx, animated: true, viewPosition: 0 });
+    }
+  }, []);
 
-  const upcoming = bookings.filter(b => {
-    const d = bookingDate(b);
-    return d ? d >= todayStr : false;
-  }).sort((a, b) => (bookingDate(a) ?? '') < (bookingDate(b) ?? '') ? -1 : 1);
+  // ── Quand on scroll → mettre à jour la date sélectionnée ───────────────────
+  const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
+    const first = viewableItems.find((vi: any) => vi.item?.kind === 'header');
+    if (first) {
+      setSelectedDate(first.item.date);
+      setShowTodayBtn(first.item.date !== isoDate(new Date()));
+    }
+  });
 
-  const history = bookings.filter(b => {
-    const d = bookingDate(b);
-    return d ? d < todayStr : false;
-  }).sort((a, b) => (bookingDate(a) ?? '') < (bookingDate(b) ?? '') ? 1 : -1);
+  const viewabilityConfig = useRef({
+    itemVisibilityPercentThreshold: 80,
+    minimumViewTime: 100,
+  });
 
-  const dayBookings = (tab === 'upcoming' ? upcoming : history).filter(b => bookingDate(b) === selStr);
-  const allTabBookings = tab === 'upcoming' ? upcoming : history;
+  // ── Rendu des items ─────────────────────────────────────────────────────────
+  const renderItem = useCallback(({ item }: { item: AgendaItem }) => {
+    if (item.kind === 'header') {
+      const d = parseDate(item.date);
+      const isToday = item.date === today;
+      return (
+        <View style={ag.header} testID={`header-${item.date}`}>
+          <Text style={[ag.headerDay, isToday && ag.headerDayToday]}>
+            {isToday ? 'Aujourd\'hui' : `${d.getDate()} ${MONTHS_LONG[d.getMonth()]}`}
+          </Text>
+          <Text style={ag.headerWeekday}>
+            {isToday ? `${d.getDate()} ${MONTHS_LONG[d.getMonth()]}` : DAYS_LONG[d.getDay()]}
+          </Text>
+        </View>
+      );
+    }
 
-  // Navigation semaine
-  const goWeek = (dir: number) => {
-    const ws = new Date(weekStart);
-    ws.setDate(ws.getDate() + dir * 7);
-    setWeekStart(ws);
-  };
+    if (item.kind === 'empty') {
+      return (
+        <View style={ag.emptyDay}>
+          <Text style={ag.emptyTxt}>Aucune séance</Text>
+        </View>
+      );
+    }
 
-  const handleSelectDay = (d: Date) => {
-    setSelected(d);
-    const ws = getWeekStart(d);
-    setWeekStart(ws);
-  };
+    // booking
+    const bk = item.booking;
+    const svcId = bk.service?.service_id || bk.service_id;
 
-  // Données affichées = si résa ce jour → filtrer par jour, sinon tout l'onglet
-  const displayData = dayBookings.length > 0 ? dayBookings : allTabBookings;
-  const showingDay = dayBookings.length > 0;
+    return (
+      <BookingCard
+        booking={bk}
+        onPress={() => {
+          if (svcId) router.push(`/service/${svcId}` as any);
+        }}
+      />
+    );
+  }, [today]);
+
+  const keyExtractor = useCallback((item: AgendaItem, idx: number) =>
+    item.kind === 'header' ? `hdr-${item.date}`
+    : item.kind === 'empty' ? `emp-${item.date}`
+    : `bkg-${(item as any).booking.booking_id}`,
+  []);
+
+  // Index de démarrage = aujourd'hui
+  const initialScrollIndex = useMemo(() => dateIndexMap.current[today] ?? 0, [items]);
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
+      {/* Header sticky */}
       <SafeAreaView edges={['top']} style={{ backgroundColor: Colors.header }}>
         <View style={s.header}>
           <TouchableOpacity style={s.backBtn} onPress={() => router.back()} testID="back-btn">
             <Ionicons name="chevron-back" size={22} color={Colors.foreground} />
           </TouchableOpacity>
-          <Text style={s.headerTitle}>Mon Planning</Text>
+          <Text style={s.headerTitle}>
+            {MONTHS_LONG[parseDate(selectedDate).getMonth()].charAt(0).toUpperCase()
+              + MONTHS_LONG[parseDate(selectedDate).getMonth()].slice(1)}
+          </Text>
           <View style={{ width: 40 }} />
         </View>
+
+        {/* Bande de dates */}
+        <WeekStrip
+          selectedDate={selectedDate}
+          dotDates={dotDates}
+          onSelectDate={handleSelectDate}
+        />
       </SafeAreaView>
 
-      {/* Calendrier semaine */}
-      <WeekStrip
-        weekStart={weekStart}
-        selected={selected}
-        dotDates={dotDates}
-        onSelect={handleSelectDay}
-        onPrev={() => goWeek(-1)}
-        onNext={() => goWeek(1)}
-      />
-
-      {/* Segmented control */}
-      <View style={s.segWrap}>
-        <TouchableOpacity
-          style={[s.seg, tab === 'upcoming' && s.segActive]}
-          onPress={() => setTab('upcoming')}
-          testID="tab-upcoming"
-        >
-          <Text style={[s.segTxt, tab === 'upcoming' && s.segTxtActive]}>
-            À venir ({upcoming.length})
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[s.seg, tab === 'history' && s.segActive]}
-          onPress={() => setTab('history')}
-          testID="tab-history"
-        >
-          <Text style={[s.segTxt, tab === 'history' && s.segTxtActive]}>
-            Historique ({history.length})
-          </Text>
-        </TouchableOpacity>
-      </View>
-
+      {/* Agenda */}
       {loading ? (
-        <View style={s.center}><ActivityIndicator size="large" color={Colors.primary} /></View>
-      ) : displayData.length === 0 ? (
-        <View style={s.center} testID="empty-planning">
-          <Ionicons name="calendar-outline" size={52} color={Colors.muted} />
-          <Text style={s.emptyTitle}>
-            {tab === 'upcoming' ? 'Aucune séance à venir' : 'Aucun historique'}
-          </Text>
-          <Text style={s.emptySub}>
-            {tab === 'upcoming'
-              ? 'Réservez une séance pour la voir apparaître ici.'
-              : 'Vos séances passées apparaîtront ici.'}
-          </Text>
+        <View style={s.center}>
+          <ActivityIndicator size="large" color={Colors.primary} />
         </View>
       ) : (
         <FlatList
-          data={displayData}
-          keyExtractor={b => b.booking_id}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 32 }}
+          ref={flatRef}
+          data={items}
+          keyExtractor={keyExtractor}
+          renderItem={renderItem}
           showsVerticalScrollIndicator={false}
+          initialScrollIndex={initialScrollIndex}
+          getItemLayout={(_, index) => ({ length: 72, offset: 72 * index, index })}
+          onViewableItemsChanged={onViewableItemsChanged.current}
+          viewabilityConfig={viewabilityConfig.current}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={Colors.primary} />
-          }
-          ListHeaderComponent={
-            <Text style={s.listHeader}>
-              {showingDay
-                ? `${DAYS_SHORT[selected.getDay()]} ${selected.getDate()} ${MONTHS[selected.getMonth()]}`
-                : tab === 'upcoming' ? 'Prochaines séances' : 'Séances passées'}
-            </Text>
-          }
-          renderItem={({ item }) => (
-            <BookingCard
-              item={item}
-              onPress={() => router.push('/planning' as any)}
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => load(true)}
+              tintColor={Colors.primary}
             />
-          )}
-          ItemSeparatorComponent={() => <View style={{ height: 4 }} />}
+          }
+          contentContainerStyle={{ paddingBottom: 80 }}
         />
+      )}
+
+      {/* Bouton Aujourd'hui (comme Teams) */}
+      {showTodayBtn && (
+        <TouchableOpacity
+          style={s.todayBtn}
+          onPress={() => handleSelectDate(today)}
+          testID="today-btn"
+          activeOpacity={0.85}
+        >
+          <Ionicons name="arrow-up" size={14} color={Colors.background} />
+          <Text style={s.todayTxt}>Aujourd'hui</Text>
+        </TouchableOpacity>
       )}
     </View>
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
-const wk = StyleSheet.create({
-  wrap: { backgroundColor: Colors.header, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  monthRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8, paddingBottom: 8 },
-  monthLabel: { fontSize: 15, fontWeight: '700', color: Colors.foreground, textTransform: 'capitalize' },
-  arrow: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  daysRow: { flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: 8 },
-  day: { alignItems: 'center', justifyContent: 'center', width: 44, paddingVertical: 6, borderRadius: 22, gap: 2 },
-  dayActive: { backgroundColor: Colors.primary },
-  dayName: { fontSize: 10, fontWeight: '600', color: Colors.muted, textTransform: 'uppercase' },
-  dayNameActive: { color: Colors.background },
-  dayNum: { fontSize: 17, fontWeight: '700', color: Colors.foreground },
-  dayNumActive: { color: Colors.background },
+// ── Styles ─────────────────────────────────────────────────────────────────────
+const ws = StyleSheet.create({
+  container: { borderBottomWidth: 1, borderBottomColor: Colors.border, paddingBottom: 6 },
+  scroll: { paddingHorizontal: 8 },
+  dayWrap: { width: DAY_W, alignItems: 'center', paddingVertical: 4, gap: 3 },
+  dayName: { fontSize: 10, fontWeight: '600', color: Colors.muted, letterSpacing: 0.5 },
+  dayNameSel: { color: Colors.primary },
+  dayNameToday: { color: Colors.primary },
+  bubble: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  bubbleSel: { backgroundColor: Colors.primary },
+  bubbleToday: { borderWidth: 1.5, borderColor: Colors.primary },
+  dayNum: { fontSize: 16, fontWeight: '700', color: Colors.foreground },
+  dayNumSel: { color: Colors.background },
   dayNumToday: { color: Colors.primary },
   dot: { width: 5, height: 5, borderRadius: 3, backgroundColor: Colors.primary },
-  dotActive: { backgroundColor: Colors.background },
+  dotSel: { backgroundColor: Colors.background },
+});
+
+const ag = StyleSheet.create({
+  header: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 6, flexDirection: 'row', alignItems: 'baseline', gap: 8 },
+  headerDay: { fontSize: 16, fontWeight: '700', color: Colors.foreground },
+  headerDayToday: { color: Colors.primary },
+  headerWeekday: { fontSize: 13, color: Colors.muted },
+  emptyDay: { paddingHorizontal: 16, paddingVertical: 10 },
+  emptyTxt: { fontSize: 13, color: Colors.muted, fontStyle: 'italic' },
 });
 
 const bc = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 },
-  timeCol: { width: 52, alignItems: 'center', paddingTop: 14, gap: 4 },
-  timeText: { fontSize: 12, fontWeight: '700', color: Colors.primary },
-  line: { width: 1, flex: 1, backgroundColor: Colors.border, minHeight: 40 },
-  card: { flex: 1, backgroundColor: Colors.card, borderRadius: 16, padding: 14, borderLeftWidth: 4, marginLeft: 8 },
-  cardRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  imgWrap: { borderRadius: 10, overflow: 'hidden' },
-  img: { width: 44, height: 44, borderRadius: 10 },
-  imgFallback: { backgroundColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
-  info: { flex: 1, gap: 3 },
-  title: { fontSize: 14, fontWeight: '700', color: Colors.foreground },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  meta: { fontSize: 12, color: Colors.muted },
-  sep: { color: Colors.muted, fontSize: 10 },
-  badge: { borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3, alignItems: 'center', gap: 2 },
-  badgeTxt: { fontSize: 10, fontWeight: '700' },
+  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 12 },
+  timeCol: { width: 52, alignItems: 'flex-end', gap: 2 },
+  time: { fontSize: 14, fontWeight: '700', color: Colors.foreground },
+  duration: { fontSize: 11, color: Colors.muted },
+  stripe: { width: 3, height: 40, borderRadius: 2 },
+  content: { flex: 1, gap: 3 },
+  title: { fontSize: 14, fontWeight: '600', color: Colors.foreground },
+  sub: { fontSize: 12, color: Colors.muted },
 });
 
 const s = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 },
-  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '700', color: Colors.foreground },
-  segWrap: { flexDirection: 'row', margin: 16, backgroundColor: Colors.card, borderRadius: Radius.full, padding: 3 },
-  seg: { flex: 1, paddingVertical: 8, borderRadius: Radius.full, alignItems: 'center' },
-  segActive: { backgroundColor: Colors.primary },
-  segTxt: { fontSize: 13, fontWeight: '600', color: Colors.muted },
-  segTxtActive: { color: Colors.background, fontWeight: '700' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14, padding: 32 },
-  emptyTitle: { fontSize: 17, fontWeight: '700', color: Colors.foreground },
-  emptySub: { fontSize: 13, color: Colors.muted, textAlign: 'center', lineHeight: 20 },
-  listHeader: { fontSize: 13, fontWeight: '600', color: Colors.muted, paddingTop: 4, paddingBottom: 10 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10 },
+  backBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { flex: 1, textAlign: 'center', fontSize: 20, fontWeight: '700', color: Colors.foreground },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  todayBtn: {
+    position: 'absolute', bottom: 28, alignSelf: 'center',
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: Colors.primary, paddingHorizontal: 16, paddingVertical: 8,
+    borderRadius: 20, elevation: 4,
+    shadowColor: Colors.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.4, shadowRadius: 6,
+  },
+  todayTxt: { fontSize: 13, fontWeight: '700', color: Colors.background },
 });
