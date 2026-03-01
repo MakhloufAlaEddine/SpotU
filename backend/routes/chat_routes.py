@@ -339,6 +339,15 @@ async def ws_chat(websocket: WebSocket, conv_id: str, token: str = Query(...)):
                 "created_at": now.isoformat(),
             })
 
+            # Pousser le total non-lu à tous les autres participants
+            async with pool.acquire() as conn2:
+                participants = await conn2.fetch(
+                    "SELECT user_id FROM conversation_participants WHERE conversation_id = $1 AND user_id != $2",
+                    conv_id, user_id
+                )
+                for p in participants:
+                    await _push_unread(conn2, p["user_id"])
+
     except WebSocketDisconnect:
         manager.disconnect(conv_id, websocket)
     except Exception:
