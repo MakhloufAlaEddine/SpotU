@@ -1,19 +1,53 @@
 import { Tabs } from 'expo-router';
-import { View, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import { useEffect, useState } from 'react';
 import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
+import { api } from '../../lib/api';
 
 function TabIcon({ name, focused }: { name: keyof typeof Ionicons.glyphMap; focused: boolean }) {
   return (
-    <Ionicons 
-      name={name} 
-      size={24} 
-      color={focused ? Colors.primary : Colors.muted} 
+    <Ionicons
+      name={name}
+      size={24}
+      color={focused ? Colors.primary : Colors.muted}
     />
   );
 }
 
+function ChatTabIcon({ focused, unread }: { focused: boolean; unread: number }) {
+  return (
+    <View style={{ width: 30, height: 30, alignItems: 'center', justifyContent: 'center' }}>
+      <Ionicons
+        name={focused ? 'chatbubble' : 'chatbubble-outline'}
+        size={24}
+        color={focused ? Colors.primary : Colors.muted}
+      />
+      {unread > 0 && (
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>{unread > 99 ? '99+' : String(unread)}</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
 export default function TabLayout() {
+  const [unread, setUnread] = useState(0);
+
+  useEffect(() => {
+    const fetchUnread = async () => {
+      try {
+        const convs = await api.get<any[]>('/conversations');
+        const total = (convs || []).reduce((s: number, c: any) => s + (c.unread_count || 0), 0);
+        setUnread(total);
+      } catch {}
+    };
+    fetchUnread();
+    const id = setInterval(fetchUnread, 30000);
+    return () => clearInterval(id);
+  }, []);
+
   return (
     <Tabs
       screenOptions={{
