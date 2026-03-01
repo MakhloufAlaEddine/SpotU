@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  Image, ActivityIndicator, RefreshControl,
+  ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -9,146 +9,194 @@ import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 
-const ORANGE = '#FF9500';
-const DAYS = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
-const MONTHS = ['jan','fév','mars','avr','mai','juin','juil','aoû','sep','oct','nov','déc'];
+// ── Types de notifications dérivés des réservations ──────────────────────────
+type NotifType = 'booking_new' | 'booking_accepted' | 'booking_refused' | 'booking_pending';
 
-function fmtDate(iso?: string) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+interface Notif {
+  id: string;
+  type: NotifType;
+  title: string;
+  subtitle: string;
+  time: string;
+  action: string;
 }
 
-const STATUS_CFG: Record<string, { label: string; color: string; icon: any }> = {
-  pending:   { label: 'En attente du coach', color: ORANGE,         icon: 'time-outline' },
-  accepted:  { label: 'Acceptée',            color: Colors.primary, icon: 'checkmark-circle-outline' },
-  refused:   { label: 'Refusée',             color: '#FF4444',      icon: 'close-circle-outline' },
-  cancelled: { label: 'Annulée',             color: Colors.muted,   icon: 'ban-outline' },
+const NOTIF_CFG: Record<NotifType, { icon: any; color: string; bg: string }> = {
+  booking_new:      { icon: 'calendar-outline',         color: Colors.primary,   bg: Colors.primary + '1A' },
+  booking_accepted: { icon: 'checkmark-circle-outline', color: Colors.primary,   bg: Colors.primary + '1A' },
+  booking_refused:  { icon: 'close-circle-outline',     color: '#FF4444',         bg: '#FF44441A' },
+  booking_pending:  { icon: 'time-outline',             color: '#FF9500',         bg: '#FF95001A' },
 };
 
-function BookingRow({ item }: { item: any }) {
-  const sc = STATUS_CFG[item.status] || STATUS_CFG.pending;
-  const img = item.service?.images?.[0];
+function timeAgo(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "à l'instant";
+  if (mins < 60) return `il y a ${mins}min`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `il y a ${hrs}h`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `il y a ${days}j`;
+  const d = new Date(iso);
+  return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+}
 
+function bookingToNotif(b: any, isCoach: boolean): Notif {
+  const svcTitle = b.service?.title || 'une séance';
+  const coachName = b.coach?.name || 'le coach';
+  const userName = b.user?.name || 'un utilisateur';
+
+  let type: NotifType;
+  let title: string;
+  let subtitle: string;
+
+  if (isCoach) {
+    // Vue coach : nouvelles demandes
+    type = b.status === 'pending' ? 'booking_new' : b.status === 'accepted' ? 'booking_accepted' : 'booking_refused';
+    title = b.status === 'pending' ? 'Nouvelle réservation' : b.status === 'accepted' ? 'Séance confirmée' : 'Séance refusée';
+    subtitle = b.status === 'pending'
+      ? `${userName} souhaite réserver : ${svcTitle}`
+      : `${svcTitle} — ${b.status === 'accepted' ? 'confirmée' : 'refusée'}`;
+  } else {
+    // Vue utilisateur : statut de mes réservations
+    type = b.status === 'accepted' ? 'booking_accepted' : b.status === 'refused' ? 'booking_refused' : 'booking_pending';
+    title = b.status === 'accepted' ? 'Séance acceptée !' : b.status === 'refused' ? 'Séance refusée' : 'En attente du coach';
+    subtitle = b.status === 'accepted'
+      ? `${coachName} a accepté votre réservation pour ${svcTitle}`
+      : b.status === 'refused'
+      ? `${coachName} n'est pas disponible pour ${svcTitle}`
+      : `${coachName} n'a pas encore répondu pour ${svcTitle}`;
+  }
+
+  return {
+    id: b.booking_id,
+    type,
+    title,
+    subtitle,
+    time: b.created_at || new Date().toISOString(),
+    action: '/planning',
+  };
+}
+
+// ── Item notification ─────────────────────────────────────────────────────────
+function NotifItem({ item, onPress }: { item: Notif; onPress: () => void }) {
+  const cfg = NOTIF_CFG[item.type];
   return (
-    <View style={card.wrap} testID={`booking-${item.booking_id}`}>
-      <View style={card.imgWrap}>
-        {img
-          ? <Image source={{ uri: img }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-          : <View style={{ width: '100%', height: '100%', backgroundColor: '#1A1000', alignItems: 'center', justifyContent: 'center' }}>
-              <Ionicons name="calendar-outline" size={24} color="rgba(255,149,0,0.25)" />
-            </View>
-        }
+    <TouchableOpacity
+      style={ni.row}
+      onPress={onPress}
+      activeOpacity={0.75}
+      testID={`notif-${item.id}`}
+    >
+      <View style={[ni.iconBox, { backgroundColor: cfg.bg }]}>
+        <Ionicons name={cfg.icon} size={22} color={cfg.color} />
       </View>
-      <View style={card.info}>
-        <Text style={card.title} numberOfLines={2}>{item.service?.title || 'Service'}</Text>
-        <View style={card.coachRow}>
-          <Ionicons name="person-outline" size={12} color={Colors.muted} />
-          <Text style={card.coachName}>{item.coach?.name || 'Coach'}</Text>
+      <View style={ni.content}>
+        <View style={ni.topRow}>
+          <Text style={ni.title} numberOfLines={1}>{item.title}</Text>
+          <Text style={ni.time}>{timeAgo(item.time)}</Text>
         </View>
-        {item.slot && (
-          <View style={card.slotRow}>
-            <Ionicons name="time-outline" size={12} color={ORANGE} />
-            <Text style={card.slotTxt}>
-              {item.slot.slot_date
-                ? `${fmtDate(item.slot.slot_date + 'T00:00:00')} · ${item.slot.start_time}`
-                : item.scheduled_at ? fmtDate(item.scheduled_at) : item.slot.start_time}
-            </Text>
-          </View>
-        )}
-        <View style={[card.status, { backgroundColor: sc.color + '1A' }]}>
-          <Ionicons name={sc.icon} size={12} color={sc.color} />
-          <Text style={[card.statusTxt, { color: sc.color }]}>{sc.label}</Text>
-        </View>
+        <Text style={ni.sub} numberOfLines={2}>{item.subtitle}</Text>
       </View>
-    </View>
+      <Ionicons name="chevron-forward" size={16} color={Colors.muted} />
+    </TouchableOpacity>
   );
 }
 
-const card = StyleSheet.create({
-  wrap: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  imgWrap: { width: 72, height: 72, borderRadius: 12, overflow: 'hidden', backgroundColor: Colors.card },
-  info: { flex: 1, gap: 5 },
-  title: { fontSize: 14, fontWeight: '700', color: Colors.foreground },
-  coachRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  coachName: { fontSize: 12, color: Colors.muted },
-  slotRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  slotTxt: { fontSize: 12, color: ORANGE, fontWeight: '600' },
-  status: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start', marginTop: 2 },
-  statusTxt: { fontSize: 11, fontWeight: '700' },
-});
-
-export default function MyBookingsScreen() {
+// ── Écran principal ───────────────────────────────────────────────────────────
+export default function NotificationsScreen() {
   const router = useRouter();
-  const [bookings, setBookings] = useState<any[]>([]);
+  const [notifs, setNotifs] = useState<Notif[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
     try {
-      const data = await api.get('/bookings/mine');
-      setBookings(Array.isArray(data) ? data : []);
+      const [me, bookings] = await Promise.all([
+        api.get<any>('/auth/me'),
+        api.get<any[]>('/bookings/mine'),
+      ]);
+      const isCoach = me?.role === 'coach' || me?.is_coach;
+      const list = Array.isArray(bookings) ? bookings : [];
+      const items = list.map(b => bookingToNotif(b, isCoach));
+      // Trier par date décroissante
+      items.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+      setNotifs(items);
     } catch {
-      setBookings([]);
+      setNotifs([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
-  useFocusEffect(useCallback(() => {
-    setLoading(true);
-    load();
-  }, []));
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
-      <SafeAreaView edges={['top']}>
+      <SafeAreaView edges={['top']} style={{ backgroundColor: Colors.header }}>
         <View style={s.header}>
-          <TouchableOpacity style={s.backBtn} onPress={() => router.back()} testID="back-btn">
-            <Ionicons name="chevron-back" size={22} color={Colors.foreground} />
-          </TouchableOpacity>
-          <Text style={s.headerTitle}>Mes réservations</Text>
+          <View style={{ width: 40 }} />
+          <Text style={s.headerTitle}>Notifications</Text>
           <View style={{ width: 40 }} />
         </View>
       </SafeAreaView>
 
       {loading ? (
-        <View style={s.center}><ActivityIndicator size="large" color={Colors.primary} /></View>
-      ) : bookings.length === 0 ? (
-        <View style={s.center} testID="empty-bookings">
-          <Ionicons name="calendar-outline" size={56} color={Colors.muted} />
-          <Text style={s.emptyTitle}>Aucune réservation</Text>
-          <Text style={s.emptySub}>Réservez une séance auprès d'un coach pour commencer.</Text>
-          <TouchableOpacity style={s.exploreBtn} onPress={() => router.push('/(tabs)/search' as any)}>
-            <Text style={s.exploreBtnTxt}>Trouver un coach</Text>
-          </TouchableOpacity>
+        <View style={s.center}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      ) : notifs.length === 0 ? (
+        <View style={s.center} testID="empty-notifs">
+          <Ionicons name="notifications-outline" size={56} color={Colors.muted} />
+          <Text style={s.emptyTitle}>Aucune notification</Text>
+          <Text style={s.emptySub}>
+            Vos réservations et confirmations apparaîtront ici.
+          </Text>
         </View>
       ) : (
         <FlatList
-          data={bookings}
-          keyExtractor={item => item.booking_id}
-          contentContainerStyle={{ paddingHorizontal: 16 }}
+          data={notifs}
+          keyExtractor={n => n.id}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={Colors.primary} />}
-          renderItem={({ item }) => <BookingRow item={item} />}
-          ListHeaderComponent={
-            <Text style={s.count}>{bookings.length} réservation{bookings.length > 1 ? 's' : ''}</Text>
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => load(true)}
+              tintColor={Colors.primary}
+            />
           }
+          renderItem={({ item }) => (
+            <NotifItem
+              item={item}
+              onPress={() => router.push(item.action as any)}
+            />
+          )}
+          ItemSeparatorComponent={() => (
+            <View style={{ height: 1, backgroundColor: Colors.border, marginLeft: 70 }} />
+          )}
+          contentContainerStyle={{ paddingBottom: 32 }}
         />
       )}
     </View>
   );
 }
 
+const ni = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 12 },
+  iconBox: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  content: { flex: 1, gap: 3 },
+  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  title: { fontSize: 14, fontWeight: '700', color: Colors.foreground, flex: 1 },
+  time: { fontSize: 11, color: Colors.muted, marginLeft: 8 },
+  sub: { fontSize: 13, color: Colors.muted, lineHeight: 18 },
+});
+
 const s = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '700', color: Colors.foreground },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: Colors.primary },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16, padding: 32 },
   emptyTitle: { fontSize: 18, fontWeight: '700', color: Colors.foreground },
   emptySub: { fontSize: 14, color: Colors.muted, textAlign: 'center', lineHeight: 20 },
-  exploreBtn: { backgroundColor: Colors.primary, borderRadius: Radius.full, paddingHorizontal: 28, paddingVertical: 12 },
-  exploreBtnTxt: { fontSize: 15, fontWeight: '700', color: Colors.background },
-  count: { fontSize: 13, color: Colors.muted, paddingVertical: 14 },
 });
