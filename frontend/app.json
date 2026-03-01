@@ -33,6 +33,15 @@
     "plugins": [
       "expo-router",
       [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#FF6B35",
+          "androidMode": "default",
+          "androidCollapsedTitle": "WINEK"
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/splash.png",
