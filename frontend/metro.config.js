@@ -12,17 +12,13 @@ config.cacheStores = [
 ];
 
 
-// Limit file watching to source directory only to avoid ENOSPC (inotify limit)
-const { exclusionList } = require('metro-config');
-config.resolver.blockList = exclusionList([
+// Limit file watching to avoid ENOSPC (inotify limit exceeded in container)
+config.resolver.blockList = [
   /node_modules\/.*\/node_modules\/react-native\/.*/,
-  /node_modules\/.*\/(android|ios|windows|macos|__tests__|\.git)(\/.*)?$/,
-]);
+  /node_modules\/.*\/(android|ios|windows|macos|__tests__)(\/.*)?$/,
+];
 
-// Only watch source files, not all of node_modules
-config.watchFolders = [];
-
-// Reduce the number of workers to decrease resource usage
+// Reduce workers to lower resource usage
 config.maxWorkers = 2;
 
 module.exports = config;
