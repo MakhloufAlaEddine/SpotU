@@ -76,7 +76,7 @@ export default function CreateServiceScreen() {
   const [images, setImages] = useState<string[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
 
-  // ─── Upload image helper (même pattern que TagPoint) ───────────────────────
+  // ─── Upload image helper (même pattern que SpotYou) ───────────────────────
   const uploadImage = async (uri: string): Promise<string> => {
     const token = (user as any)?.token || '';
     const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
@@ -403,7 +403,7 @@ export default function CreateServiceScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* ── Photos du service (même design que TagPoint) ── */}
+      {/* ── Photos du service (même design que SpotYou) ── */}
       <View style={s.field}>
         <View style={s.rowBetween}>
           <Text style={s.fieldLabel}>Photos du service</Text>
@@ -820,7 +820,7 @@ const s = StyleSheet.create({
   },
   headerBackBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 17, fontWeight: '700', color: Colors.foreground },
-  // Photo grid (même design que TagPoint)
+  // Photo grid (même design que SpotYou)
   photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 4 },
   photoThumb: { width: 80, height: 80, borderRadius: Radius.md, overflow: 'hidden', position: 'relative' },
   photoThumbImg: { width: '100%', height: '100%', resizeMode: 'cover' },
