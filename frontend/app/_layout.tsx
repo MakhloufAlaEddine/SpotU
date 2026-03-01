@@ -1,11 +1,16 @@
 import { Stack, useRouter, useSegments, useRootNavigationState } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { RefreshProvider } from '../context/RefreshContext';
 import { LanguageProvider } from '../context/LanguageContext';
 import { LocationProvider } from '../context/LocationContext';
 import { StatusBar } from 'expo-status-bar';
+import {
+  registerForPushNotificationsAsync,
+  saveTokenToServer,
+  setupNotificationResponseHandler,
+} from '../lib/push-notifications';
 
 // Source unique de vérité pour la navigation auth
 // Ce composant est le SEUL endroit où la redirection login <-> app est décidée
