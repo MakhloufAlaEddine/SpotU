@@ -172,6 +172,17 @@ export default function ServiceDetailScreen() {
     } as any);
   };
 
+  const [chatLoading, setChatLoading] = React.useState(false);
+  const handleContact = async () => {
+    if (!user) { Alert.alert('', 'Connectez-vous pour contacter le coach'); return; }
+    setChatLoading(true);
+    try {
+      const conv = await getOrCreateConversation('service', service.service_id);
+      router.push(`/chat/${conv.conversation_id}` as any);
+    } catch { Alert.alert('Erreur', 'Impossible d\'ouvrir la conversation'); }
+    finally { setChatLoading(false); }
+  };
+
   if (loading) {
     return (
       <View style={{ flex: 1, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' }}>
