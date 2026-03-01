@@ -12,12 +12,15 @@ config.cacheStores = [
 ];
 
 
-// // Exclude unnecessary directories from file watching
-// config.watchFolders = [__dirname];
-// config.resolver.blacklistRE = /(.*)\/(__tests__|android|ios|build|dist|.git|node_modules\/.*\/android|node_modules\/.*\/ios|node_modules\/.*\/windows|node_modules\/.*\/macos)(\/.*)?$/;
+// Limit file watching to source directory only to avoid ENOSPC (inotify limit)
+const { exclusionList } = require('metro-config');
+config.resolver.blockList = exclusionList([
+  /node_modules\/.*\/node_modules\/react-native\/.*/,
+  /node_modules\/.*\/(android|ios|windows|macos|__tests__|\.git)(\/.*)?$/,
+]);
 
-// // Alternative: use a more aggressive exclusion pattern
-// config.resolver.blacklistRE = /node_modules\/.*\/(android|ios|windows|macos|__tests__|\.git|.*\.android\.js|.*\.ios\.js)$/;
+// Only watch source files, not all of node_modules
+config.watchFolders = [];
 
 // Reduce the number of workers to decrease resource usage
 config.maxWorkers = 2;
