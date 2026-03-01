@@ -7,6 +7,7 @@
  */
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { router } from 'expo-router';
 import { api } from './api';
@@ -54,11 +55,21 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
     return null;
   }
 
-  const tokenData = await Notifications.getExpoPushTokenAsync({
-    projectId: 'winek', // Expo project slug
-  });
+  try {
+    // Récupère le projectId depuis la config EAS si disponible
+    const projectId =
+      Constants.expoConfig?.extra?.eas?.projectId ??
+      (Constants as any).easConfig?.projectId;
 
-  return tokenData.data;
+    const tokenData = projectId
+      ? await Notifications.getExpoPushTokenAsync({ projectId })
+      : await Notifications.getExpoPushTokenAsync();
+
+    return tokenData.data;
+  } catch (e) {
+    console.warn('[Push] Impossible de récupérer le token:', e);
+    return null;
+  }
 }
 
 /**
