@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "WINEK",
-    "slug": "winek",
+    "name": "SpotU",
+    "slug": "spotu",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "scheme": "winek",
+    "scheme": "spotu",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {

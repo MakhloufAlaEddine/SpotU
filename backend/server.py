@@ -25,7 +25,7 @@ from routes.push_routes import router as push_router
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="WINEK API", version="1.0.0")
+app = FastAPI(title="SpotU API", version="1.0.0")
 
 api_router = APIRouter(prefix="/api")
 api_router.include_router(auth_router, prefix="/auth", tags=["auth"])
