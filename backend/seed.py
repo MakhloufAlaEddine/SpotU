@@ -534,3 +534,107 @@ async def seed_initial_data():
             """, slot[0], slot[1], slot[2], str(slot[3]), slot[4], slot[5])
 
         logger.info("Seeded 4 demo services with locations, packages and slots")
+
+        # ── Demo chat data ────────────────────────────────────────────────────
+        demo_conv_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM conversations WHERE conversation_id LIKE 'conv_demo%'"
+        )
+        if demo_conv_count == 0:
+            from datetime import timedelta
+            now = datetime.now(timezone.utc)
+
+            def mins_ago(n): return now - timedelta(minutes=n)
+
+            # Conv 1 – Service 1-à-1 : Thomas ↔ Sophie
+            await conn.execute(
+                """INSERT INTO conversations (conversation_id, type, context_id, context_title, created_by, last_message_at)
+                   VALUES ('conv_demo001','service','svc_demo001','Coaching fitness & running personnalisé','user_demo001', $1)
+                   ON CONFLICT DO NOTHING""", mins_ago(5)
+            )
+            for uid in ("user_demo001", "user_coach001"):
+                await conn.execute(
+                    "INSERT INTO conversation_participants (conversation_id, user_id, last_read_at) VALUES ('conv_demo001',$1,$2) ON CONFLICT DO NOTHING",
+                    uid, mins_ago(35)  # last read 35min ago → 2 msg non lus
+                )
+            msgs1 = [
+                ("msg_d001a", "user_demo001", "Bonjour Sophie ! Je suis intéressé par votre coaching. Quels sont vos créneaux disponibles ?", 120),
+                ("msg_d001b", "user_coach001", "Bonjour Thomas ! Ravi de vous lire. J'ai des créneaux le mardi et jeudi matin 9h-10h. Ça vous convient ?", 110),
+                ("msg_d001c", "user_demo001", "Le mardi matin me convient parfaitement ! J'aimerais commencer la semaine prochaine.", 100),
+                ("msg_d001d", "user_coach001", "Super ! Réservez le créneau du 5 mars à 9h. Je vous envoie le programme d'évaluation avant notre première séance.", 30),
+                ("msg_d001e", "user_coach001", "N'oubliez pas d'apporter une tenue adaptée et une bouteille d'eau. À mardi !", 5),
+            ]
+            for mid, sid, content, mago in msgs1:
+                await conn.execute(
+                    "INSERT INTO messages (message_id, conversation_id, sender_id, content, created_at) VALUES ($1,'conv_demo001',$2,$3,$4) ON CONFLICT DO NOTHING",
+                    mid, sid, content, mins_ago(mago)
+                )
+
+            # Conv 2 – Tagpoint group : Streetball 3x3
+            await conn.execute(
+                """INSERT INTO conversations (conversation_id, type, context_id, context_title, created_by, last_message_at)
+                   VALUES ('conv_demo002','tagpoint_group','pt_demo013','Streetball 3x3 - République','user_demo003', $1)
+                   ON CONFLICT DO NOTHING""", mins_ago(10)
+            )
+            for uid, lra in [("user_demo003", 20), ("user_demo001", 15), ("user_demo002", 480), ("user_coach001", 480)]:
+                await conn.execute(
+                    "INSERT INTO conversation_participants (conversation_id, user_id, last_read_at) VALUES ('conv_demo002',$1,$2) ON CONFLICT DO NOTHING",
+                    uid, mins_ago(lra)
+                )
+            msgs2 = [
+                ("msg_d002a", "user_demo003", "Salut tout le monde ! RDV ce soir 18h au terrain. On a besoin de 2 joueurs de plus.", 480),
+                ("msg_d002b", "user_demo001", "Je serai là ! Je ramène un pote.", 460),
+                ("msg_d002c", "user_demo002", "Présent aussi ! On fait des équipes de combien ce soir ?", 450),
+                ("msg_d002d", "user_demo003", "3x3 comme d'hab. On verra si on peut faire du 4x4 selon le nombre.", 440),
+                ("msg_d002e", "user_demo001", "Super ! À ce soir tout le monde.", 60),
+                ("msg_d002f", "user_demo002", "Je serai peut-être en retard de 15 min, commencez sans moi.", 10),
+            ]
+            for mid, sid, content, mago in msgs2:
+                await conn.execute(
+                    "INSERT INTO messages (message_id, conversation_id, sender_id, content, created_at) VALUES ($1,'conv_demo002',$2,$3,$4) ON CONFLICT DO NOTHING",
+                    mid, sid, content, mins_ago(mago)
+                )
+
+            # Conv 3 – Tagpoint private : Thomas → Camille (pt_demo013)
+            await conn.execute(
+                """INSERT INTO conversations (conversation_id, type, context_id, context_title, created_by, last_message_at)
+                   VALUES ('conv_demo003','tagpoint_private','pt_demo013','Streetball 3x3 - République','user_demo001', $1)
+                   ON CONFLICT DO NOTHING""", mins_ago(270)
+            )
+            for uid in ("user_demo001", "user_demo003"):
+                await conn.execute(
+                    "INSERT INTO conversation_participants (conversation_id, user_id, last_read_at) VALUES ('conv_demo003',$1,$2) ON CONFLICT DO NOTHING",
+                    uid, mins_ago(260)
+                )
+            msgs3 = [
+                ("msg_d003a", "user_demo001", "Salut Camille ! Est-ce qu'il y a un niveau minimum pour rejoindre ?", 300),
+                ("msg_d003b", "user_demo003", "Non pas du tout ! On accueille tous les niveaux, l'important c'est la bonne ambiance.", 280),
+                ("msg_d003c", "user_demo001", "Super, je viens ce soir alors !", 270),
+            ]
+            for mid, sid, content, mago in msgs3:
+                await conn.execute(
+                    "INSERT INTO messages (message_id, conversation_id, sender_id, content, created_at) VALUES ($1,'conv_demo003',$2,$3,$4) ON CONFLICT DO NOTHING",
+                    mid, sid, content, mins_ago(mago)
+                )
+
+            # Conv 4 – Service : Mohamed ↔ Sophie (2ème conversation service)
+            await conn.execute(
+                """INSERT INTO conversations (conversation_id, type, context_id, context_title, created_by, last_message_at)
+                   VALUES ('conv_demo004','service','svc_demo001','Coaching fitness & running personnalisé','user_demo002', $1)
+                   ON CONFLICT DO NOTHING""", mins_ago(180)
+            )
+            for uid in ("user_demo002", "user_coach001"):
+                await conn.execute(
+                    "INSERT INTO conversation_participants (conversation_id, user_id, last_read_at) VALUES ('conv_demo004',$1,$2) ON CONFLICT DO NOTHING",
+                    uid, mins_ago(170)
+                )
+            msgs4 = [
+                ("msg_d004a", "user_demo002", "Bonjour, est-ce que vous faites aussi du coaching pour les sportifs de niveau confirmé ?", 200),
+                ("msg_d004b", "user_coach001", "Absolument ! J'ai une expérience avec tous les niveaux, du débutant au sportif compétiteur.", 180),
+            ]
+            for mid, sid, content, mago in msgs4:
+                await conn.execute(
+                    "INSERT INTO messages (message_id, conversation_id, sender_id, content, created_at) VALUES ($1,'conv_demo004',$2,$3,$4) ON CONFLICT DO NOTHING",
+                    mid, sid, content, mins_ago(mago)
+                )
+
+            logger.info("Seeded demo chat conversations and messages")
