@@ -24,10 +24,10 @@ function timeAgo(iso: string): string {
 
 function TypeBadge({ type }: { type: string }) {
   const label = type === 'service' ? 'SERVICE'
-    : type === 'tagpoint_group' ? 'GROUPE'
+    : type === 'spotyou_group' ? 'GROUPE'
     : 'PRIVÉ';
   const color = type === 'service' ? Colors.service
-    : type === 'tagpoint_group' ? Colors.primary
+    : type === 'spotyou_group' ? Colors.primary
     : Colors.coaching;
   return (
     <View style={[st.badge, { borderColor: color }]}>
@@ -39,7 +39,7 @@ function TypeBadge({ type }: { type: string }) {
 function ConvItem({ item, currentUserId }: { item: Conversation; currentUserId: string }) {
   const router = useRouter();
   const other = item.other_participant;
-  const isGroup = item.type === 'tagpoint_group';
+  const isGroup = item.type === 'spotyou_group';
 
   const title = isGroup
     ? item.context_title
@@ -49,7 +49,7 @@ function ConvItem({ item, currentUserId }: { item: Conversation; currentUserId: 
     ? item.context_title
     : item.type === 'service'
     ? `Service · ${item.context_title}`
-    : `TagPoint · ${item.context_title}`;
+    : `SpotYou · ${item.context_title}`;
 
   return (
     <TouchableOpacity
@@ -168,7 +168,7 @@ export default function ChatListScreen() {
           <Ionicons name="chatbubbles-outline" size={56} color={Colors.muted} />
           <Text style={st.emptyTitle}>Aucune conversation</Text>
           <Text style={st.emptyDesc}>
-            Contacte un coach ou rejoins un TagPoint pour commencer à discuter.
+            Contacte un coach ou rejoins un SpotYou pour commencer à discuter.
           </Text>
         </View>
       ) : (

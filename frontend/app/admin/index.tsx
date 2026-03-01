@@ -7,7 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/LanguageContext';
 import { Colors, Spacing, Radius, Shadow } from '../../constants/Colors';
 
-type AdminTab = 'stats' | 'users' | 'tagpoints' | 'domains';
+type AdminTab = 'stats' | 'users' | 'spotyou' | 'domains';
 
 export default function AdminScreen() {
   const { user } = useAuth();
@@ -16,7 +16,7 @@ export default function AdminScreen() {
   const [tab, setTab] = useState<AdminTab>('stats');
   const [stats, setStats] = useState<any>(null);
   const [users, setUsers] = useState<any[]>([]);
-  const [tagPoints, setTagPoints] = useState<any[]>([]);
+  const [SpotYou, setSpotYou] = useState<any[]>([]);
   const [domains, setDomains] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -35,9 +35,9 @@ export default function AdminScreen() {
       } else if (tab === 'users') {
         const u = await api.get('/admin/users');
         setUsers(u);
-      } else if (tab === 'tagpoints') {
+      } else if (tab === 'spotyou') {
         const p = await api.get('/admin/tag-points');
-        setTagPoints(p);
+        setSpotYou(p);
       } else if (tab === 'domains') {
         const d = await api.get('/admin/domains');
         setDomains(d);
@@ -60,7 +60,7 @@ export default function AdminScreen() {
   const TABS: { key: AdminTab; label: string; emoji: string }[] = [
     { key: 'stats', label: 'Stats', emoji: '📊' },
     { key: 'users', label: 'Users', emoji: '👥' },
-    { key: 'tagpoints', label: 'TagPoints', emoji: '📍' },
+    { key: 'spotyou', label: 'SpotYou', emoji: '📍' },
     { key: 'domains', label: 'Domaines', emoji: '🌍' },
   ];
 
@@ -94,7 +94,7 @@ export default function AdminScreen() {
                 {[
                   { label: t('totalUsers'), value: stats.total_users, emoji: '👤', color: Colors.accent },
                   { label: t('totalCoaches'), value: stats.total_coaches, emoji: '🎯', color: Colors.coaching },
-                  { label: t('totalTagPoints'), value: stats.total_tagpoints, emoji: '📍', color: Colors.sport },
+                  { label: t('totalSpotYou'), value: stats.total_spotyou, emoji: '📍', color: Colors.sport },
                   { label: t('totalBookings'), value: stats.total_bookings, emoji: '📅', color: Colors.warning },
                   { label: t('gmv'), value: `${stats.gmv}€`, emoji: '💰', color: Colors.success },
                   { label: t('platformFee'), value: `${stats.platform_commission}€`, emoji: '🏦', color: Colors.primary },
@@ -125,7 +125,7 @@ export default function AdminScreen() {
             ))}
 
             {/* TAGPOINTS */}
-            {tab === 'tagpoints' && tagPoints.map((pt) => (
+            {tab === 'spotyou' && SpotYou.map((pt) => (
               <View key={pt.point_id} style={styles.rowCard} testID={`admin-pt-${pt.point_id}`}>
                 <View style={styles.rowInfo}>
                   <Text style={styles.rowTitle} numberOfLines={1}>{pt.title}</Text>

@@ -18,7 +18,7 @@ export default function MenuScreen() {
   const { user, logout, loading, refreshUser } = useAuth();
   const { lang, setLang } = useLang();
   const [refreshing, setRefreshing] = useState(false);
-  const [myTagPoints, setMyTagPoints] = useState<any[]>([]);
+  const [mySpotYou, setMySpotYou] = useState<any[]>([]);
   const [showLangModal, setShowLangModal] = useState(false);
   const [isRefreshingUser, setIsRefreshingUser] = useState(false);
   const [reviewStats, setReviewStats] = useState<{ avg_rating: number | null; review_count: number }>({ avg_rating: null, review_count: 0 });
@@ -48,7 +48,7 @@ export default function MenuScreen() {
         api.get('/tag-points/mine'),
         api.get('/users/profile'),
       ]);
-      setMyTagPoints(points || []);
+      setMySpotYou(points || []);
       if (profileData) {
         setReviewStats({
           avg_rating: profileData.avg_rating ?? null,
@@ -153,8 +153,8 @@ export default function MenuScreen() {
               </View>
               <View style={st.heroStats}>
                 <View style={st.heroStat}>
-                  <Text style={st.heroStatVal}>{myTagPoints.length}</Text>
-                  <Text style={st.heroStatLbl}>TagPoints</Text>
+                  <Text style={st.heroStatVal}>{mySpotYou.length}</Text>
+                  <Text style={st.heroStatLbl}>SpotYou</Text>
                 </View>
                 <View style={st.heroStatDiv} />
                 <View style={st.heroStat} testID="hero-review-count">
@@ -211,12 +211,12 @@ export default function MenuScreen() {
             <Text style={st.actionSub}>Agenda</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={st.actionCard} onPress={() => router.push('/my-tag-points' as any)} activeOpacity={0.8} testID="my-tp-nav-btn">
+          <TouchableOpacity style={st.actionCard} onPress={() => router.push('/spot-me' as any)} activeOpacity={0.8} testID="my-tp-nav-btn">
             <View style={st.actionIconBox}>
               <Ionicons name="location" size={22} color={Colors.primary} />
             </View>
             <Text style={st.actionLabel}>Mes Points</Text>
-            <Text style={st.actionSub}>{myTagPoints.length} créés</Text>
+            <Text style={st.actionSub}>{mySpotYou.length} créés</Text>
           </TouchableOpacity>
         </View>
 
@@ -259,22 +259,22 @@ export default function MenuScreen() {
         )}
 
         {/* ── MY TAGPOINTS (horizontal scroll) ──────────────── */}
-        {myTagPoints.length > 0 && (
+        {mySpotYou.length > 0 && (
           <View style={st.section}>
             <View style={st.sectionHeader}>
-              <Text style={st.sectionTitle}>Mes TagPoints</Text>
-              {myTagPoints.length > 3 && (
-                <TouchableOpacity onPress={() => router.push('/my-tag-points' as any)} testID="see-more-tagpoints-btn">
+              <Text style={st.sectionTitle}>Mes SpotMe</Text>
+              {mySpotYou.length > 3 && (
+                <TouchableOpacity onPress={() => router.push('/spot-me' as any)} testID="see-more-spotyou-btn">
                   <Text style={st.sectionLink}>Voir tout</Text>
                 </TouchableOpacity>
               )}
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.tpScroll}>
-              {myTagPoints.slice(0, 6).map((pt) => {
+              {mySpotYou.slice(0, 6).map((pt) => {
                 const thumb = (pt.images as string[] | null)?.[0] || pt.image_url;
                 return (
                   <TouchableOpacity key={pt.point_id} style={st.tpCard}
-                    onPress={() => router.push(`/tag-point/${pt.point_id}`)} activeOpacity={0.85}
+                    onPress={() => router.push(`/spot-you/${pt.point_id}`)} activeOpacity={0.85}
                     testID={`tp-card-${pt.point_id}`}>
                     {thumb
                       ? <Image source={{ uri: thumb }} style={st.tpCardBg} />
@@ -292,14 +292,14 @@ export default function MenuScreen() {
           </View>
         )}
 
-        {myTagPoints.length === 0 && (
+        {mySpotYou.length === 0 && (
           <View style={st.section}>
             <View style={st.sectionHeader}>
-              <Text style={st.sectionTitle}>Mes TagPoints</Text>
+              <Text style={st.sectionTitle}>Mes SpotMe</Text>
             </View>
             <TouchableOpacity style={st.emptyTp} onPress={() => router.push('/(tabs)/create' as any)} activeOpacity={0.8}>
               <Ionicons name="add-circle-outline" size={32} color={Colors.primary} />
-              <Text style={st.emptyTpText}>Créer mon premier TagPoint</Text>
+              <Text style={st.emptyTpText}>Créer mon premier SpotMe</Text>
             </TouchableOpacity>
           </View>
         )}

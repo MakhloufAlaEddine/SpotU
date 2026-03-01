@@ -1,5 +1,5 @@
 export const Colors = {
-  // WINEK Dark Theme - Based on mockups
+  // SpotU Dark Theme - Based on mockups
   primary: '#00BFA5', // Teal/cyan accent
   primaryLight: 'rgba(0, 191, 165, 0.15)',
   primaryDark: '#00A896',

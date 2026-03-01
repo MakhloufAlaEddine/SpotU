@@ -7,7 +7,7 @@ async function request<T = any>(
   path: string,
   data?: unknown,
 ): Promise<T> {
-  const token = await storage.get('winek_token');
+  const token = await storage.get('spotu_token');
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 

@@ -49,14 +49,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkAuth = useCallback(async () => {
     try {
-      const saved = await storage.get('winek_token');
+      const saved = await storage.get('spotu_token');
       if (saved) {
         setToken(saved);
         const me = await api.get<User>('/auth/me');
         applyUser(me);
       }
     } catch {
-      await storage.remove('winek_token');
+      await storage.remove('spotu_token');
       setToken(null);
       setUser(null);
     } finally {
@@ -81,14 +81,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     const data = await api.post<{ user: User; token: string }>('/auth/login', { email, password });
-    await storage.set('winek_token', data.token);
+    await storage.set('spotu_token', data.token);
     setToken(data.token);
     applyUser(data.user);
   };
 
   const register = async (email: string, password: string, name: string, language: Lang = 'fr') => {
     const data = await api.post<{ user: User; token: string }>('/auth/register', { email, password, name, language });
-    await storage.set('winek_token', data.token);
+    await storage.set('spotu_token', data.token);
     setToken(data.token);
     applyUser(data.user);
   };
@@ -97,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       const data = await api.post<{ user: User; token: string }>('/auth/google', { session_id: sessionId });
-      await storage.set('winek_token', data.token);
+      await storage.set('spotu_token', data.token);
       setToken(data.token);
       applyUser(data.user);
     } finally {
@@ -171,7 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [processGoogleCallback]);
 
   const logout = async () => {
-    await storage.remove('winek_token');
+    await storage.remove('spotu_token');
     setToken(null);
     setUser(null);
   };

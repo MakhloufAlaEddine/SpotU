@@ -177,7 +177,7 @@ export default function UserProfileScreen() {
   }
 
   const isCoach = profile.role === 'coach';
-  const tagPoints: any[] = profile.tag_points || [];
+  const SpotYou: any[] = profile.tag_points || [];
   const services: any[] = profile.services || [];
   const interests: any[] = profile.interests || [];
   const isOwnProfile = me && me.user_id === id;
@@ -291,18 +291,18 @@ export default function UserProfileScreen() {
         )}
 
         {/* ── TAGPOINTS ──────────────────────────── */}
-        {tagPoints.length > 0 && (
+        {SpotYou.length > 0 && (
           <View style={st.section}>
             <Text style={st.sectionTitle}>
               <Ionicons name="location-outline" size={13} color={Colors.primary} />
-              {'  '}TagPoints publiés
+              {'  '}SpotYou publiés
             </Text>
             <View style={st.tpList}>
-              {tagPoints.map((tp: any) => {
+              {SpotYou.map((tp: any) => {
                 const thumb = (tp.images as string[] | null)?.[0];
                 return (
                   <TouchableOpacity key={tp.point_id} style={st.tpCard}
-                    onPress={() => router.push(`/tag-point/${tp.point_id}` as any)}
+                    onPress={() => router.push(`/spot-you/${tp.point_id}` as any)}
                     testID={`tp-card-${tp.point_id}`} activeOpacity={0.75}>
                     {thumb
                       ? <Image source={{ uri: thumb }} style={st.tpThumb} />
@@ -322,10 +322,10 @@ export default function UserProfileScreen() {
           </View>
         )}
 
-        {tagPoints.length === 0 && (
+        {SpotYou.length === 0 && (
           <View style={st.emptyState}>
             <Ionicons name="location-outline" size={32} color={Colors.muted} />
-            <Text style={st.emptyText}>Aucun tagPoint public</Text>
+            <Text style={st.emptyText}>Aucun SpotMe public</Text>
           </View>
         )}
 
@@ -585,7 +585,7 @@ const st = StyleSheet.create({
   tagIcon: { fontSize: 14 },
   tagText: { fontSize: 12, fontWeight: '600', color: Colors.primary },
 
-  // TagPoints
+  // SpotYou
   tpList: { gap: 8 },
   tpCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,

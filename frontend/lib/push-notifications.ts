@@ -34,7 +34,7 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
   // Canal Android (obligatoire pour Android 8+)
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', {
-      name: 'WINEK',
+      name: 'SpotU',
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#FF6B35',

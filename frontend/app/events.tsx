@@ -64,7 +64,7 @@ function EventCard({ item, onLeave }: { item: EventPoint; onLeave: () => void })
   return (
     <TouchableOpacity
       style={card.container}
-      onPress={() => router.push(`/tag-point/${item.point_id}` as any)}
+      onPress={() => router.push(`/spot-you/${item.point_id}` as any)}
       activeOpacity={0.8}
       testID={`event-card-${item.point_id}`}
     >
@@ -159,7 +159,7 @@ export default function EventsScreen() {
   }, []));
 
   const handleLeave = async (pointId: string) => {
-    Alert.alert('Se retirer', 'Retirer ce TagPoint de votre planning ?', [
+    Alert.alert('Se retirer', 'Retirer ce SpotYou de votre planning ?', [
       { text: 'Annuler', style: 'cancel' },
       {
         text: 'Retirer', style: 'destructive',
@@ -197,10 +197,10 @@ export default function EventsScreen() {
           </View>
           <Text style={s.emptyTitle}>Aucun événement</Text>
           <Text style={s.emptySubtitle}>
-            Cliquez sur "Rejoindre" dans un TagPoint pour l'ajouter à votre planning.
+            Cliquez sur "Rejoindre" dans un SpotYou pour l'ajouter à votre planning.
           </Text>
           <TouchableOpacity style={s.exploreBtn} onPress={() => router.push('/(tabs)/search' as any)} testID="explore-btn">
-            <Text style={s.exploreBtnText}>Explorer les TagPoints</Text>
+            <Text style={s.exploreBtnText}>Explorer les SpotYou</Text>
           </TouchableOpacity>
         </View>
       ) : (

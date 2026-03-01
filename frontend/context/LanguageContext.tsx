@@ -18,7 +18,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>('fr');
 
   useEffect(() => {
-    storage.get('winek_lang').then((saved) => {
+    storage.get('spotu_lang').then((saved) => {
       if (saved === 'fr' || saved === 'en') {
         setLangState(saved);
         setLang(saved);
@@ -29,7 +29,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const setLanguage = (l: Lang) => {
     setLangState(l);
     setLang(l);
-    storage.set('winek_lang', l);
+    storage.set('spotu_lang', l);
   };
 
   const tFn = (key: string) => translate(key, lang);

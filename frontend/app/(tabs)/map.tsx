@@ -280,7 +280,7 @@ export default function HomeScreen() {
   const { location, loading: locLoading } = useLocation();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [tagPoints, setTagPoints] = useState<any[]>([]);
+  const [SpotYou, setSpotYou] = useState<any[]>([]);
   const [services, setServices] = useState<any[]>([]);
 
   const [heroIndex, setHeroIndex] = useState(0);
@@ -293,7 +293,7 @@ export default function HomeScreen() {
 
   // Auto-scroll
   useEffect(() => {
-    const heroes = tagPoints.slice(0, 5);
+    const heroes = SpotYou.slice(0, 5);
     if (heroes.length < 2) return;
     autoTimer.current = setInterval(() => {
       setHeroIndex(prev => {
@@ -303,7 +303,7 @@ export default function HomeScreen() {
       });
     }, 4000);
     return () => { if (autoTimer.current) clearInterval(autoTimer.current); };
-  }, [tagPoints]);
+  }, [SpotYou]);
 
   const loadData = async () => {
     try {
@@ -311,7 +311,7 @@ export default function HomeScreen() {
         api.get(`/tag-points?lat=${location.lat}&lng=${location.lng}&radius=50000`).catch(() => []),
         api.get(`/services?lat=${location.lat}&lng=${location.lng}&radius=50000`).catch(() => []),
       ]);
-      setTagPoints(Array.isArray(nearby) ? nearby : []);
+      setSpotYou(Array.isArray(nearby) ? nearby : []);
       setServices(Array.isArray(svcs) ? svcs : []);
     } catch {}
     finally { setLoading(false); setRefreshing(false); }
@@ -322,8 +322,8 @@ export default function HomeScreen() {
     loadData();
   }, [location.lat, location.lng]);
 
-  const heroPoints = tagPoints.slice(0, 5);
-  const recentPoints = [...tagPoints]
+  const heroPoints = SpotYou.slice(0, 5);
+  const recentPoints = [...SpotYou]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 8);
 
@@ -366,7 +366,7 @@ export default function HomeScreen() {
                 showsHorizontalScrollIndicator={false}
                 keyExtractor={i => i.point_id}
                 renderItem={({ item }) => (
-                  <HeroCard point={item} onPress={() => router.push(`/tag-point/${item.point_id}` as any)} />
+                  <HeroCard point={item} onPress={() => router.push(`/spot-you/${item.point_id}` as any)} />
                 )}
                 onMomentumScrollEnd={e => {
                   const idx = Math.round(e.nativeEvent.contentOffset.x / (SW - 32 + 12));
@@ -424,7 +424,7 @@ export default function HomeScreen() {
               <View style={[secSt.header, { paddingHorizontal: 0 }]}>
                 <View>
                   <Text style={secSt.title}>Derniers ajouts</Text>
-                  <Text style={secSt.sub}>{tagPoints.length} TagPoint{tagPoints.length > 1 ? 's' : ''} près de vous</Text>
+                  <Text style={secSt.sub}>{SpotYou.length} SpotYou{SpotYou.length > 1 ? 's' : ''} près de vous</Text>
                 </View>
                 <TouchableOpacity onPress={() => router.push('/(tabs)/search' as any)}>
                   <Text style={secSt.seeAll}>Voir tout</Text>
@@ -436,21 +436,21 @@ export default function HomeScreen() {
                   point={pt}
                   userLat={location.lat}
                   userLng={location.lng}
-                  onPress={() => router.push(`/tag-point/${pt.point_id}` as any)}
+                  onPress={() => router.push(`/spot-you/${pt.point_id}` as any)}
                 />
               ))}
             </View>
           )}
 
           {/* Empty state */}
-          {tagPoints.length === 0 && services.length === 0 && (
+          {SpotYou.length === 0 && services.length === 0 && (
             <View style={emptySt.wrap}>
               <Ionicons name="location-outline" size={56} color={Colors.muted} />
               <Text style={emptySt.title}>Aucun contenu trouvé</Text>
-              <Text style={emptySt.desc}>Sois le premier à créer un TagPoint près de toi !</Text>
+              <Text style={emptySt.desc}>Sois le premier à créer un SpotYou près de toi !</Text>
               <TouchableOpacity style={emptySt.btn} onPress={() => router.push('/(tabs)/create' as any)}>
                 <Ionicons name="add" size={18} color={Colors.background} />
-                <Text style={emptySt.btnTxt}>Créer un TagPoint</Text>
+                <Text style={emptySt.btnTxt}>Créer un SpotYou</Text>
               </TouchableOpacity>
             </View>
           )}

@@ -46,7 +46,7 @@ const STEPS = [
     id: 1, title: "L'essentiel",
     subtitle: 'Photos & Titre',
     icon: 'camera-outline' as const,
-    tip: 'Les tagPoints avec une belle photo et un titre accrocheur reçoivent jusqu\'à 3× plus de participations.',
+    tip: 'Les SpotYou avec une belle photo et un titre accrocheur reçoivent jusqu\'à 3× plus de participations.',
     tipIcon: 'bulb-outline' as const,
   },
   {
@@ -67,7 +67,7 @@ const STEPS = [
     id: 4, title: 'La date',
     subtitle: 'Quand ça commence ?',
     icon: 'calendar-outline' as const,
-    tip: 'Les tagPoints récurrents fidélisent davantage de participants sur la durée. Configurez un créneau régulier pour créer une communauté.',
+    tip: 'Les SpotYou récurrents fidélisent davantage de participants sur la durée. Configurez un créneau régulier pour créer une communauté.',
     tipIcon: 'trending-up-outline' as const,
   },
 ];
@@ -92,7 +92,7 @@ function calcQuality(form: any): { score: number; label: string; color: string }
 }
 
 // ─── Main Component ─────────────────────────────────────────────────────────────
-export default function CreateTagPointScreen() {
+export default function CreateSpotYouScreen() {
   const router = useRouter();
   const { user, token } = useAuth();
   const { lang } = useLang();
@@ -402,14 +402,14 @@ export default function CreateTagPointScreen() {
         ? await api.put(`/tag-points/${params.pointId}`, payload)
         : await api.post('/tag-points', payload);
       const newPointId = isEditMode ? params.pointId! : result.point_id;
-      const successMsg = isEditMode ? 'TagPoint mis à jour !' : 'Votre tagPoint est visible !';
+      const successMsg = isEditMode ? 'SpotYou mis à jour !' : 'Votre SpotYou est visible !';
 
       triggerProfileRefresh();
 
-      // Always navigate directly to the tagPoint detail (edit or create)
-      setTimeout(() => router.replace(`/tag-point/${newPointId}` as any), 100);
+      // Always navigate directly to the SpotYou detail (edit or create)
+      setTimeout(() => router.replace(`/spot-you/${newPointId}` as any), 100);
     } catch (err: any) {
-      Alert.alert('Erreur', err.message || 'Impossible de créer le tagPoint');
+      Alert.alert('Erreur', err.message || 'Impossible de créer le SpotYou');
     } finally {
       setSubmitting(false);
       setUploadProgress(null);
@@ -494,7 +494,7 @@ export default function CreateTagPointScreen() {
         <TouchableOpacity
           onPress={step === 0
             ? () => (isEditMode && params.pointId
-                ? router.replace(`/tag-point/${params.pointId}` as any)
+                ? router.replace(`/spot-you/${params.pointId}` as any)
                 : router.back())
             : goPrev}
           style={st.headerSideBtn}
@@ -503,7 +503,7 @@ export default function CreateTagPointScreen() {
           <Ionicons name={step === 0 ? 'close' : 'chevron-back'} size={24} color={Colors.foreground} />
         </TouchableOpacity>
         <View style={st.headerCenter}>
-          <Text style={st.headerTitle}>{isEditMode ? 'Modifier le TagPoint' : (step < 4 ? STEPS[step].title : 'Aperçu')}</Text>
+          <Text style={st.headerTitle}>{isEditMode ? 'Modifier le SpotYou' : (step < 4 ? STEPS[step].title : 'Aperçu')}</Text>
           {step < 4 && <Text style={st.headerSub}>Étape {step + 1} / 4</Text>}
         </View>
         <TouchableOpacity onPress={resetForm} style={st.headerSideBtn} testID="reset-btn">
@@ -633,7 +633,7 @@ export default function CreateTagPointScreen() {
             ) : (
               <>
                 <Ionicons name="checkmark-circle" size={20} color={Colors.background} />
-                <Text style={st.publishBtnText}>Publier le TagPoint</Text>
+                <Text style={st.publishBtnText}>Publier le SpotYou</Text>
               </>
             )}
           </TouchableOpacity>
@@ -858,7 +858,7 @@ function StepEssentiel({ images, title, setTitle, onPickImages, onRemoveImage }:
         {images.length === 0 && (
           <View style={sc.noImgHint}>
             <Ionicons name="information-circle-outline" size={14} color={Colors.muted} />
-            <Text style={sc.noImgHintText}>Les tagPoints avec photos obtiennent 3× plus de vues</Text>
+            <Text style={sc.noImgHintText}>Les SpotYou avec photos obtiennent 3× plus de vues</Text>
           </View>
         )}
       </View>
@@ -972,7 +972,7 @@ function StepContenu({ description, setDescription, domainId, setDomainId, domai
         </TouchableOpacity>
         {selectedTags.length === 0 && (
           <View style={sc.fieldTip}>
-            <Text style={sc.fieldTipText}>Les tags permettent à votre tagPoint d'apparaître dans les recherches filtrées</Text>
+            <Text style={sc.fieldTipText}>Les tags permettent à votre SpotYou d'apparaître dans les recherches filtrées</Text>
           </View>
         )}
       </View>
@@ -1231,7 +1231,7 @@ function StepPreview({ title, description, images, selectedTags, locationAddress
           <Text style={sc.improveTipText}>
             {!images.length ? "Ajoutez des photos pour booster l'attractivité." :
              !description ? 'Une description complète fidélise les participants.' :
-             !selectedTags.length ? 'Des tags améliorent la découverte de votre tagPoint.' :
+             !selectedTags.length ? 'Des tags améliorent la découverte de votre SpotYou.' :
              scheduleType === 'none' ? 'Une date aide les participants à planifier leur venue.' :
              'Complétez le titre pour un meilleur impact.'}
           </Text>

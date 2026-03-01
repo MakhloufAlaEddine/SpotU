@@ -17,7 +17,7 @@ export interface ChatMessage {
 
 export interface Conversation {
   conversation_id: string;
-  type: 'service' | 'tagpoint_group' | 'tagpoint_private';
+  type: 'service' | 'spotyou_group' | 'spotyou_private';
   context_id: string;
   context_title: string;
   created_by: string;
@@ -37,7 +37,7 @@ export function useNotifications() {
   const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const connect = useCallback(async () => {
-    const token = await storage.get('winek_token');
+    const token = await storage.get('spotu_token');
     if (!token) return;
 
     const url = `${BASE_WS}/api/ws/notifications?token=${token}`;
@@ -94,7 +94,7 @@ export function useChat(conversationId: string | null) {
 
   const connect = useCallback(async () => {
     if (!conversationId) return;
-    const token = await storage.get('winek_token');
+    const token = await storage.get('spotu_token');
     if (!token) return;
 
     const url = `${BASE_WS}/api/ws/chat/${conversationId}?token=${token}`;

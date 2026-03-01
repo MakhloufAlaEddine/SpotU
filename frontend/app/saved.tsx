@@ -150,12 +150,12 @@ const card = StyleSheet.create({
 });
 
 // ── Onglets
-type Tab = 'tagpoints' | 'services';
+type Tab = 'spotyou' | 'services';
 
 export default function SavedScreen() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<Tab>('tagpoints');
-  const [tagPoints, setTagPoints] = useState<SavedPoint[]>([]);
+  const [activeTab, setActiveTab] = useState<Tab>('spotyou');
+  const [SpotYou, setSpotYou] = useState<SavedPoint[]>([]);
   const [services, setServices] = useState<SavedService[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -166,10 +166,10 @@ export default function SavedScreen() {
         api.get('/tag-points/saved').catch(() => []),
         api.get('/services/saved').catch(() => []),
       ]);
-      setTagPoints(Array.isArray(pts) ? pts : []);
+      setSpotYou(Array.isArray(pts) ? pts : []);
       setServices(Array.isArray(svcs) ? svcs : []);
     } catch {
-      setTagPoints([]);
+      setSpotYou([]);
       setServices([]);
     } finally {
       setLoading(false);
@@ -185,7 +185,7 @@ export default function SavedScreen() {
   const handleUnsavePoint = async (pointId: string) => {
     try {
       await api.delete(`/tag-points/${pointId}/unsave`);
-      setTagPoints(prev => prev.filter(p => p.point_id !== pointId));
+      setSpotYou(prev => prev.filter(p => p.point_id !== pointId));
     } catch {}
   };
 
@@ -196,8 +196,8 @@ export default function SavedScreen() {
     } catch {}
   };
 
-  const totalCount = tagPoints.length + services.length;
-  const items = activeTab === 'tagpoints' ? tagPoints : services;
+  const totalCount = SpotYou.length + services.length;
+  const items = activeTab === 'spotyou' ? SpotYou : services;
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
@@ -213,12 +213,12 @@ export default function SavedScreen() {
       {/* Onglets */}
       <View style={s.tabs}>
         <TouchableOpacity
-          style={[s.tab, activeTab === 'tagpoints' && s.tabActive]}
-          onPress={() => setActiveTab('tagpoints')}
-          testID="tab-tagpoints"
+          style={[s.tab, activeTab === 'spotyou' && s.tabActive]}
+          onPress={() => setActiveTab('spotyou')}
+          testID="tab-spotyou"
         >
-          <Text style={[s.tabText, activeTab === 'tagpoints' && s.tabTextActive]}>
-            TagPoints {tagPoints.length > 0 ? `(${tagPoints.length})` : ''}
+          <Text style={[s.tabText, activeTab === 'spotyou' && s.tabTextActive]}>
+            SpotYou {SpotYou.length > 0 ? `(${SpotYou.length})` : ''}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -240,10 +240,10 @@ export default function SavedScreen() {
             <Ionicons name="bookmark-outline" size={48} color={Colors.muted} />
           </View>
           <Text style={s.emptyTitle}>
-            {activeTab === 'tagpoints' ? 'Aucun TagPoint enregistré' : 'Aucun service enregistré'}
+            {activeTab === 'spotyou' ? 'Aucun SpotYou enregistré' : 'Aucun service enregistré'}
           </Text>
           <Text style={s.emptySubtitle}>
-            Appuyez sur <Ionicons name="bookmark-outline" size={14} color={Colors.muted} /> dans un {activeTab === 'tagpoints' ? 'TagPoint' : 'service'} pour le retrouver ici.
+            Appuyez sur <Ionicons name="bookmark-outline" size={14} color={Colors.muted} /> dans un {activeTab === 'spotyou' ? 'SpotYou' : 'service'} pour le retrouver ici.
           </Text>
           <TouchableOpacity style={s.exploreBtn} onPress={() => router.push('/(tabs)/search' as any)} testID="explore-btn">
             <Text style={s.exploreBtnText}>Explorer</Text>
@@ -271,14 +271,14 @@ export default function SavedScreen() {
             return (
               <SavedCard
                 item={pt}
-                onPress={() => router.push(`/tag-point/${pt.point_id}` as any)}
+                onPress={() => router.push(`/spot-you/${pt.point_id}` as any)}
                 onUnsave={() => handleUnsavePoint(pt.point_id)}
               />
             );
           }}
           ListHeaderComponent={
             <Text style={s.count} testID="saved-count">
-              {items.length} {activeTab === 'tagpoints' ? `TagPoint${items.length > 1 ? 's' : ''} enregistré${items.length > 1 ? 's' : ''}` : `service${items.length > 1 ? 's' : ''} enregistré${items.length > 1 ? 's' : ''}`}
+              {items.length} {activeTab === 'spotyou' ? `SpotYou${items.length > 1 ? 's' : ''} enregistré${items.length > 1 ? 's' : ''}` : `service${items.length > 1 ? 's' : ''} enregistré${items.length > 1 ? 's' : ''}`}
             </Text>
           }
         />

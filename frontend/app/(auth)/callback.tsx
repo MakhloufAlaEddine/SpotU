@@ -24,9 +24,9 @@ export default function AuthCallback() {
       const raw = hashMatch?.[1] || queryMatch?.[1] || null;
       if (raw) {
         try { sessionId = decodeURIComponent(raw); } catch { sessionId = raw; }
-        try { sessionStorage.setItem('winek_pending_session', sessionId); } catch {}
+        try { sessionStorage.setItem('spotu_pending_session', sessionId); } catch {}
       } else {
-        try { sessionId = sessionStorage.getItem('winek_pending_session'); } catch {}
+        try { sessionId = sessionStorage.getItem('spotu_pending_session'); } catch {}
       }
 
       // Détection contexte natif (?native=1)
@@ -35,7 +35,7 @@ export default function AuthCallback() {
       // ce qui ferme automatiquement SFSafariViewController et ouvre Expo Go.
       const isNativeContext = search.includes('native=1');
       if (isNativeContext && sessionId) {
-        try { sessionStorage.removeItem('winek_pending_session'); } catch {}
+        try { sessionStorage.removeItem('spotu_pending_session'); } catch {}
         const expHost = 'geo-coaching-app.preview.emergentagent.com';
         const expUrl = `exp://${expHost}/--/auth-callback?session_id=${encodeURIComponent(sessionId)}`;
         // Redirection vers exp:// → SFSafariViewController se ferme, Expo Go reçoit le deep link
@@ -47,12 +47,12 @@ export default function AuthCallback() {
     if (sessionId) {
       processGoogleCallback(sessionId)
         .then(() => {
-          try { sessionStorage.removeItem('winek_pending_session'); } catch {}
+          try { sessionStorage.removeItem('spotu_pending_session'); } catch {}
           // NavigationGuard dans _layout.tsx détecte user && inAuth et redirige automatiquement
         })
         .catch((err: any) => {
           console.log('[AuthCallback] error:', err?.message);
-          try { sessionStorage.removeItem('winek_pending_session'); } catch {}
+          try { sessionStorage.removeItem('spotu_pending_session'); } catch {}
           router.replace('/(auth)/login');
         });
     } else {

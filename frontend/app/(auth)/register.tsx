@@ -52,7 +52,7 @@ export default function RegisterScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.header}>
-            <Text style={styles.logo}>WINEK</Text>
+            <Text style={styles.logo}>SpotU</Text>
             <Text style={styles.tagline}>Rejoignez la communauté</Text>
           </View>
 

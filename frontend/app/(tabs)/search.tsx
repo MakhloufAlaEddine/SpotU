@@ -49,7 +49,7 @@ function ResultItem({ image, title, author, distance, rating = 0, onPress, isSer
               <Ionicons name={isService ? 'calendar-outline' : 'image-outline'} size={24} color={accent} />
             </View>}
         <View style={[itemSt.typeBadge, { backgroundColor: accent }]}>
-          <Text style={itemSt.typeBadgeText}>{isService ? 'Service' : 'TagPoint'}</Text>
+          <Text style={itemSt.typeBadgeText}>{isService ? 'Service' : 'SpotYou'}</Text>
         </View>
       </View>
       <View style={itemSt.content}>
@@ -160,7 +160,7 @@ export default function SearchScreen() {
   const router = useRouter();
   const [radiusKm, setRadiusKm] = useState(40);
   const [combineMode, setCombineMode] = useState(false);
-  const [tagPoints, setTagPoints] = useState<any[]>([]);
+  const [SpotYou, setSpotYou] = useState<any[]>([]);
   const [services, setServices] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const { location } = useLocation();
@@ -198,7 +198,7 @@ export default function SearchScreen() {
         api.get(`/tag-points?${params.toString()}`).catch(() => []),
         api.get(`/services?${params.toString()}`).catch(() => []),
       ]);
-      setTagPoints(Array.isArray(pts) ? pts : []);
+      setSpotYou(Array.isArray(pts) ? pts : []);
       setServices(Array.isArray(svcs) ? svcs : []);
     } catch {}
     finally { setLoading(false); }
@@ -239,14 +239,14 @@ export default function SearchScreen() {
           : selectedTags.some(t => itemTags.includes(t));
       });
     };
-    const filteredTagPoints = filterByTags(tagPoints, pt => pt.tag_ids || []);
+    const filteredSpotYou = filterByTags(SpotYou, pt => pt.tag_ids || []);
     const filteredServices = filterByTags(services, svc => svc.tag_ids || []);
     const mixed = [
       ...filteredServices.map(s => ({ ...s, _type: 'service' as const })),
-      ...filteredTagPoints.map(p => ({ ...p, _type: 'tagpoint' as const })),
+      ...filteredSpotYou.map(p => ({ ...p, _type: 'spotyou' as const })),
     ];
     return mixed.sort((a, b) => getDistVal(a) - getDistVal(b));
-  }, [tagPoints, services, selectedTags, combineMode, location.lat, location.lng]);
+  }, [SpotYou, services, selectedTags, combineMode, location.lat, location.lng]);
 
   const toggleTag = (id: string) => {
     setSelectedTags(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]);
@@ -414,7 +414,7 @@ export default function SearchScreen() {
                     author={item.owner?.name || 'Anonyme'}
                     distance={getDistance(item)}
                     rating={item.rating || 0}
-                    onPress={() => router.push(`/tag-point/${item.point_id}`)}
+                    onPress={() => router.push(`/spot-you/${item.point_id}`)}
                   />
                 );
               })
