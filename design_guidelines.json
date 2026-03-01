@@ -1,138 +1,166 @@
 {
-  "design_guidelines": {
-    "project_name": "WINEK",
-    "persona": "E1_Anti_AI_Designer",
-    "theme_mode": "dark",
-    "platform": "mobile_web_app",
-    "typography": {
-      "font_family": "System",
-      "headings": {
-        "weight": "800",
-        "size_xl": 32,
-        "size_lg": 24,
-        "size_md": 20,
-        "letter_spacing": -0.5
-      },
-      "body": {
-        "weight": "400",
-        "size_regular": 16,
-        "size_small": 14,
-        "size_tiny": 12,
-        "line_height": 1.5
-      }
+  "design_system": {
+    "identity": {
+      "name": "SpotU",
+      "tone": "Performance Pro (Archetype 2)",
+      "language": "fr-FR",
+      "theme": "dark"
     },
     "colors": {
-      "palette": {
-        "background": "#0D1117",
-        "surface": "#161B22",
-        "surface_highlight": "#21262D",
-        "border": "#30363D",
-        "primary": "#1DBF73",
-        "primary_dim": "rgba(29, 191, 115, 0.15)",
-        "accent": "#FF9500",
-        "accent_dim": "rgba(255, 149, 0, 0.15)",
-        "text_primary": "#F0F6FC",
-        "text_secondary": "#8B949E",
-        "text_tertiary": "#6E7681",
-        "error": "#F85149"
+      "base": {
+        "background": "#000000",
+        "surface": "#1C1C1E",
+        "surface_highlight": "#2C2C2E",
+        "text_primary": "#FFFFFF",
+        "text_secondary": "#8E8E93",
+        "border": "#2C2C2E"
       },
-      "usage": {
-        "hero_gradient": ["transparent", "rgba(13, 17, 23, 0.9)"],
-        "service_border": "#FF9500",
-        "tab_bar_bg": "#0D1117"
+      "brand": {
+        "primary": "#00BFA5",
+        "secondary": "#0D1F1F",
+        "accent_orange": "#FF9500",
+        "accent_blue": "#4A90E2",
+        "accent_red": "#FF3B30"
+      },
+      "status": {
+        "pending": "#FF9500",
+        "accepted": "#00BFA5",
+        "refused": "#FF3B30",
+        "cancelled": "#8E8E93"
+      }
+    },
+    "typography": {
+      "headings": {
+        "fontFamily": "System",
+        "weights": "Bold (700)"
+      },
+      "body": {
+        "fontFamily": "System",
+        "weights": "Regular (400), Medium (500)"
       }
     },
     "spacing": {
-      "xs": 4,
-      "sm": 8,
-      "md": 16,
-      "lg": 24,
-      "xl": 32,
-      "xxl": 48
+      "page_padding": 16,
+      "card_padding": 16,
+      "gap_sm": 8,
+      "gap_md": 16,
+      "gap_lg": 24
     },
-    "layout_strategy": {
-      "concept": "Breathing Room & Hierarchy",
-      "header": {
-        "style": "Minimal",
-        "background": "Blur or Solid #0D1117",
-        "elements": ["Location (Left)", "Search (Right)"]
+    "visual_enhancers": {
+      "borders": "1px solid #2C2C2E",
+      "radius": {
+        "card": 16,
+        "button": 9999
       },
-      "sections": [
-        {
-          "id": "hero",
-          "type": "carousel_parallax",
-          "height": 280,
-          "card_style": "Rounded XL, Full Bleed Image, Gradient Overlay"
-        },
-        {
-          "id": "services",
-          "title": "Coachs & Services",
-          "style": "Horizontal Scroll",
-          "card_aspect": "Landscape Compact",
-          "accent_color": "#FF9500"
-        },
-        {
-          "id": "nearby",
-          "title": "À proximité",
-          "style": "Horizontal List",
-          "card_style": "Vertical Card, Image Top, Info Bottom"
-        },
-        {
-          "id": "recent",
-          "title": "Derniers ajouts",
-          "style": "Vertical List (Feed)",
-          "card_style": "Row Layout, Thumbnail Left"
-        }
-      ]
-    },
-    "components": {
-      "HeroCard": {
-        "radius": 24,
-        "shadow": "soft_glow_green",
-        "typography": "Heading LG White"
-      },
-      "ServiceCard": {
-        "radius": 16,
-        "border": "1px solid #FF9500",
-        "badge": "Top Right Orange"
-      },
-      "StandardCard": {
-        "radius": 16,
-        "background": "#161B22",
-        "border": "1px solid #30363D"
-      }
-    },
-    "motion": {
-      "library": "react-native-reanimated",
-      "type": "Micro-interactions",
-      "entrance": "FadeInDown",
-      "press": "Scale 0.98"
+      "shadows": "None (Flat Dark) or Subtle Glow for active states"
     }
   },
-  "implementation_plan": [
-    {
-      "step": 1,
-      "action": "update_constants",
-      "file": "/app/frontend/constants/Colors.ts",
-      "details": "Update Colors object to match the 'palette' defined in design_guidelines. Ensure 'primary' is #1DBF73 and 'background' is #0D1117."
+  "components": {
+    "WeekCalendar": {
+      "description": "Horizontal scrollable strip showing days of the week.",
+      "path": "/app/frontend/components/WeekCalendar.tsx",
+      "props": {
+        "selectedDate": "Date",
+        "onSelectDate": "(date: Date) => void"
+      },
+      "styling": {
+        "container": "Horizontal ScrollView, h-24, bg-background",
+        "day_item": "w-14, h-20, rounded-full, items-center, justify-center, mr-3, border-1 border-border",
+        "day_item_active": "bg-primary, border-primary",
+        "text_day": "text-xs, uppercase, text-muted (active: text-black)",
+        "text_date": "text-lg, bold, text-white (active: text-black)"
+      }
     },
-    {
-      "step": 2,
-      "action": "refactor_home",
-      "file": "/app/frontend/app/(tabs)/map.tsx",
-      "details": "Rewrite the file. Extract sub-components (HeroCard, ServiceCard, etc.) into the same file or separate files if preferred, but keep it clean. Implement the new layout strategy. Use 'react-native-reanimated' for smooth entry animations if possible."
+    "SegmentedControl": {
+      "description": "Tab switcher for 'À venir' vs 'Historique'.",
+      "path": "/app/frontend/components/SegmentedControl.tsx",
+      "props": {
+        "tabs": "['À venir', 'Historique']",
+        "selectedIndex": "number",
+        "onChange": "(index: number) => void"
+      },
+      "styling": {
+        "container": "flex-row, bg-surface, p-1, rounded-full, mb-4",
+        "tab": "flex-1, py-2, items-center, justify-center, rounded-full",
+        "tab_active": "bg-primary",
+        "text": "text-sm, font-medium, text-muted",
+        "text_active": "text-black, font-bold"
+      }
     },
-    {
-      "step": 3,
-      "action": "styling",
-      "details": "Apply 'E1' spacing rules. Use gap: 16 or 24. Avoid clutter. Ensure text contrast is high."
+    "BookingCard": {
+      "description": "Timeline card representing a session.",
+      "path": "/app/frontend/components/BookingCard.tsx",
+      "props": {
+        "booking": "Object"
+      },
+      "styling": {
+        "layout": "flex-row, mb-4",
+        "time_column": "w-16, items-end, pr-3, pt-2",
+        "time_text": "text-primary, font-bold, text-xs",
+        "card_container": "flex-1, bg-surface, rounded-xl, p-4, border-l-4",
+        "card_pending": "border-l-warning",
+        "card_accepted": "border-l-primary",
+        "card_refused": "border-l-destructive",
+        "content_row": "flex-row, gap-3",
+        "image": "w-12, h-12, rounded-full, bg-surface_highlight",
+        "details": "flex-1, justify-center"
+      }
+    },
+    "NotificationItem": {
+      "description": "Row item for the notification feed.",
+      "path": "/app/frontend/components/NotificationItem.tsx",
+      "props": {
+        "notification": "Object (type, title, message, time, read)"
+      },
+      "styling": {
+        "container": "flex-row, p-4, border-b, border-border, bg-background",
+        "container_unread": "bg-surface_highlight/30",
+        "icon_box": "w-10, h-10, rounded-full, items-center, justify-center, bg-surface_highlight",
+        "content": "flex-1, ml-3",
+        "title": "text-white, font-bold, text-sm",
+        "message": "text-muted, text-xs, mt-1",
+        "time": "text-muted, text-[10px], mt-2",
+        "dot": "w-2, h-2, rounded-full, bg-primary, absolute, top-4, right-4"
+      }
     }
+  },
+  "screens": {
+    "PlanningScreen": {
+      "path": "/app/frontend/app/(tabs)/bookings.tsx",
+      "structure": [
+        "SafeAreaView (edges top)",
+        "Header (Title: 'Planning', RightIcon: Notifications -> router.push('/notifications'))",
+        "SegmentedControl (Upcoming/History)",
+        "WeekCalendar (Strip)",
+        "ScrollView/FlatList (Timeline)",
+        "EmptyState (if no bookings)"
+      ],
+      "logic": "Fetch bookings from /bookings/mine. Filter by selected date and status (upcoming/history)."
+    },
+    "NotificationsScreen": {
+      "path": "/app/frontend/app/notifications.tsx",
+      "structure": [
+        "SafeAreaView",
+        "Header (Back Button, Title: 'Notifications')",
+        "FlatList (Data: Mocked or Fetch)",
+        "RenderItem: NotificationItem"
+      ],
+      "logic": "Mock data initially: [{id: 1, type: 'booking_accepted', title: 'Séance confirmée', message: 'Votre séance avec Coach Mike est confirmée.', time: 'Il y a 2h', read: false}, ...]"
+    }
+  },
+  "instructions_to_main_agent": [
+    "1. Do not delete existing logic in bookings.tsx, refactor it to match the new design.",
+    "2. Create reusable components in /components/ folder.",
+    "3. Ensure strictly Dark Mode (bg #000000).",
+    "4. Use Ionicons for icons.",
+    "5. For the calendar logic, ensure it defaults to today and allows scrolling back/forward (simple implementation: +/- 3 days from selected).",
+    "6. Add 'notifications.tsx' to the app root or appropriate route to be accessible.",
+    "7. Update tab bar icon for bookings to 'calendar' in _layout.tsx if possible (optional but recommended)."
   ],
   "universal_guidelines": [
-    "Do not use gradients for backgrounds, use solid dark colors #0D1117.",
-    "Use 'Inter' or System font with high weight (800) for headings.",
-    "Ensure all interactive elements have hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}.",
-    "Images must have 'backgroundColor' placeholder while loading.",
-    "Use SafeAreaView correctly."
+    "Use 2-3x more spacing than feels comfortable.",
+    "Every interaction needs micro-animations (TouchableOpacity activeOpacity).",
+    "Subtle grain textures or noise overlays are a plus if performance allows (optional).",
+    "Never use 'Inter' for headings if possible (System font is fine, just use weights)."
   ]
 }
