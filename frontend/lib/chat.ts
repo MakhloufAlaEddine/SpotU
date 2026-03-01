@@ -79,6 +79,7 @@ export function useNotifications() {
 }
 
 // ── Hook: chat temps réel ──────────────────────────────────────────────────────
+export function useChat(conversationId: string | null) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
