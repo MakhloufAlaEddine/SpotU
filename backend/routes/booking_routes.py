@@ -115,7 +115,6 @@ async def create_booking(data: BookingCreate, request: Request):
             bid
         )
     # Push notification au coach
-    user_row = await pool.acquire().__aenter__()
     async with pool.acquire() as conn2:
         user_info = await conn2.fetchrow("SELECT name FROM users WHERE user_id = $1", user["user_id"])
         svc_title = await conn2.fetchrow("SELECT title FROM services WHERE service_id = $1", data.service_id)
