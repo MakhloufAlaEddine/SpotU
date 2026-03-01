@@ -1,14 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity,
   StyleSheet, Image, RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { api } from '../../lib/api';
-import { Conversation } from '../../lib/chat';
+import { Conversation, useNotifications } from '../../lib/chat';
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
