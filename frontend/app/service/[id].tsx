@@ -603,6 +603,18 @@ export default function ServiceDetailScreen() {
             <Ionicons name="calendar" size={18} color={selectedSlotId ? Colors.background : Colors.muted} />
             <Text style={[s.bookBtnText, !selectedSlotId && { color: Colors.muted }]}>Réserver</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[s.bookBtn, { backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border }]}
+            onPress={handleContact}
+            disabled={chatLoading}
+            testID="contact-btn"
+          >
+            {chatLoading
+              ? <ActivityIndicator size="small" color={Colors.primary} />
+              : <Ionicons name="chatbubble-ellipses-outline" size={18} color={Colors.primary} />
+            }
+            <Text style={[s.bookBtnText, { color: Colors.primary }]}>Contacter</Text>
+          </TouchableOpacity>
         </View>
       )}
 
