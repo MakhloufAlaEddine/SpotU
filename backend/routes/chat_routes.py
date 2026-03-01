@@ -21,6 +21,24 @@ class MessageCreate(BaseModel):
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
+async def _get_unread_total(conn, user_id: str) -> int:
+    """Nombre total de messages non-lus pour un utilisateur."""
+    row = await conn.fetchrow(
+        """SELECT COUNT(*) as cnt FROM messages m
+           JOIN conversation_participants cp
+             ON cp.conversation_id = m.conversation_id AND cp.user_id = $1
+           WHERE m.created_at > cp.last_read_at AND m.sender_id != $1""",
+        user_id
+    )
+    return int(row["cnt"]) if row else 0
+
+
+async def _push_unread(conn, user_id: str):
+    """Pousse le total non-lu en temps réel via le canal de notifications."""
+    total = await _get_unread_total(conn, user_id)
+    await notif_manager.notify(user_id, {"type": "unread_total", "count": total})
+
+
 async def _resolve_title(conn, conv_type: str, context_id: str) -> str:
     if conv_type == "service":
         row = await conn.fetchrow("SELECT title FROM services WHERE service_id = $1", context_id)
