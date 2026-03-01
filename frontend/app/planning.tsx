@@ -455,7 +455,9 @@ const bc = StyleSheet.create({
 const s = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10 },
   backBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { flex: 1, textAlign: 'center', fontSize: 20, fontWeight: '700', color: Colors.foreground },
+  headerCenter: { flex: 1, alignItems: 'center' },
+  headerMonth: { fontSize: 20, fontWeight: '700', color: Colors.foreground, lineHeight: 24 },
+  headerYear: { fontSize: 13, color: Colors.muted, fontWeight: '500' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   todayBtn: {
     position: 'absolute', bottom: 28, alignSelf: 'center',
