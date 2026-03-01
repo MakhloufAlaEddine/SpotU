@@ -156,3 +156,4 @@ WINEK est une plateforme hyperlocale de connexion sportive basée sur des tags g
 - [x] Bug crash "Text strings must be rendered within a <Text> component" dans `service/[id].tsx` ligne 597 : commentaire JSX et expression sur la même ligne créaient un nœud texte whitespace (Fév 2026)
 - [x] Filtrage créneaux passés : les slots avec date+heure passées ne s'affichent plus dans le service detail (Fév 2026)
 - [x] Disponibilité des créneaux selon réservations : slot masqué si booking pending/accepted, visible à nouveau si refused (Fév 2026)
+- [x] Système de chat WebSocket temps réel : 3 types (service 1-1, tagpoint_group, tagpoint_private), tables DB, routes HTTP + WS, liste conversations, écran chat, boutons dans fiches service et tagpoint (Fév 2026)
