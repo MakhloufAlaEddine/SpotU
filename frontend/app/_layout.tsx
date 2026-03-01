@@ -19,6 +19,22 @@ function NavigationGuard() {
   const router = useRouter();
   const segments = useSegments();
   const navigationState = useRootNavigationState();
+  const pushTokenRef = useRef<string | null>(null);
+
+  // Enregistrement push notifications après connexion
+  useEffect(() => {
+    if (user && !pushTokenRef.current) {
+      registerForPushNotificationsAsync().then((token) => {
+        if (token) {
+          pushTokenRef.current = token;
+          saveTokenToServer(token);
+        }
+      });
+    }
+    // Listener de tap sur notification → navigation
+    const cleanup = setupNotificationResponseHandler();
+    return cleanup;
+  }, [user]);
 
   useEffect(() => {
     // Sur WEB seulement : attendre que le stack de navigation soit initialisé
