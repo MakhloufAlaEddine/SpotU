@@ -275,6 +275,7 @@ async def mark_read(conv_id: str, request: Request):
             "UPDATE conversation_participants SET last_read_at = NOW() WHERE conversation_id=$1 AND user_id=$2",
             conv_id, user["user_id"]
         )
+        await _push_unread(conn, user["user_id"])
     return {"success": True}
 
 
