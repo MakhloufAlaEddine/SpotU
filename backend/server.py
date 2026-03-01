@@ -61,7 +61,7 @@ async def startup():
     await connect_to_db()
     from seed import seed_initial_data
     await seed_initial_data()
-    logger.info("WINEK API started successfully")
+    logger.info("SpotU API started successfully")
 
 
 @app.on_event("shutdown")
