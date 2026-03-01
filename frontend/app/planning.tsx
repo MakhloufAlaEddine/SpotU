@@ -271,7 +271,7 @@ export default function PlanningScreen() {
   });
 
   const viewabilityConfig = useRef({
-    itemVisibilityPercentThreshold: 80,
+    itemVisiblePercentThreshold: 80,
     minimumViewTime: 100,
   });
 
