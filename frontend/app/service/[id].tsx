@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { MapViewComponent } from '../../components/MapViewComponent';
 import type { MapPin } from '../../components/MapViewComponent';
 import { api } from '../../lib/api';
+import { getOrCreateConversation } from '../../lib/chat';
 import { useAuth } from '../../context/AuthContext';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 

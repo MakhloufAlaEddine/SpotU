@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { MapViewComponent } from '../../components/MapViewComponent';
 import { MarkdownText } from '../../components/RichTextInput';
 import { api } from '../../lib/api';
+import { getOrCreateConversation } from '../../lib/chat';
 import { useAuth } from '../../context/AuthContext';
 import { useLocation } from '../../context/LocationContext';
 import { useLang } from '../../context/LanguageContext';
