@@ -32,20 +32,7 @@ function ChatTabIcon({ focused, unread }: { focused: boolean; unread: number }) 
 }
 
 export default function TabLayout() {
-  const [unread, setUnread] = useState(0);
-
-  useEffect(() => {
-    const fetchUnread = async () => {
-      try {
-        const convs = await api.get<any[]>('/conversations');
-        const total = (convs || []).reduce((s: number, c: any) => s + (c.unread_count || 0), 0);
-        setUnread(total);
-      } catch {}
-    };
-    fetchUnread();
-    const id = setInterval(fetchUnread, 30000);
-    return () => clearInterval(id);
-  }, []);
+  const { unreadTotal } = useNotifications();
 
   return (
     <Tabs
