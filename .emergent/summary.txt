@@ -1,57 +1,73 @@
-<analysis>**original_problem_statement**: The user wants to build a mobile application called WINEK, a hyperlocal, tag-based connection platform. The core feature is a multi-step service creation and management flow for coaches, with a focus on an intuitive user experience for scheduling and service discovery.
+<analysis>**original_problem_statement**: The user wants to build a mobile application, originally named WINEK and now rebranded to SpotU. It's a hyperlocal, tag-based connection platform. The core features include a multi-step service creation and management flow for coaches, service discovery, a booking system, and real-time chat. The application has been renamed to **SpotU**, with TagPoints becoming SpotYou and My TagPoints becoming SpotMe.
 
 **PRODUCT REQUIREMENTS**:
--   **Service Creation/Update Stepper**: A unified 4-step form in  for both creating and editing services. This includes general info, image uploads, tag selection, package configuration, and scheduling.
--   **Service Discovery**: Services created by coaches must be visible on the main map () and the search screen (). They need to be visually distinct from TagPoints (e.g., using an orange color).
--   **Service Detail View**: A detailed view () that displays all service information, including an image carousel and an accordion-style list of available time slots grouped by date.
--   **Database Persistence**: All database schema modifications must be included in the application's startup scripts to ensure they persist across environment restarts, preventing  issues.
+-   **Service Creation/Update Stepper**: A unified form for creating and editing services.
+-   **Service Discovery**: Services must be visible on the main map and search screen.
+-   **Booking System & Planning**: A flow for users to book services, for coaches to manage bookings via a calendar/planning view, and logic to handle slot availability.
+-   **Real-time Chat**: A comprehensive chat system allowing users to communicate in the context of services and SpotYou points.
+-   **Push Notifications**: For key events like new messages and booking status changes.
+-   **Database Persistence**: All schema changes must be included in startup scripts.
 
 **User's preferred language**: French. The next agent MUST respond in **French**.
 
 **what currently exists?**
-A full-stack React Native (Expo) and FastAPI application with PostgreSQL. The core service creation, update, and scheduling flow is fully implemented and has undergone multiple user-driven iterations and bug fixes. This includes a complex 4-step form, image uploads, a custom calendar with a full-screen time picker, and a Doctolib-style accordion view for service details. The system was recently refactored to reuse the creation component for updates. The agent was in the process of making services visible on the map screens and ensuring database schema changes are permanent.
+A full-stack React Native (Expo) and FastAPI application named SpotU with a PostgreSQL database.
+-   **Core Features**: Service creation/management, booking system, favorites, and real-time chat via WebSockets.
+-   **Rebranding**: The app has been renamed from WINEK to SpotU. TagPoints are now SpotYou.
+-   **Real-time Updates**: The unread message badge is now powered by a dedicated notification WebSocket, eliminating polling.
+-   **Push Notifications**: The backend is fully implemented to send push notifications for new messages and booking updates. The frontend code is in place but non-functional on Expo Go due to an Expo SDK 53+ limitation.
+-   **UI Overhaul**:
+    -   A new Planning screen, inspired by Microsoft Teams, has been created to manage bookings with a timeline view. It's accessible from the user's profile.
+    -   The former Mes réservations tab has been replaced with a Notifications screen listing booking status changes.
+-   **Seed Data**: The database is seeded with test data for users, services, chats, and bookings to populate the app.
 
 **Last working item**:
--   **Last item agent was working**: The agent was working on two parallel tasks requested by the user:
-    1.  **Display Services on Maps**: Modifying the search screen () to fetch and display services alongside the existing TagPoints, with distinct styling (orange color, Service badge).
-    2.  **Database Persistence**: Modifying the startup script () to include all necessary columns (, ) in the  statement, preventing schema loss on DB restarts.
--   **Status**: IN PROGRESS
+-   **Last item agent was working**: The user reported issues with the new Planning screen. The agent implemented fixes for three specific requests:
+    1.  Display the current month and year prominently.
+    2.  Ensure the view scrolls to Today by default when the screen is opened.
+    3.  Make the initial scroll position the selected day, not just the top of the list.
+    The agent updated  by adding a month header and refining the  hook to trigger the scroll after data has been loaded.
+-   **Status**: USER VERIFICATION PENDING
 -   **Agent Testing Done**: N
--   **Which testing method agent to use?**: Both. Use the backend testing agent to verify DB persistence after a restart. Use the frontend testing agent to validate that services appear correctly on the search and home maps without regressions.
+-   **Which testing method agent to use?**: Screenshot tool to verify the UI and behavior of the  screen.
 -   **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: Display Services on Map Screens (P0 - CRITICAL)**
--   **Issue 2: Ensure DB Schema Persistence (P0 - CRITICAL)**
+-   **Issue 1: Planning screen initial state and scroll (P0)**
+-   **Issue 2: Push notifications are not working in Expo Go (P1)**
 -   **Issue 3: Expo Metro bundler does not hot-reload (P1 - RECURRING)**
 -   **Issue 4: User dissatisfaction with action buttons layout (P2)**
 
 **Issues Detail**:
--   **Issue 1: Display Services on Map Screens**
-    -   **Attempted fixes**: The agent started modifying  by adding new state variables (), updating the  function to call , and planning changes to the rendering logic. The work is incomplete.
+-   **Issue 1: Planning screen initial state and scroll**
+    -   **Attempted fixes**: The agent modified  to:
+        1.  Add a  component to display the current month and year.
+        2.  Used a  hook that depends on the  data. Inside it, a  ensures  is called after the  has rendered, targeting the index for Today.
     -   **Next debug checklist**:
-        1.  Complete the modifications in :
-            -   Ensure the  function correctly fetches both  and  in parallel.
-            -   Combine and sort the results.
-            -   Update the  function to conditionally render TagPoint items and Service items with different styles (e.g., orange color, Service badge).
-        2.  Apply the same logic to the home screen map at .
-        3.  Test thoroughly to ensure both item types display correctly on the map and in lists.
-    -   **Why fix this issue and what will be achieved with the fix?**: This is a core product requirement to make the services created by coaches discoverable to users.
-    -   **Status**: IN PROGRESS
+        1.  Ask the user to test the Planning screen again.
+        2.  If it still fails, use the screenshot tool to observe the screen's state upon loading.
+        3.  Verify the logic in  that calculates the initial scroll index and triggers the scroll.
+    -   **Why fix this issue and what will be achieved with the fix?**: To provide a polished and intuitive user experience on the new core Planning screen, matching the user's expectations.
+    -   **Status**: USER VERIFICATION PENDING
     -   **Is recurring issue?**: N
     -   **Should Test frontend/backend/both after fix?**: frontend
-    -   **Blocked on other issue**: No.
+    -   **Blocked on other issue**: None
 
--   **Issue 2: Ensure DB Schema Persistence**
-    -   **Attempted fixes**: The agent identified that manual  commands were lost on DB reset. The agent began modifying  to add the  and  columns to the  string.
-    -   **Next debug checklist**:
-        1.  Verify that the  string in  contains the final, correct schema for the  table.
-        2.  Restart the backend and PostgreSQL services to trigger a fresh database creation.
-        3.  Connect to the database or test an API endpoint that uses the new columns to confirm they were created successfully.
-    -   **Why fix this issue and what will be achieved with the fix?**: This will prevent critical  errors at runtime and stabilize the application environment.
-    -   **Status**: IN PROGRESS
-    -   **Is recurring issue?**: Y
-    -   **Should Test frontend/backend/both after fix?**: backend
+-   **Issue 2: Push notifications are not working in Expo Go**
+    -   **Description**: The app crashes or fails silently when trying to get a push token in Expo Go. The agent identified this is a platform limitation introduced in Expo SDK 53, which removed push notification support from Expo Go. The backend infrastructure is complete and ready.
+    -   **Attempted fixes**: The agent added a  block in  to prevent the app from crashing.
+    -   **Next debug checklist**: This is not a code issue to be fixed. The agent needs to guide the user on the necessary steps: creating an EAS project (An Expo user account is required to proceed.
+
+Log in to EAS with email or username (exit and run eas login --help to see other login options)
+Input is required, but stdin is not readable. Failed to display prompt: Email or username) and using a Development Build (An Expo user account is required to proceed.
+
+Log in to EAS with email or username (exit and run eas login --help to see other login options)
+Input is required, but stdin is not readable. Failed to display prompt: Email or username) to test push notifications.
+    -   **Why fix this issue and what will be achieved with the fix?**: This will enable a critical feature for user engagement.
+    -   **Status**: BLOCKED (on user action to create an EAS build)
+    -   **Is recurring issue?**: N
+    -   **Should Test frontend/backend/both after fix?**: frontend (on a development build)
+    -   **Blocked on other issue**: None
 
 -   **Issue 3: Expo Metro bundler does not hot-reload**
     -   **Description**: A critical workflow blocker. Frontend code changes are not reflected without a manual restart (expo: ERROR (not running)
@@ -60,111 +76,122 @@ expo: started).
     -   **Is recurring issue?**: Y
 
 -   **Issue 4: User dissatisfaction with action buttons layout**
-    -   **Description**: Long-standing request to improve the Similar, Share, Save buttons layout on the tagPoint detail screen ().
+    -   **Description**: A long-standing request to improve the Similar, Share, Save buttons layout on the SpotYou detail screen ().
     -   **Status**: NOT STARTED
     -   **Is recurring issue?**: Y
 
 **In progress Task List**:
--   **Task 1: Complete Service Display on Maps (P0)**
-    -   **Where to resume**: Finish the implementation in  and then replicate the logic in . The agent was last adding state and search logic to .
-    -   **What will be achieved with this?**: Users will be able to see and interact with coach services on the main discovery screens.
-    -   **Status**: IN PROGRESS
-    -   **Should Test frontend/backend/both after fix?**: frontend
+-   There are no in-progress tasks.
 
 **Upcoming and Future Tasks**
 -   **Upcoming Tasks (P1)**:
-    -   Booking System V2: Coach acceptance/rejection of bookings.
-    -   Stripe Integration: Integrate payments for services.
+    -   Stripe Integration: Finalize the payment flow for service bookings.
     -   Bilingual Support (i18n): Add French/English translations.
-    -   Chat Implementation.
 -   **Future Tasks (P2)**:
     -   Admin Dashboard.
     -   Fix Action Buttons UI (Issue #4).
-    -   Fix Google Auth on Expo Go (On Hold).
+    -   Finalize Push Notifications with EAS Build (related to Issue #2).
 
 **Completed work in this session**
--   **Service Update Flow**: Successfully refactored the  form to handle both service creation () and updates (), including pre-filling data and image management.
--   **Image Management**: Implemented image upload for services, added an image carousel to the service detail page, and fixed an upload bug related to incorrect environment variables.
--   **UI/UX Enhancements**:
-    -   Refactored the service detail page to use a Doctolib-style accordion, grouping time slots by date.
-    -   Implemented show more functionality and updated time slot chips to show duration ().
-    -   Fixed a critical crash on web by replacing  with a custom dialog component.
--   **DB Stability**: Diagnosed a recurring DB schema loss issue and started the permanent fix by modifying .
+-   **App Rebranding (WINEK → SpotU)**: Executed a comprehensive renaming across the application, including UI text, file paths ( -> ), and internal constants.
+-   **Real-time Unread Badge**: Refactored the unread message count from inefficient polling to a real-time WebSocket connection ().
+-   **Chat List Auto-Refresh**: Fixed the conversation list screen () to automatically refresh using  and the real-time notification WebSocket.
+-   **Push Notifications Implementation**: Built the full backend stack (DB table , , API endpoints) and integrated it into chat and booking flows. Implemented frontend logic with robust error handling for the Expo Go environment.
+-   **UI Overhaul (Planning & Notifications)**:
+    -   Replaced the old Bookings tab with a new Notifications screen.
+    -   Created a new, sophisticated Planning screen () with a scroll-syncing calendar and timeline, inspired by Microsoft Teams.
+-   **Seed Data**: Added extensive booking data to  to populate the new Planning screen for testing.
+-   **Bug Fixes**:
+    -   Resolved a critical bug where chat creation failed due to the rebranding script incorrectly changing backend enum values.
+    -   Fixed a crash on the Planning screen caused by a typo () in the  configuration.
 
 **Earlier issues found/mentioned but not fixed**
--   **Action Buttons UX**: The user's dissatisfaction with the action buttons on the tagPoint detail page  remains unaddressed.
+-   **Action Buttons UX**: The user's dissatisfaction with the action buttons on the SpotYou detail page () remains unaddressed.
 
 **Known issue recurrence from previous fork**
--   **Expo Metro Bundler Cache Invalidation**: Persists. Workaround expo: stopped
+-   **Expo Metro Bundler Cache Invalidation**: Persists. The workaround expo: stopped
 expo: started is mandatory after every frontend code change.
--   **DB Schema Volatility**: Recurred when the PostgreSQL service was re-installed. The agent is currently implementing a permanent fix by adding the schema to the startup script.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Component Reusability**: Using  with a  URL parameter to handle both create and edit modes.
--   **Declarative DB Schema**: Moving from imperative  commands to a declarative  string in  to ensure schema persistence in ephemeral environments.
--   **Environment-Specific Code**: Using  for API calls from the client and creating a custom dialog to replace the native  for web compatibility.
--   **Client-Side Data Transformation**: Grouping and sorting time slots by date on the frontend () to create the accordion UI.
+-   **WebSocket Architecture (FastAPI)**: Using Connection Managers for real-time chat and app-wide notifications.
+-   **Expo Push Notifications**: Full backend implementation using Expo's push API. Frontend handles token registration and handles platform limitations gracefully.
+-   **Advanced React Native UI**: Using  with  and refs () to create a complex, scroll-synced calendar/agenda view ().
+-   **App-wide Refactoring/Rebranding**: Systematically renaming core concepts (WINEK -> SpotU, TagPoint -> SpotYou) across files, routes, and UI text.
+-   **DB Seeding**: Populating the database on startup for consistent development and testing environments.
 
 **key DB schema**
--   **services**: uid=0(root) gid=0(root) groups=0(root), , , ,  (JSON),  (JSONB)
--   **packages**: uid=0(root) gid=0(root) groups=0(root),  (FK), , , , 
--   **slots**: uid=0(root) gid=0(root) groups=0(root),  (FK), , 
+-   **services**: uid=0(root) gid=0(root) groups=0(root), , , 
+-   **bookings**: uid=0(root) gid=0(root) groups=0(root), , , 
+-   **conversations**: , , 
+-   **messages**: , , , 
+-   **push_tokens**: uid=0(root) gid=0(root) groups=0(root), ,  (string),  **(NEW)**
 
 **All files of reference**
--   : **Currently being modified**.
--   : **Next file to modify**.
--   : **Currently being modified**.
--   : Contains the unified create/edit logic.
--   : Contains the service detail page UI.
+-   : **Last modified.** Contains the new planning UI. Needs user verification.
+-   : Rewritten to be the Notifications screen.
+-   : Contains the logic for registering push tokens and handling Expo Go limitations.
+-   : New service for sending notifications via Expo's API.
+-   : New endpoint for clients to register their push tokens.
+-   : Contains new seed data for bookings.
+-   : Renamed from , where the pending UI issue for action buttons exists.
 
 **key api endpoints**
--   : To be used for displaying services on map/search screens.
--   : Used for the service update flow.
--   : Used for uploading service images.
+-   : Create/get a conversation.
+-   : Get user's conversations.
+-   : Real-time message channel.
+-   : Real-time unread count channel.
+-   : **(NEW)** Endpoint for the app to send its Expo Push Token.
 
 **Critical Info for New Agent**
 -   **Language**: You MUST respond and communicate in **French**.
--   **IMMEDIATE TASK**: Your top priority is to complete the two in-progress tasks:
-    1.  **Finish Displaying Services**: Complete the code in  to show services, then replicate the functionality in .
-    2.  **Finalize DB Persistence**: Double-check and confirm that  contains the complete and correct schema for the  table to prevent future startup errors.
--   **CRITICAL WORKFLOW BLOCKERS**:
-    1.  **Expo Hot-Reload IS BROKEN**: You **MUST** run expo: stopped
-expo: ERROR (abnormal termination) after every single change to a frontend file. Do not waste time trying to fix it; use the workaround.
-    2.  **DB Schema Volatility**: The work to make the schema persistent is in progress. You must complete and verify it. If you encounter  errors, the cause is likely an incomplete  in .
+-   **IMMEDIATE TASK (P0)**: Your first action is to confirm with the user if the latest changes to the Planning screen () have resolved the initial scroll and display issues.
+-   **PUSH NOTIFICATIONS ARE BLOCKED**: Do not attempt to fix the push notification code. The issue is a limitation of Expo Go. The backend is complete. You must guide the user that testing requires an EAS Development Build.
+-   **CRITICAL WORKFLOW BLOCKER**: Expo Hot-Reload IS BROKEN. You **MUST** run expo: stopped
+expo: started after every single change to a frontend file. Do not waste time trying to fix the bundler; use the workaround.
+-   **REBRANDING CONTEXT**: The app was recently renamed from WINEK to SpotU. While most of the code is updated, be mindful of this change if you encounter any legacy references. Backend API routes like  were intentionally kept for data stability.
 
 **documents and test reports created in this job**
--   Multiple test reports in  were generated by , successfully validating numerous features and bug fixes in this session.
--    was updated after the last major feature completion.
+-    was updated.
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **LATEST (IN PROGRESS)**: User asked to (1) make all DB changes permanent in startup scripts and (2) display created services on the search and home screens, colored differently from TagPoints.
-2.  **Completed**: User reported an error when clicking Become coach (caused by DB schema reset).
-3.  **Completed**: User asked to restart the backend and PostgreSQL twice (due to environment issues).
-4.  **Completed**: User asked to display the uploaded photos on the service detail page.
-5.  **Completed**: User reported an image upload error.
-6.  **Completed**: User asked to fix an error related to  and to add photo upload/update functionality to services.
+1.  **LATEST (ACTIONABLE)**: User reported three issues with the new Planning screen: month not visible, doesn't scroll to the selected day, and doesn't default to Today. (Status: Fix implemented, pending verification).
+2.  User reported a crash when clicking on Mon planning. (Status: Resolved).
+3.  User requested an interactive planning screen like MS Teams and the ability to tap a service to see its details. (Status: Implemented).
+4.  User requested to add permanent test data for the planning screen. (Status: Implemented).
+5.  User validated the new design for Planning and Notifications screens but requested no changes to tabs and no chat messages in notifications. (Status: Implemented).
+6.  User requested to move Mes réservations to a new Planning screen and replace the old screen with Mes notifications. (Status: Implemented).
+7.  User reported a chat creation error after the rebranding. (Status: Resolved).
+8.  User reported an Expo connection error (). (Status: Resolved by support agent/platform).
+9.  User approved renaming the app to SpotU and other related terms. (Status: Implemented).
+10. User asked for a playful app name suggestion. (Status: Agent provided list, user chose SpotU).
 
 **Project Health Check:**
 -   **Broken**:
     -   **Expo Hot-Reload**: Completely non-functional. Requires a manual expo: stopped
 expo: started after every frontend change.
+-   **Blocked**:
+    -   **Push Notifications**: Functionality is blocked by Expo Go's limitations. Requires user to create an EAS Development Build to be tested. The code itself is complete.
+-   **Needs Refactor**:
+    -   **Action Buttons Layout**: The UI for action buttons on the  screen is still pending improvement as per the user's long-standing request.
 
 **3rd Party Integrations**
--   **Emergent-managed Google Auth**: Integrated, but the native mobile flow is broken and on hold.
--   **Stripe**: Planned for a future task, not implemented.
+-   **Emergent-managed Google Auth**: Integrated, but the native mobile flow is on hold.
 -   **OpenStreetMap Nominatim**: Used for geocoding.
+-   **Expo Push Notifications**: Fully implemented on the backend. Frontend implementation is complete but non-testable on Expo Go.
+-   **Stripe**: Planned for a future task, not implemented.
 
 **Testing status**
--   **Testing agent used after significant changes**: YES. The agent has successfully used  multiple times to validate major features and bug fixes.
+-   **Testing agent used after significant changes**: NO. Agent performed manual testing with  for backend endpoints and relied on user feedback and screenshots for UI validation.
+-   **Troubleshoot agent used after agent stuck in loop**: NO
 -   **Test files created**: None.
--   **Known regressions**: None from the work done in this session. The pre-existing Expo hot-reload issue remains.
+-   **Known regressions**: None.
 
 **Credentials to test flow:**
 -   **Coach**:  / 
 -   **User**:  / 
 
 **What agent forgot to execute**
--   The user's long-standing request to fix the action buttons' layout on the tagPoint detail screen () is still pending.</analysis>
+-   The user's long-standing request to fix the action buttons' layout on the SpotYou detail screen () is still pending.</analysis>
