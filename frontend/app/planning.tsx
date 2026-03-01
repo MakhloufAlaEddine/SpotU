@@ -320,8 +320,25 @@ export default function PlanningScreen() {
     : `bkg-${(item as any).booking.booking_id}`,
   []);
 
-  // Index de démarrage = aujourd'hui
-  const initialScrollIndex = useMemo(() => dateIndexMap.current[today] ?? 0, [items]);
+  // ── Scroll vers la date sélectionnée dès que les items sont prêts ────────────
+  const hasScrolled = useRef(false);
+
+  useEffect(() => {
+    if (items.length === 0 || hasScrolled.current) return;
+    const idx = dateIndexMap.current[selectedDate];
+    if (idx !== undefined) {
+      // Petit délai pour laisser le FlatList se monter
+      setTimeout(() => {
+        flatRef.current?.scrollToIndex({ index: idx, animated: false, viewPosition: 0 });
+        hasScrolled.current = true;
+      }, 150);
+    }
+  }, [items.length]);
+
+  // Réinitialiser quand on revient sur l'écran
+  useFocusEffect(useCallback(() => {
+    return () => { hasScrolled.current = false; };
+  }, []));
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
