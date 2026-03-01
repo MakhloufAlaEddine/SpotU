@@ -11,8 +11,15 @@ config.cacheStores = [
   new FileStore({ root: path.join(root, 'cache') }),
 ];
 
-// CRITICAL: Limit file watching to source dirs only (avoid ENOSPC in container)
-// Metro will still READ node_modules for bundling, just won't WATCH them
+// CRITICAL: Exclude node_modules from file watching to avoid ENOSPC in container
+// The blockList pattern is used as ignorePattern in the FallbackWatcher,
+// preventing it from setting up inotify watches on node_modules directories.
+config.resolver.blockList = [
+  // Don't watch node_modules subdirectories (only watch source files)
+  new RegExp(`${__dirname.replace(/\//g, '/')}/node_modules/.*`),
+];
+
+// Only watch source directories explicitly (not node_modules)
 config.watchFolders = [
   path.join(__dirname, 'app'),
   path.join(__dirname, 'lib'),
