@@ -114,6 +114,19 @@ async def create_booking(data: BookingCreate, request: Request):
             "SELECT {BOOKING_FIELDS} FROM bookings WHERE booking_id = $1".format(BOOKING_FIELDS=BOOKING_FIELDS),
             bid
         )
+    # Push notification au coach
+    user_row = await pool.acquire().__aenter__()
+    async with pool.acquire() as conn2:
+        user_info = await conn2.fetchrow("SELECT name FROM users WHERE user_id = $1", user["user_id"])
+        svc_title = await conn2.fetchrow("SELECT title FROM services WHERE service_id = $1", data.service_id)
+    user_name = user_info["name"] if user_info else "Un utilisateur"
+    svc_name = svc_title["title"] if svc_title else "votre service"
+    asyncio.create_task(send_push_to_user(
+        pool, svc["coach_id"],
+        title="Nouvelle réservation",
+        body=f"{user_name} souhaite réserver : {svc_name}",
+        data={"type": "new_booking", "bookingId": bid}
+    ))
     return row_to_dict(row)
 
 
