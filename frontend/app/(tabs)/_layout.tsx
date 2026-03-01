@@ -78,7 +78,7 @@ export default function TabLayout() {
         options={{
           title: 'Chat',
           tabBarIcon: ({ focused }) => (
-            <TabIcon name={focused ? 'chatbubble' : 'chatbubble-outline'} focused={focused} />
+            <ChatTabIcon focused={focused} unread={unread} />
           ),
         }}
       />
