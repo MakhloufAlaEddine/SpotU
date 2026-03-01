@@ -29,7 +29,56 @@ export interface Conversation {
   participant_count?: number;
 }
 
-export function useChat(conversationId: string | null) {
+// ── Hook: canal de notifications temps réel ────────────────────────────────────
+
+export function useNotifications() {
+  const [unreadTotal, setUnreadTotal] = useState(0);
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const connect = useCallback(async () => {
+    const token = await storage.get('winek_token');
+    if (!token) return;
+
+    const url = `${BASE_WS}/api/ws/notifications?token=${token}`;
+    const ws = new WebSocket(url);
+    wsRef.current = ws;
+
+    ws.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.type === 'unread_total') {
+          setUnreadTotal(data.count ?? 0);
+        }
+      } catch {}
+    };
+
+    ws.onclose = () => {
+      // Reconnexion automatique après 5s
+      reconnectRef.current = setTimeout(() => {
+        if (wsRef.current === ws) connect();
+      }, 5000);
+    };
+
+    ws.onerror = () => {};
+  }, []);
+
+  useEffect(() => {
+    connect();
+    return () => {
+      if (reconnectRef.current) clearTimeout(reconnectRef.current);
+      if (wsRef.current) {
+        const ws = wsRef.current;
+        wsRef.current = null;
+        ws.close();
+      }
+    };
+  }, []);
+
+  return { unreadTotal };
+}
+
+// ── Hook: chat temps réel ──────────────────────────────────────────────────────
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
