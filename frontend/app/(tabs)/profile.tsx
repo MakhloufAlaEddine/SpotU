@@ -437,7 +437,7 @@ const st = StyleSheet.create({
   actionsRow: { flexDirection: 'row', gap: 10, paddingHorizontal: Spacing.md, marginBottom: Spacing.xl },
   actionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingHorizontal: Spacing.md, marginBottom: Spacing.xl },
   actionCard: {
-    flex: 1, backgroundColor: Colors.card,
+    width: '47%', backgroundColor: Colors.card,
     borderRadius: 16, padding: 14,
     alignItems: 'center', gap: 6,
     borderWidth: 1, borderColor: Colors.border,
