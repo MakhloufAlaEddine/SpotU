@@ -257,11 +257,12 @@ async def get_messages(conv_id: str, request: Request, limit: int = Query(50), b
         messages = rows_to_list(rows)
         messages.reverse()  # chronological order
 
-        # Mark as read
+        # Mark as read + push notification
         await conn.execute(
             "UPDATE conversation_participants SET last_read_at = NOW() WHERE conversation_id=$1 AND user_id=$2",
             conv_id, user["user_id"]
         )
+        await _push_unread(conn, user["user_id"])
     return messages
 
 
