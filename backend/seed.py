@@ -535,7 +535,56 @@ async def seed_initial_data():
 
         logger.info("Seeded 4 demo services with locations, packages and slots")
 
-        # ── Demo chat data ────────────────────────────────────────────────────
+        # ── Demo planning data (bookings) ─────────────────────────────────────
+        demo_booking_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM bookings WHERE booking_id LIKE 'bkg_demo%'"
+        )
+        if demo_booking_count == 0:
+            # Slots passés pour l'historique
+            past_slots = [
+                ("slt_past01", "svc_demo001", "pkg_d01a", -14, "09:00", "10:00"),
+                ("slt_past02", "svc_demo002", "pkg_d02a", -7,  "07:00", "08:15"),
+                ("slt_past03", "svc_demo003", "pkg_d03a", -3,  "18:00", "19:30"),
+                ("slt_past04", "svc_demo001", "pkg_d01b", -21, "10:00", "11:00"),
+                ("slt_past05", "svc_demo004", "pkg_d04a", -5,  "08:00", "09:00"),
+            ]
+            for sl in past_slots:
+                await conn.execute("""
+                    INSERT INTO service_slots
+                        (slot_id, service_id, package_id, slot_type, slot_date, start_time, end_time)
+                    VALUES ($1,$2,$3,'specific',
+                        TO_CHAR((NOW() + ($4::TEXT || ' days')::INTERVAL)::date, 'YYYY-MM-DD'),
+                        $5,$6)
+                    ON CONFLICT (slot_id) DO NOTHING
+                """, sl[0], sl[1], sl[2], str(sl[3]), sl[4], sl[5])
+
+            # Bookings à venir (user_demo001 → coach)
+            upcoming_bookings = [
+                ("bkg_demo001", "svc_demo001", "user_demo001", "user_coach001", "slt_d01a1", "accepted",  60.0),
+                ("bkg_demo002", "svc_demo002", "user_demo001", "user_coach001", "slt_d02a2", "pending",   85.0),
+                ("bkg_demo003", "svc_demo003", "user_demo001", "user_coach001", "slt_d03a2", "accepted",  120.0),
+                ("bkg_demo004", "svc_demo004", "user_demo001", "user_coach001", "slt_d04a2", "pending",   55.0),
+                ("bkg_demo005", "svc_demo001", "user_demo001", "user_coach001", "slt_d01b1", "accepted",  95.0),
+            ]
+            # Bookings passés (historique)
+            past_bookings = [
+                ("bkg_demo006", "svc_demo001", "user_demo001", "user_coach001", "slt_past01", "accepted", 60.0),
+                ("bkg_demo007", "svc_demo002", "user_demo001", "user_coach001", "slt_past02", "accepted", 85.0),
+                ("bkg_demo008", "svc_demo003", "user_demo001", "user_coach001", "slt_past03", "refused",  120.0),
+                ("bkg_demo009", "svc_demo004", "user_demo001", "user_coach001", "slt_past04", "accepted", 55.0),
+                ("bkg_demo010", "svc_demo001", "user_demo001", "user_coach001", "slt_past05", "accepted", 95.0),
+            ]
+            all_bookings = upcoming_bookings + past_bookings
+            for bkg in all_bookings:
+                await conn.execute("""
+                    INSERT INTO bookings
+                        (booking_id, service_id, user_id, coach_id, slot_id, status, amount, commission, payment_status)
+                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'pending')
+                    ON CONFLICT (booking_id) DO NOTHING
+                """, bkg[0], bkg[1], bkg[2], bkg[3], bkg[4], bkg[5], bkg[6], round(bkg[6] * 0.1, 2))
+
+            logger.info("Seeded 10 demo bookings for planning (5 upcoming + 5 history)")
+
         demo_conv_count = await conn.fetchval(
             "SELECT COUNT(*) FROM conversations WHERE conversation_id LIKE 'conv_demo%'"
         )
