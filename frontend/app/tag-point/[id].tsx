@@ -819,6 +819,22 @@ export default function TagPointDetail() {
         </View>
         )}
 
+        {/* Bouton Groupe pour le créateur */}
+        {isOwner && (
+          <TouchableOpacity
+            style={st.messageBtn}
+            onPress={openGroupChat}
+            disabled={chatLoading}
+            testID="owner-group-chat-btn"
+          >
+            {chatLoading
+              ? <ActivityIndicator size="small" color={Colors.primary} />
+              : <Ionicons name="people-outline" size={18} color={Colors.primary} />
+            }
+            <Text style={[st.messageBtnText, { color: Colors.primary }]}>Voir le groupe</Text>
+          </TouchableOpacity>
+        )}
+
         <View style={st.actionsRow}>
           <TouchableOpacity style={st.actionBtn} onPress={openSimilar} activeOpacity={0.7} testID="similar-btn">
             <View style={st.actionIcon}>
