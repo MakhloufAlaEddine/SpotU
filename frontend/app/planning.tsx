@@ -181,24 +181,27 @@ function BookingCard({ booking, onPress, isConflict }: { booking: any; onPress: 
         <Text style={[bc.time, isConflict && bc.timeConflict]}>{time}</Text>
         {duration && <Text style={bc.duration}>{duration}</Text>}
       </View>
-      <View style={[bc.stripe, { backgroundColor: isConflict ? CONFLICT_COLOR : sc.color }]} />
+      <View style={[bc.stripe, { backgroundColor: sc.color }]} />
       <View style={bc.content}>
-        <Text style={bc.title} numberOfLines={1}>{booking.service?.title || 'Séance'}</Text>
+        <Text style={[bc.title, isConflict && bc.titleConflict]} numberOfLines={1}>
+          {booking.service?.title || 'Séance'}
+        </Text>
         <Text style={bc.sub} numberOfLines={1}>
           {booking.coach?.name || 'Coach'}
           {booking.service?.category ? ` · ${booking.service.category}` : ''}
         </Text>
       </View>
-      {isConflict ? (
-        <View style={bc.conflictBadge}>
-          <Ionicons name="warning" size={10} color={CONFLICT_COLOR} />
-          <Text style={bc.conflictTxt}>Conflit</Text>
-        </View>
-      ) : (
+      <View style={bc.badges}>
+        {isConflict && (
+          <View style={bc.conflictBadge}>
+            <Ionicons name="warning" size={10} color={CONFLICT_COLOR} />
+            <Text style={bc.conflictTxt}>Conflit</Text>
+          </View>
+        )}
         <View style={[bc.badge, { backgroundColor: sc.color + '22' }]}>
           <Text style={[bc.badgeTxt, { color: sc.color }]}>{sc.label}</Text>
         </View>
-      )}
+      </View>
       <Ionicons name="chevron-forward" size={14} color={Colors.muted} />
     </TouchableOpacity>
   );
@@ -214,28 +217,29 @@ function EventCard({ event, onPress, isConflict }: { event: any; onPress: () => 
       <View style={ec.timeCol}>
         <Text style={[ec.time, isConflict && ec.timeConflict]}>{event.time || '--:--'}</Text>
         {event.type === 'recurring' && (
-          <Ionicons name="repeat" size={10} color={isConflict ? CONFLICT_COLOR : EVENT_COLOR} />
+          <Ionicons name="repeat" size={10} color={EVENT_COLOR} />
         )}
       </View>
-      <View style={[ec.stripe, { backgroundColor: isConflict ? CONFLICT_COLOR : EVENT_COLOR }]} />
+      <View style={[ec.stripe, { backgroundColor: EVENT_COLOR }]} />
       <View style={ec.content}>
-        <Text style={ec.title} numberOfLines={1}>{event.title}</Text>
+        <Text style={[ec.title, isConflict && ec.titleConflict]} numberOfLines={1}>{event.title}</Text>
         <Text style={ec.sub} numberOfLines={1}>
           {event.type === 'recurring' ? 'Récurrent · ' : ''}
           {event.owner_name || 'SpotYou'}
         </Text>
       </View>
-      {isConflict ? (
-        <View style={ec.conflictBadge}>
-          <Ionicons name="warning" size={10} color={CONFLICT_COLOR} />
-          <Text style={ec.conflictTxt}>Conflit</Text>
-        </View>
-      ) : (
+      <View style={ec.badges}>
+        {isConflict && (
+          <View style={ec.conflictBadge}>
+            <Ionicons name="warning" size={10} color={CONFLICT_COLOR} />
+            <Text style={ec.conflictTxt}>Conflit</Text>
+          </View>
+        )}
         <View style={ec.chip}>
           <Ionicons name="location" size={10} color={EVENT_COLOR} />
           <Text style={ec.chipTxt}>SpotYou</Text>
         </View>
-      )}
+      </View>
       <Ionicons name="chevron-forward" size={14} color={Colors.muted} />
     </TouchableOpacity>
   );
@@ -562,8 +566,8 @@ const ag = StyleSheet.create({
 });
 
 const bc = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 12 },
-  rowConflict: { backgroundColor: '#EF444410' },
+  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
+  rowConflict: { backgroundColor: '#EF444408' },
   timeCol: { width: 52, alignItems: 'flex-end', gap: 2 },
   time: { fontSize: 14, fontWeight: '700', color: Colors.foreground },
   timeConflict: { color: CONFLICT_COLOR },
@@ -571,7 +575,9 @@ const bc = StyleSheet.create({
   stripe: { width: 3, height: 40, borderRadius: 2 },
   content: { flex: 1, gap: 3 },
   title: { fontSize: 14, fontWeight: '600', color: Colors.foreground },
+  titleConflict: { color: CONFLICT_COLOR },
   sub: { fontSize: 12, color: Colors.muted },
+  badges: { flexDirection: 'column', alignItems: 'flex-end', gap: 4 },
   badge: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8 },
   badgeTxt: { fontSize: 10, fontWeight: '700' },
   conflictBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#EF444422', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8 },
@@ -579,15 +585,17 @@ const bc = StyleSheet.create({
 });
 
 const ec = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 12 },
-  rowConflict: { backgroundColor: '#EF444410' },
+  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
+  rowConflict: { backgroundColor: '#EF444408' },
   timeCol: { width: 52, alignItems: 'flex-end', gap: 3 },
   time: { fontSize: 14, fontWeight: '700', color: Colors.foreground },
   timeConflict: { color: CONFLICT_COLOR },
   stripe: { width: 3, height: 40, borderRadius: 2 },
   content: { flex: 1, gap: 3 },
   title: { fontSize: 14, fontWeight: '600', color: Colors.foreground },
+  titleConflict: { color: CONFLICT_COLOR },
   sub: { fontSize: 12, color: Colors.muted },
+  badges: { flexDirection: 'column', alignItems: 'flex-end', gap: 4 },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: EVENT_COLOR + '1A', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8 },
   chipTxt: { fontSize: 10, fontWeight: '700', color: EVENT_COLOR },
   conflictBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#EF444422', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8 },

@@ -501,7 +501,16 @@ async def get_planning_events(request: Request):
 
         # Événement récurrent (hebdomadaire)
         if event_schedule:
-            sched = event_schedule if isinstance(event_schedule, dict) else {}
+            import json as _json
+            if isinstance(event_schedule, str):
+                try:
+                    sched = _json.loads(event_schedule)
+                except Exception:
+                    sched = {}
+            elif isinstance(event_schedule, dict):
+                sched = event_schedule
+            else:
+                sched = {}
             if sched.get("type") == "weekly":
                 js_day = sched.get("day", 0)  # 0=Dim..6=Sam (JS convention)
                 time_str = sched.get("time", "00:00")
