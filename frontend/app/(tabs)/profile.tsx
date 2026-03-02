@@ -427,10 +427,10 @@ const st = StyleSheet.create({
 
   // ACTIONS
   actionsRow: { flexDirection: 'row', gap: 10, paddingHorizontal: Spacing.md, marginBottom: Spacing.xl },
-  actionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingHorizontal: Spacing.md, marginBottom: Spacing.xl },
+  actionsGrid: { flexDirection: 'row', gap: 8, paddingHorizontal: Spacing.md, marginBottom: Spacing.xl },
   actionCard: {
-    width: '47%', backgroundColor: Colors.card,
-    borderRadius: 16, padding: 14,
+    flex: 1, backgroundColor: Colors.card,
+    borderRadius: 16, padding: 12,
     alignItems: 'center', gap: 6,
     borderWidth: 1, borderColor: Colors.border,
   },
