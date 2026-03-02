@@ -449,6 +449,91 @@ async def get_my_events(request: Request):
     return result
 
 
+@router.get("/users/me/planning-events")
+async def get_planning_events(request: Request):
+    """Retourne les événements SpotYou dans un format compatible avec le planning.
+    Génère les occurrences récurrentes sur les 90 prochains jours."""
+    from datetime import timedelta, date as date_type
+    import asyncio
+
+    pool = get_pool()
+    user = await require_auth(request, pool)
+
+    now = datetime.now(timezone.utc)
+    range_start = now - timedelta(days=30)
+    range_end = now + timedelta(days=90)
+
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT tp.point_id, tp.title, tp.event_date, tp.event_schedule,
+                      tp.image_url, u.name as owner_name
+               FROM tag_points tp
+               JOIN tag_point_participants p ON tp.point_id = p.point_id
+               LEFT JOIN users u ON tp.user_id = u.user_id
+               WHERE p.user_id = $1 AND tp.active = TRUE""",
+            user["user_id"]
+        )
+
+    events = []
+    for row in rows:
+        tp = row_to_dict(row)
+        event_date = tp.get("event_date")
+        event_schedule = tp.get("event_schedule")
+
+        # Événement unique
+        if event_date:
+            if isinstance(event_date, str):
+                from dateutil.parser import parse as parse_dt
+                dt = parse_dt(event_date)
+            else:
+                dt = event_date
+            if hasattr(dt, 'astimezone'):
+                dt = dt.astimezone(timezone.utc)
+            events.append({
+                "point_id": tp["point_id"],
+                "title": tp["title"],
+                "owner_name": tp.get("owner_name"),
+                "image_url": tp.get("image_url"),
+                "date": dt.strftime("%Y-%m-%d"),
+                "time": dt.strftime("%H:%M"),
+                "type": "single",
+            })
+
+        # Événement récurrent (hebdomadaire)
+        if event_schedule:
+            sched = event_schedule if isinstance(event_schedule, dict) else {}
+            if sched.get("type") == "weekly":
+                js_day = sched.get("day", 0)  # 0=Dim..6=Sam (JS convention)
+                time_str = sched.get("time", "00:00")
+                # JS getDay() → Python weekday(): JS 0(Sun)→Py 6, JS 1(Mon)→Py 0 ...
+                py_weekday = (js_day - 1) % 7
+
+                cursor = range_start.date()
+                while cursor <= range_end.date():
+                    if cursor.weekday() == py_weekday:
+                        events.append({
+                            "point_id": tp["point_id"],
+                            "title": tp["title"],
+                            "owner_name": tp.get("owner_name"),
+                            "image_url": tp.get("image_url"),
+                            "date": cursor.isoformat(),
+                            "time": time_str,
+                            "type": "recurring",
+                        })
+                    cursor += timedelta(days=1)
+
+    # Dédoublonner si un SpotYou a à la fois event_date ET event_schedule
+    seen = set()
+    unique = []
+    for e in events:
+        key = f"{e['point_id']}_{e['date']}"
+        if key not in seen:
+            seen.add(key)
+            unique.append(e)
+
+    return sorted(unique, key=lambda x: (x["date"], x["time"]))
+
+
 @router.get("/tag-points/{point_id}/my-vote")
 async def get_my_vote(point_id: str, request: Request):
     pool = get_pool()
