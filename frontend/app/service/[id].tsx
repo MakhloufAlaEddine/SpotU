@@ -578,19 +578,19 @@ export default function ServiceDetailScreen() {
       {/* ── Fixed Book Button ─────────────────────────────────────────────── */}
       {!isOwnService && (
         <View style={s.bookBar}>
-          <View style={{ flex: 1 }}>
-            <Text style={s.bookBarPrice}>{service.price}€ / séance</Text>
-            <Text style={s.bookBarMeta}>
+          <View style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+            <Text style={s.bookBarPrice} numberOfLines={1}>{service.price}€/séance</Text>
+            <Text style={s.bookBarMeta} numberOfLines={1}>
               {selectedSlotId
                 ? (() => {
                     const sl = service.slots?.find((sl: any) => sl.slot_id === selectedSlotId);
-                    if (!sl) return 'Créneau sélectionné';
+                    if (!sl) return 'Sélectionné';
                     const isDate = sl.slot_type === 'single' || sl.slot_type === 'specific';
                     return isDate && sl.slot_date
                       ? `${formatFullDate(sl.slot_date)} · ${sl.start_time}`
                       : `${DAYS_FULL[sl.day_of_week] ?? ''} · ${sl.start_time}`;
                   })()
-                : 'Sélectionnez un créneau ci-dessus'
+                : 'Choisir un créneau'
               }
             </Text>
           </View>
