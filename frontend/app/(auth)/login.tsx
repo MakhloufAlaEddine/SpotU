@@ -140,8 +140,8 @@ const styles = StyleSheet.create({
   scroll: { flexGrow: 1, padding: Spacing.lg, justifyContent: 'center' },
   header: { alignItems: 'center', marginBottom: Spacing.lg },
   logo: {
-    width: 200,
-    height: 150,
+    width: 240,
+    height: 180,
   },
   form: {
     backgroundColor: Colors.card,
