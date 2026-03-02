@@ -41,23 +41,18 @@ function NavigationGuard() {
   }, [user]);
 
   useEffect(() => {
-    // Sur WEB seulement : attendre que le stack de navigation soit initialisé
-    // (évite les appels router.replace() avant que react-navigation soit prêt,
-    //  ce qui arrivait lors des full page loads / deep links directs)
-    // Sur NATIVE (Expo Go) : cette vérification n'est PAS nécessaire et
-    // bloque la navigation après Google OAuth car l'état peut être undefined
-    // temporairement après la fermeture du navigateur in-app.
     if (Platform.OS === 'web' && !navigationState?.key) return;
     if (loading) return;
+
+    // Cacher le splash screen natif une fois l'auth vérifiée
+    SplashScreen.hideAsync();
 
     const inAuth = segments[0] === '(auth)';
     const atRoot = segments.length === 0;
 
     if (user && (inAuth || atRoot)) {
-      // Connecté mais sur page auth ou racine → aller vers l'app
       router.replace('/(tabs)/map');
     } else if (!user && !inAuth) {
-      // Non connecté et hors pages auth → aller vers login
       router.replace('/(auth)/login');
     }
   }, [navigationState?.key, user, loading, segments]);
