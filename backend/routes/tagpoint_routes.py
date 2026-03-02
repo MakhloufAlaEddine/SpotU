@@ -409,9 +409,6 @@ async def join_tag_point(point_id: str, request: Request):
         )
         count = await conn.fetchval("SELECT COUNT(*) FROM tag_point_participants WHERE point_id=$1", point_id)
     return {"success": True, "participants_count": count, "is_participant": True}
-
-
-@router.delete("/tag-points/{point_id}/leave")
 async def leave_tag_point(point_id: str, request: Request):
     pool = get_pool()
     user = await require_auth(request, pool)
