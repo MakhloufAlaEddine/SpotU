@@ -10,8 +10,8 @@
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash.png",
-      "resizeMode": "cover",
-      "backgroundColor": "#0D3B3B"
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
     },
     "ios": {
       "supportsTablet": true,
@@ -20,7 +20,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0D3B3B"
+        "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.winek.app"
@@ -36,18 +36,18 @@
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
-          "color": "#FF6B35",
+          "color": "#00BFA5",
           "androidMode": "default",
-          "androidCollapsedTitle": "WINEK"
+          "androidCollapsedTitle": "SpotU"
         }
       ],
       [
         "expo-splash-screen",
         {
           "image": "./assets/splash.png",
-          "imageWidth": 300,
+          "imageWidth": 400,
           "resizeMode": "contain",
-          "backgroundColor": "#0D3B3B"
+          "backgroundColor": "#000000"
         }
       ]
     ],
