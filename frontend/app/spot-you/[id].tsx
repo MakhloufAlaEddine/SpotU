@@ -657,7 +657,7 @@ export default function SpotYouDetail() {
             <Text style={st.ownerBarBtnText}>Modifier</Text>
           </TouchableOpacity>
           {!hasOtherParticipants ? (
-            /* Solo : masquer/visible uniquement (pas de suppression) */
+            /* Solo : masquer/supprimer autorisés */
             <>
               <View style={st.ownerBarDivider} />
               <TouchableOpacity style={st.ownerBarBtn} onPress={handleToggleVisibility} testID="visibility-btn" disabled={ownerActionLoading}>
@@ -665,6 +665,11 @@ export default function SpotYouDetail() {
                 <Text style={[st.ownerBarBtnText, !isPublic && { color: Colors.muted }]}>
                   {isPublic ? 'Visible' : 'Masqué'}
                 </Text>
+              </TouchableOpacity>
+              <View style={st.ownerBarDivider} />
+              <TouchableOpacity style={[st.ownerBarBtn, { gap: 4 }]} onPress={handleDelete} testID="delete-btn" disabled={ownerActionLoading}>
+                <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                <Text style={[st.ownerBarBtnText, { color: '#EF4444' }]}>Supprimer</Text>
               </TouchableOpacity>
             </>
           ) : (
