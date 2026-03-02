@@ -10,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { Spacing, Radius } from '../constants/Spacing';
 import { api } from '../lib/api';
-import WeekStrip from '../components/WeekStrip';
+
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 const DAY_W = 52;
