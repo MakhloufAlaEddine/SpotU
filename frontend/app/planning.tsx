@@ -41,6 +41,58 @@ const STATUS_CFG: Record<string, { color: string; label: string }> = {
 
 // Couleur des événements SpotYou
 const EVENT_COLOR = '#8B5CF6';
+const CONFLICT_COLOR = '#EF4444';
+
+// ── Détection de conflits ──────────────────────────────────────────────────────
+const DEFAULT_DURATION_MIN = 60; // durée assumée si pas d'heure de fin
+
+function timeToMin(t: string): number {
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + (m || 0);
+}
+
+function intervalsOverlap(s1: string, e1: string, s2: string, e2: string): boolean {
+  return timeToMin(s1) < timeToMin(e2) && timeToMin(s2) < timeToMin(e1);
+}
+
+/** Retourne le Set des IDs d'items en conflit pour une journée donnée.
+ *  Clé booking → booking_id, clé event → point_id_date */
+function detectDayConflicts(
+  bks: any[],
+  evts: any[],
+): Set<string> {
+  // Construire une liste normalisée {id, start, end}
+  const timed: { id: string; start: string; end: string }[] = [];
+
+  bks.forEach(b => {
+    const start = b.slot?.start_time;
+    const end   = b.slot?.end_time;
+    if (start) {
+      const endFallback = end || `${String(Math.floor(timeToMin(start) / 60 + DEFAULT_DURATION_MIN / 60)).padStart(2,'0')}:${String((timeToMin(start) + DEFAULT_DURATION_MIN) % 60).padStart(2,'0')}`;
+      timed.push({ id: b.booking_id, start, end: endFallback });
+    }
+  });
+
+  evts.forEach(e => {
+    if (e.time) {
+      const s = e.time;
+      const totalMin = timeToMin(s) + DEFAULT_DURATION_MIN;
+      const endFallback = `${String(Math.floor(totalMin / 60)).padStart(2,'0')}:${String(totalMin % 60).padStart(2,'0')}`;
+      timed.push({ id: `${e.point_id}_${e.date}`, start: s, end: endFallback });
+    }
+  });
+
+  const conflicts = new Set<string>();
+  for (let i = 0; i < timed.length; i++) {
+    for (let j = i + 1; j < timed.length; j++) {
+      if (intervalsOverlap(timed[i].start, timed[i].end, timed[j].start, timed[j].end)) {
+        conflicts.add(timed[i].id);
+        conflicts.add(timed[j].id);
+      }
+    }
+  }
+  return conflicts;
+}
 
 type AgendaItem =
   | { kind: 'header';  date: string }
@@ -114,20 +166,22 @@ function WeekStrip({ selectedDate, dotDates, eventDates, onSelectDate }: {
 }
 
 // ── Carte de réservation ───────────────────────────────────────────────────────
-function BookingCard({ booking, onPress }: { booking: any; onPress: () => void }) {
+function BookingCard({ booking, onPress, isConflict }: { booking: any; onPress: () => void; isConflict?: boolean }) {
   const sc = STATUS_CFG[booking.status] || STATUS_CFG.pending;
   const slot = booking.slot || {};
   const time = slot.start_time || '--:--';
   const duration = slot.start_time && slot.end_time ? formatDuration(slot.start_time, slot.end_time) : null;
 
   return (
-    <TouchableOpacity style={bc.row} onPress={onPress} activeOpacity={0.75}
+    <TouchableOpacity
+      style={[bc.row, isConflict && bc.rowConflict]}
+      onPress={onPress} activeOpacity={0.75}
       testID={`booking-${booking.booking_id}`}>
       <View style={bc.timeCol}>
-        <Text style={bc.time}>{time}</Text>
+        <Text style={[bc.time, isConflict && bc.timeConflict]}>{time}</Text>
         {duration && <Text style={bc.duration}>{duration}</Text>}
       </View>
-      <View style={[bc.stripe, { backgroundColor: sc.color }]} />
+      <View style={[bc.stripe, { backgroundColor: isConflict ? CONFLICT_COLOR : sc.color }]} />
       <View style={bc.content}>
         <Text style={bc.title} numberOfLines={1}>{booking.service?.title || 'Séance'}</Text>
         <Text style={bc.sub} numberOfLines={1}>
@@ -135,26 +189,35 @@ function BookingCard({ booking, onPress }: { booking: any; onPress: () => void }
           {booking.service?.category ? ` · ${booking.service.category}` : ''}
         </Text>
       </View>
-      <View style={[bc.badge, { backgroundColor: sc.color + '22' }]}>
-        <Text style={[bc.badgeTxt, { color: sc.color }]}>{sc.label}</Text>
-      </View>
+      {isConflict ? (
+        <View style={bc.conflictBadge}>
+          <Ionicons name="warning" size={10} color={CONFLICT_COLOR} />
+          <Text style={bc.conflictTxt}>Conflit</Text>
+        </View>
+      ) : (
+        <View style={[bc.badge, { backgroundColor: sc.color + '22' }]}>
+          <Text style={[bc.badgeTxt, { color: sc.color }]}>{sc.label}</Text>
+        </View>
+      )}
       <Ionicons name="chevron-forward" size={14} color={Colors.muted} />
     </TouchableOpacity>
   );
 }
 
 // ── Carte d'événement SpotYou ──────────────────────────────────────────────────
-function EventCard({ event, onPress }: { event: any; onPress: () => void }) {
+function EventCard({ event, onPress, isConflict }: { event: any; onPress: () => void; isConflict?: boolean }) {
   return (
-    <TouchableOpacity style={ec.row} onPress={onPress} activeOpacity={0.75}
+    <TouchableOpacity
+      style={[ec.row, isConflict && ec.rowConflict]}
+      onPress={onPress} activeOpacity={0.75}
       testID={`event-${event.point_id}-${event.date}`}>
       <View style={ec.timeCol}>
-        <Text style={ec.time}>{event.time || '--:--'}</Text>
+        <Text style={[ec.time, isConflict && ec.timeConflict]}>{event.time || '--:--'}</Text>
         {event.type === 'recurring' && (
-          <Ionicons name="repeat" size={10} color={EVENT_COLOR} />
+          <Ionicons name="repeat" size={10} color={isConflict ? CONFLICT_COLOR : EVENT_COLOR} />
         )}
       </View>
-      <View style={[ec.stripe, { backgroundColor: EVENT_COLOR }]} />
+      <View style={[ec.stripe, { backgroundColor: isConflict ? CONFLICT_COLOR : EVENT_COLOR }]} />
       <View style={ec.content}>
         <Text style={ec.title} numberOfLines={1}>{event.title}</Text>
         <Text style={ec.sub} numberOfLines={1}>
@@ -162,10 +225,17 @@ function EventCard({ event, onPress }: { event: any; onPress: () => void }) {
           {event.owner_name || 'SpotYou'}
         </Text>
       </View>
-      <View style={ec.chip}>
-        <Ionicons name="location" size={10} color={EVENT_COLOR} />
-        <Text style={ec.chipTxt}>SpotYou</Text>
-      </View>
+      {isConflict ? (
+        <View style={ec.conflictBadge}>
+          <Ionicons name="warning" size={10} color={CONFLICT_COLOR} />
+          <Text style={ec.conflictTxt}>Conflit</Text>
+        </View>
+      ) : (
+        <View style={ec.chip}>
+          <Ionicons name="location" size={10} color={EVENT_COLOR} />
+          <Text style={ec.chipTxt}>SpotYou</Text>
+        </View>
+      )}
       <Ionicons name="chevron-forward" size={14} color={Colors.muted} />
     </TouchableOpacity>
   );
@@ -247,6 +317,7 @@ export default function PlanningScreen() {
     const cursor = new Date(startDate);
     let idx = 0;
     const idxMap: Record<string, number> = {};
+    const allConflicts = new Set<string>();
 
     while (cursor <= endDate) {
       const ds = isoDate(cursor);
@@ -257,13 +328,20 @@ export default function PlanningScreen() {
       const day = byDate[ds];
       const allItems: AgendaItem[] = [];
 
-      if (day?.bks?.length) {
-        day.bks
+      const dayBks = day?.bks || [];
+      const dayEvts = day?.evts || [];
+
+      // Détecter les conflits pour cette journée
+      const dayConflicts = detectDayConflicts(dayBks, dayEvts);
+      dayConflicts.forEach(id => allConflicts.add(id));
+
+      if (dayBks.length > 0) {
+        dayBks
           .sort((a, b) => (a.slot?.start_time || '') < (b.slot?.start_time || '') ? -1 : 1)
           .forEach(bk => allItems.push({ kind: 'booking', date: ds, booking: bk }));
       }
-      if (day?.evts?.length) {
-        day.evts
+      if (dayEvts.length > 0) {
+        dayEvts
           .sort((a, b) => (a.time || '') < (b.time || '') ? -1 : 1)
           .forEach(ev => allItems.push({ kind: 'event', date: ds, event: ev }));
       }
@@ -279,7 +357,7 @@ export default function PlanningScreen() {
 
     dateIndexMap.current = idxMap;
     hasScrolledToday.current = false;
-    return { items: result, dotDates: dots, eventDates: evtDots };
+    return { items: result, dotDates: dots, eventDates: evtDots, conflictIds: allConflicts };
   }, [bookings, events, filter]);
 
   // ── Scroll vers aujourd'hui après chargement ───────────────────────────────
@@ -336,9 +414,11 @@ export default function PlanningScreen() {
       );
     }
     if (item.kind === 'event') {
+      const evtKey = `${item.event.point_id}_${item.date}`;
       return (
         <EventCard
           event={item.event}
+          isConflict={conflictIds.has(evtKey)}
           onPress={() => router.push(`/spot-you/${item.event.point_id}` as any)}
         />
       );
@@ -347,9 +427,13 @@ export default function PlanningScreen() {
     const bk = (item as any).booking;
     const svcId = bk.service?.service_id || bk.service_id;
     return (
-      <BookingCard booking={bk} onPress={() => { if (svcId) router.push(`/service/${svcId}` as any); }} />
+      <BookingCard
+        booking={bk}
+        isConflict={conflictIds.has(bk.booking_id)}
+        onPress={() => { if (svcId) router.push(`/service/${svcId}` as any); }}
+      />
     );
-  }, [today]);
+  }, [today, conflictIds]);
 
   const keyExtractor = useCallback((item: AgendaItem, index: number) => {
     if (item.kind === 'header') return `hdr-${item.date}`;
@@ -479,8 +563,10 @@ const ag = StyleSheet.create({
 
 const bc = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 12 },
+  rowConflict: { backgroundColor: '#EF444410' },
   timeCol: { width: 52, alignItems: 'flex-end', gap: 2 },
   time: { fontSize: 14, fontWeight: '700', color: Colors.foreground },
+  timeConflict: { color: CONFLICT_COLOR },
   duration: { fontSize: 11, color: Colors.muted },
   stripe: { width: 3, height: 40, borderRadius: 2 },
   content: { flex: 1, gap: 3 },
@@ -488,18 +574,24 @@ const bc = StyleSheet.create({
   sub: { fontSize: 12, color: Colors.muted },
   badge: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8 },
   badgeTxt: { fontSize: 10, fontWeight: '700' },
+  conflictBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#EF444422', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8 },
+  conflictTxt: { fontSize: 10, fontWeight: '700', color: CONFLICT_COLOR },
 });
 
 const ec = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 12 },
+  rowConflict: { backgroundColor: '#EF444410' },
   timeCol: { width: 52, alignItems: 'flex-end', gap: 3 },
   time: { fontSize: 14, fontWeight: '700', color: Colors.foreground },
+  timeConflict: { color: CONFLICT_COLOR },
   stripe: { width: 3, height: 40, borderRadius: 2 },
   content: { flex: 1, gap: 3 },
   title: { fontSize: 14, fontWeight: '600', color: Colors.foreground },
   sub: { fontSize: 12, color: Colors.muted },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: EVENT_COLOR + '1A', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8 },
   chipTxt: { fontSize: 10, fontWeight: '700', color: EVENT_COLOR },
+  conflictBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#EF444422', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8 },
+  conflictTxt: { fontSize: 10, fontWeight: '700', color: CONFLICT_COLOR },
 });
 
 const s = StyleSheet.create({
