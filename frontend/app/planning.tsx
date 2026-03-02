@@ -344,10 +344,51 @@ export default function PlanningScreen() {
     : `bkg-${(item as any).booking.booking_id}-${index}`,
   []);
 
-  // Réinitialiser quand on revient sur l'écran
-  useFocusEffect(useCallback(() => {
-    load();
-  }, []));
+  // ── Mesure dynamique des hauteurs réelles ─────────────────────────────────
+  const realH = useRef({ header: ITEM_H.header, booking: ITEM_H.booking, empty: ITEM_H.empty });
+  const measuredTypes = useRef({ header: false, booking: false, empty: false });
+
+  const recalcAndScroll = useCallback((targetDate: string) => {
+    const h = realH.current;
+    let off = 0;
+    const newOffsets: number[] = [];
+    const newLengths: number[] = [];
+    const newDateOff: Record<string, number> = {};
+    for (const item of items) {
+      if (item.kind === 'header') newDateOff[item.date] = off;
+      const len = h[item.kind];
+      newOffsets.push(off);
+      newLengths.push(len);
+      off += len;
+    }
+    itemOffsetsRef.current = newOffsets;
+    itemLengthsRef.current = newLengths;
+    dateOffsetMap.current = newDateOff;
+    const targetOff = newDateOff[targetDate];
+    if (targetOff !== undefined && flatRef.current) {
+      flatRef.current.scrollToOffset({ offset: targetOff, animated: false });
+    }
+  }, [items]);
+
+  const onHeaderLayout = useCallback((e: LayoutChangeEvent) => {
+    if (measuredTypes.current.header) return;
+    measuredTypes.current.header = true;
+    realH.current.header = e.nativeEvent.layout.height;
+    recalcAndScroll(selectedDate);
+  }, [recalcAndScroll, selectedDate]);
+
+  const onEmptyLayout = useCallback((e: LayoutChangeEvent) => {
+    if (measuredTypes.current.empty) return;
+    measuredTypes.current.empty = true;
+    realH.current.empty = e.nativeEvent.layout.height;
+    recalcAndScroll(selectedDate);
+  }, [recalcAndScroll, selectedDate]);
+
+  const onBookingLayout = useCallback((e: LayoutChangeEvent) => {
+    if (measuredTypes.current.booking) return;
+    measuredTypes.current.booking = true;
+    realH.current.booking = e.nativeEvent.layout.height;
+  }, []);
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
