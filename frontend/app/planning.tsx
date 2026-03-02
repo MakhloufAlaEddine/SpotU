@@ -404,19 +404,16 @@ export default function PlanningScreen() {
           keyExtractor={keyExtractor}
           renderItem={renderItem}
           showsVerticalScrollIndicator={false}
-          getItemLayout={(data, index) => {
-            const item = data?.[index];
-            const length = item ? ITEM_H[item.kind] : ITEM_H.header;
-            const offset = dateOffsetMap.current
-              ? (() => {
-                  let off = 0;
-                  for (let i = 0; i < index; i++) {
-                    off += data?.[i] ? ITEM_H[data[i].kind] : ITEM_H.header;
-                  }
-                  return off;
-                })()
-              : length * index;
-            return { length, offset, index };
+          initialScrollIndex={dateIndexMap.current[today] ?? 0}
+          getItemLayout={(_, index) => ({
+            length: itemLengthsRef.current[index] ?? ITEM_H.header,
+            offset: itemOffsetsRef.current[index] ?? 0,
+            index,
+          })}
+          onScrollToIndexFailed={({ index }) => {
+            setTimeout(() => {
+              flatRef.current?.scrollToIndex({ index, animated: false, viewPosition: 0 });
+            }, 300);
           }}
           onViewableItemsChanged={onViewableItemsChanged.current}
           viewabilityConfig={viewabilityConfig.current}
