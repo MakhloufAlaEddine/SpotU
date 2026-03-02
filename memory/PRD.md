@@ -64,12 +64,12 @@ SpotU (ex-WINEK) est une plateforme hyperlocale de connexion sportive basée sur
 - Rôles: user, coach, admin
 - Profil éditable avec photo
 
-### ✅ Splash Screen & Branding (Mars 2026)
-- Logo SpotU officiel intégré (splash.png, icon.png, adaptive-icon.png)
-- Splash natif iOS/Android configuré (app.json: fond #000000, resizeMode contain)
-- Splash JS animé dans index.tsx (fade + spring scale)
-- SplashScreen.preventAutoHideAsync() / hideAsync() dans _layout.tsx
-- Logo dans écran de login agrandi (240×180)
+### ✅ EAS Build configuré (Mars 2026)
+- `expo-dev-client` installé (remplace Expo Go, inclut le vrai splash screen)
+- `eas.json` créé : profils development (APK Android + Simulator iOS), preview, production
+- `app.json` : plugin `expo-dev-client` ajouté, prêt pour EAS
+- `BUILD_GUIDE.md` : guide complet étapes 1→6 pour lancer le build
+- Apple + Google Play : à configurer en fin de développement (rappel mis dans le guide)
 
 ### ✅ Planning Screen (Mars 2026)
 - Scroll bug fixé: suppression getItemLayout + scrollToOffset calculé manuellement
