@@ -234,26 +234,34 @@ export default function PlanningScreen() {
     let idx = 0;
     const idxMap: Record<string, number> = {};
     const offMap: Record<string, number> = {};
+    const offsets: number[] = [];
+    const lengths: number[] = [];
     let curOffset = 0;
 
     while (cursor <= endDate) {
       const ds = isoDate(cursor);
       idxMap[ds] = idx;
       offMap[ds] = curOffset;
+
+      offsets.push(curOffset);
+      lengths.push(ITEM_H.header);
       result.push({ kind: 'header', date: ds });
       idx++;
       curOffset += ITEM_H.header;
 
       const dayBookings = byDate[ds] || [];
       if (dayBookings.length > 0) {
-        // Trier par heure
         dayBookings.sort((a, b) => (a.slot?.start_time || '') < (b.slot?.start_time || '') ? -1 : 1);
         dayBookings.forEach(bk => {
+          offsets.push(curOffset);
+          lengths.push(ITEM_H.booking);
           result.push({ kind: 'booking', date: ds, booking: bk });
           idx++;
           curOffset += ITEM_H.booking;
         });
       } else {
+        offsets.push(curOffset);
+        lengths.push(ITEM_H.empty);
         result.push({ kind: 'empty', date: ds });
         idx++;
         curOffset += ITEM_H.empty;
@@ -263,6 +271,8 @@ export default function PlanningScreen() {
 
     dateIndexMap.current = idxMap;
     dateOffsetMap.current = offMap;
+    itemOffsetsRef.current = offsets;
+    itemLengthsRef.current = lengths;
     return { items: result, dotDates: dots };
   }, [bookings]);
 
