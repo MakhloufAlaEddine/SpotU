@@ -48,8 +48,25 @@ async def send_push_notification(
         return {"status": "error", "message": str(e)}
 
 
-async def send_push_to_user(pool, user_id: str, title: str, body: str, data: Optional[dict] = None):
-    """Récupère les tokens actifs de l'utilisateur et envoie la notification."""
+async def store_notification(pool, user_id: str, notif_type: str, title: str, body: str, data: Optional[dict] = None):
+    """Stocke une notification en DB pour l'écran notifications."""
+    import uuid
+    notif_id = "notif_" + str(uuid.uuid4()).replace("-", "")[:16]
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """INSERT INTO notifications (notif_id, user_id, type, title, body, data)
+               VALUES ($1, $2, $3, $4, $5, $6)""",
+            notif_id, user_id, notif_type, title, body, data or {}
+        )
+
+
+async def send_push_to_user(pool, user_id: str, title: str, body: str, data: Optional[dict] = None,
+                             store: bool = True, notif_type: str = "info"):
+    """Récupère les tokens actifs de l'utilisateur et envoie la notification.
+    Si store=True, stocke aussi la notif en DB."""
+    if store:
+        await store_notification(pool, user_id, notif_type, title, body, data)
+
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             "SELECT token_id, token FROM push_tokens WHERE user_id = $1 AND is_active = TRUE",
@@ -61,7 +78,6 @@ async def send_push_to_user(pool, user_id: str, title: str, body: str, data: Opt
     for row in rows:
         result = await send_push_notification(row["token"], title, body, data)
         if result.get("should_deactivate"):
-            # Token invalide → désactiver
             async with pool.acquire() as conn:
                 await conn.execute(
                     "UPDATE push_tokens SET is_active = FALSE WHERE token_id = $1",

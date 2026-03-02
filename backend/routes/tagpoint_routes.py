@@ -14,7 +14,7 @@ DEFAULT_RADIUS = 5000  # 5km
 
 TP_FIELDS = """
     tp.point_id, tp.user_id, tp.title, tp.description,
-    tp.precision, tp.tag_ids, tp.domain_id, tp.active, tp.is_public, tp.expires_at, tp.created_at, tp.updated_at,
+    tp.precision, tp.tag_ids, tp.domain_id, tp.active, tp.is_public, tp.cancelled, tp.expires_at, tp.created_at, tp.updated_at,
     tp.image_url, tp.images, tp.schedule, tp.event_date, tp.event_end_date, tp.event_schedule, tp.new_date_coming,
     ST_Y(tp.location::geometry) as latitude,
     ST_X(tp.location::geometry) as longitude,
@@ -451,6 +451,47 @@ async def get_tag_point_participants(point_id: str):
     ]
 
 
+@router.get("/users/me/notifications")
+async def get_my_notifications(request: Request, limit: int = Query(50)):
+    """Récupère les notifications in-app de l'utilisateur connecté."""
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT notif_id, type, title, body, data, read, created_at
+               FROM notifications
+               WHERE user_id = $1
+               ORDER BY created_at DESC
+               LIMIT $2""",
+            user["user_id"], limit
+        )
+    return [
+        {
+            "id": r["notif_id"],
+            "type": r["type"],
+            "title": r["title"],
+            "body": r["body"],
+            "data": r["data"],
+            "read": r["read"],
+            "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+        }
+        for r in rows
+    ]
+
+
+@router.patch("/users/me/notifications/read-all")
+async def mark_all_notifications_read(request: Request):
+    """Marque toutes les notifications comme lues."""
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE notifications SET read = TRUE WHERE user_id = $1 AND read = FALSE",
+            user["user_id"]
+        )
+    return {"success": True}
+
+
 @router.get("/users/me/events")
 async def get_my_events(request: Request):
     """Retourne tous les tagPoints auxquels l'utilisateur participe (son planning)."""
@@ -493,7 +534,8 @@ async def get_planning_events(request: Request):
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             """SELECT tp.point_id, tp.title, tp.event_date, tp.event_end_date, tp.event_schedule,
-                      tp.image_url, tp.user_id as owner_id, u.name as owner_name
+                      tp.image_url, tp.user_id as owner_id, u.name as owner_name,
+                      tp.cancelled
                FROM tag_points tp
                JOIN tag_point_participants p ON tp.point_id = p.point_id
                LEFT JOIN users u ON tp.user_id = u.user_id
@@ -536,6 +578,7 @@ async def get_planning_events(request: Request):
                 "owner_name": tp.get("owner_name"),
                 "image_url": tp.get("image_url"),
                 "is_own": tp.get("owner_id") == user["user_id"],
+                "is_cancelled": bool(tp.get("cancelled")),
                 "date": dt_local.strftime("%Y-%m-%d"),
                 "time": dt_local.strftime("%H:%M"),
                 "end_time": end_time_str,
@@ -575,6 +618,7 @@ async def get_planning_events(request: Request):
                                     "owner_name": tp.get("owner_name"),
                                     "image_url": tp.get("image_url"),
                                     "is_own": tp.get("owner_id") == user["user_id"],
+                                    "is_cancelled": bool(tp.get("cancelled")),
                                     "date": cursor.isoformat(),
                                     "time": time_str,
                                     "end_time": end_str,
@@ -702,14 +746,18 @@ async def create_tag_point(data: TagPointCreate, request: Request):
 async def update_tag_point(point_id: str, data: TagPointUpdate, request: Request):
     pool = get_pool()
     user = await require_auth(request, pool)
+    from push_service import send_push_to_user
+    import asyncio
+
     async with pool.acquire() as conn:
-        existing = await conn.fetchrow("SELECT user_id FROM tag_points WHERE point_id = $1", point_id)
+        existing = await conn.fetchrow(
+            "SELECT user_id, title, event_date, event_end_date, event_schedule FROM tag_points WHERE point_id = $1", point_id
+        )
         if not existing:
             raise HTTPException(status_code=404, detail="TagPoint not found")
         if existing["user_id"] != user["user_id"] and user["role"] != "admin":
             raise HTTPException(status_code=403, detail="Not authorized")
 
-        # exclude_unset=True: only update fields explicitly sent (allows null to clear)
         raw = data.model_dump(exclude_unset=True)
         if not raw:
             row = await conn.fetchrow(f"SELECT {TP_FIELDS} FROM tag_points tp LEFT JOIN users u ON tp.user_id = u.user_id WHERE tp.point_id = $1", point_id)
@@ -720,7 +768,6 @@ async def update_tag_point(point_id: str, data: TagPointUpdate, request: Request
         values = []
         i = 1
 
-        # lat/lng → PostGIS geometry
         lat = raw.pop('latitude', None)
         lng = raw.pop('longitude', None)
         if lat is not None and lng is not None:
@@ -733,8 +780,6 @@ async def update_tag_point(point_id: str, data: TagPointUpdate, request: Request
                 if val is None:
                     set_clauses.append(f"{key} = NULL")
                 else:
-                    # Pass Python object directly — asyncpg JSONB codec handles encoding once
-                    # DO NOT json.dumps() here: that causes double-encoding
                     set_clauses.append(f"{key} = ${i}::jsonb")
                     values.append(val)
                     i += 1
@@ -755,6 +800,45 @@ async def update_tag_point(point_id: str, data: TagPointUpdate, request: Request
         query = f"UPDATE tag_points SET {', '.join(set_clauses)} WHERE point_id = ${i}"
         await conn.execute(query, *values)
         row = await conn.fetchrow(f"SELECT {TP_FIELDS} FROM tag_points tp LEFT JOIN users u ON tp.user_id = u.user_id WHERE tp.point_id = $1", point_id)
+
+        # Notifier les participants si ≥1 autre
+        participants = await conn.fetch(
+            "SELECT user_id FROM tag_point_participants WHERE point_id=$1 AND user_id != $2",
+            point_id, existing["user_id"]
+        )
+
+    # Calculer les champs modifiés pour la notification
+    PLANNING_FIELDS = {'event_date', 'event_end_date', 'event_schedule', 'title'}
+    LABELS = {
+        'title': 'Titre',
+        'description': 'Description',
+        'event_date': 'Date',
+        'event_end_date': 'Date de fin',
+        'event_schedule': 'Horaires récurrents',
+        'latitude': 'Lieu',
+        'longitude': 'Lieu',
+    }
+    changed_labels = []
+    for k in raw:
+        if k in LABELS and k not in ('longitude',):  # lat/lng dédupliqués
+            changed_labels.append(LABELS[k])
+
+    if participants and changed_labels:
+        title_str = existing["title"] or "SpotYou"
+        changes_str = ', '.join(dict.fromkeys(changed_labels))  # dédupliqué
+        affects_planning = bool(PLANNING_FIELDS & set(raw.keys()))
+        body = f'"{title_str}" a été modifié : {changes_str}.'
+        if affects_planning:
+            body += ' Votre planning a été mis à jour.'
+        for p in participants:
+            asyncio.create_task(send_push_to_user(
+                pool, p["user_id"],
+                title="SpotYou modifié",
+                body=body,
+                data={"type": "spotyu_updated", "point_id": point_id, "changed_fields": list(raw.keys())},
+                notif_type="spotyu_updated"
+            ))
+
     return build_point_response(row_to_dict(row))
 
 
@@ -781,12 +865,9 @@ async def toggle_new_date_coming(point_id: str, request: Request):
 
 @router.patch("/tag-points/{point_id}/visibility")
 async def toggle_visibility(point_id: str, request: Request):
-    """Owner can toggle public/private visibility.
-    Quand masqué → notifie les participants (sauf créateur)."""
+    """Owner peut basculer public/masqué UNIQUEMENT si aucun autre participant."""
     pool = get_pool()
     user = await require_auth(request, pool)
-    from push_service import send_push_to_user
-    import asyncio
 
     async with pool.acquire() as conn:
         existing = await conn.fetchrow(
@@ -796,59 +877,111 @@ async def toggle_visibility(point_id: str, request: Request):
             raise HTTPException(status_code=404, detail="TagPoint not found")
         if existing["user_id"] != user["user_id"] and user["role"] != "admin":
             raise HTTPException(status_code=403, detail="Not authorized")
+        # Vérifier qu'il n'y a pas d'autres participants
+        other_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM tag_point_participants WHERE point_id=$1 AND user_id != $2",
+            point_id, existing["user_id"]
+        )
+        if other_count > 0:
+            raise HTTPException(status_code=400, detail="Impossible: d'autres participants sont inscrits.")
         new_val = not (existing["is_public"] if existing["is_public"] is not None else True)
         await conn.execute(
             "UPDATE tag_points SET is_public = $1, updated_at = NOW() WHERE point_id = $2",
             new_val, point_id
         )
-        # Récupérer les participants (sauf le créateur) pour notification
-        participants = []
-        if not new_val:  # On masque → notifier
-            participants = await conn.fetch(
-                "SELECT user_id FROM tag_point_participants WHERE point_id=$1 AND user_id != $2",
-                point_id, existing["user_id"]
-            )
-
-    # Envoyer notifications si masqué
-    if not new_val and participants:
-        title_str = existing["title"] or "SpotYou"
-        for p in participants:
-            asyncio.create_task(send_push_to_user(
-                pool, p["user_id"],
-                title="SpotYou masqué",
-                body=f'"{title_str}" a été masqué par son créateur et retiré de votre planning.',
-                data={"type": "spotyu_hidden", "point_id": point_id}
-            ))
     return {"is_public": new_val}
 
 
-@router.delete("/tag-points/{point_id}")
-async def delete_tag_point(point_id: str, request: Request):
+@router.post("/tag-points/{point_id}/cancel")
+async def cancel_tag_point(point_id: str, request: Request):
+    """Annule un SpotYou (soft cancel). Notifie tous les participants."""
     pool = get_pool()
     user = await require_auth(request, pool)
     from push_service import send_push_to_user
+    import asyncio
+
     async with pool.acquire() as conn:
-        existing = await conn.fetchrow("SELECT user_id, title FROM tag_points WHERE point_id = $1", point_id)
+        existing = await conn.fetchrow(
+            "SELECT user_id, title, cancelled FROM tag_points WHERE point_id = $1 AND active = TRUE", point_id
+        )
         if not existing:
             raise HTTPException(status_code=404, detail="TagPoint not found")
         if existing["user_id"] != user["user_id"] and user["role"] != "admin":
             raise HTTPException(status_code=403, detail="Not authorized")
-        # Récupérer les participants avant suppression (sauf le créateur)
+        await conn.execute(
+            "UPDATE tag_points SET cancelled = TRUE, updated_at = NOW() WHERE point_id = $1", point_id
+        )
         participants = await conn.fetch(
             "SELECT user_id FROM tag_point_participants WHERE point_id=$1 AND user_id != $2",
             point_id, existing["user_id"]
         )
-        await conn.execute(
-            "UPDATE tag_points SET active = FALSE, updated_at = NOW() WHERE point_id = $1", point_id
-        )
-    # Notifier tous les participants (#4)
-    import asyncio
+
     title_str = existing["title"] or "SpotYou"
     for p in participants:
         asyncio.create_task(send_push_to_user(
             pool, p["user_id"],
             title="SpotYou annulé",
-            body=f'"{title_str}" a été annulé et retiré de votre planning.',
-            data={"type": "spotyu_cancelled", "point_id": point_id}
+            body=f'"{title_str}" a été annulé par son créateur. Les créneaux restent visibles dans votre planning.',
+            data={"type": "spotyu_cancelled", "point_id": point_id},
+            notif_type="spotyu_cancelled"
         ))
+    return {"success": True, "cancelled": True}
+
+
+@router.post("/tag-points/{point_id}/restore")
+async def restore_tag_point(point_id: str, request: Request):
+    """Restaure un SpotYou annulé. Notifie tous les participants."""
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    from push_service import send_push_to_user
+    import asyncio
+
+    async with pool.acquire() as conn:
+        existing = await conn.fetchrow(
+            "SELECT user_id, title FROM tag_points WHERE point_id = $1 AND active = TRUE", point_id
+        )
+        if not existing:
+            raise HTTPException(status_code=404, detail="TagPoint not found")
+        if existing["user_id"] != user["user_id"] and user["role"] != "admin":
+            raise HTTPException(status_code=403, detail="Not authorized")
+        await conn.execute(
+            "UPDATE tag_points SET cancelled = FALSE, updated_at = NOW() WHERE point_id = $1", point_id
+        )
+        participants = await conn.fetch(
+            "SELECT user_id FROM tag_point_participants WHERE point_id=$1 AND user_id != $2",
+            point_id, existing["user_id"]
+        )
+
+    title_str = existing["title"] or "SpotYou"
+    for p in participants:
+        asyncio.create_task(send_push_to_user(
+            pool, p["user_id"],
+            title="SpotYou restauré !",
+            body=f'"{title_str}" est de nouveau actif. Le badge "Annulé" a été retiré de votre planning.',
+            data={"type": "spotyu_restored", "point_id": point_id},
+            notif_type="spotyu_restored"
+        ))
+    return {"success": True, "cancelled": False}
+
+
+@router.delete("/tag-points/{point_id}")
+async def delete_tag_point(point_id: str, request: Request):
+    """Suppression définitive, UNIQUEMENT si aucun autre participant. Pas de notification."""
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    async with pool.acquire() as conn:
+        existing = await conn.fetchrow("SELECT user_id FROM tag_points WHERE point_id = $1", point_id)
+        if not existing:
+            raise HTTPException(status_code=404, detail="TagPoint not found")
+        if existing["user_id"] != user["user_id"] and user["role"] != "admin":
+            raise HTTPException(status_code=403, detail="Not authorized")
+        other_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM tag_point_participants WHERE point_id=$1 AND user_id != $2",
+            point_id, existing["user_id"]
+        )
+        if other_count > 0:
+            raise HTTPException(status_code=400, detail="Impossible: d'autres participants sont inscrits.")
+        await conn.execute(
+            "UPDATE tag_points SET active = FALSE, updated_at = NOW() WHERE point_id = $1", point_id
+        )
     return {"success": True}

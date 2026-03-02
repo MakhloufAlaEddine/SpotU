@@ -40,8 +40,9 @@ const STATUS_CFG: Record<string, { color: string; label: string }> = {
 };
 
 // Couleur des événements SpotYou / SpotMe
-const EVENT_COLOR   = '#8B5CF6'; // violet — SpotYou
-const SPOTME_COLOR  = '#10B981'; // vert emeraude — SpotMe (mes propres événements)
+const EVENT_COLOR    = '#8B5CF6'; // violet — SpotYou
+const SPOTME_COLOR   = '#10B981'; // vert emeraude — SpotMe (mes propres événements)
+const CANCELLED_COLOR = '#EF4444'; // rouge — annulé
 const CONFLICT_COLOR = '#EF4444';
 
 // ── Détection de conflits ──────────────────────────────────────────────────────
@@ -210,20 +211,21 @@ function BookingCard({ booking, onPress, isConflict }: { booking: any; onPress: 
 
 // ── Carte d'événement SpotYou / SpotMe ────────────────────────────────────────
 function EventCard({ event, onPress, isConflict }: { event: any; onPress: () => void; isConflict?: boolean }) {
-  const isOwn = !!event.is_own;
-  const chipColor = isOwn ? SPOTME_COLOR : EVENT_COLOR;
-  const chipLabel = isOwn ? 'SpotMe' : 'SpotYou';
-  const chipIcon  = isOwn ? 'star' : 'location';
+  const isOwn      = !!event.is_own;
+  const isCancelled = !!event.is_cancelled;
+  const chipColor  = isCancelled ? CANCELLED_COLOR : (isOwn ? SPOTME_COLOR : EVENT_COLOR);
+  const chipLabel  = isCancelled ? 'Annulé' : (isOwn ? 'SpotMe' : 'SpotYou');
+  const chipIcon   = isCancelled ? 'close-circle' : (isOwn ? 'star' : 'location');
 
   return (
     <TouchableOpacity
-      style={[ec.row, isConflict && ec.rowConflict]}
+      style={[ec.row, isConflict && ec.rowConflict, isCancelled && ec.rowCancelled]}
       onPress={onPress} activeOpacity={0.75}
       testID={`event-${event.point_id}-${event.date}`}>
       <View style={ec.timeCol}>
-        <Text style={[ec.time, isConflict && ec.timeConflict]}>{event.time || '--:--'}</Text>
+        <Text style={[ec.time, isConflict && ec.timeConflict, isCancelled && ec.timeCancelled]}>{event.time || '--:--'}</Text>
         {event.time && event.end_time && (
-          <Text style={ec.duration}>{formatDuration(event.time, event.end_time)}</Text>
+          <Text style={[ec.duration, isCancelled && { textDecorationLine: 'line-through' }]}>{formatDuration(event.time, event.end_time)}</Text>
         )}
         {event.type === 'recurring' && (
           <Ionicons name="repeat" size={10} color={chipColor} />
@@ -231,7 +233,7 @@ function EventCard({ event, onPress, isConflict }: { event: any; onPress: () => 
       </View>
       <View style={[ec.stripe, { backgroundColor: chipColor }]} />
       <View style={ec.content}>
-        <Text style={[ec.title, isConflict && ec.titleConflict]} numberOfLines={1}>{event.title}</Text>
+        <Text style={[ec.title, isConflict && ec.titleConflict, isCancelled && ec.titleCancelled]} numberOfLines={1}>{event.title}</Text>
         <Text style={ec.sub} numberOfLines={1}>
           {event.type === 'recurring' ? 'Récurrent · ' : ''}
           {event.owner_name || chipLabel}
@@ -596,14 +598,17 @@ const bc = StyleSheet.create({
 const ec = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
   rowConflict: { backgroundColor: '#EF444408' },
+  rowCancelled: { opacity: 0.55 },
   timeCol: { width: 52, alignItems: 'flex-end', gap: 2 },
   time: { fontSize: 14, fontWeight: '700', color: Colors.foreground },
   timeConflict: { color: CONFLICT_COLOR },
+  timeCancelled: { textDecorationLine: 'line-through' as const },
   duration: { fontSize: 11, color: Colors.muted },
   stripe: { width: 3, height: 40, borderRadius: 2 },
   content: { flex: 1, gap: 3 },
   title: { fontSize: 14, fontWeight: '600', color: Colors.foreground },
   titleConflict: { color: CONFLICT_COLOR },
+  titleCancelled: { textDecorationLine: 'line-through' as const },
   sub: { fontSize: 12, color: Colors.muted },
   badges: { flexDirection: 'column', alignItems: 'flex-end', gap: 4 },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: EVENT_COLOR + '1A', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8 },

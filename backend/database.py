@@ -291,6 +291,7 @@ async def connect_to_db():
             ALTER TABLE tag_points ADD COLUMN IF NOT EXISTS event_end_date TIMESTAMPTZ;
             ALTER TABLE tag_points ADD COLUMN IF NOT EXISTS event_schedule JSONB DEFAULT NULL;
             ALTER TABLE tag_points ADD COLUMN IF NOT EXISTS new_date_coming BOOLEAN DEFAULT FALSE;
+            ALTER TABLE tag_points ADD COLUMN IF NOT EXISTS cancelled BOOLEAN DEFAULT FALSE;
             ALTER TABLE users ADD COLUMN IF NOT EXISTS show_phone BOOLEAN NOT NULL DEFAULT false;
             ALTER TABLE users ADD COLUMN IF NOT EXISTS show_reviews BOOLEAN NOT NULL DEFAULT true;
             ALTER TABLE users ADD COLUMN IF NOT EXISTS iban TEXT NULL;
@@ -317,6 +318,17 @@ async def connect_to_db():
                 created_at TIMESTAMPTZ DEFAULT NOW()
             );
             ALTER TABLE service_slots ADD COLUMN IF NOT EXISTS package_id TEXT REFERENCES service_packages(package_id) ON DELETE SET NULL;
+            CREATE TABLE IF NOT EXISTS notifications (
+                notif_id TEXT PRIMARY KEY,
+                user_id TEXT REFERENCES users(user_id) ON DELETE CASCADE,
+                type TEXT NOT NULL,
+                title TEXT NOT NULL,
+                body TEXT NOT NULL,
+                data JSONB DEFAULT '{}'::jsonb,
+                read BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, created_at DESC);
         """)
 
     # 2. Seed données de base (users, tagpoints, tags, domaines...)

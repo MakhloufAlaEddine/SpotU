@@ -355,6 +355,7 @@ export default function SpotYouDetail() {
   const [currentRating, setCurrentRating] = useState(0);
   const [currentVotes, setCurrentVotes] = useState(0);
   const [ratingDist, setRatingDist] = useState<Record<string, number>>({});
+  const [isCancelled, setIsCancelled] = useState(false);
   const [isParticipant, setIsParticipant] = useState(false);
   const [participantsCount, setParticipantsCount] = useState(0);
   const [participants, setParticipants] = useState<any[]>([]);
@@ -387,6 +388,7 @@ export default function SpotYouDetail() {
       setParticipantsCount(data.participants_count || 0);
       setIsSaved(data.is_saved || false);
       setIsPublic(data.is_public !== false);
+      setIsCancelled(!!data.cancelled);
     } catch (e: any) { Alert.alert('Erreur', e.message); }
     finally { setLoading(false); }
   };
@@ -409,6 +411,36 @@ export default function SpotYouDetail() {
     try {
       const res = await api.patch(`/tag-points/${id}/visibility`, {});
       setIsPublic(res.is_public);
+    } catch (e: any) { Alert.alert('Erreur', e.message); }
+    finally { setOwnerActionLoading(false); }
+  };
+
+  const handleCancel = () => {
+    Alert.alert(
+      'Annuler ce SpotYou ?',
+      'Les participants seront notifiés. Les créneaux resteront visibles dans leur planning avec un badge "Annulé".',
+      [
+        { text: 'Retour', style: 'cancel' },
+        {
+          text: 'Confirmer l\'annulation', style: 'destructive',
+          onPress: async () => {
+            setOwnerActionLoading(true);
+            try {
+              await api.post(`/tag-points/${id}/cancel`, {});
+              setIsCancelled(true);
+            } catch (e: any) { Alert.alert('Erreur', e.message); }
+            finally { setOwnerActionLoading(false); }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleRestore = async () => {
+    setOwnerActionLoading(true);
+    try {
+      await api.post(`/tag-points/${id}/restore`, {});
+      setIsCancelled(false);
     } catch (e: any) { Alert.alert('Erreur', e.message); }
     finally { setOwnerActionLoading(false); }
   };
@@ -592,6 +624,8 @@ export default function SpotYouDetail() {
   const distanceStr = (lat != null && lng != null)
     ? formatDistance(haversineDistance(location.lat, location.lng, lat, lng)) : '---';
   const isOwner = !!(user && point.owner && user.user_id === point.owner.user_id);
+  // Participants autres que le créateur
+  const hasOtherParticipants = participants.some(p => !p.is_creator);
 
   return (
     <View style={st.screen}>
@@ -622,18 +656,47 @@ export default function SpotYouDetail() {
             <Ionicons name="create-outline" size={18} color={Colors.primary} />
             <Text style={st.ownerBarBtnText}>Modifier</Text>
           </TouchableOpacity>
-          <View style={st.ownerBarDivider} />
-          <TouchableOpacity style={st.ownerBarBtn} onPress={handleToggleVisibility} testID="visibility-btn" disabled={ownerActionLoading}>
-            <Ionicons name={isPublic ? 'eye-outline' : 'eye-off-outline'} size={18} color={isPublic ? Colors.foreground : Colors.muted} />
-            <Text style={[st.ownerBarBtnText, !isPublic && { color: Colors.muted }]}>
-              {isPublic ? 'Visible' : 'Masqué'}
-            </Text>
-          </TouchableOpacity>
-          <View style={st.ownerBarDivider} />
-          <TouchableOpacity style={[st.ownerBarBtn, { gap: 4 }]} onPress={handleDelete} testID="delete-btn" disabled={ownerActionLoading}>
-            <Ionicons name="trash-outline" size={18} color="#EF4444" />
-            <Text style={[st.ownerBarBtnText, { color: '#EF4444' }]}>Supprimer</Text>
-          </TouchableOpacity>
+          {!hasOtherParticipants ? (
+            /* Solo : masquer/supprimer autorisés */
+            <>
+              <View style={st.ownerBarDivider} />
+              <TouchableOpacity style={st.ownerBarBtn} onPress={handleToggleVisibility} testID="visibility-btn" disabled={ownerActionLoading}>
+                <Ionicons name={isPublic ? 'eye-outline' : 'eye-off-outline'} size={18} color={isPublic ? Colors.foreground : Colors.muted} />
+                <Text style={[st.ownerBarBtnText, !isPublic && { color: Colors.muted }]}>
+                  {isPublic ? 'Visible' : 'Masqué'}
+                </Text>
+              </TouchableOpacity>
+              <View style={st.ownerBarDivider} />
+              <TouchableOpacity style={[st.ownerBarBtn, { gap: 4 }]} onPress={handleDelete} testID="delete-btn" disabled={ownerActionLoading}>
+                <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                <Text style={[st.ownerBarBtnText, { color: '#EF4444' }]}>Supprimer</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            /* Avec participants : annuler ou restaurer */
+            <>
+              <View style={st.ownerBarDivider} />
+              {!isCancelled ? (
+                <TouchableOpacity style={st.ownerBarBtn} onPress={handleCancel} testID="cancel-btn" disabled={ownerActionLoading}>
+                  <Ionicons name="close-circle-outline" size={18} color="#F59E0B" />
+                  <Text style={[st.ownerBarBtnText, { color: '#F59E0B' }]}>Annuler</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity style={st.ownerBarBtn} onPress={handleRestore} testID="restore-btn" disabled={ownerActionLoading}>
+                  <Ionicons name="refresh-circle-outline" size={18} color={Colors.primary} />
+                  <Text style={[st.ownerBarBtnText, { color: Colors.primary }]}>Restaurer</Text>
+                </TouchableOpacity>
+              )}
+            </>
+          )}
+        </View>
+      )}
+
+      {/* Banner SpotYou annulé */}
+      {isCancelled && (
+        <View style={st.cancelledBanner} testID="cancelled-banner">
+          <Ionicons name="close-circle" size={16} color="#fff" />
+          <Text style={st.cancelledBannerTxt}>SpotYou annulé — les créneaux restent visibles dans le planning</Text>
         </View>
       )}
 
@@ -1237,6 +1300,8 @@ const st = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.header },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm },
   headerBtn: { padding: 4 },
+  cancelledBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#EF4444', paddingHorizontal: Spacing.md, paddingVertical: 8 },
+  cancelledBannerTxt: { flex: 1, fontSize: 12, fontWeight: '600', color: '#fff' },
   ownerBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.header, borderBottomWidth: 1, borderBottomColor: Colors.border },
   ownerBarBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10 },
   ownerBarBtnText: { fontSize: 13, fontWeight: '600', color: Colors.foreground },
