@@ -424,6 +424,33 @@ async def leave_tag_point(point_id: str, request: Request):
     return {"success": True, "participants_count": count, "is_participant": False}
 
 
+@router.get("/tag-points/{point_id}/participants")
+async def get_tag_point_participants(point_id: str):
+    """Retourne la liste des participants d'un SpotYou avec infos utilisateur."""
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT u.user_id, u.name, u.picture, u.role,
+                      (u.user_id = tp.user_id) as is_creator
+               FROM tag_point_participants p
+               JOIN users u ON p.user_id = u.user_id
+               JOIN tag_points tp ON tp.point_id = p.point_id
+               WHERE p.point_id = $1
+               ORDER BY (u.user_id = tp.user_id) DESC, p.joined_at ASC""",
+            point_id
+        )
+    return [
+        {
+            "user_id": r["user_id"],
+            "name": r["name"],
+            "picture": r["picture"],
+            "role": r["role"],
+            "is_creator": r["is_creator"],
+        }
+        for r in rows
+    ]
+
+
 @router.get("/users/me/events")
 async def get_my_events(request: Request):
     """Retourne tous les tagPoints auxquels l'utilisateur participe (son planning)."""

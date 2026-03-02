@@ -356,6 +356,8 @@ export default function SpotYouDetail() {
   const [ratingDist, setRatingDist] = useState<Record<string, number>>({});
   const [isParticipant, setIsParticipant] = useState(false);
   const [participantsCount, setParticipantsCount] = useState(0);
+  const [participants, setParticipants] = useState<any[]>([]);
+  const [participantsLoading, setParticipantsLoading] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
   const [rsvpLoading, setRsvpLoading] = useState(false);
@@ -363,13 +365,13 @@ export default function SpotYouDetail() {
   const [ownerActionLoading, setOwnerActionLoading] = useState(false);
 
   useEffect(() => {
-    if (id) { loadPoint(); loadVotes(); if (user) loadMyVote(); }
+    if (id) { loadPoint(); loadVotes(); loadParticipants(); if (user) loadMyVote(); }
   }, [id, user]);
 
   // Reload data when screen comes back into focus (e.g. after editing)
   useFocusEffect(
     useCallback(() => {
-      if (id) { loadPoint(); if (user) loadMyVote(); loadVotes(); }
+      if (id) { loadPoint(); if (user) loadMyVote(); loadVotes(); loadParticipants(); }
     }, [id, user])
   );
 
@@ -460,6 +462,15 @@ export default function SpotYouDetail() {
     try { setVotes(await api.get(`/tag-points/${id}/votes`)); } catch {}
   };
 
+  const loadParticipants = async () => {
+    setParticipantsLoading(true);
+    try {
+      const data = await api.get(`/tag-points/${id}/participants`);
+      setParticipants(data);
+    } catch {}
+    finally { setParticipantsLoading(false); }
+  };
+
   const openVoteModal = () => {
     setPendingStar(myVote?.rating || 0);
     setComment(myVote?.comment || '');
@@ -491,6 +502,7 @@ export default function SpotYouDetail() {
         : await api.post(`/tag-points/${id}/join`, {});
       setIsParticipant(res.is_participant);
       setParticipantsCount(res.participants_count);
+      loadParticipants();
     } catch (e: any) { Alert.alert('Erreur', e.message); }
     finally { setRsvpLoading(false); }
   };
@@ -819,20 +831,86 @@ export default function SpotYouDetail() {
         </View>
         )}
 
-        {/* Bouton Groupe pour le créateur */}
+        {/* Bouton Groupe + Toggle participation pour le créateur */}
         {isOwner && (
-          <TouchableOpacity
-            style={st.messageBtn}
-            onPress={openGroupChat}
-            disabled={chatLoading}
-            testID="owner-group-chat-btn"
-          >
-            {chatLoading
-              ? <ActivityIndicator size="small" color={Colors.primary} />
-              : <Ionicons name="people-outline" size={18} color={Colors.primary} />
+          <View style={st.ownerRsvpRow}>
+            <TouchableOpacity
+              style={[st.messageBtn, { flex: 1, marginHorizontal: 0, marginBottom: 0 }]}
+              onPress={openGroupChat}
+              disabled={chatLoading}
+              testID="owner-group-chat-btn"
+            >
+              {chatLoading
+                ? <ActivityIndicator size="small" color={Colors.primary} />
+                : <Ionicons name="people-outline" size={18} color={Colors.primary} />
+              }
+              <Text style={[st.messageBtnText, { color: Colors.primary }]}>Voir le groupe</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[st.ownerRsvpToggle, isParticipant && st.ownerRsvpToggleActive]}
+              onPress={toggleRSVP}
+              disabled={rsvpLoading}
+              testID="owner-rsvp-toggle"
+            >
+              {rsvpLoading
+                ? <ActivityIndicator size="small" color={isParticipant ? Colors.primary : Colors.muted} />
+                : <>
+                    <Ionicons
+                      name={isParticipant ? 'checkmark-circle' : 'add-circle-outline'}
+                      size={15}
+                      color={isParticipant ? Colors.primary : Colors.muted}
+                    />
+                    <Text style={[st.ownerRsvpToggleTxt, isParticipant && { color: Colors.primary }]}>
+                      {isParticipant ? 'Participant' : 'Rejoindre'}
+                    </Text>
+                  </>
+              }
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Section Participants */}
+        {participants.length > 0 && (
+          <View style={ps.section}>
+            <Text style={ps.title}>
+              {participants.length} participant{participants.length > 1 ? 's' : ''}
+            </Text>
+            {participantsLoading
+              ? <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: 8 }} />
+              : participants.map((p) => (
+                <TouchableOpacity
+                  key={p.user_id}
+                  style={ps.row}
+                  activeOpacity={0.75}
+                  onPress={() => router.push(`/user/${p.user_id}` as any)}
+                  testID={`participant-${p.user_id}`}
+                >
+                  <View style={ps.avatar}>
+                    {p.picture
+                      ? <Image source={{ uri: p.picture }} style={{ width: '100%', height: '100%' }} />
+                      : <Text style={ps.avatarLetter}>{p.name?.charAt(0)?.toUpperCase() || '?'}</Text>
+                    }
+                  </View>
+                  <Text style={ps.name} numberOfLines={1}>{p.name}</Text>
+                  <View style={ps.badges}>
+                    {p.is_creator && (
+                      <View style={ps.badgeOrganizer}>
+                        <Ionicons name="shield-checkmark" size={10} color="#F59E0B" />
+                        <Text style={ps.badgeOrganizerTxt}>Organisateur</Text>
+                      </View>
+                    )}
+                    {p.role === 'coach' && (
+                      <View style={ps.badgeCoach}>
+                        <Text style={ps.badgeCoachTxt}>Coach</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Ionicons name="chevron-forward" size={14} color={Colors.muted} />
+                </TouchableOpacity>
+              ))
             }
-            <Text style={[st.messageBtnText, { color: Colors.primary }]}>Voir le groupe</Text>
-          </TouchableOpacity>
+          </View>
         )}
 
         <View style={st.actionsRow}>
@@ -1134,6 +1212,11 @@ const st = StyleSheet.create({
   messageBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.header, marginHorizontal: Spacing.md, paddingVertical: 10, borderRadius: Radius.full, gap: Spacing.sm, marginBottom: Spacing.sm },
   messageBtnText: { fontSize: 14, fontWeight: '600', color: Colors.foreground },
 
+  ownerRsvpRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.md, marginBottom: Spacing.sm },
+  ownerRsvpToggle: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 7, borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.border },
+  ownerRsvpToggleActive: { borderColor: Colors.primary + '55', backgroundColor: Colors.primary + '11' },
+  ownerRsvpToggleTxt: { fontSize: 12, fontWeight: '600', color: Colors.muted },
+
   actionsRow: { flexDirection: 'row', paddingHorizontal: Spacing.md, paddingVertical: Spacing.lg, borderBottomWidth: 1, borderBottomColor: Colors.border, marginBottom: Spacing.md, justifyContent: 'space-around' },
   actionBtn: { flex: 1, alignItems: 'center', gap: 8 },
   actionIcon: { width: 54, height: 54, borderRadius: Radius.lg, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
@@ -1170,4 +1253,18 @@ const ms = StyleSheet.create({
   simImg: { height: 100, borderRadius: Radius.md, marginBottom: Spacing.sm, overflow: 'hidden' },
   simTitle: { fontSize: 13, fontWeight: '600', color: Colors.foreground, lineHeight: 18 },
   simDist: { fontSize: 12, color: Colors.primary, fontWeight: '600' },
+});
+
+const ps = StyleSheet.create({
+  section: { paddingHorizontal: Spacing.md, marginBottom: Spacing.md },
+  title: { fontSize: 15, fontWeight: '800', color: Colors.foreground, marginBottom: Spacing.sm },
+  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 },
+  avatarLetter: { fontSize: 14, fontWeight: '700', color: Colors.background },
+  name: { flex: 1, fontSize: 14, fontWeight: '600', color: Colors.foreground },
+  badges: { flexDirection: 'row', gap: 4, alignItems: 'center' },
+  badgeOrganizer: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(245,158,11,0.15)', borderRadius: Radius.full, paddingHorizontal: 7, paddingVertical: 3, borderWidth: 1, borderColor: 'rgba(245,158,11,0.3)' },
+  badgeOrganizerTxt: { fontSize: 10, fontWeight: '700', color: '#F59E0B' },
+  badgeCoach: { backgroundColor: Colors.primary + '22', borderRadius: Radius.full, paddingHorizontal: 7, paddingVertical: 3, borderWidth: 1, borderColor: Colors.primary + '44' },
+  badgeCoachTxt: { fontSize: 10, fontWeight: '700', color: Colors.primary },
 });

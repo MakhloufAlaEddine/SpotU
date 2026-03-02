@@ -107,6 +107,8 @@ SpotU (ex-WINEK) est une plateforme hyperlocale de connexion sportive basée sur
 - [x] Splash screen + logo SpotU - TERMINÉ Mars 2026
 - [x] Fix décalage dates événements récurrents dans Planning - TERMINÉ Mars 2026
 - [x] Ajout flag `is_own` + badge "SpotMe" dans Planning - TERMINÉ Mars 2026
+- [x] Liste des participants cliquables dans SpotYou detail - TERMINÉ Mars 2026
+- [x] Créateur = Organisateur par défaut, peut choisir de quitter - TERMINÉ Mars 2026
 
 ### P1 - Important
 - [ ] Intégration Stripe (paiements)
