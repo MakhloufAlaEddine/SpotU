@@ -421,16 +421,14 @@ export default function PlanningScreen() {
           keyExtractor={keyExtractor}
           renderItem={renderItem}
           showsVerticalScrollIndicator={false}
-          initialScrollIndex={dateIndexMap.current[today] ?? 0}
-          getItemLayout={(_, index) => ({
-            length: itemLengthsRef.current[index] ?? ITEM_H.header,
-            offset: itemOffsetsRef.current[index] ?? 0,
-            index,
-          })}
-          onScrollToIndexFailed={({ index }) => {
+          onScrollToIndexFailed={({ index, averageItemLength }) => {
+            // Scroll to approximate position using FlatList's own average measurement
+            const approxOffset = index * averageItemLength;
+            flatRef.current?.scrollToOffset({ offset: approxOffset, animated: false });
+            // Then retry the precise scroll once items are in render window
             setTimeout(() => {
               flatRef.current?.scrollToIndex({ index, animated: false, viewPosition: 0 });
-            }, 300);
+            }, 200);
           }}
           onViewableItemsChanged={onViewableItemsChanged.current}
           viewabilityConfig={viewabilityConfig.current}
