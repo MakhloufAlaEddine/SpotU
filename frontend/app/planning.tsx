@@ -279,9 +279,9 @@ export default function PlanningScreen() {
   // ── Quand on tape une date dans le strip → scroll précis ───────────────────
   const handleSelectDate = useCallback((date: string) => {
     setSelectedDate(date);
-    const idx = dateIndexMap.current[date];
-    if (idx !== undefined && flatRef.current) {
-      flatRef.current.scrollToIndex({ index: idx, animated: true, viewPosition: 0 });
+    const offset = dateOffsetMap.current[date];
+    if (offset !== undefined && flatRef.current) {
+      flatRef.current.scrollToOffset({ offset, animated: true });
     }
   }, []);
 
