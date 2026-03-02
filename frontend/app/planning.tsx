@@ -8,7 +8,7 @@ import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
-import { Spacing, Radius } from '../constants/Spacing';
+
 import { api } from '../lib/api';
 
 
@@ -531,20 +531,3 @@ const s = StyleSheet.create({
   },
   todayTxt: { fontSize: 13, fontWeight: '700', color: Colors.background },
 });
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useFocusEffect } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { api } from '../lib/api';
-import { Colors, Spacing, Radius } from '../constants/Colors';
-
-// ── Constantes ─────────────────────────────────────────────────────────────────
-const DAYS_SHORT  = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
-const DAYS_LONG   = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
-const MONTHS_LONG = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
-
-const STATUS_CFG: Record<string, { color: string }> = {
-  accepted:  { color: Colors.primary },
-  pending:   { color: '#FF9500' },
-  refused:   { color: '#FF4444' },
-  cancelled: { color: Colors.muted },
-};
