@@ -1,0 +1,64 @@
+{
+  "summary": "Iteration 45 - Booking management features tested (backend + frontend). 18/18 backend tests PASS. Frontend: 7/9 checks pass. Identified 1 critical race condition bug in service/[id].tsx that prevents booking lists from loading in the coach modal and user calendar-outline from showing.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "booking/[id].tsx - statusColors",
+        "issue": "statusColors map is missing 'accepted' and 'refused' entries. These statuses fall back to Colors.muted (gray) instead of green/red. Add: `accepted: Colors.primary, refused: Colors.destructive`",
+        "selector": "statusBar",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "service/[id].tsx - Coach modal & User calendar-outline",
+        "issue": "RACE CONDITION: loadService() is called in useEffect([id]) but user context (from AuthContext) may not be ready on first render (async localStorage restore). The `if (user)` check inside loadService fails silently, so serviceBookings is NEVER populated. Result: coach modal always shows 'Demandes reçues (0)', user's calendar-outline never appears even when bookings exist.",
+        "affected_selectors": ["[data-testid='requests-btn'] badge", "[data-testid='my-booking-btn']", "[data-testid^='booking-row-']", "[data-testid^='accept-booking-']", "[data-testid^='refuse-booking-']"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_booking_mgmt_iter45.py",
+    "/app/test_reports/pytest/iter45_booking_mgmt.xml"
+  ],
+  "action_items": [
+    "CRITICAL FIX - service/[id].tsx line 123: Change `useEffect(() => { if (id) loadService(); }, [id]);` to `useEffect(() => { if (id) loadService(); }, [id, user?.user_id]);` — This fixes the race condition where user context isn't ready when loadService runs, causing serviceBookings to never be populated. Impacts: coach modal (shows 0 bookings instead of pending/all bookings) AND user calendar-outline (not shown even when user has bookings for the service).",
+    "LOW PRIORITY - booking/[id].tsx: Add 'accepted' and 'refused' to statusColors map so they display with meaningful colors (green/red) instead of falling back to Colors.muted."
+  ],
+  "critical_code_review_comments": [
+    "RACE CONDITION in service/[id].tsx: `useEffect(() => { if (id) loadService(); }, [id])` - loadService contains `if (user) { fetch bookings... }` but user is async (restored from localStorage). When user navigates directly to /service/[id], user=null at first render → bookings never fetched. Fix: add user?.user_id to deps array.",
+    "booking/[id].tsx statusColors missing 'accepted'/'refused' keys → gray badge for these statuses.",
+    "_change_booking_status in booking_routes.py: The BOOKING_FIELDS used in the return query doesn't include 'updated_at' but that's fine since it's not in the model. No issue.",
+    "The modal close button properly has testID='close-requests-modal'. All interactive elements have data-testid attributes."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100% (18/18 tests pass)",
+    "frontend": "77% (7/9 checks pass - 2 fail due to race condition)"
+  },
+  "test_credentials": {
+    "coach": "coach@winek.app / WinekCoach2024! (Sophie Martin, user_coach001)",
+    "user": "user@winek.app / WinekUser2024! (Thomas Dupont, user_demo001)"
+  },
+  "seed_data_creation": "Created multiple TEST_iter45 bookings during backend tests (pending for accept/refuse/security). bkg_0648749868fe remains pending (security test booking).",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend 18/18 PASS: POST /bookings/{id}/accept, POST /bookings/{id}/refuse, GET /bookings/service/{service_id} all work correctly with proper enrichment, status persistence, and 403 security. Frontend: booking/[id].tsx coach/user views work perfectly (Accepter/Refuser for coach, Pay Now for user, no cross-contamination). service/[id].tsx has a race condition: people-outline icon IS always shown for coach (✅), but modal always shows 0 bookings (❌) and user calendar-outline not shown (❌) due to useEffect([id]) not re-running when user context loads. Fix is to add user?.user_id to the useEffect deps array in service/[id].tsx line 123. Login selector: use data-testid='login-btn' for Se connecter button, data-testid='email-input' for email, data-testid='password-input' for password.",
+  "rca_of_issue": {
+    "bug": "Race condition in service/[id].tsx serviceBookings loading",
+    "root_cause": "useEffect(() => { if (id) loadService(); }, [id]) runs once when component mounts. Inside loadService(), user context from useAuth() is checked with `if (user)`. However, when navigating directly to /service/[id] (e.g., fresh page load or Playwright navigation), the AuthContext restores user from AsyncStorage/localStorage asynchronously. By the time loadService() runs, user may still be null. The fetch for bookings is inside `if (user)` so it never executes. Since useEffect only depends on [id], it never re-runs when user is later set.",
+    "reproduction_steps": [
+      "1. Navigate directly to /service/svc_demo001 as logged-in coach (Playwright goto or hard refresh)",
+      "2. Wait 4-5 seconds for page to fully load",
+      "3. Click the people-outline icon (requests-btn)",
+      "4. Modal shows 'Demandes reçues (0)' even though there are active bookings"
+    ],
+    "mitigation": "Change line 123 in service/[id].tsx: `useEffect(() => { if (id) loadService(); }, [id]);` → `useEffect(() => { if (id) loadService(); }, [id, user?.user_id]);` This will re-run loadService when user becomes available, which will then fetch the bookings properly."
+  }
+}

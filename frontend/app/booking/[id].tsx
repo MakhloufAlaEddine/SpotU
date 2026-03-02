@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/LanguageContext';
@@ -16,6 +17,8 @@ export default function BookingDetail() {
   const [booking, setBooking] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
+  const [accepting, setAccepting] = useState(false);
+  const [refusing, setRefusing] = useState(false);
 
   useEffect(() => {
     if (id) loadBooking();
@@ -45,6 +48,30 @@ export default function BookingDetail() {
       Alert.alert(t('error'), err.message);
     } finally {
       setPaying(false);
+    }
+  };
+
+  const handleAccept = async () => {
+    setAccepting(true);
+    try {
+      await api.post(`/bookings/${id}/accept`, {});
+      await loadBooking();
+    } catch (err: any) {
+      Alert.alert('Erreur', err.message || 'Impossible d\'accepter');
+    } finally {
+      setAccepting(false);
+    }
+  };
+
+  const handleRefuse = async () => {
+    setRefusing(true);
+    try {
+      await api.post(`/bookings/${id}/refuse`, {});
+      await loadBooking();
+    } catch (err: any) {
+      Alert.alert('Erreur', err.message || 'Impossible de refuser');
+    } finally {
+      setRefusing(false);
     }
   };
 
@@ -102,9 +129,38 @@ export default function BookingDetail() {
               <View style={styles.paidBadge}>
                 <Text style={styles.paidText}>✅ Paiement effectué</Text>
               </View>
-            ) : booking.status !== 'cancelled' ? (
+            ) : booking.status !== 'cancelled' && user?.user_id === booking.user_id ? (
               <WButton label={`💳 ${t('payNow')} — ${booking.amount}€`} onPress={handlePay} loading={paying} style={styles.payBtn} testID="pay-booking-btn" />
             ) : null}
+
+            {user?.user_id === booking.coach_id && booking.status === 'pending' && (
+              <View style={styles.coachActions}>
+                <TouchableOpacity
+                  style={[styles.actionBtn, styles.acceptBtn]}
+                  onPress={handleAccept}
+                  disabled={accepting}
+                  testID="accept-booking-btn"
+                  activeOpacity={0.8}
+                >
+                  {accepting
+                    ? <ActivityIndicator size="small" color="#fff" />
+                    : <Ionicons name="checkmark" size={18} color="#fff" />}
+                  <Text style={styles.acceptBtnText}>Accepter la demande</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.actionBtn, styles.refuseBtn]}
+                  onPress={handleRefuse}
+                  disabled={refusing}
+                  testID="refuse-booking-btn"
+                  activeOpacity={0.8}
+                >
+                  {refusing
+                    ? <ActivityIndicator size="small" color="#EF4444" />
+                    : <Ionicons name="close" size={18} color="#EF4444" />}
+                  <Text style={styles.refuseBtnText}>Refuser</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         </View>
       </ScrollView>
@@ -139,4 +195,10 @@ const styles = StyleSheet.create({
   paidBadge: { backgroundColor: Colors.primaryLight, borderRadius: Radius.full, padding: Spacing.sm, alignItems: 'center' },
   paidText: { fontSize: 15, fontWeight: '700', color: Colors.primary },
   payBtn: { marginTop: Spacing.sm },
+  coachActions: { flexDirection: 'row', gap: 10, marginTop: Spacing.md },
+  actionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: Radius.full },
+  acceptBtn: { backgroundColor: Colors.primary },
+  acceptBtnText: { fontSize: 14, fontWeight: '800', color: '#fff' },
+  refuseBtn: { backgroundColor: 'rgba(239,68,68,0.08)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.3)' },
+  refuseBtnText: { fontSize: 14, fontWeight: '800', color: '#EF4444' },
 });

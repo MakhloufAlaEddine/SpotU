@@ -111,6 +111,48 @@ async def get_booking(booking_id: str, request: Request):
     return enriched[0]
 
 
+async def _change_booking_status(booking_id: str, new_status: str, request: Request):
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT coach_id, user_id, service_id FROM bookings WHERE booking_id = $1", booking_id
+        )
+        if not row:
+            raise HTTPException(status_code=404, detail="Booking not found")
+        if row["coach_id"] != user["user_id"] and user["role"] != "admin":
+            raise HTTPException(status_code=403, detail="Not authorized")
+        await conn.execute(
+            "UPDATE bookings SET status = $1, updated_at = NOW() WHERE booking_id = $2",
+            new_status, booking_id
+        )
+        updated = await conn.fetchrow(
+            f"SELECT {BOOKING_FIELDS} FROM bookings WHERE booking_id = $1", booking_id
+        )
+    booking = row_to_dict(updated)
+    async with pool.acquire() as conn2:
+        svc_row = await conn2.fetchrow("SELECT title FROM services WHERE service_id = $1", booking["service_id"])
+    svc_name = svc_row["title"] if svc_row else "votre service"
+    status_fr = "acceptée ✅" if new_status == "accepted" else "refusée ❌"
+    asyncio.create_task(send_push_to_user(
+        pool, booking["user_id"],
+        title=f"Réservation {status_fr}",
+        body=f"Votre réservation pour {svc_name} a été {status_fr}",
+        data={"type": "booking_status", "bookingId": booking_id, "status": new_status}
+    ))
+    return booking
+
+
+@router.post("/bookings/{booking_id}/accept")
+async def accept_booking(booking_id: str, request: Request):
+    return await _change_booking_status(booking_id, "accepted", request)
+
+
+@router.post("/bookings/{booking_id}/refuse")
+async def refuse_booking(booking_id: str, request: Request):
+    return await _change_booking_status(booking_id, "refused", request)
+
+
 @router.post("/bookings")
 async def create_booking(data: BookingCreate, request: Request):
     pool = get_pool()
