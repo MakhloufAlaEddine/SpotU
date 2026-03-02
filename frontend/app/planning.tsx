@@ -272,6 +272,7 @@ export default function PlanningScreen() {
   const flatRef = useRef<FlatList>(null);
   const dateIndexMap = useRef<Record<string, number>>({});
   const hasScrolledToday = useRef(false);
+  const isUserScrolling = useRef(false);
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -397,6 +398,8 @@ export default function PlanningScreen() {
   }, []);
 
   const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
+    // Mettre à jour la date seulement quand l'utilisateur fait défiler manuellement
+    if (!isUserScrolling.current) return;
     const first = viewableItems.find((vi: any) => vi.item?.kind === 'header');
     if (first) {
       setSelectedDate(first.item.date);
@@ -526,6 +529,9 @@ export default function PlanningScreen() {
               flatRef.current?.scrollToIndex({ index, animated: false, viewPosition: 0 });
             }, 200);
           }}
+          onScrollBeginDrag={() => { isUserScrolling.current = true; }}
+          onMomentumScrollEnd={() => { isUserScrolling.current = false; }}
+          onScrollEndDrag={() => { isUserScrolling.current = false; }}
           onViewableItemsChanged={onViewableItemsChanged.current}
           viewabilityConfig={viewabilityConfig.current}
           refreshControl={
