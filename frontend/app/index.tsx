@@ -1,31 +1,38 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, Image, Animated, StyleSheet } from 'react-native';
 
-// Écran affiché pendant la vérification d'auth (remplace l'ActivityIndicator par le logo animé)
+const SPLASH_MIN_MS = 1800; // Durée minimale d'affichage du splash
+
 export default function Index() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.85)).current;
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    // Animation d'entrée
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 600,
+        duration: 500,
         useNativeDriver: true,
       }),
       Animated.spring(scaleAnim, {
         toValue: 1,
-        friction: 8,
-        tension: 40,
+        friction: 7,
+        tension: 35,
         useNativeDriver: true,
       }),
     ]).start();
+
+    // Durée minimale d'affichage (permet de voir le splash même si l'auth est rapide)
+    const timer = setTimeout(() => setReady(true), SPLASH_MIN_MS);
+    return () => clearTimeout(timer);
   }, []);
 
   return (
     <View style={styles.container} testID="loading-screen">
       <Animated.Image
-        source={require('../assets/splash.png')}
+        source={require('../assets/icon.png')}
         style={[styles.logo, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}
         resizeMode="contain"
       />
@@ -41,7 +48,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   logo: {
-    width: 280,
-    height: 280,
+    width: 220,
+    height: 220,
   },
 });
