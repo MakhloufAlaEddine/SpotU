@@ -511,25 +511,33 @@ async def get_planning_events(request: Request):
                 sched = event_schedule
             else:
                 sched = {}
-            if sched.get("type") == "weekly":
-                js_day = sched.get("day", 0)  # 0=Dim..6=Sam (JS convention)
-                time_str = sched.get("time", "00:00")
-                # JS getDay() → Python weekday(): JS 0(Sun)→Py 6, JS 1(Mon)→Py 0 ...
-                py_weekday = (js_day - 1) % 7
 
-                cursor = range_start.date()
-                while cursor <= range_end.date():
-                    if cursor.weekday() == py_weekday:
-                        events.append({
-                            "point_id": tp["point_id"],
-                            "title": tp["title"],
-                            "owner_name": tp.get("owner_name"),
-                            "image_url": tp.get("image_url"),
-                            "date": cursor.isoformat(),
-                            "time": time_str,
-                            "type": "recurring",
-                        })
-                    cursor += timedelta(days=1)
+            if sched.get("type") == "weekly":
+                # Format réel : {"type":"weekly","schedule":{"0":[{"start":"07:00","end":"07:45"}],...}}
+                # Clés = jours JS (0=Dim,1=Lun,...,6=Sam) → Python weekday (0=Lun,...,6=Dim)
+                schedule_dict = sched.get("schedule", {})
+                for js_day_str, time_slots in schedule_dict.items():
+                    js_day = int(js_day_str)
+                    py_weekday = (js_day - 1) % 7  # JS 0(Dim)→Py 6, JS 1(Lun)→Py 0 ...
+
+                    for time_slot in (time_slots if isinstance(time_slots, list) else []):
+                        time_str = time_slot.get("start", "00:00")
+                        end_str  = time_slot.get("end")
+
+                        cursor = range_start.date()
+                        while cursor <= range_end.date():
+                            if cursor.weekday() == py_weekday:
+                                events.append({
+                                    "point_id": tp["point_id"],
+                                    "title": tp["title"],
+                                    "owner_name": tp.get("owner_name"),
+                                    "image_url": tp.get("image_url"),
+                                    "date": cursor.isoformat(),
+                                    "time": time_str,
+                                    "end_time": end_str,
+                                    "type": "recurring",
+                                })
+                            cursor += timedelta(days=1)
 
     # Dédoublonner si un SpotYou a à la fois event_date ET event_schedule
     seen = set()
