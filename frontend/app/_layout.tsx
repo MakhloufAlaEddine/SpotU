@@ -17,13 +17,19 @@ import {
 SplashScreen.preventAutoHideAsync();
 
 // Source unique de vérité pour la navigation auth
-// Ce composant est le SEUL endroit où la redirection login <-> app est décidée
 function NavigationGuard() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const segments = useSegments();
   const navigationState = useRootNavigationState();
   const pushTokenRef = useRef<string | null>(null);
+  const [splashReady, setSplashReady] = useState(false);
+
+  // Durée minimale du splash : 1.8s pour que l'utilisateur voie le logo
+  useEffect(() => {
+    const timer = setTimeout(() => setSplashReady(true), 1800);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Enregistrement push notifications après connexion
   useEffect(() => {
@@ -35,14 +41,13 @@ function NavigationGuard() {
         }
       });
     }
-    // Listener de tap sur notification → navigation
     const cleanup = setupNotificationResponseHandler();
     return cleanup;
   }, [user]);
 
   useEffect(() => {
     if (Platform.OS === 'web' && !navigationState?.key) return;
-    if (loading) return;
+    if (loading || !splashReady) return;
 
     // Cacher le splash screen natif une fois l'auth vérifiée
     SplashScreen.hideAsync();
@@ -55,7 +60,7 @@ function NavigationGuard() {
     } else if (!user && !inAuth) {
       router.replace('/(auth)/login');
     }
-  }, [navigationState?.key, user, loading, segments]);
+  }, [navigationState?.key, user, loading, splashReady, segments]);
 
   return null;
 }
