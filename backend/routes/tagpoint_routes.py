@@ -465,7 +465,7 @@ async def get_planning_events(request: Request):
 
     async with pool.acquire() as conn:
         rows = await conn.fetch(
-            """SELECT tp.point_id, tp.title, tp.event_date, tp.event_schedule,
+            """SELECT tp.point_id, tp.title, tp.event_date, tp.event_end_date, tp.event_schedule,
                       tp.image_url, u.name as owner_name
                FROM tag_points tp
                JOIN tag_point_participants p ON tp.point_id = p.point_id
@@ -482,20 +482,34 @@ async def get_planning_events(request: Request):
 
         # Événement unique
         if event_date:
+            from zoneinfo import ZoneInfo
+            paris = ZoneInfo('Europe/Paris')
             if isinstance(event_date, str):
-                from dateutil.parser import parse as parse_dt
-                dt = parse_dt(event_date)
+                from dateutil.parser import parse as _parse
+                dt = _parse(event_date)
             else:
                 dt = event_date
-            if hasattr(dt, 'astimezone'):
-                dt = dt.astimezone(timezone.utc)
+            dt_local = dt.astimezone(paris)
+
+            # end_time depuis event_end_date si disponible
+            end_date_raw = tp.get("event_end_date")
+            end_time_str = None
+            if end_date_raw:
+                if isinstance(end_date_raw, str):
+                    from dateutil.parser import parse as _parse2
+                    end_dt = _parse2(end_date_raw).astimezone(paris)
+                else:
+                    end_dt = end_date_raw.astimezone(paris)
+                end_time_str = end_dt.strftime("%H:%M")
+
             events.append({
                 "point_id": tp["point_id"],
                 "title": tp["title"],
                 "owner_name": tp.get("owner_name"),
                 "image_url": tp.get("image_url"),
-                "date": dt.strftime("%Y-%m-%d"),
-                "time": dt.strftime("%H:%M"),
+                "date": dt_local.strftime("%Y-%m-%d"),
+                "time": dt_local.strftime("%H:%M"),
+                "end_time": end_time_str,
                 "type": "single",
             })
 

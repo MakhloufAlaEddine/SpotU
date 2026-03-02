@@ -216,6 +216,9 @@ function EventCard({ event, onPress, isConflict }: { event: any; onPress: () => 
       testID={`event-${event.point_id}-${event.date}`}>
       <View style={ec.timeCol}>
         <Text style={[ec.time, isConflict && ec.timeConflict]}>{event.time || '--:--'}</Text>
+        {event.time && event.end_time && (
+          <Text style={ec.duration}>{formatDuration(event.time, event.end_time)}</Text>
+        )}
         {event.type === 'recurring' && (
           <Ionicons name="repeat" size={10} color={EVENT_COLOR} />
         )}
@@ -587,9 +590,10 @@ const bc = StyleSheet.create({
 const ec = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
   rowConflict: { backgroundColor: '#EF444408' },
-  timeCol: { width: 52, alignItems: 'flex-end', gap: 3 },
+  timeCol: { width: 52, alignItems: 'flex-end', gap: 2 },
   time: { fontSize: 14, fontWeight: '700', color: Colors.foreground },
   timeConflict: { color: CONFLICT_COLOR },
+  duration: { fontSize: 11, color: Colors.muted },
   stripe: { width: 3, height: 40, borderRadius: 2 },
   content: { flex: 1, gap: 3 },
   title: { fontSize: 14, fontWeight: '600', color: Colors.foreground },
