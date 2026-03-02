@@ -747,11 +747,39 @@ async def update_tag_point(point_id: str, data: TagPointUpdate, request: Request
     pool = get_pool()
     user = await require_auth(request, pool)
     from push_service import send_push_to_user
-    import asyncio
+    import asyncio, json as _json
+    from datetime import timezone
+
+    def _vals_equal(new_val, old_val) -> bool:
+        """Compare une valeur entrante avec la valeur existante en base."""
+        if new_val is None and old_val is None:
+            return True
+        if new_val is None or old_val is None:
+            return False
+        # Timestamps → comparer en UTC
+        if hasattr(old_val, 'tzinfo'):
+            try:
+                nv = new_val.replace(tzinfo=timezone.utc) if new_val.tzinfo is None else new_val.astimezone(timezone.utc)
+                ov = old_val.replace(tzinfo=timezone.utc) if old_val.tzinfo is None else old_val.astimezone(timezone.utc)
+                return nv == ov
+            except Exception:
+                return str(new_val) == str(old_val)
+        # Flottants (lat/lng) — tolérance numérique
+        if isinstance(new_val, float) and isinstance(old_val, (float, int)):
+            return abs(new_val - float(old_val)) < 1e-7
+        # Listes / dicts (JSONB)
+        if isinstance(new_val, (list, dict)) or isinstance(old_val, (list, dict)):
+            return _json.dumps(new_val, sort_keys=True) == _json.dumps(old_val, sort_keys=True)
+        return new_val == old_val
 
     async with pool.acquire() as conn:
         existing = await conn.fetchrow(
-            "SELECT user_id, title, event_date, event_end_date, event_schedule, cancelled FROM tag_points WHERE point_id = $1", point_id
+            """SELECT user_id, title, cancelled,
+                      description, precision, tag_ids, images, domain_id,
+                      active, is_public, event_date, event_end_date, event_schedule,
+                      ST_Y(location::geometry) as latitude,
+                      ST_X(location::geometry) as longitude
+               FROM tag_points WHERE point_id = $1""", point_id
         )
         if not existing:
             raise HTTPException(status_code=404, detail="TagPoint not found")
@@ -763,13 +791,23 @@ async def update_tag_point(point_id: str, data: TagPointUpdate, request: Request
             row = await conn.fetchrow(f"SELECT {TP_FIELDS} FROM tag_points tp LEFT JOIN users u ON tp.user_id = u.user_id WHERE tp.point_id = $1", point_id)
             return build_point_response(row_to_dict(row))
 
+        # Détecter les vrais changements avant de construire la requête
+        lat = raw.pop('latitude', None)
+        lng = raw.pop('longitude', None)
+        has_real_changes = False
+        for k, new_val in raw.items():
+            if not _vals_equal(new_val, existing.get(k)):
+                has_real_changes = True
+                break
+        if not has_real_changes and lat is not None and lng is not None:
+            if not _vals_equal(lat, existing.get('latitude')) or not _vals_equal(lng, existing.get('longitude')):
+                has_real_changes = True
+
         JSONB_FIELDS = {'tag_ids', 'images', 'event_schedule'}
         set_clauses = []
         values = []
         i = 1
 
-        lat = raw.pop('latitude', None)
-        lng = raw.pop('longitude', None)
         if lat is not None and lng is not None:
             set_clauses.append(f"location = ST_SetSRID(ST_MakePoint(${i}, ${i+1}), 4326)")
             values.extend([lng, lat])
@@ -801,17 +839,14 @@ async def update_tag_point(point_id: str, data: TagPointUpdate, request: Request
         await conn.execute(query, *values)
         row = await conn.fetchrow(f"SELECT {TP_FIELDS} FROM tag_points tp LEFT JOIN users u ON tp.user_id = u.user_id WHERE tp.point_id = $1", point_id)
 
-        # Récupérer les participants pour notification
         participants = await conn.fetch(
             "SELECT user_id FROM tag_point_participants WHERE point_id=$1 AND user_id != $2",
             point_id, existing["user_id"]
         )
 
-    # Notifier si : ≥1 autre participant ET SpotYou non annulé ET des champs ont changé
-    has_changes = bool(set_clauses)
+    # Notifier si : vrais changements + non annulé + participants
     is_cancelled = bool(existing.get("cancelled"))
-
-    if participants and has_changes and not is_cancelled:
+    if participants and has_real_changes and not is_cancelled:
         title_str = existing["title"] or "SpotYou"
         for p in participants:
             asyncio.create_task(send_push_to_user(
