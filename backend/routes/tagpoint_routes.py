@@ -497,7 +497,8 @@ async def get_planning_events(request: Request):
                FROM tag_points tp
                JOIN tag_point_participants p ON tp.point_id = p.point_id
                LEFT JOIN users u ON tp.user_id = u.user_id
-               WHERE p.user_id = $1 AND tp.active = TRUE""",
+               WHERE p.user_id = $1 AND tp.active = TRUE
+                 AND (tp.is_public = TRUE OR tp.user_id = $1)""",
             user["user_id"]
         )
 
@@ -780,12 +781,16 @@ async def toggle_new_date_coming(point_id: str, request: Request):
 
 @router.patch("/tag-points/{point_id}/visibility")
 async def toggle_visibility(point_id: str, request: Request):
-    """Owner can toggle public/private visibility."""
+    """Owner can toggle public/private visibility.
+    Quand masqué → notifie les participants (sauf créateur)."""
     pool = get_pool()
     user = await require_auth(request, pool)
+    from push_service import send_push_to_user
+    import asyncio
+
     async with pool.acquire() as conn:
         existing = await conn.fetchrow(
-            "SELECT user_id, is_public FROM tag_points WHERE point_id = $1 AND active = TRUE", point_id
+            "SELECT user_id, is_public, title FROM tag_points WHERE point_id = $1 AND active = TRUE", point_id
         )
         if not existing:
             raise HTTPException(status_code=404, detail="TagPoint not found")
@@ -796,6 +801,24 @@ async def toggle_visibility(point_id: str, request: Request):
             "UPDATE tag_points SET is_public = $1, updated_at = NOW() WHERE point_id = $2",
             new_val, point_id
         )
+        # Récupérer les participants (sauf le créateur) pour notification
+        participants = []
+        if not new_val:  # On masque → notifier
+            participants = await conn.fetch(
+                "SELECT user_id FROM tag_point_participants WHERE point_id=$1 AND user_id != $2",
+                point_id, existing["user_id"]
+            )
+
+    # Envoyer notifications si masqué
+    if not new_val and participants:
+        title_str = existing["title"] or "SpotYou"
+        for p in participants:
+            asyncio.create_task(send_push_to_user(
+                pool, p["user_id"],
+                title="SpotYou masqué",
+                body=f'"{title_str}" a été masqué par son créateur et retiré de votre planning.',
+                data={"type": "spotyu_hidden", "point_id": point_id}
+            ))
     return {"is_public": new_val}
 
 
