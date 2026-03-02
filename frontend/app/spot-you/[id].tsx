@@ -344,6 +344,7 @@ export default function SpotYouDetail() {
   const [showVoteModal, setShowVoteModal] = useState(false);
   const [showAllVotes, setShowAllVotes] = useState(false);
   const [showSimilar, setShowSimilar] = useState(false);
+  const [showParticipants, setShowParticipants] = useState(false);
   const [similar, setSimilar] = useState<any[]>([]);
   const [loadingSimilar, setLoadingSimilar] = useState(false);
   const [myVote, setMyVote] = useState<{ rating: number; comment: string | null } | null>(null);
@@ -801,9 +802,14 @@ export default function SpotYouDetail() {
           </TouchableOpacity>
 
           {participantsCount > 0 && (
-            <Text style={st.rsvpCount} testID="participants-count">
-              {participantsCount} participant{participantsCount > 1 ? 's' : ''}
-            </Text>
+            <TouchableOpacity
+              onPress={() => setShowParticipants(true)}
+              testID="participants-count"
+            >
+              <Text style={[st.rsvpCount, { textDecorationLine: 'underline' }]}>
+                {participantsCount} participant{participantsCount > 1 ? 's' : ''}
+              </Text>
+            </TouchableOpacity>
           )}
 
           <View style={{ flex: 1 }} />
@@ -870,47 +876,19 @@ export default function SpotYouDetail() {
           </View>
         )}
 
-        {/* Section Participants */}
-        {participants.length > 0 && (
-          <View style={ps.section}>
-            <Text style={ps.title}>
+        {/* Bouton compact "N participants" pour le créateur */}
+        {isOwner && participants.length > 0 && (
+          <TouchableOpacity
+            style={ps.countBtn}
+            onPress={() => setShowParticipants(true)}
+            testID="owner-participants-count-btn"
+          >
+            <Ionicons name="people" size={14} color={Colors.primary} />
+            <Text style={ps.countBtnTxt}>
               {participants.length} participant{participants.length > 1 ? 's' : ''}
             </Text>
-            {participantsLoading
-              ? <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: 8 }} />
-              : participants.map((p) => (
-                <TouchableOpacity
-                  key={p.user_id}
-                  style={ps.row}
-                  activeOpacity={0.75}
-                  onPress={() => router.push(`/user/${p.user_id}` as any)}
-                  testID={`participant-${p.user_id}`}
-                >
-                  <View style={ps.avatar}>
-                    {p.picture
-                      ? <Image source={{ uri: p.picture }} style={{ width: '100%', height: '100%' }} />
-                      : <Text style={ps.avatarLetter}>{p.name?.charAt(0)?.toUpperCase() || '?'}</Text>
-                    }
-                  </View>
-                  <Text style={ps.name} numberOfLines={1}>{p.name}</Text>
-                  <View style={ps.badges}>
-                    {p.is_creator && (
-                      <View style={ps.badgeOrganizer}>
-                        <Ionicons name="shield-checkmark" size={10} color="#F59E0B" />
-                        <Text style={ps.badgeOrganizerTxt}>Organisateur</Text>
-                      </View>
-                    )}
-                    {p.role === 'coach' && (
-                      <View style={ps.badgeCoach}>
-                        <Text style={ps.badgeCoachTxt}>Coach</Text>
-                      </View>
-                    )}
-                  </View>
-                  <Ionicons name="chevron-forward" size={14} color={Colors.muted} />
-                </TouchableOpacity>
-              ))
-            }
-          </View>
+            <Ionicons name="chevron-forward" size={14} color={Colors.primary} />
+          </TouchableOpacity>
         )}
 
         <View style={st.actionsRow}>
@@ -1089,6 +1067,68 @@ export default function SpotYouDetail() {
         </View>
       </Modal>
 
+      {/* Modal Participants */}
+      <Modal visible={showParticipants} animationType="slide" transparent onRequestClose={() => setShowParticipants(false)}>
+        <View style={ms.overlay}>
+          <TouchableOpacity style={ms.backdrop} activeOpacity={1} onPress={() => setShowParticipants(false)} />
+          <View style={[ms.sheet, { maxHeight: '75%' }]}>
+            <View style={ms.header}>
+              <Text style={ms.title}>
+                {participants.length} participant{participants.length > 1 ? 's' : ''}
+              </Text>
+              <TouchableOpacity onPress={() => setShowParticipants(false)} testID="close-participants-modal">
+                <Ionicons name="close" size={22} color={Colors.foreground} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {participantsLoading
+                ? <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: 24 }} />
+                : participants.map((p) => {
+                    const isMe = !!(user && user.user_id === p.user_id);
+                    return (
+                      <TouchableOpacity
+                        key={p.user_id}
+                        style={ps.row}
+                        activeOpacity={0.75}
+                        onPress={() => { setShowParticipants(false); router.push(`/user/${p.user_id}` as any); }}
+                        testID={`participant-modal-${p.user_id}`}
+                      >
+                        <View style={ps.avatar}>
+                          {p.picture
+                            ? <Image source={{ uri: p.picture }} style={{ width: '100%', height: '100%' }} />
+                            : <Text style={ps.avatarLetter}>{p.name?.charAt(0)?.toUpperCase() || '?'}</Text>
+                          }
+                        </View>
+                        <Text style={ps.name} numberOfLines={1}>{p.name}</Text>
+                        <View style={ps.badges}>
+                          {isMe && (
+                            <View style={ps.badgeYou}>
+                              <Text style={ps.badgeYouTxt}>Vous</Text>
+                            </View>
+                          )}
+                          {p.is_creator && (
+                            <View style={ps.badgeOrganizer}>
+                              <Ionicons name="shield-checkmark" size={10} color="#F59E0B" />
+                              <Text style={ps.badgeOrganizerTxt}>Organisateur</Text>
+                            </View>
+                          )}
+                          {p.role === 'coach' && (
+                            <View style={ps.badgeCoach}>
+                              <Text style={ps.badgeCoachTxt}>Coach</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Ionicons name="chevron-forward" size={14} color={Colors.muted} />
+                      </TouchableOpacity>
+                    );
+                  })
+              }
+              <View style={{ height: 24 }} />
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
       {/* Vote Modal */}
       <Modal visible={showVoteModal} animationType="slide" transparent onRequestClose={() => setShowVoteModal(false)}>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -1258,11 +1298,15 @@ const ms = StyleSheet.create({
 const ps = StyleSheet.create({
   section: { paddingHorizontal: Spacing.md, marginBottom: Spacing.md },
   title: { fontSize: 15, fontWeight: '800', color: Colors.foreground, marginBottom: Spacing.sm },
-  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 },
-  avatarLetter: { fontSize: 14, fontWeight: '700', color: Colors.background },
+  countBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: Spacing.md, paddingVertical: 8, marginBottom: Spacing.sm },
+  countBtnTxt: { fontSize: 13, fontWeight: '600', color: Colors.primary, flex: 1 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  avatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 },
+  avatarLetter: { fontSize: 15, fontWeight: '700', color: Colors.background },
   name: { flex: 1, fontSize: 14, fontWeight: '600', color: Colors.foreground },
-  badges: { flexDirection: 'row', gap: 4, alignItems: 'center' },
+  badges: { flexDirection: 'row', gap: 4, alignItems: 'center', flexShrink: 0 },
+  badgeYou: { backgroundColor: Colors.primary + '22', borderRadius: Radius.full, paddingHorizontal: 7, paddingVertical: 3, borderWidth: 1, borderColor: Colors.primary + '55' },
+  badgeYouTxt: { fontSize: 10, fontWeight: '700', color: Colors.primary },
   badgeOrganizer: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(245,158,11,0.15)', borderRadius: Radius.full, paddingHorizontal: 7, paddingVertical: 3, borderWidth: 1, borderColor: 'rgba(245,158,11,0.3)' },
   badgeOrganizerTxt: { fontSize: 10, fontWeight: '700', color: '#F59E0B' },
   badgeCoach: { backgroundColor: Colors.primary + '22', borderRadius: Radius.full, paddingHorizontal: 7, paddingVertical: 3, borderWidth: 1, borderColor: Colors.primary + '44' },
