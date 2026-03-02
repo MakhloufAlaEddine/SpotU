@@ -43,8 +43,6 @@ function formatDuration(start: string, end: string): string {
   return `${mins} min`;
 }
 
-// ── Hauteurs estimées initiales (seront remplacées par les vraies mesures) ─────
-const ITEM_H = { header: 50, booking: 60, empty: 38 } as const;
 type AgendaItem =
   | { kind: 'header'; date: string }
   | { kind: 'booking'; date: string; booking: any }
