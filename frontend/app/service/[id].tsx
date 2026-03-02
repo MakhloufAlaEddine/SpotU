@@ -868,22 +868,23 @@ const s = StyleSheet.create({
 
   // Book bar
   bookBar: {
-    flexDirection: 'row', alignItems: 'center', gap: 16,
-    paddingHorizontal: Spacing.md, paddingVertical: 14,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: Spacing.md, paddingVertical: 12,
     backgroundColor: Colors.backgroundSecondary,
     borderTopWidth: 1, borderTopColor: Colors.border,
   },
-  bookBarPrice: { fontSize: 18, fontWeight: '900', color: ORANGE },
-  bookBarMeta: { fontSize: 12, color: Colors.muted, marginTop: 1 },
+  bookBarPrice: { fontSize: 16, fontWeight: '900', color: ORANGE },
+  bookBarMeta: { fontSize: 11, color: Colors.muted, marginTop: 1 },
   bookBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: ORANGE, borderRadius: Radius.full,
-    paddingHorizontal: 24, paddingVertical: 13,
+    paddingHorizontal: 14, paddingVertical: 12,
+    flexShrink: 0,
   },
   bookBtnDisabled: {
     backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border,
   },
-  bookBtnText: { fontSize: 15, fontWeight: '800', color: Colors.background },
+  bookBtnText: { fontSize: 13, fontWeight: '800', color: Colors.background },
 });
 
 const ms = StyleSheet.create({
