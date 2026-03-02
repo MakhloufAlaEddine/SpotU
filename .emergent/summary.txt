@@ -12,76 +12,76 @@
 
 **what currently exists?**
 A full-stack React Native (Expo) and FastAPI application named SpotU with a PostgreSQL database.
--   **Core Features**: Service creation/management, booking system, favorites, and real-time chat via WebSockets.
--   **Rebranding**: The app has been renamed from WINEK to SpotU. TagPoints are now SpotYou.
--   **Real-time Updates**: The unread message badge is now powered by a dedicated notification WebSocket, eliminating polling.
--   **Push Notifications**: The backend is fully implemented to send push notifications for new messages and booking updates. The frontend code is in place but non-functional on Expo Go due to an Expo SDK 53+ limitation.
--   **UI Overhaul**:
-    -   A new Planning screen, inspired by Microsoft Teams, has been created to manage bookings with a timeline view. It's accessible from the user's profile.
-    -   The former Mes réservations tab has been replaced with a Notifications screen listing booking status changes.
--   **Seed Data**: The database is seeded with test data for users, services, chats, and bookings to populate the app.
+- **Core Features**: Service creation/management, booking system, favorites, and real-time chat via WebSockets.
+- **UI**: A Planning screen with a calendar/timeline view is implemented but is currently buggy. A Notifications screen lists booking status changes.
+- **Accessibility**: The Planning screen is now accessible to all users (not just coaches) via a button on the profile screen.
+- **Backend**: The backend is stable, serves all required data, and includes a full implementation for push notifications.
+- **Environment**: The Expo development environment was highly unstable due to  errors (file watcher limit) causing crashes and leaving orphaned  tunnels. The agent believes they have implemented a permanent patch to stabilize this, but it should be monitored.
 
 **Last working item**:
--   **Last item agent was working**: The user reported issues with the new Planning screen. The agent implemented fixes for three specific requests:
-    1.  Display the current month and year prominently.
-    2.  Ensure the view scrolls to Today by default when the screen is opened.
-    3.  Make the initial scroll position the selected day, not just the top of the list.
-    The agent updated  by adding a month header and refining the  hook to trigger the scroll after data has been loaded.
--   **Status**: USER VERIFICATION PENDING
+-   **Last item agent was working**: Fixing multiple bugs on the Planning screen (). The primary remaining issue is that the timeline view does not scroll to the correct date. As the user selects dates further in the future, the scroll error accumulates.
+-   **Status**: IN PROGRESS
 -   **Agent Testing Done**: N
--   **Which testing method agent to use?**: Screenshot tool to verify the UI and behavior of the  screen.
--   **User Testing Done**: N
+-   **Which testing method agent to use?**: Manual testing by user. The next agent should implement the proposed fix and then ask the user to verify the scrolling behavior on the Planning screen, especially for dates far in the future.
+-   **User Testing Done**: Y (The user has confirmed the latest fix is still not working correctly, reporting the gap is in the other direction).
 
 **All Pending/In progress Issue list**:
--   **Issue 1: Planning screen initial state and scroll (P0)**
--   **Issue 2: Push notifications are not working in Expo Go (P1)**
--   **Issue 3: Expo Metro bundler does not hot-reload (P1 - RECURRING)**
+-   **Issue 1: Planning screen scroll drift (P0)**
+-   **Issue 2: Expo environment instability & broken Hot-Reload (P1 - RECURRING)**
+-   **Issue 3: Push notifications are not working in Expo Go (P1)**
 -   **Issue 4: User dissatisfaction with action buttons layout (P2)**
 
 **Issues Detail**:
--   **Issue 1: Planning screen initial state and scroll**
-    -   **Attempted fixes**: The agent modified  to:
-        1.  Add a  component to display the current month and year.
-        2.  Used a  hook that depends on the  data. Inside it, a  ensures  is called after the  has rendered, targeting the index for Today.
+-   **Issue 1: Planning screen scroll drift**
+    -   **Attempted fixes**: The agent has tried multiple approaches in , all of which have failed to completely resolve the scroll drift:
+        1.   with  and hardcoded item heights.
+        2.   to pre-calculate offsets.
+        3.   to dynamically measure item heights at runtime (this reduced the error but created a drift in the opposite direction).
     -   **Next debug checklist**:
-        1.  Ask the user to test the Planning screen again.
-        2.  If it still fails, use the screenshot tool to observe the screen's state upon loading.
-        3.  Verify the logic in  that calculates the initial scroll index and triggers the scroll.
-    -   **Why fix this issue and what will be achieved with the fix?**: To provide a polished and intuitive user experience on the new core Planning screen, matching the user's expectations.
-    -   **Status**: USER VERIFICATION PENDING
-    -   **Is recurring issue?**: N
+        1.  In , implement the agent's last proposed solution: completely remove the  prop from the .
+        2.  Rely solely on  and , letting 's internal virtualization engine manage the layout calculations. This is often the most reliable method for lists with variable item heights.
+        3.  After implementing, ask the user to test by selecting dates several weeks or months apart to ensure no error accumulates.
+    -   **Why fix this issue and what will be achieved with the fix?**: The Planning screen is a core feature for managing bookings. The incorrect scroll makes it unusable and frustrating for the user.
+    -   **Status**: IN PROGRESS
+    -   **Is recurring issue?**: Y
     -   **Should Test frontend/backend/both after fix?**: frontend
     -   **Blocked on other issue**: None
 
--   **Issue 2: Push notifications are not working in Expo Go**
-    -   **Description**: The app crashes or fails silently when trying to get a push token in Expo Go. The agent identified this is a platform limitation introduced in Expo SDK 53, which removed push notification support from Expo Go. The backend infrastructure is complete and ready.
-    -   **Attempted fixes**: The agent added a  block in  to prevent the app from crashing.
-    -   **Next debug checklist**: This is not a code issue to be fixed. The agent needs to guide the user on the necessary steps: creating an EAS project (An Expo user account is required to proceed.
-
-Log in to EAS with email or username (exit and run eas login --help to see other login options)
-Input is required, but stdin is not readable. Failed to display prompt: Email or username) and using a Development Build (An Expo user account is required to proceed.
-
-Log in to EAS with email or username (exit and run eas login --help to see other login options)
-Input is required, but stdin is not readable. Failed to display prompt: Email or username) to test push notifications.
-    -   **Why fix this issue and what will be achieved with the fix?**: This will enable a critical feature for user engagement.
-    -   **Status**: BLOCKED (on user action to create an EAS build)
-    -   **Is recurring issue?**: N
-    -   **Should Test frontend/backend/both after fix?**: frontend (on a development build)
+-   **Issue 2: Expo environment instability & broken Hot-Reload**
+    -   **Description**: A critical workflow blocker. The frontend environment was crashing constantly due to an  error (file watcher limit reached by Metro). This crash left orphaned  processes, which blocked the tunnel () on subsequent restarts, forcing the agent into a long debug loop of killing processes and changing subdomains.
+    -   **Attempted fixes**: The agent correctly identified the  root cause. The final fix was to remove a faulty  from  and a (claimed) patch to Expo's  to ignore , which seems to have stabilized the environment.
+    -   **Next debug checklist**: The environment seems stable now, but the agent should be aware of this history. If  reappears, the first step is to restart all services (postgresql: stopped
+nginx-code-proxy: stopped
+mongodb: stopped
+backend: ERROR (abnormal termination)
+expo: started
+mongodb: started
+nginx-code-proxy: started
+code-server: started
+postgresql: started). The underlying issue of hot-reload not working without a manual expo: stopped
+expo: started still persists.
+    -   **Why fix this issue and what will be achieved with the fix?**: A stable development environment is crucial for productivity and avoiding wasted time.
+    -   **Status**: IN PROGRESS (A patch was applied, but the core hot-reload issue remains).
+    -   **Is recurring issue?**: Y
+    -   **Should Test frontend/backend/both after fix?**: N/A (Environment issue).
     -   **Blocked on other issue**: None
 
--   **Issue 3: Expo Metro bundler does not hot-reload**
-    -   **Description**: A critical workflow blocker. Frontend code changes are not reflected without a manual restart (expo: ERROR (not running)
-expo: started).
-    -   **Status**: NOT STARTED (Using workaround).
-    -   **Is recurring issue?**: Y
+-   **Issue 3: Push notifications are not working in Expo Go**
+    -   **Description**: A platform limitation in Expo SDK 53+ prevents push notifications from working in Expo Go. The backend is ready.
+    -   **Status**: BLOCKED (on user action to create an EAS development build).
+    -   **Is recurring issue?**: N
+    -   **Should Test frontend/backend/both after fix?**: frontend (on a development build).
+    -   **Blocked on other issue**: None
 
 -   **Issue 4: User dissatisfaction with action buttons layout**
-    -   **Description**: A long-standing request to improve the Similar, Share, Save buttons layout on the SpotYou detail screen ().
+    -   **Description**: A long-standing request to improve the layout of the Similar, Share, Save buttons on the SpotYou detail screen ().
     -   **Status**: NOT STARTED
     -   **Is recurring issue?**: Y
+    -   **Should Test frontend/backend/both after fix?**: frontend
+    -   **Blocked on other issue**: None
 
 **In progress Task List**:
--   There are no in-progress tasks.
+-   There are no in-progress tasks. All work is categorized under the issues above.
 
 **Upcoming and Future Tasks**
 -   **Upcoming Tasks (P1)**:
@@ -90,101 +90,83 @@ expo: started).
 -   **Future Tasks (P2)**:
     -   Admin Dashboard.
     -   Fix Action Buttons UI (Issue #4).
-    -   Finalize Push Notifications with EAS Build (related to Issue #2).
+    -   Finalize Push Notifications with EAS Build (related to Issue #3).
 
 **Completed work in this session**
--   **App Rebranding (WINEK → SpotU)**: Executed a comprehensive renaming across the application, including UI text, file paths ( -> ), and internal constants.
--   **Real-time Unread Badge**: Refactored the unread message count from inefficient polling to a real-time WebSocket connection ().
--   **Chat List Auto-Refresh**: Fixed the conversation list screen () to automatically refresh using  and the real-time notification WebSocket.
--   **Push Notifications Implementation**: Built the full backend stack (DB table , , API endpoints) and integrated it into chat and booking flows. Implemented frontend logic with robust error handling for the Expo Go environment.
--   **UI Overhaul (Planning & Notifications)**:
-    -   Replaced the old Bookings tab with a new Notifications screen.
-    -   Created a new, sophisticated Planning screen () with a scroll-syncing calendar and timeline, inspired by Microsoft Teams.
--   **Seed Data**: Added extensive booking data to  to populate the new Planning screen for testing.
--   **Bug Fixes**:
-    -   Resolved a critical bug where chat creation failed due to the rebranding script incorrectly changing backend enum values.
-    -   Fixed a crash on the Planning screen caused by a typo () in the  configuration.
+-   **Environment Stabilization (Partial)**: Diagnosed and seemingly resolved a critical  crash loop by modifying Metro's configuration. This stopped the constant  tunnel failures that plagued the session.
+-   **Planning Screen Accessibility**: Made the Planning screen visible to all users (not just coaches) by adding a button to the profile screen () and rearranging the quick actions into a 2x2 grid.
 
 **Earlier issues found/mentioned but not fixed**
 -   **Action Buttons UX**: The user's dissatisfaction with the action buttons on the SpotYou detail page () remains unaddressed.
 
 **Known issue recurrence from previous fork**
--   **Expo Metro Bundler Cache Invalidation**: Persists. The workaround expo: stopped
-expo: started is mandatory after every frontend code change.
+-   **Expo Metro Bundler Instability**: This was the main focus of this session. The agent spent most of their time diagnosing and fixing  crashes and  tunnel errors, which are a manifestation of this core problem. A patch was applied, but the environment's long-term stability and the lack of hot-reloading are still concerns.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **WebSocket Architecture (FastAPI)**: Using Connection Managers for real-time chat and app-wide notifications.
--   **Expo Push Notifications**: Full backend implementation using Expo's push API. Frontend handles token registration and handles platform limitations gracefully.
--   **Advanced React Native UI**: Using  with  and refs () to create a complex, scroll-synced calendar/agenda view ().
--   **App-wide Refactoring/Rebranding**: Systematically renaming core concepts (WINEK -> SpotU, TagPoint -> SpotYou) across files, routes, and UI text.
--   **DB Seeding**: Populating the database on startup for consistent development and testing environments.
+-   **React Native  Performance**: Deep-dive into debugging complex scrolling behavior with variable item heights, involving , , , and dynamic measurement with .
+-   **Expo Environment Debugging**: Diagnosing and resolving a cascade of errors starting from Metro's  file watcher limit, leading to orphaned  processes and  tunnel connection failures.
+-   **Metro Bundler Configuration**: Modifying  to manage file watching behavior.
 
 **key DB schema**
--   **services**: uid=0(root) gid=0(root) groups=0(root), , , 
--   **bookings**: uid=0(root) gid=0(root) groups=0(root), , , 
--   **conversations**: , , 
--   **messages**: , , , 
--   **push_tokens**: uid=0(root) gid=0(root) groups=0(root), ,  (string),  **(NEW)**
+-   (No changes in this session)
 
 **All files of reference**
--   : **Last modified.** Contains the new planning UI. Needs user verification.
--   : Rewritten to be the Notifications screen.
--   : Contains the logic for registering push tokens and handling Expo Go limitations.
--   : New service for sending notifications via Expo's API.
--   : New endpoint for clients to register their push tokens.
--   : Contains new seed data for bookings.
--   : Renamed from , where the pending UI issue for action buttons exists.
+-   : **The primary file for the next agent.** Contains the buggy scroll logic that needs to be fixed.
+-   : Contains the UI change to make the planning screen accessible to all.
+-   : Location of the pending UI issue for the action buttons.
 
 **key api endpoints**
--   : Create/get a conversation.
--   : Get user's conversations.
--   : Real-time message channel.
--   : Real-time unread count channel.
--   : **(NEW)** Endpoint for the app to send its Expo Push Token.
+-   (No changes in this session)
 
 **Critical Info for New Agent**
 -   **Language**: You MUST respond and communicate in **French**.
--   **IMMEDIATE TASK (P0)**: Your first action is to confirm with the user if the latest changes to the Planning screen () have resolved the initial scroll and display issues.
--   **PUSH NOTIFICATIONS ARE BLOCKED**: Do not attempt to fix the push notification code. The issue is a limitation of Expo Go. The backend is complete. You must guide the user that testing requires an EAS Development Build.
+-   **IMMEDIATE TASK (P0)**: Your first and only priority is to fix the scrolling bug in . The user has confirmed the latest attempt failed. Your next step is to remove  and rely solely on /.
+-   **ENVIRONMENT INSTABILITY**: The previous agent spent most of the session fighting environment fires ( crashes,  errors). They believe a patch is in place. If the app fails to load with , do not waste time debugging the tunnel; simply run postgresql: stopped
+nginx-code-proxy: stopped
+code-server: stopped
+expo: stopped
+mongodb: stopped
+backend: ERROR (abnormal termination)
+expo: started
+mongodb: started
+nginx-code-proxy: started
+code-server: started
+postgresql: started and try again.
 -   **CRITICAL WORKFLOW BLOCKER**: Expo Hot-Reload IS BROKEN. You **MUST** run expo: stopped
-expo: started after every single change to a frontend file. Do not waste time trying to fix the bundler; use the workaround.
--   **REBRANDING CONTEXT**: The app was recently renamed from WINEK to SpotU. While most of the code is updated, be mindful of this change if you encounter any legacy references. Backend API routes like  were intentionally kept for data stability.
+expo: started after every single change to a frontend file.
 
 **documents and test reports created in this job**
--    was updated.
+-   None.
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **LATEST (ACTIONABLE)**: User reported three issues with the new Planning screen: month not visible, doesn't scroll to the selected day, and doesn't default to Today. (Status: Fix implemented, pending verification).
-2.  User reported a crash when clicking on Mon planning. (Status: Resolved).
-3.  User requested an interactive planning screen like MS Teams and the ability to tap a service to see its details. (Status: Implemented).
-4.  User requested to add permanent test data for the planning screen. (Status: Implemented).
-5.  User validated the new design for Planning and Notifications screens but requested no changes to tabs and no chat messages in notifications. (Status: Implemented).
-6.  User requested to move Mes réservations to a new Planning screen and replace the old screen with Mes notifications. (Status: Implemented).
-7.  User reported a chat creation error after the rebranding. (Status: Resolved).
-8.  User reported an Expo connection error (). (Status: Resolved by support agent/platform).
-9.  User approved renaming the app to SpotU and other related terms. (Status: Implemented).
-10. User asked for a playful app name suggestion. (Status: Agent provided list, user chose SpotU).
+1.  **LATEST (ACTIONABLE)**: Now the gap is in the other direction. But there is less gap. - *User confirms the latest fix for the planning screen scroll is still broken.*
+2.  The display of the first date is good but the more I advance in the calendar the more the gap increases. - *User reports the scroll drift issue.*
+3.  This bug is fixed but scroll not good... I have the impression that the planning displayed is behind the calendar - *User reports partial success but a new visual glitch after a fix.*
+4.  First load not good - *User reports the initial fix for the planning screen did not work.*
+5.  1-Error opening planning 2- the date of the day is incorrect... 3- the scroll is not good - *User's detailed initial bug report for the Planning screen.*
+6.  Error (with image of Unable to resolve module) - *User reports app crash after a misconfiguration of .*
+7.  Start whats necessary to launch the application" - *User request to start all services.*
+8.  "Error" (with image of `ERR_NGROK_334`) - *User reports the recurring ngrok tunnel connection error.*
+9.  "Option a" - *User choice to make the "Planning" screen accessible to all users.*
+10. "In the screen I cant find the planning with the teams design - *User reports they cannot find the Planning screen, leading to the task to make it more accessible.*
 
 **Project Health Check:**
 -   **Broken**:
-    -   **Expo Hot-Reload**: Completely non-functional. Requires a manual expo: stopped
-expo: started after every frontend change.
+    -    scrolling functionality.
+    -   Expo Hot-Reload (requires manual service restart).
 -   **Blocked**:
-    -   **Push Notifications**: Functionality is blocked by Expo Go's limitations. Requires user to create an EAS Development Build to be tested. The code itself is complete.
+    -   Push Notifications (requires user to create an EAS Development Build).
 -   **Needs Refactor**:
-    -   **Action Buttons Layout**: The UI for action buttons on the  screen is still pending improvement as per the user's long-standing request.
+    -   Action Buttons Layout on .
 
 **3rd Party Integrations**
--   **Emergent-managed Google Auth**: Integrated, but the native mobile flow is on hold.
--   **OpenStreetMap Nominatim**: Used for geocoding.
--   **Expo Push Notifications**: Fully implemented on the backend. Frontend implementation is complete but non-testable on Expo Go.
--   **Stripe**: Planned for a future task, not implemented.
+-   (No changes in this session)
 
 **Testing status**
--   **Testing agent used after significant changes**: NO. Agent performed manual testing with  for backend endpoints and relied on user feedback and screenshots for UI validation.
+-   **Testing agent used after significant changes**: NO. Agent relied on a tight feedback loop with the user for UI validation.
 -   **Troubleshoot agent used after agent stuck in loop**: NO
 -   **Test files created**: None.
 -   **Known regressions**: None.
@@ -194,4 +176,5 @@ expo: started after every frontend change.
 -   **User**:  / 
 
 **What agent forgot to execute**
--   The user's long-standing request to fix the action buttons' layout on the SpotYou detail screen () is still pending.</analysis>
+-   The user's long-standing request to fix the action buttons' layout on the SpotYou detail screen () is still pending.
+-   The agent proposed a final, more robust solution for the scrolling issue () but did not get to implement it. This should be the next agent's first action.</analysis>
