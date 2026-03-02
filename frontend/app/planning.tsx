@@ -256,12 +256,25 @@ export default function PlanningScreen() {
     return { items: result, dotDates: dots };
   }, [bookings]);
 
-  // ── Quand on tape une date dans le strip → scroll précis ───────────────────
+  // ── Scroll vers aujourd'hui après chargement ───────────────────────────────
+  useEffect(() => {
+    if (!loading && items.length > 0 && !hasScrolledToday.current) {
+      const todayIdx = dateIndexMap.current[today];
+      if (todayIdx !== undefined && flatRef.current) {
+        hasScrolledToday.current = true;
+        setTimeout(() => {
+          flatRef.current?.scrollToIndex({ index: todayIdx, animated: false, viewPosition: 0 });
+        }, 150);
+      }
+    }
+  }, [loading, items, today]);
+
+  // ── Quand on tape une date dans le strip → scrollToIndex ──────────────────
   const handleSelectDate = useCallback((date: string) => {
     setSelectedDate(date);
-    const offset = dateOffsetMap.current[date];
-    if (offset !== undefined && flatRef.current) {
-      flatRef.current.scrollToOffset({ offset, animated: true });
+    const targetIdx = dateIndexMap.current[date];
+    if (targetIdx !== undefined && flatRef.current) {
+      flatRef.current.scrollToIndex({ index: targetIdx, animated: true, viewPosition: 0 });
     }
   }, []);
 
