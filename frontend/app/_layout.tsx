@@ -6,11 +6,15 @@ import { RefreshProvider } from '../context/RefreshContext';
 import { LanguageProvider } from '../context/LanguageContext';
 import { LocationProvider } from '../context/LocationContext';
 import { StatusBar } from 'expo-status-bar';
+import * as SplashScreen from 'expo-splash-screen';
 import {
   registerForPushNotificationsAsync,
   saveTokenToServer,
   setupNotificationResponseHandler,
 } from '../lib/push-notifications';
+
+// Empêche le splash natif de disparaître automatiquement
+SplashScreen.preventAutoHideAsync();
 
 // Source unique de vérité pour la navigation auth
 // Ce composant est le SEUL endroit où la redirection login <-> app est décidée
