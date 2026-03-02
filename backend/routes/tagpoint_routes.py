@@ -466,7 +466,7 @@ async def get_planning_events(request: Request):
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             """SELECT tp.point_id, tp.title, tp.event_date, tp.event_end_date, tp.event_schedule,
-                      tp.image_url, u.name as owner_name
+                      tp.image_url, tp.user_id as owner_id, u.name as owner_name
                FROM tag_points tp
                JOIN tag_point_participants p ON tp.point_id = p.point_id
                LEFT JOIN users u ON tp.user_id = u.user_id
@@ -507,6 +507,7 @@ async def get_planning_events(request: Request):
                 "title": tp["title"],
                 "owner_name": tp.get("owner_name"),
                 "image_url": tp.get("image_url"),
+                "is_own": tp.get("owner_id") == user["user_id"],
                 "date": dt_local.strftime("%Y-%m-%d"),
                 "time": dt_local.strftime("%H:%M"),
                 "end_time": end_time_str,
@@ -527,12 +528,11 @@ async def get_planning_events(request: Request):
                 sched = {}
 
             if sched.get("type") == "weekly":
-                # Format réel : {"type":"weekly","schedule":{"0":[{"start":"07:00","end":"07:45"}],...}}
-                # Clés = jours JS (0=Dim,1=Lun,...,6=Sam) → Python weekday (0=Lun,...,6=Dim)
+                # Format : {"type":"weekly","schedule":{"0":[{"start":"07:00","end":"07:45"}],...}}
+                # Clés = Python weekday (0=Lun, 1=Mar, ..., 6=Dim) — PAS JS convention
                 schedule_dict = sched.get("schedule", {})
-                for js_day_str, time_slots in schedule_dict.items():
-                    js_day = int(js_day_str)
-                    py_weekday = (js_day - 1) % 7  # JS 0(Dim)→Py 6, JS 1(Lun)→Py 0 ...
+                for py_day_str, time_slots in schedule_dict.items():
+                    py_weekday = int(py_day_str)  # direct, pas de conversion
 
                     for time_slot in (time_slots if isinstance(time_slots, list) else []):
                         time_str = time_slot.get("start", "00:00")
@@ -546,6 +546,7 @@ async def get_planning_events(request: Request):
                                     "title": tp["title"],
                                     "owner_name": tp.get("owner_name"),
                                     "image_url": tp.get("image_url"),
+                                    "is_own": tp.get("owner_id") == user["user_id"],
                                     "date": cursor.isoformat(),
                                     "time": time_str,
                                     "end_time": end_str,

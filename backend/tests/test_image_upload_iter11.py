@@ -12,7 +12,7 @@ import io
 
 BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "").rstrip("/")
 if not BASE_URL:
-    BASE_URL = "https://local-connect-117.preview.emergentagent.com"
+    BASE_URL = "https://spotu-booking.preview.emergentagent.com"
 
 AUTH_URL = f"{BASE_URL}/api/auth/login"
 UPLOAD_URL = f"{BASE_URL}/api/upload-image"

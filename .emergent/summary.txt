@@ -3,8 +3,8 @@
 **PRODUCT REQUIREMENTS**:
 -   **Service Creation/Update Stepper**: A unified form for creating and editing services.
 -   **Service Discovery**: Services must be visible on the main map and search screen.
--   **Booking System & Planning**: A flow for users to book services, for coaches to manage bookings via a calendar/planning view, and logic to handle slot availability.
--   **Real-time Chat**: A comprehensive chat system allowing users to communicate in the context of services and SpotYou points.
+-   **Booking System & Planning**: A flow for users to book services, for coaches to manage bookings via a calendar/planning view, and logic to handle slot availability. This includes integrating user-joined SpotYou events.
+-   **Real-time Chat**: A comprehensive chat system allowing users to communicate.
 -   **Push Notifications**: For key events like new messages and booking status changes.
 -   **Database Persistence**: All schema changes must be included in startup scripts.
 
@@ -12,72 +12,60 @@
 
 **what currently exists?**
 A full-stack React Native (Expo) and FastAPI application named SpotU with a PostgreSQL database.
-- **Core Features**: Service creation/management, booking system, favorites, and real-time chat via WebSockets.
-- **UI**: A Planning screen with a calendar/timeline view is implemented but is currently buggy. A Notifications screen lists booking status changes.
-- **Accessibility**: The Planning screen is now accessible to all users (not just coaches) via a button on the profile screen.
-- **Backend**: The backend is stable, serves all required data, and includes a full implementation for push notifications.
-- **Environment**: The Expo development environment was highly unstable due to  errors (file watcher limit) causing crashes and leaving orphaned  tunnels. The agent believes they have implemented a permanent patch to stabilize this, but it should be monitored.
+- **Core Features**: Service creation/management, booking system, favorites, and real-time chat.
+- **Planning Screen**: A complex planning screen exists at  that displays both service bookings and user-joined SpotYou events. It includes features for filtering, conflict detection (overlapping events are marked in red), and is the central focus of recent development.
+- **UI**: A new splash screen and logo have been implemented. The app uses a dark mode theme.
+- **Backend**: The FastAPI backend is stable and serves data for all features, including a  endpoint that dynamically generates event occurrences from the database.
+- **Environment**: An EAS (Expo Application Services) development build for Android has been configured and submitted to the user's Expo account. This was done to enable a custom native splash screen and to prepare for testing push notifications. The frontend development environment's hot-reload is broken, requiring a manual service restart after each change.
 
 **Last working item**:
--   **Last item agent was working**: Fixing multiple bugs on the Planning screen (). The primary remaining issue is that the timeline view does not scroll to the correct date. As the user selects dates further in the future, the scroll error accumulates.
+-   **Last item agent was working**: Fixing two bugs in the Planning screen reported by the user:
+    1.  Recurring SpotYou events appear with a one-day offset (e.g., a Monday event shows on Sunday). The agent identified the root cause in : a mismatch in how Python's  (Monday=0) and the previous logic's assumption of JS  (Sunday=0) were handled.
+    2.  The user's own events (SpotMe) are not visually distinct. A SpotMe badge needs to be added.
 -   **Status**: IN PROGRESS
 -   **Agent Testing Done**: N
--   **Which testing method agent to use?**: Manual testing by user. The next agent should implement the proposed fix and then ask the user to verify the scrolling behavior on the Planning screen, especially for dates far in the future.
--   **User Testing Done**: Y (The user has confirmed the latest fix is still not working correctly, reporting the gap is in the other direction).
+-   **Which testing method agent to use?**: Backend testing. Use  to test the  endpoint to verify that the dates for recurring events are now correct and that an  flag is present in the payload for the user's own events.
+-   **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: Planning screen scroll drift (P0)**
--   **Issue 2: Expo environment instability & broken Hot-Reload (P1 - RECURRING)**
+-   **Issue 1: Fix recurring event date offset & Add SpotMe badge (P0)**
+-   **Issue 2: Expo Hot-Reload is broken (P1 - RECURRING)**
 -   **Issue 3: Push notifications are not working in Expo Go (P1)**
 -   **Issue 4: User dissatisfaction with action buttons layout (P2)**
 
 **Issues Detail**:
--   **Issue 1: Planning screen scroll drift**
-    -   **Attempted fixes**: The agent has tried multiple approaches in , all of which have failed to completely resolve the scroll drift:
-        1.   with  and hardcoded item heights.
-        2.   to pre-calculate offsets.
-        3.   to dynamically measure item heights at runtime (this reduced the error but created a drift in the opposite direction).
+-   **Issue 1: Fix recurring event date offset & Add SpotMe badge**
+    -   **Attempted fixes**: The agent correctly identified the root cause for the date offset. The keys (, , etc.) in the  JSON stored in the database correspond to Python's weekday convention (Monday=0), but the date generation logic was incorrectly trying to convert them from a JavaScript convention. The agent started modifying .
     -   **Next debug checklist**:
-        1.  In , implement the agent's last proposed solution: completely remove the  prop from the .
-        2.  Rely solely on  and , letting 's internal virtualization engine manage the layout calculations. This is often the most reliable method for lists with variable item heights.
-        3.  After implementing, ask the user to test by selecting dates several weeks or months apart to ensure no error accumulates.
-    -   **Why fix this issue and what will be achieved with the fix?**: The Planning screen is a core feature for managing bookings. The incorrect scroll makes it unusable and frustrating for the user.
+        1.  In , within the  function, complete the fix for the recurring event date calculation. The logic should directly use the integer key from the  dictionary as the target Python weekday.
+        2.  In the same function, add a boolean field  to each returned event object, setting it to  if .
+        3.  In , modify the  component to consume the  flag. If , it should display a SpotMe badge instead of SpotYou.
+    -   **Why fix this issue and what will be achieved with the fix?**: The planning screen is unusable with incorrect dates. The SpotMe badge is a required UX improvement for clarity.
     -   **Status**: IN PROGRESS
-    -   **Is recurring issue?**: Y
-    -   **Should Test frontend/backend/both after fix?**: frontend
+    -   **Is recurring issue?**: N
+    -   **Should Test frontend/backend/both after fix?**: Both
     -   **Blocked on other issue**: None
 
--   **Issue 2: Expo environment instability & broken Hot-Reload**
-    -   **Description**: A critical workflow blocker. The frontend environment was crashing constantly due to an  error (file watcher limit reached by Metro). This crash left orphaned  processes, which blocked the tunnel () on subsequent restarts, forcing the agent into a long debug loop of killing processes and changing subdomains.
-    -   **Attempted fixes**: The agent correctly identified the  root cause. The final fix was to remove a faulty  from  and a (claimed) patch to Expo's  to ignore , which seems to have stabilized the environment.
-    -   **Next debug checklist**: The environment seems stable now, but the agent should be aware of this history. If  reappears, the first step is to restart all services (postgresql: stopped
-nginx-code-proxy: stopped
-mongodb: stopped
-backend: ERROR (abnormal termination)
-expo: started
-mongodb: started
-nginx-code-proxy: started
-code-server: started
-postgresql: started). The underlying issue of hot-reload not working without a manual expo: stopped
-expo: started still persists.
-    -   **Why fix this issue and what will be achieved with the fix?**: A stable development environment is crucial for productivity and avoiding wasted time.
-    -   **Status**: IN PROGRESS (A patch was applied, but the core hot-reload issue remains).
+-   **Issue 2: Expo Hot-Reload is broken**
+    -   **Description**: A critical workflow blocker. Any change to a frontend file requires a manual restart of the Expo service (expo: ERROR (not running)
+expo: started) to be visible. This significantly slows down development.
+    -   **Status**: IN PROGRESS (Patches have been applied to keep the server from crashing, but the hot-reload mechanism itself is non-functional).
     -   **Is recurring issue?**: Y
     -   **Should Test frontend/backend/both after fix?**: N/A (Environment issue).
     -   **Blocked on other issue**: None
 
 -   **Issue 3: Push notifications are not working in Expo Go**
-    -   **Description**: A platform limitation in Expo SDK 53+ prevents push notifications from working in Expo Go. The backend is ready.
-    -   **Status**: BLOCKED (on user action to create an EAS development build).
+    -   **Description**: This is a known Expo SDK limitation. Testing requires a custom development build. The agent has already submitted an Android build; the user needs to install the APK. An iOS build is blocked.
+    -   **Status**: BLOCKED (on user action: install Android APK / get an Apple Developer account for iOS).
     -   **Is recurring issue?**: N
-    -   **Should Test frontend/backend/both after fix?**: frontend (on a development build).
+    -   **Should Test frontend/backend/both after fix?**: Frontend (on a development build).
     -   **Blocked on other issue**: None
 
 -   **Issue 4: User dissatisfaction with action buttons layout**
     -   **Description**: A long-standing request to improve the layout of the Similar, Share, Save buttons on the SpotYou detail screen ().
     -   **Status**: NOT STARTED
     -   **Is recurring issue?**: Y
-    -   **Should Test frontend/backend/both after fix?**: frontend
+    -   **Should Test frontend/backend/both after fix?**: Frontend
     -   **Blocked on other issue**: None
 
 **In progress Task List**:
@@ -91,82 +79,92 @@ expo: started still persists.
     -   Admin Dashboard.
     -   Fix Action Buttons UI (Issue #4).
     -   Finalize Push Notifications with EAS Build (related to Issue #3).
+    -   Reminder for user: set up Apple & Google Pay at the end of development.
 
 **Completed work in this session**
--   **Environment Stabilization (Partial)**: Diagnosed and seemingly resolved a critical  crash loop by modifying Metro's configuration. This stopped the constant  tunnel failures that plagued the session.
--   **Planning Screen Accessibility**: Made the Planning screen visible to all users (not just coaches) by adding a button to the profile screen () and rearranging the quick actions into a 2x2 grid.
+-   **Planning Screen Major Overhaul**:
+    -   Fixed a critical screen-crashing bug related to  import.
+    -   Fixed a data-fetching bug causing event times to display as  by correctly parsing the DB JSON.
+    -   Fixed a timezone bug causing a 1-hour offset on single-date events.
+    -   Added event duration display to SpotYou events.
+    -   Implemented a feature to detect and visually highlight scheduling conflicts in red.
+    -   Integrated SpotYou events from joined spots into the main planning view.
+    -   Added auto-participation for the creator of a SpotMe.
+    -   Implemented auto-removal from planning and push notifications when a SpotYou is canceled.
+-   **Splash Screen & Logo**: Implemented a new, functional splash screen and updated the app logo for both Expo Go (JS-based) and native builds (EAS).
+-   **EAS Development Build**: Successfully configured , installed , and submitted an Android development build to the user's Expo account.
+-   **Android UI Bug Fixes**:
+    -   Resolved a  issue where the chat input was hidden by the keyboard.
+    -   Fixed a Flexbox layout bug on the service detail page that caused text to wrap vertically.
+-   **Environment Stabilization**: Fixed Expo dev server crashes related to  authentication in a non-interactive environment.
 
 **Earlier issues found/mentioned but not fixed**
 -   **Action Buttons UX**: The user's dissatisfaction with the action buttons on the SpotYou detail page () remains unaddressed.
 
 **Known issue recurrence from previous fork**
--   **Expo Metro Bundler Instability**: This was the main focus of this session. The agent spent most of their time diagnosing and fixing  crashes and  tunnel errors, which are a manifestation of this core problem. A patch was applied, but the environment's long-term stability and the lack of hot-reloading are still concerns.
+-   **Expo Metro Bundler Instability / Broken Hot-Reload**: This was a major issue in the previous session and persists. The need to manually run expo: stopped
+expo: started after every frontend file change is the primary symptom and a major productivity drain.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **React Native  Performance**: Deep-dive into debugging complex scrolling behavior with variable item heights, involving , , , and dynamic measurement with .
--   **Expo Environment Debugging**: Diagnosing and resolving a cascade of errors starting from Metro's  file watcher limit, leading to orphaned  processes and  tunnel connection failures.
--   **Metro Bundler Configuration**: Modifying  to manage file watching behavior.
+-   **EAS (Expo Application Services)**: Configuring  and submitting development builds (An Expo user account is required to proceed.
+
+Log in to EAS with email or username (exit and run eas login --help to see other login options)
+Input is required, but stdin is not readable. Failed to display prompt: Email or username). Understanding the difference between Expo Go and dev clients.
+-   **Backend/Frontend Date/Time Handling**: Deep debugging of timezone conversions ( vs. ), weekday conventions (Python vs. JS), and parsing various date/time formats from the database.
+-   **React Native UI Debugging**: Fixing platform-specific (Android) layout bugs with Flexbox and .
+-   **Expo Dev Server**: Debugging and stabilizing the server in a non-interactive environment, especially after introducing .
 
 **key DB schema**
--   (No changes in this session)
+-   **tag_points**: The  field is a JSON string. For recurring events, its structure is  where the key () is the Python  (0 = Monday). This was a major source of bugs.
 
 **All files of reference**
--   : **The primary file for the next agent.** Contains the buggy scroll logic that needs to be fixed.
--   : Contains the UI change to make the planning screen accessible to all.
--   : Location of the pending UI issue for the action buttons.
+-   : Contains the  function that needs to be fixed.
+-   : The main frontend file that will consume the corrected data and display the SpotMe badge.
+-    / : Core Expo project configuration files.
 
 **key api endpoints**
--   (No changes in this session)
+-   : Returns all bookings and SpotYou events for the logged-in user's calendar. This is the endpoint currently being debugged.
+-   : Marks a SpotYou as inactive and notifies all participants.
+-   : Creates a SpotYou and automatically adds the creator as a participant.
 
 **Critical Info for New Agent**
 -   **Language**: You MUST respond and communicate in **French**.
--   **IMMEDIATE TASK (P0)**: Your first and only priority is to fix the scrolling bug in . The user has confirmed the latest attempt failed. Your next step is to remove  and rely solely on /.
--   **ENVIRONMENT INSTABILITY**: The previous agent spent most of the session fighting environment fires ( crashes,  errors). They believe a patch is in place. If the app fails to load with , do not waste time debugging the tunnel; simply run postgresql: stopped
-nginx-code-proxy: stopped
-code-server: stopped
-expo: stopped
-mongodb: stopped
-backend: ERROR (abnormal termination)
-expo: started
-mongodb: started
-nginx-code-proxy: started
-code-server: started
-postgresql: started and try again.
+-   **IMMEDIATE TASK (P0)**: Your first priority is to fix the recurring event date offset and add the SpotMe badge.
+    -   **Backend**: In , correct the weekday logic in . The stored keys , , etc. are Python weekdays (Mon=0). Also, add an  flag to the event payload.
+    -   **Frontend**: In , use the new  flag in  to conditionally render a SpotMe badge.
 -   **CRITICAL WORKFLOW BLOCKER**: Expo Hot-Reload IS BROKEN. You **MUST** run expo: stopped
-expo: started after every single change to a frontend file.
+expo: started after every single change to a frontend file. Do not forget this step.
 
 **documents and test reports created in this job**
--   None.
+-   : A guide created for the user on how to run EAS builds locally.
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **LATEST (ACTIONABLE)**: Now the gap is in the other direction. But there is less gap. - *User confirms the latest fix for the planning screen scroll is still broken.*
-2.  The display of the first date is good but the more I advance in the calendar the more the gap increases. - *User reports the scroll drift issue.*
-3.  This bug is fixed but scroll not good... I have the impression that the planning displayed is behind the calendar - *User reports partial success but a new visual glitch after a fix.*
-4.  First load not good - *User reports the initial fix for the planning screen did not work.*
-5.  1-Error opening planning 2- the date of the day is incorrect... 3- the scroll is not good - *User's detailed initial bug report for the Planning screen.*
-6.  Error (with image of Unable to resolve module) - *User reports app crash after a misconfiguration of .*
-7.  Start whats necessary to launch the application" - *User request to start all services.*
-8.  "Error" (with image of `ERR_NGROK_334`) - *User reports the recurring ngrok tunnel connection error.*
-9.  "Option a" - *User choice to make the "Planning" screen accessible to all users.*
-10. "In the screen I cant find the planning with the teams design - *User reports they cannot find the Planning screen, leading to the task to make it more accessible.*
+1.  **LATEST (ACTIONABLE)**: User reported that their own events should be marked SpotMe and that recurring events have a one-day date offset in the planning view. (Status: IN PROGRESS)
+2.  User requested to see the duration for SpotYou events and reported a timezone offset for single-date events. (Status: COMPLETED)
+3.  User reported still seeing  for event times. (Status: COMPLETED)
+4.  User reported incorrect time display and requested UI tweaks for the conflict view (keep original badges, add a conflict badge). (Status: COMPLETED)
+5.  User reported a crash when opening the planning screen. (Status: COMPLETED)
+6.  User requested the conflict detection feature for the planning screen. (Status: COMPLETED)
+7.  User reported a crash when opening the planning screen. (Status: COMPLETED)
+8.  User requested a major feature set: integrate events into planning, auto-join for creators, and cancellation logic. (Status: COMPLETED)
+9.  User reported Android-specific UI bugs (layout and keyboard). (Status: COMPLETED)
+10. User asked if the Android EAS build would also work for iOS. (Status: Answered)
 
 **Project Health Check:**
 -   **Broken**:
-    -    scrolling functionality.
-    -   Expo Hot-Reload (requires manual service restart).
+    -   Recurring event date calculation in .
+    -   Expo Hot-Reload.
 -   **Blocked**:
-    -   Push Notifications (requires user to create an EAS Development Build).
--   **Needs Refactor**:
-    -   Action Buttons Layout on .
+    -   Push Notifications (requires user to use the dev build and/or get an Apple Dev account).
 
 **3rd Party Integrations**
--   (No changes in this session)
+-   **EAS (Expo Application Services)**: Used for building the application.
 
 **Testing status**
--   **Testing agent used after significant changes**: NO. Agent relied on a tight feedback loop with the user for UI validation.
+-   **Testing agent used after significant changes**: NO
 -   **Troubleshoot agent used after agent stuck in loop**: NO
 -   **Test files created**: None.
 -   **Known regressions**: None.
@@ -176,5 +174,4 @@ expo: started after every single change to a frontend file.
 -   **User**:  / 
 
 **What agent forgot to execute**
--   The user's long-standing request to fix the action buttons' layout on the SpotYou detail screen () is still pending.
--   The agent proposed a final, more robust solution for the scrolling issue () but did not get to implement it. This should be the next agent's first action.</analysis>
+-   The user's long-standing request to fix the action buttons' layout on the SpotYou detail screen () is still pending.</analysis>

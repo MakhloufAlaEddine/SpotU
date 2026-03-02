@@ -39,8 +39,9 @@ const STATUS_CFG: Record<string, { color: string; label: string }> = {
   completed: { color: Colors.muted,     label: 'Terminé'  },
 };
 
-// Couleur des événements SpotYou
-const EVENT_COLOR = '#8B5CF6';
+// Couleur des événements SpotYou / SpotMe
+const EVENT_COLOR   = '#8B5CF6'; // violet — SpotYou
+const SPOTME_COLOR  = '#10B981'; // vert emeraude — SpotMe (mes propres événements)
 const CONFLICT_COLOR = '#EF4444';
 
 // ── Détection de conflits ──────────────────────────────────────────────────────
@@ -207,8 +208,13 @@ function BookingCard({ booking, onPress, isConflict }: { booking: any; onPress: 
   );
 }
 
-// ── Carte d'événement SpotYou ──────────────────────────────────────────────────
+// ── Carte d'événement SpotYou / SpotMe ────────────────────────────────────────
 function EventCard({ event, onPress, isConflict }: { event: any; onPress: () => void; isConflict?: boolean }) {
+  const isOwn = !!event.is_own;
+  const chipColor = isOwn ? SPOTME_COLOR : EVENT_COLOR;
+  const chipLabel = isOwn ? 'SpotMe' : 'SpotYou';
+  const chipIcon  = isOwn ? 'star' : 'location';
+
   return (
     <TouchableOpacity
       style={[ec.row, isConflict && ec.rowConflict]}
@@ -220,15 +226,15 @@ function EventCard({ event, onPress, isConflict }: { event: any; onPress: () => 
           <Text style={ec.duration}>{formatDuration(event.time, event.end_time)}</Text>
         )}
         {event.type === 'recurring' && (
-          <Ionicons name="repeat" size={10} color={EVENT_COLOR} />
+          <Ionicons name="repeat" size={10} color={chipColor} />
         )}
       </View>
-      <View style={[ec.stripe, { backgroundColor: EVENT_COLOR }]} />
+      <View style={[ec.stripe, { backgroundColor: chipColor }]} />
       <View style={ec.content}>
         <Text style={[ec.title, isConflict && ec.titleConflict]} numberOfLines={1}>{event.title}</Text>
         <Text style={ec.sub} numberOfLines={1}>
           {event.type === 'recurring' ? 'Récurrent · ' : ''}
-          {event.owner_name || 'SpotYou'}
+          {event.owner_name || chipLabel}
         </Text>
       </View>
       <View style={ec.badges}>
@@ -238,9 +244,9 @@ function EventCard({ event, onPress, isConflict }: { event: any; onPress: () => 
             <Text style={ec.conflictTxt}>Conflit</Text>
           </View>
         )}
-        <View style={ec.chip}>
-          <Ionicons name="location" size={10} color={EVENT_COLOR} />
-          <Text style={ec.chipTxt}>SpotYou</Text>
+        <View style={[ec.chip, { backgroundColor: chipColor + '22' }]}>
+          <Ionicons name={chipIcon as any} size={10} color={chipColor} />
+          <Text style={[ec.chipTxt, { color: chipColor }]}>{chipLabel}</Text>
         </View>
       </View>
       <Ionicons name="chevron-forward" size={14} color={Colors.muted} />
