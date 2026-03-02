@@ -203,14 +203,6 @@ export default function MenuScreen() {
             <Text style={st.actionSub}>Vos favoris</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={st.actionCard} onPress={() => router.push('/events' as any)} activeOpacity={0.8} testID="events-nav-btn">
-            <View style={st.actionIconBox}>
-              <Ionicons name="calendar" size={22} color={Colors.primary} />
-            </View>
-            <Text style={st.actionLabel}>Évènements</Text>
-            <Text style={st.actionSub}>Agenda</Text>
-          </TouchableOpacity>
-
           <TouchableOpacity style={st.actionCard} onPress={() => router.push('/spot-me' as any)} activeOpacity={0.8} testID="my-tp-nav-btn">
             <View style={st.actionIconBox}>
               <Ionicons name="location" size={22} color={Colors.primary} />
