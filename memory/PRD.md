@@ -110,6 +110,12 @@ SpotU (ex-WINEK) est une plateforme hyperlocale de connexion sportive basée sur
 - [x] Liste des participants cliquables dans SpotYou detail - TERMINÉ Mars 2026
 - [x] Créateur = Organisateur par défaut, peut choisir de quitter - TERMINÉ Mars 2026
 - [x] Règles gestion SpotYou : solo=delete/mask, participants=cancel/restore, notifs, planning badges - TERMINÉ Mars 2026
+- [x] **Gestion des demandes de réservation sur fiche service** - TERMINÉ Mars 2026
+  - Coach : icône toujours visible + modal liste des demandes + boutons Accepter/Refuser inline
+  - User : icône visible seulement si demande faite + modal statut de ses demandes
+  - Écran booking/[id].tsx : boutons Accepter/Refuser pour coach (pending), pay pour user
+  - Backend : POST /api/bookings/{id}/accept + POST /api/bookings/{id}/refuse (avec notifs push)
+  - Testé : backend 18/18 + frontend 6/6 (iter_45 + iter_46)
 
 ### P1 - Important
 - [ ] Intégration Stripe (paiements)
