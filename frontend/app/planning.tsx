@@ -305,7 +305,8 @@ export default function PlanningScreen() {
       const d = parseDate(item.date);
       const isToday = item.date === today;
       return (
-        <View style={ag.header} testID={`header-${item.date}`}>
+        <View style={ag.header} testID={`header-${item.date}`}
+          onLayout={measuredTypes.current.header ? undefined : onHeaderLayout}>
           <Text style={[ag.headerDay, isToday && ag.headerDayToday]}>
             {isToday ? 'Aujourd\'hui' : `${d.getDate()} ${MONTHS_LONG[d.getMonth()]}`}
           </Text>
@@ -318,7 +319,8 @@ export default function PlanningScreen() {
 
     if (item.kind === 'empty') {
       return (
-        <View style={ag.emptyDay}>
+        <View style={ag.emptyDay}
+          onLayout={measuredTypes.current.empty ? undefined : onEmptyLayout}>
           <Text style={ag.emptyTxt}>Aucune séance</Text>
         </View>
       );
@@ -329,14 +331,16 @@ export default function PlanningScreen() {
     const svcId = bk.service?.service_id || bk.service_id;
 
     return (
-      <BookingCard
-        booking={bk}
-        onPress={() => {
-          if (svcId) router.push(`/service/${svcId}` as any);
-        }}
-      />
+      <View onLayout={measuredTypes.current.booking ? undefined : onBookingLayout}>
+        <BookingCard
+          booking={bk}
+          onPress={() => {
+            if (svcId) router.push(`/service/${svcId}` as any);
+          }}
+        />
+      </View>
     );
-  }, [today]);
+  }, [today, onHeaderLayout, onEmptyLayout, onBookingLayout]);
 
   const keyExtractor = useCallback((item: AgendaItem, index: number) =>
     item.kind === 'header' ? `hdr-${item.date}`
