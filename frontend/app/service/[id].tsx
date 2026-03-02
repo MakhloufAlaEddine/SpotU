@@ -120,7 +120,7 @@ export default function ServiceDetailScreen() {
     setCollapsedDates(new Set(sorted.slice(1)));
   }, [service]);
 
-  useEffect(() => { if (id) loadService(); }, [id]);
+  useEffect(() => { if (id) loadService(); }, [id, user?.user_id]);
 
   const loadService = async () => {
     try {

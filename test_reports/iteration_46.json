@@ -1,0 +1,66 @@
+{
+  "summary": "Iteration 46 - Regression tests for 2 bug fixes from iter_45. All 6 test scenarios PASS. Fix 1: race condition in service/[id].tsx (useEffect deps [id] → [id, user?.user_id]) confirmed working. Fix 2: statusColors missing 'accepted'/'refused' in booking/[id].tsx confirmed working. Backend not re-tested (was 18/18 in iter_45).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A (not re-tested, was 100% in iter_45)",
+    "frontend": "100% (6/6 regression checks pass)"
+  },
+  "test_credentials": {
+    "coach": "coach@winek.app / WinekCoach2024! (Sophie Martin, user_coach001)",
+    "user": "user@winek.app / WinekUser2024! (Thomas Dupont, user_demo001)"
+  },
+  "seed_data_creation": "No new data created. Used existing iter_45 bookings: bkg_0648749868fe (pending), bkg_66f086c7ee8e (refused), bkg_64e9a261916f (accepted).",
+  "regression_results": {
+    "fix1_race_condition_service_id": {
+      "test": "service/[id].tsx useEffect deps [id, user?.user_id]",
+      "result": "PASS",
+      "evidence": "Modal 'Demandes reçues (8)' — 8 booking rows visible, badge=8, Accept/Refuse buttons present for pending booking"
+    },
+    "fix1_people_outline_badge": {
+      "test": "people-outline icon visible for coach with correct badge count",
+      "result": "PASS",
+      "evidence": "requests-btn visible=True, badge text='8'"
+    },
+    "fix1_accept_refuse_modal": {
+      "test": "Accepter/Refuser buttons visible in coach modal for pending bookings",
+      "result": "PASS",
+      "evidence": "1 accept button + 1 refuse button found in modal (1 pending booking)"
+    },
+    "fix2_accepted_status_color": {
+      "test": "booking/[id].tsx - 'accepted' status shows Colors.primary (teal/green)",
+      "result": "PASS",
+      "evidence": "statusBar color=rgb(0, 191, 165), text='ACCEPTED' for bkg_64e9a261916f"
+    },
+    "fix2_refused_status_color": {
+      "test": "booking/[id].tsx - 'refused' status shows Colors.destructive (red)",
+      "result": "PASS",
+      "evidence": "statusBar color=rgb(255, 59, 48), text='REFUSED' for bkg_66f086c7ee8e"
+    },
+    "fix2_coach_buttons_booking_page": {
+      "test": "Coach sees Accepter/Refuser buttons on pending booking detail page",
+      "result": "PASS",
+      "evidence": "accept-booking-btn and refuse-booking-btn both visible=True for coach on bkg_0648749868fe"
+    },
+    "security_user_no_coach_buttons": {
+      "test": "User cannot see accept/refuse buttons on booking/[id].tsx",
+      "result": "PASS",
+      "evidence": "User (Thomas Dupont) sees only 'Payer maintenant — 60€', no accept-booking-btn or refuse-booking-btn present"
+    }
+  },
+  "retest_needed": false,
+  "main_agent_can_self_test": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Both iter_45 bugs are fully fixed and verified. Backend 18/18 PASS (iter_45, not re-run). Frontend 6/6 regression checks PASS. svc_demo001 has 8 bookings (1 pending=bkg_0648749868fe, multiple accepted, 1 refused=bkg_66f086c7ee8e). Note: Hot-reload is broken per main agent - any new code changes require sudo supervisorctl restart expo."
+}

@@ -79,7 +79,8 @@ export default function BookingDetail() {
   if (!booking) return <View style={styles.center}><Text>Réservation introuvable</Text></View>;
 
   const statusColors: Record<string, string> = {
-    pending: Colors.warning, confirmed: Colors.accent, completed: Colors.success, cancelled: Colors.destructive
+    pending: Colors.warning, confirmed: Colors.accent, completed: Colors.success,
+    accepted: Colors.primary, refused: Colors.destructive, cancelled: Colors.destructive
   };
 
   return (
