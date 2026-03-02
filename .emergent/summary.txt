@@ -1,61 +1,67 @@
-<analysis>**original_problem_statement**: The user wants to build a mobile application, originally named WINEK and now rebranded to SpotU. It's a hyperlocal, tag-based connection platform. The core features include a multi-step service creation and management flow for coaches, service discovery, a booking system, and real-time chat. The application has been renamed to **SpotU**, with TagPoints becoming SpotYou and My TagPoints becoming SpotMe.
+<analysis>**original_problem_statement**: The user wants to build a mobile application, SpotU, which is a hyperlocal, tag-based connection platform. The core features include a multi-step service creation and management flow for coaches, service discovery, a booking system, and real-time chat. The application was previously named WINEK, with TagPoints becoming SpotYou and My TagPoints becoming SpotMe.
 
 **PRODUCT REQUIREMENTS**:
 -   **Service Creation/Update Stepper**: A unified form for creating and editing services.
 -   **Service Discovery**: Services must be visible on the main map and search screen.
 -   **Booking System & Planning**: A flow for users to book services, for coaches to manage bookings via a calendar/planning view, and logic to handle slot availability. This includes integrating user-joined SpotYou events.
 -   **Real-time Chat**: A comprehensive chat system allowing users to communicate.
--   **Push Notifications**: For key events like new messages and booking status changes.
+-   **Push Notifications**: For key events like new messages and booking status changes. A notification system is partially implemented, storing notifications in the database.
 -   **Database Persistence**: All schema changes must be included in startup scripts.
 
 **User's preferred language**: French. The next agent MUST respond in **French**.
 
 **what currently exists?**
 A full-stack React Native (Expo) and FastAPI application named SpotU with a PostgreSQL database.
-- **Core Features**: Service creation/management, booking system, favorites, and real-time chat.
-- **Planning Screen**: A complex planning screen exists at  that displays both service bookings and user-joined SpotYou events. It includes features for filtering, conflict detection (overlapping events are marked in red), and is the central focus of recent development.
-- **UI**: A new splash screen and logo have been implemented. The app uses a dark mode theme.
-- **Backend**: The FastAPI backend is stable and serves data for all features, including a  endpoint that dynamically generates event occurrences from the database.
-- **Environment**: An EAS (Expo Application Services) development build for Android has been configured and submitted to the user's Expo account. This was done to enable a custom native splash screen and to prepare for testing push notifications. The frontend development environment's hot-reload is broken, requiring a manual service restart after each change.
+-   **Core Features Implemented**: Service creation/management, favorites, real-time chat, a booking system, and a comprehensive SpotYou (event) management system with complex business rules for cancellation, restoration, and visibility based on participant count.
+-   **Planning Screen**: A functional screen at  that displays both service bookings and SpotYou events, including their status (e.g., Cancelled).
+-   **Notifications**: A  table exists in the database, and a corresponding screen () displays notifications to the user. Notifications are generated for SpotYou lifecycle events.
+-   **Backend**: A stable FastAPI backend with routes for all major features, including services, bookings, SpotYou management (), and notifications.
+-   **Environment**: The Expo development environment's hot-reload is broken, which is a critical workflow impediment requiring a manual restart of the service after every frontend code change.
 
 **Last working item**:
--   **Last item agent was working**: Fixing two bugs in the Planning screen reported by the user:
-    1.  Recurring SpotYou events appear with a one-day offset (e.g., a Monday event shows on Sunday). The agent identified the root cause in : a mismatch in how Python's  (Monday=0) and the previous logic's assumption of JS  (Sunday=0) were handled.
-    2.  The user's own events (SpotMe) are not visually distinct. A SpotMe badge needs to be added.
+-   **Last item agent was working**: Implementing a feature on the service detail screen () to allow users and coaches to view and manage booking requests. The user provided detailed requirements clarifying the behavior for the service owner versus a regular user.
 -   **Status**: IN PROGRESS
 -   **Agent Testing Done**: N
--   **Which testing method agent to use?**: Backend testing. Use  to test the  endpoint to verify that the dates for recurring events are now correct and that an  flag is present in the payload for the user's own events.
+-   **Which testing method agent to use?**: Both.
+    -   Backend: Use  to test the new and upcoming endpoints for fetching and managing booking requests (, , etc.).
+    -   Frontend: Use the screenshot tool to verify the conditional UI (icons, modals) on the service detail screen for both coach and user roles.
 -   **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: Fix recurring event date offset & Add SpotMe badge (P0)**
+-   **Issue 1: Implement booking request management on the service detail screen (P0)**
 -   **Issue 2: Expo Hot-Reload is broken (P1 - RECURRING)**
 -   **Issue 3: Push notifications are not working in Expo Go (P1)**
--   **Issue 4: User dissatisfaction with action buttons layout (P2)**
+-   **Issue 4: User dissatisfaction with action buttons layout (P2 - RECURRING)**
 
 **Issues Detail**:
--   **Issue 1: Fix recurring event date offset & Add SpotMe badge**
-    -   **Attempted fixes**: The agent correctly identified the root cause for the date offset. The keys (, , etc.) in the  JSON stored in the database correspond to Python's weekday convention (Monday=0), but the date generation logic was incorrectly trying to convert them from a JavaScript convention. The agent started modifying .
+-   **Issue 1: Implement booking request management on the service detail screen**
+    -   **Attempted fixes**: The agent created an initial backend endpoint  and started scaffolding the frontend UI in . This work was based on an initial, less-detailed request. The user then provided more specific requirements.
     -   **Next debug checklist**:
-        1.  In , within the  function, complete the fix for the recurring event date calculation. The logic should directly use the integer key from the  dictionary as the target Python weekday.
-        2.  In the same function, add a boolean field  to each returned event object, setting it to  if .
-        3.  In , modify the  component to consume the  flag. If , it should display a SpotMe badge instead of SpotYou.
-    -   **Why fix this issue and what will be achieved with the fix?**: The planning screen is unusable with incorrect dates. The SpotMe badge is a required UX improvement for clarity.
+        1.  **Create New Backend Endpoints**: In , create endpoints to manage individual bookings:
+            -   : To fetch the details of a single request.
+            -   : To accept a request.
+            -   : To decline a request.
+        2.  **Create New Frontend Screen**: Create a new Request Detail screen (e.g., ). This screen will be navigated to from the coach's modal and will contain the Accept and Decline buttons.
+        3.  **Update Service Detail Screen ()**:
+            -   Refine the data fetching logic to load both service details and booking requests.
+            -   Implement the conditional logic: always show a requests icon for the service owner; for other users, show the icon only if they have made at least one request.
+            -   Build the two modal views: one for the owner listing all requesters (clickable), and one for the user listing their own requests.
+    -   **Why fix this issue and what will be achieved with the fix?**: This is a core feature for the app's booking functionality, allowing coaches to manage demand for their services.
     -   **Status**: IN PROGRESS
     -   **Is recurring issue?**: N
     -   **Should Test frontend/backend/both after fix?**: Both
     -   **Blocked on other issue**: None
 
 -   **Issue 2: Expo Hot-Reload is broken**
-    -   **Description**: A critical workflow blocker. Any change to a frontend file requires a manual restart of the Expo service (expo: ERROR (not running)
-expo: started) to be visible. This significantly slows down development.
-    -   **Status**: IN PROGRESS (Patches have been applied to keep the server from crashing, but the hot-reload mechanism itself is non-functional).
+    -   **Description**: A critical workflow blocker. Any change to a frontend file requires a manual restart (expo: stopped
+expo: started).
+    -   **Status**: NOT STARTED (in this session)
     -   **Is recurring issue?**: Y
     -   **Should Test frontend/backend/both after fix?**: N/A (Environment issue).
     -   **Blocked on other issue**: None
 
 -   **Issue 3: Push notifications are not working in Expo Go**
-    -   **Description**: This is a known Expo SDK limitation. Testing requires a custom development build. The agent has already submitted an Android build; the user needs to install the APK. An iOS build is blocked.
+    -   **Description**: Known Expo SDK limitation. Testing requires a custom development build. The agent previously submitted an Android build; the user needs to install it.
     -   **Status**: BLOCKED (on user action: install Android APK / get an Apple Developer account for iOS).
     -   **Is recurring issue?**: N
     -   **Should Test frontend/backend/both after fix?**: Frontend (on a development build).
@@ -69,7 +75,12 @@ expo: started) to be visible. This significantly slows down development.
     -   **Blocked on other issue**: None
 
 **In progress Task List**:
--   There are no in-progress tasks. All work is categorized under the issues above.
+-   **Task 1: Implement Booking Request Viewing/Management Feature**
+    -   **Where to resume**: The user has provided detailed requirements. The next agent must create a new plan that includes creating new backend endpoints for accepting/declining bookings and a new frontend screen for request details, then implement this full flow.
+    -   **What will be achieved with this?**: Coaches will be able to view and manage incoming booking requests, and users will be able to track the status of their requests.
+    -   **Status**: IN PROGRESS
+    -   **Should Test frontend/backend/both after fix?**: Both
+    -   **Blocked on something**: No
 
 **Upcoming and Future Tasks**
 -   **Upcoming Tasks (P1)**:
@@ -82,83 +93,80 @@ expo: started) to be visible. This significantly slows down development.
     -   Reminder for user: set up Apple & Google Pay at the end of development.
 
 **Completed work in this session**
--   **Planning Screen Major Overhaul**:
-    -   Fixed a critical screen-crashing bug related to  import.
-    -   Fixed a data-fetching bug causing event times to display as  by correctly parsing the DB JSON.
-    -   Fixed a timezone bug causing a 1-hour offset on single-date events.
-    -   Added event duration display to SpotYou events.
-    -   Implemented a feature to detect and visually highlight scheduling conflicts in red.
-    -   Integrated SpotYou events from joined spots into the main planning view.
-    -   Added auto-participation for the creator of a SpotMe.
-    -   Implemented auto-removal from planning and push notifications when a SpotYou is canceled.
--   **Splash Screen & Logo**: Implemented a new, functional splash screen and updated the app logo for both Expo Go (JS-based) and native builds (EAS).
--   **EAS Development Build**: Successfully configured , installed , and submitted an Android development build to the user's Expo account.
--   **Android UI Bug Fixes**:
-    -   Resolved a  issue where the chat input was hidden by the keyboard.
-    -   Fixed a Flexbox layout bug on the service detail page that caused text to wrap vertically.
--   **Environment Stabilization**: Fixed Expo dev server crashes related to  authentication in a non-interactive environment.
+-   **SpotYou Management Overhaul (Major Feature)**:
+    -   Implemented complex business rules for deleting, hiding, canceling, and restoring SpotYou events based on participant count. This involved adding a  DB column, creating new backend routes (, ), storing notifications, and building a conditional UI on .
+-   **SpotYou Participant List Feature**:
+    -   Added a modal on the SpotYou detail screen to list all participants, with a Vous (You) badge for the current user.
+-   **Planning Screen Fixes & Enhancements**:
+    -   Fixed a one-day date offset for recurring events.
+    -   Added a SpotMe badge for the user's own events and an Annulé (Cancelled) badge for cancelled events.
+    -   Fixed a calendar UI bug where the selected date would jump on load.
+-   **Home Screen UI Fixes**:
+    -   Removed the Events card and arranged the remaining three cards on a single line on .
 
 **Earlier issues found/mentioned but not fixed**
 -   **Action Buttons UX**: The user's dissatisfaction with the action buttons on the SpotYou detail page () remains unaddressed.
 
 **Known issue recurrence from previous fork**
 -   **Expo Metro Bundler Instability / Broken Hot-Reload**: This was a major issue in the previous session and persists. The need to manually run expo: stopped
-expo: started after every frontend file change is the primary symptom and a major productivity drain.
+expo: started after every frontend file change is the primary symptom.
 
 **Code Architecture**
-
+cancellednotifications
 
 **Key Technical Concepts**
--   **EAS (Expo Application Services)**: Configuring  and submitting development builds (An Expo user account is required to proceed.
-
-Log in to EAS with email or username (exit and run eas login --help to see other login options)
-Input is required, but stdin is not readable. Failed to display prompt: Email or username). Understanding the difference between Expo Go and dev clients.
--   **Backend/Frontend Date/Time Handling**: Deep debugging of timezone conversions ( vs. ), weekday conventions (Python vs. JS), and parsing various date/time formats from the database.
--   **React Native UI Debugging**: Fixing platform-specific (Android) layout bugs with Flexbox and .
--   **Expo Dev Server**: Debugging and stabilizing the server in a non-interactive environment, especially after introducing .
+-   **Conditional UI Rendering**: Extensive use in  based on , , and .
+-   **Database Migration via Code**: Added a new  column and a  table using a startup script in .
+-   **API Design for Business Logic**: Overhauled the SpotYou API to reflect complex rules (e.g., separating  from ).
+-   **React Native Navigation**: The next task requires creating a new screen and handling navigation between the service detail modal and the new request detail screen.
 
 **key DB schema**
--   **tag_points**: The  field is a JSON string. For recurring events, its structure is  where the key () is the Python  (0 = Monday). This was a major source of bugs.
+-   **tag_points**: Added a  column, defaulting to .
+-   **notifications**: New table created: .
 
 **All files of reference**
--   : Contains the  function that needs to be fixed.
--   : The main frontend file that will consume the corrected data and display the SpotMe badge.
--    / : Core Expo project configuration files.
+-   : **(IN PROGRESS)** Main file for the current task.
+-   : **(NEEDS MODIFICATION)** Backend file for the current task.
+-   : Reference for complex conditional UI and owner-specific controls.
+-   : Reference for backend business logic and database interactions.
+-   : Reference for displaying event status badges.
 
 **key api endpoints**
--   : Returns all bookings and SpotYou events for the logged-in user's calendar. This is the endpoint currently being debugged.
--   : Marks a SpotYou as inactive and notifies all participants.
--   : Creates a SpotYou and automatically adds the creator as a participant.
+-   : **(NEW & IN PROGRESS)** Endpoint to get booking requests for a service.
+-   : New endpoint to mark a SpotYou as cancelled and notify participants.
+-   : New endpoint to un-cancel a SpotYou.
+-   : New endpoint to fetch all notifications for the user.
+-   : Updated to handle notifications intelligently, checking for actual data changes before sending.
 
 **Critical Info for New Agent**
 -   **Language**: You MUST respond and communicate in **French**.
--   **IMMEDIATE TASK (P0)**: Your first priority is to fix the recurring event date offset and add the SpotMe badge.
-    -   **Backend**: In , correct the weekday logic in . The stored keys , , etc. are Python weekdays (Mon=0). Also, add an  flag to the event payload.
-    -   **Frontend**: In , use the new  flag in  to conditionally render a SpotMe badge.
+-   **IMMEDIATE TASK (P0)**: Finish the Booking Requests feature on the service detail page (). The user's latest request (message #390) specifies:
+    -   **Coach View**: Always show an icon. On click, a modal lists all requesters. Clicking a requester navigates to a new Request Detail screen with Accept/Decline buttons.
+    -   **User View**: Show an icon *only if* they've made a request for this service. On click, a modal lists their own requests and statuses.
+    -   **This requires creating new backend endpoints () and a new frontend screen for request details.**
 -   **CRITICAL WORKFLOW BLOCKER**: Expo Hot-Reload IS BROKEN. You **MUST** run expo: stopped
 expo: started after every single change to a frontend file. Do not forget this step.
 
 **documents and test reports created in this job**
--   : A guide created for the user on how to run EAS builds locally.
+-   None in this session.
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **LATEST (ACTIONABLE)**: User reported that their own events should be marked SpotMe and that recurring events have a one-day date offset in the planning view. (Status: IN PROGRESS)
-2.  User requested to see the duration for SpotYou events and reported a timezone offset for single-date events. (Status: COMPLETED)
-3.  User reported still seeing  for event times. (Status: COMPLETED)
-4.  User reported incorrect time display and requested UI tweaks for the conflict view (keep original badges, add a conflict badge). (Status: COMPLETED)
-5.  User reported a crash when opening the planning screen. (Status: COMPLETED)
-6.  User requested the conflict detection feature for the planning screen. (Status: COMPLETED)
-7.  User reported a crash when opening the planning screen. (Status: COMPLETED)
-8.  User requested a major feature set: integrate events into planning, auto-join for creators, and cancellation logic. (Status: COMPLETED)
-9.  User reported Android-specific UI bugs (layout and keyboard). (Status: COMPLETED)
-10. User asked if the Android EAS build would also work for iOS. (Status: Answered)
+1.  **LATEST (ACTIONABLE)**: User provided detailed, specific requirements for the booking requests feature on the service detail page, differentiating between the coach's view and a regular user's view. (Status: IN PROGRESS)
+2.  User initiated the feature request to see booking demands on the service detail screen. (Status: IN PROGRESS)
+3.  User requested to align the 3 home screen cards on a single line. (Status: COMPLETED)
+4.  User requested to remove the Events icon/card from the home screen. (Status: COMPLETED)
+5.  User cancelled a previous request to remove a button, asking to restore it. (Status: COMPLETED)
+6.  User requested to remove the Events menu entry from another location and reported a UI bug with the calendar date selection. (Status: COMPLETED)
+7.  User specified that modification notifications should not be sent if no data has actually changed. (Status: COMPLETED)
+8.  User clarified the content and conditions for sending modification notifications for SpotYou events. (Status: COMPLETED)
+9.  User provided rules for restoring a cancelled SpotYou and for allowing participants to leave it. (Status: COMPLETED)
+10. User introduced a major change in business logic for SpotYou management (delete/hide vs. cancel/restore based on participant count). (Status: COMPLETED)
 
 **Project Health Check:**
 -   **Broken**:
-    -   Recurring event date calculation in .
     -   Expo Hot-Reload.
 -   **Blocked**:
-    -   Push Notifications (requires user to use the dev build and/or get an Apple Dev account).
+    -   Push Notifications (requires user to install the custom dev build).
 
 **3rd Party Integrations**
 -   **EAS (Expo Application Services)**: Used for building the application.
@@ -174,4 +182,4 @@ expo: started after every single change to a frontend file. Do not forget this s
 -   **User**:  / 
 
 **What agent forgot to execute**
--   The user's long-standing request to fix the action buttons' layout on the SpotYou detail screen () is still pending.</analysis>
+-   The long-standing user request to improve the action buttons' layout on the SpotYou detail screen () is still pending.</analysis>

@@ -39,6 +39,32 @@ async def _enrich_bookings(conn, bookings: list) -> list:
     return result
 
 
+@router.get("/bookings/service/{service_id}")
+async def service_bookings(service_id: str, request: Request):
+    """Coach : toutes les demandes pour ce service.
+       User  : uniquement sa propre demande."""
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    async with pool.acquire() as conn:
+        # Vérifier que le service existe et récupérer le coach_id
+        svc = await conn.fetchrow("SELECT coach_id FROM services WHERE service_id = $1", service_id)
+        if not svc:
+            raise HTTPException(status_code=404, detail="Service not found")
+        is_owner = svc["coach_id"] == user["user_id"]
+        if is_owner:
+            rows = await conn.fetch(
+                f"SELECT {BOOKING_FIELDS} FROM bookings WHERE service_id = $1 ORDER BY created_at DESC",
+                service_id
+            )
+        else:
+            rows = await conn.fetch(
+                f"SELECT {BOOKING_FIELDS} FROM bookings WHERE service_id = $1 AND user_id = $2 ORDER BY created_at DESC",
+                service_id, user["user_id"]
+            )
+        bookings = rows_to_list(rows)
+        return await _enrich_bookings(conn, bookings)
+
+
 @router.get("/bookings/mine")
 async def my_bookings(request: Request):
     pool = get_pool()

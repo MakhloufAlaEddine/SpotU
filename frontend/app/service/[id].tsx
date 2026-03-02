@@ -86,6 +86,11 @@ export default function ServiceDetailScreen() {
   const [savingInProgress, setSavingInProgress] = useState(false);
   const photoListRef = useRef<FlatList>(null);
 
+  // ── Demandes / réservations ─────────────────────────────────────────────────
+  const [serviceBookings, setServiceBookings] = useState<any[]>([]);
+  const [showRequests, setShowRequests]       = useState(false);
+  const [loadingRequests, setLoadingRequests] = useState(false);
+
   const toggleDate = (key: string) => {
     setCollapsedDates(prev => {
       const next = new Set(prev);
@@ -122,12 +127,14 @@ export default function ServiceDetailScreen() {
       const data = await api.get(`/services/${id}`);
       setService(data);
       if (data.locations?.length > 0) setSelectedLocationId(data.locations[0].location_id);
-      // PAS de slot pré-sélectionné par défaut
-      // Check if saved
       if (user) {
         try {
           const saved = await api.get('/services/saved');
           setIsSaved((saved || []).some((s: any) => s.service_id === id));
+        } catch {}
+        try {
+          const bookings = await api.get<any[]>(`/bookings/service/${id}`);
+          setServiceBookings(bookings || []);
         } catch {}
       }
     } catch (e: any) {
@@ -221,18 +228,44 @@ export default function ServiceDetailScreen() {
         </TouchableOpacity>
         <Text style={s.headerTitle} numberOfLines={1}>Détail du service</Text>
         {/* Bouton favoris */}
-        <TouchableOpacity
-          style={s.headerBackBtn}
-          onPress={handleToggleSave}
-          disabled={savingInProgress}
-          testID="save-service-btn"
-        >
-          <Ionicons
-            name={isSaved ? 'bookmark' : 'bookmark-outline'}
-            size={22}
-            color={isSaved ? Colors.primary : Colors.foreground}
-          />
-        </TouchableOpacity>
+        {/* Bouton demandes (coach) / ma demande (user) + favoris */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          {isOwnService && serviceBookings.length > 0 && (
+            <TouchableOpacity
+              style={s.headerBackBtn}
+              onPress={() => setShowRequests(true)}
+              testID="requests-btn"
+            >
+              <View>
+                <Ionicons name="people-outline" size={22} color={Colors.primary} />
+                <View style={rb.badge}>
+                  <Text style={rb.badgeTxt}>{serviceBookings.length > 9 ? '9+' : serviceBookings.length}</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          )}
+          {!isOwnService && serviceBookings.length > 0 && (
+            <TouchableOpacity
+              style={s.headerBackBtn}
+              onPress={() => setShowRequests(true)}
+              testID="my-booking-btn"
+            >
+              <Ionicons name="calendar-outline" size={22} color={Colors.primary} />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            style={s.headerBackBtn}
+            onPress={handleToggleSave}
+            disabled={savingInProgress}
+            testID="save-service-btn"
+          >
+            <Ionicons
+              name={isSaved ? 'bookmark' : 'bookmark-outline'}
+              size={22}
+              color={isSaved ? Colors.primary : Colors.foreground}
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
@@ -647,6 +680,77 @@ export default function ServiceDetailScreen() {
       )}
 
       {/* ── Booking Modal ─────────────────────────────────────────────────── */}
+
+      {/* ── Modal Demandes / Ma demande ────────────────────────────────────── */}
+      <Modal visible={showRequests} animationType="slide" transparent onRequestClose={() => setShowRequests(false)}>
+        <View style={rb.overlay}>
+          <TouchableOpacity style={rb.backdrop} activeOpacity={1} onPress={() => setShowRequests(false)} />
+          <View style={[rb.sheet, { maxHeight: '80%' }]}>
+            {/* Header modal */}
+            <View style={rb.header}>
+              <Text style={rb.title}>
+                {isOwnService
+                  ? `Demandes reçues (${serviceBookings.length})`
+                  : 'Ma demande'}
+              </Text>
+              <TouchableOpacity onPress={() => setShowRequests(false)} testID="close-requests-modal">
+                <Ionicons name="close" size={22} color={Colors.foreground} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {serviceBookings.length === 0 ? (
+                <View style={rb.empty}>
+                  <Ionicons name="calendar-outline" size={40} color={Colors.muted} />
+                  <Text style={rb.emptyTxt}>Aucune demande pour l'instant</Text>
+                </View>
+              ) : (
+                serviceBookings.map((b) => {
+                  const STATUS: Record<string, { label: string; color: string }> = {
+                    pending:  { label: 'En attente', color: '#F59E0B' },
+                    accepted: { label: 'Acceptée',   color: Colors.primary },
+                    refused:  { label: 'Refusée',    color: '#EF4444' },
+                  };
+                  const st = STATUS[b.status] ?? STATUS.pending;
+                  const person = isOwnService ? b.user : b.coach;
+                  return (
+                    <TouchableOpacity
+                      key={b.booking_id}
+                      style={rb.row}
+                      activeOpacity={0.75}
+                      onPress={() => { setShowRequests(false); router.push(`/booking/${b.booking_id}` as any); }}
+                      testID={`booking-row-${b.booking_id}`}
+                    >
+                      {/* Avatar */}
+                      <View style={rb.avatar}>
+                        {person?.picture
+                          ? <Image source={{ uri: person.picture }} style={{ width: '100%', height: '100%' }} />
+                          : <Text style={rb.avatarLetter}>{person?.name?.charAt(0)?.toUpperCase() || '?'}</Text>
+                        }
+                      </View>
+                      <View style={rb.rowContent}>
+                        <Text style={rb.rowName} numberOfLines={1}>{person?.name || '—'}</Text>
+                        {b.slot && (
+                          <Text style={rb.rowSub} numberOfLines={1}>
+                            {b.slot.slot_date ?? `Jour ${b.slot.day_of_week}`}
+                            {b.slot.start_time ? `  ${b.slot.start_time}→${b.slot.end_time}` : ''}
+                          </Text>
+                        )}
+                        {b.notes ? <Text style={rb.rowNote} numberOfLines={1}>{b.notes}</Text> : null}
+                      </View>
+                      <View style={[rb.statusBadge, { backgroundColor: st.color + '22', borderColor: st.color + '55' }]}>
+                        <Text style={[rb.statusTxt, { color: st.color }]}>{st.label}</Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={14} color={Colors.muted} />
+                    </TouchableOpacity>
+                  );
+                })
+              )}
+              <View style={{ height: 24 }} />
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -952,3 +1056,25 @@ const ms = StyleSheet.create({
   confirmBtnDisabled: { opacity: 0.5 },
   confirmBtnText: { fontSize: 16, fontWeight: '800', color: Colors.background },
 });
+
+const rb = StyleSheet.create({
+  badge:        { position: 'absolute', top: -4, right: -4, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
+  badgeTxt:     { fontSize: 9, fontWeight: '800', color: Colors.background },
+  overlay:      { flex: 1, justifyContent: 'flex-end' },
+  backdrop:     { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.55)' },
+  sheet:        { backgroundColor: Colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: Spacing.lg, paddingBottom: 40 },
+  header:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.lg },
+  title:        { fontSize: 17, fontWeight: '800', color: Colors.foreground },
+  row:          { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  avatar:       { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 },
+  avatarLetter: { fontSize: 16, fontWeight: '700', color: Colors.primary },
+  rowContent:   { flex: 1, gap: 2 },
+  rowName:      { fontSize: 14, fontWeight: '700', color: Colors.foreground },
+  rowSub:       { fontSize: 12, color: Colors.muted },
+  rowNote:      { fontSize: 12, color: Colors.muted, fontStyle: 'italic' },
+  statusBadge:  { borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1 },
+  statusTxt:    { fontSize: 11, fontWeight: '700' },
+  empty:        { alignItems: 'center', paddingVertical: 40, gap: 12 },
+  emptyTxt:     { fontSize: 14, color: Colors.muted },
+});
+
