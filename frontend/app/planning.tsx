@@ -332,16 +332,15 @@ export default function PlanningScreen() {
     : `bkg-${(item as any).booking.booking_id}-${index}`,
   []);
 
-  // ── Scroll vers la date sélectionnée dès que les items sont prêts ────────────
+  // ── Scroll vers aujourd'hui dès que les items sont prêts ─────────────────────
   const hasScrolled = useRef(false);
 
   useEffect(() => {
     if (items.length === 0 || hasScrolled.current) return;
-    const idx = dateIndexMap.current[selectedDate];
-    if (idx !== undefined) {
-      // Petit délai pour laisser le FlatList se monter
+    const offset = dateOffsetMap.current[selectedDate];
+    if (offset !== undefined) {
       setTimeout(() => {
-        flatRef.current?.scrollToIndex({ index: idx, animated: false, viewPosition: 0 });
+        flatRef.current?.scrollToOffset({ offset, animated: false });
         hasScrolled.current = true;
       }, 150);
     }
