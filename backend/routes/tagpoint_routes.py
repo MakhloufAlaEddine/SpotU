@@ -614,11 +614,10 @@ async def create_tag_point(data: TagPointCreate, request: Request):
     if data.expires_hours:
         expires_at = datetime.now(timezone.utc) + timedelta(hours=data.expires_hours)
     pid = new_id("pt")
-    
-    # Apply precision-based randomization to stored coordinates
+    part_id = new_id("part")
+
     stored_lat, stored_lng = randomize_for_storage(data.latitude, data.longitude, data.precision)
-    
-    event_schedule_val = data.event_schedule  # Pass dict directly — asyncpg JSONB codec handles encoding
+    event_schedule_val = data.event_schedule
 
     async with pool.acquire() as conn:
         await conn.execute(
@@ -629,6 +628,11 @@ async def create_tag_point(data: TagPointCreate, request: Request):
             stored_lng, stored_lat,
             data.precision, data.tag_ids, data.domain_id, expires_at,
             data.event_date, data.event_end_date, event_schedule_val, data.images or []
+        )
+        # Le créateur est automatiquement participant (#3)
+        await conn.execute(
+            "INSERT INTO tag_point_participants (participant_id, point_id, user_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING",
+            part_id, pid, user["user_id"]
         )
         row = await conn.fetchrow(f"SELECT {TP_FIELDS} FROM tag_points tp LEFT JOIN users u ON tp.user_id = u.user_id WHERE tp.point_id = $1", pid)
     return build_point_response(row_to_dict(row))
