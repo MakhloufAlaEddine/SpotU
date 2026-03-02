@@ -751,7 +751,7 @@ async def update_tag_point(point_id: str, data: TagPointUpdate, request: Request
 
     async with pool.acquire() as conn:
         existing = await conn.fetchrow(
-            "SELECT user_id, title, event_date, event_end_date, event_schedule FROM tag_points WHERE point_id = $1", point_id
+            "SELECT user_id, title, event_date, event_end_date, event_schedule, cancelled FROM tag_points WHERE point_id = $1", point_id
         )
         if not existing:
             raise HTTPException(status_code=404, detail="TagPoint not found")
@@ -801,41 +801,24 @@ async def update_tag_point(point_id: str, data: TagPointUpdate, request: Request
         await conn.execute(query, *values)
         row = await conn.fetchrow(f"SELECT {TP_FIELDS} FROM tag_points tp LEFT JOIN users u ON tp.user_id = u.user_id WHERE tp.point_id = $1", point_id)
 
-        # Notifier les participants si ≥1 autre
+        # Récupérer les participants pour notification
         participants = await conn.fetch(
             "SELECT user_id FROM tag_point_participants WHERE point_id=$1 AND user_id != $2",
             point_id, existing["user_id"]
         )
 
-    # Calculer les champs modifiés pour la notification
-    PLANNING_FIELDS = {'event_date', 'event_end_date', 'event_schedule', 'title'}
-    LABELS = {
-        'title': 'Titre',
-        'description': 'Description',
-        'event_date': 'Date',
-        'event_end_date': 'Date de fin',
-        'event_schedule': 'Horaires récurrents',
-        'latitude': 'Lieu',
-        'longitude': 'Lieu',
-    }
-    changed_labels = []
-    for k in raw:
-        if k in LABELS and k not in ('longitude',):  # lat/lng dédupliqués
-            changed_labels.append(LABELS[k])
+    # Notifier si : ≥1 autre participant ET SpotYou non annulé ET des champs ont changé
+    has_changes = bool(set_clauses)
+    is_cancelled = bool(existing.get("cancelled"))
 
-    if participants and changed_labels:
+    if participants and has_changes and not is_cancelled:
         title_str = existing["title"] or "SpotYou"
-        changes_str = ', '.join(dict.fromkeys(changed_labels))  # dédupliqué
-        affects_planning = bool(PLANNING_FIELDS & set(raw.keys()))
-        body = f'"{title_str}" a été modifié : {changes_str}.'
-        if affects_planning:
-            body += ' Votre planning a été mis à jour.'
         for p in participants:
             asyncio.create_task(send_push_to_user(
                 pool, p["user_id"],
-                title="SpotYou modifié",
-                body=body,
-                data={"type": "spotyu_updated", "point_id": point_id, "changed_fields": list(raw.keys())},
+                title="SpotYou mis à jour",
+                body=f'"{title_str}" a été mis à jour par son créateur.',
+                data={"type": "spotyu_updated", "point_id": point_id},
                 notif_type="spotyu_updated"
             ))
 
