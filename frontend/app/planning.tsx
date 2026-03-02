@@ -179,9 +179,7 @@ export default function PlanningScreen() {
 
   const flatRef = useRef<FlatList>(null);
   const dateIndexMap = useRef<Record<string, number>>({});
-  const dateOffsetMap = useRef<Record<string, number>>({});
-  const itemOffsetsRef = useRef<number[]>([]);
-  const itemLengthsRef = useRef<number[]>([]);
+  const hasScrolledToday = useRef(false);
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
