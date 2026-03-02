@@ -344,26 +344,9 @@ export default function PlanningScreen() {
     : `bkg-${(item as any).booking.booking_id}-${index}`,
   []);
 
-  // ── Scroll vers aujourd'hui quand les données sont prêtes ────────────────────
-  const hasScrolled = useRef(false);
-
-  useEffect(() => {
-    // Attendre que le chargement soit terminé ET que les items soient disponibles
-    if (loading || items.length === 0 || hasScrolled.current) return;
-    const offset = dateOffsetMap.current[selectedDate];
-    if (offset !== undefined) {
-      setTimeout(() => {
-        if (flatRef.current) {
-          flatRef.current.scrollToOffset({ offset, animated: false });
-          hasScrolled.current = true;
-        }
-      }, 200);
-    }
-  }, [loading, items.length]);
-
   // Réinitialiser quand on revient sur l'écran
   useFocusEffect(useCallback(() => {
-    return () => { hasScrolled.current = false; };
+    load();
   }, []));
 
   return (
