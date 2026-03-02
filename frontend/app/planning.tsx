@@ -43,7 +43,8 @@ function formatDuration(start: string, end: string): string {
   return `${mins} min`;
 }
 
-// ── Types d'items de l'agenda ─────────────────────────────────────────────────
+// ── Hauteurs précises des items pour scrollToOffset ──────────────────────────
+const ITEM_H = { header: 56, booking: 60, empty: 38 } as const;
 type AgendaItem =
   | { kind: 'header'; date: string }
   | { kind: 'booking'; date: string; booking: any }
