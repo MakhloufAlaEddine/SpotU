@@ -227,17 +227,20 @@ export default function PlanningScreen() {
       }
     });
 
-    // Générer les items
     const result: AgendaItem[] = [];
     const cursor = new Date(startDate);
     let idx = 0;
     const idxMap: Record<string, number> = {};
+    const offMap: Record<string, number> = {};
+    let curOffset = 0;
 
     while (cursor <= endDate) {
       const ds = isoDate(cursor);
       idxMap[ds] = idx;
+      offMap[ds] = curOffset;
       result.push({ kind: 'header', date: ds });
       idx++;
+      curOffset += ITEM_H.header;
 
       const dayBookings = byDate[ds] || [];
       if (dayBookings.length > 0) {
@@ -246,15 +249,18 @@ export default function PlanningScreen() {
         dayBookings.forEach(bk => {
           result.push({ kind: 'booking', date: ds, booking: bk });
           idx++;
+          curOffset += ITEM_H.booking;
         });
       } else {
         result.push({ kind: 'empty', date: ds });
         idx++;
+        curOffset += ITEM_H.empty;
       }
       cursor.setDate(cursor.getDate() + 1);
     }
 
     dateIndexMap.current = idxMap;
+    dateOffsetMap.current = offMap;
     return { items: result, dotDates: dots };
   }, [bookings]);
 
