@@ -326,10 +326,10 @@ export default function PlanningScreen() {
     );
   }, [today]);
 
-  const keyExtractor = useCallback((item: AgendaItem, idx: number) =>
+  const keyExtractor = useCallback((item: AgendaItem, index: number) =>
     item.kind === 'header' ? `hdr-${item.date}`
-    : item.kind === 'empty' ? `emp-${item.date}`
-    : `bkg-${(item as any).booking.booking_id}`,
+    : item.kind === 'empty' ? `emp-${item.date}-${index}`
+    : `bkg-${(item as any).booking.booking_id}-${index}`,
   []);
 
   // ── Scroll vers la date sélectionnée dès que les items sont prêts ────────────
