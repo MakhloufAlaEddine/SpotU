@@ -1,7 +1,7 @@
-# WINEK - Product Requirements Document
+# WINEK / SpotU - Product Requirements Document
 
 ## Vue d'ensemble
-WINEK est une plateforme hyperlocale de connexion sportive basée sur des tags géolocalisés. Focus initial sur le sport et le coaching. Application mobile (Expo React Native) + Backend (FastAPI + PostgreSQL/PostGIS).
+SpotU (ex-WINEK) est une plateforme hyperlocale de connexion sportive basée sur des tags géolocalisés. Focus initial sur le sport et le coaching. Application mobile (Expo React Native) + Backend (FastAPI + PostgreSQL/PostGIS).
 
 ## Stack Technique
 - **Frontend**: Expo / React Native (Web + Mobile)
@@ -14,31 +14,123 @@ WINEK est une plateforme hyperlocale de connexion sportive basée sur des tags g
 ```
 /app
 ├── backend/
-│   ├── models.py               # Pydantic models (ServiceCreate, ServicePackageItem, DaySlotPayload...)
+│   ├── models.py               # Pydantic models
 │   ├── database.py             # DB schema + migrations + seed
 │   ├── routes/
-│   │   ├── service_routes.py   # CRUD services (create gère maintenant packages)
-│   │   ├── auth_routes.py      # JWT login/register/Google
-│   │   ├── user_routes.py      # Profil utilisateur
-│   │   ├── tagpoint_routes.py  # TagPoints géolocalisés
-│   │   ├── booking_routes.py   # Réservations
-│   │   └── payment_routes.py   # Stripe
-│   └── seed.py                 # Données de test
+│   │   ├── service_routes.py
+│   │   ├── auth_routes.py
+│   │   ├── user_routes.py
+│   │   ├── tagpoint_routes.py
+│   │   ├── booking_routes.py
+│   │   └── payment_routes.py
+│   └── seed.py
 ├── frontend/
+│   ├── assets/
+│   │   ├── splash.png          # Logo SpotU complet (texte + icône, fond noir)
+│   │   ├── icon.png            # Icône seule (sans texte, fond noir)
+│   │   └── adaptive-icon.png   # Icône Android adaptive
 │   ├── app/
+│   │   ├── _layout.tsx         # Root layout + SplashScreen.preventAutoHideAsync/hideAsync
+│   │   ├── index.tsx           # Splash animé JS (logo fade+scale, fond noir)
+│   │   ├── (auth)/login.tsx    # Login avec logo SpotU
 │   │   ├── (tabs)/
-│   │   │   ├── map.tsx         # Carte principale
-│   │   │   ├── profile.tsx     # Profil (MODIFIÉ: bouton coach + espace coach)
-│   │   │   ├── create.tsx      # Créer TagPoint
-│   │   │   └── search.tsx      # Recherche
-│   │   ├── create-service.tsx  # NOUVEAU: formulaire 4 étapes (packages)
-│   │   ├── service/[id].tsx    # Détail service (slots groupés par jour)
-│   │   └── edit-service/[id].tsx # Édition service
-│   └── components/
-│       ├── WeekCalendar.tsx    # Calendrier style Teams (nouveau)
-│       ├── LocationPicker.tsx  # Sélection de lieu
-│       └── DateTimePicker.tsx  # Sélecteur date/heure
+│   │   ├── planning.tsx        # Planning agenda (scroll fixé)
+│   │   └── spot-you/[id].tsx
+│   └── app.json                # backgroundColor: #000000, splash contain
 ```
+
+## Modèle de données clé
+
+### Services (nouvelle architecture packages)
+- **services**: id, title, description, address, price (min), coach_id, domain_id, tag_ids
+- **service_packages**: id, service_id, type_id, type_label, duration_min, max_participants, price
+- **service_slots**: id, service_id, package_id, slot_type, slot_date, start_time, end_time
+
+### TagPoints
+- **tag_points**: id, title, description, location (PostGIS), tag_ids, domain_id, event_date, event_schedule
+
+## Crédentials de test
+- Admin: admin@winek.app / WinekAdmin2024!
+- Coach: coach@winek.app / WinekCoach2024!
+- User: user@winek.app / WinekUser2024!
+
+---
+
+## Fonctionnalités Implémentées
+
+### ✅ Auth & Utilisateurs
+- Inscription/connexion JWT
+- Google Auth (Emergent-managed)
+- Rôles: user, coach, admin
+- Profil éditable avec photo
+
+### ✅ Splash Screen & Branding (Mars 2026)
+- Logo SpotU officiel intégré (splash.png, icon.png, adaptive-icon.png)
+- Splash natif iOS/Android configuré (app.json: fond #000000, resizeMode contain)
+- Splash JS animé dans index.tsx (fade + spring scale)
+- SplashScreen.preventAutoHideAsync() / hideAsync() dans _layout.tsx
+- Logo dans écran de login agrandi (240×180)
+
+### ✅ Planning Screen (Mars 2026)
+- Scroll bug fixé: suppression getItemLayout + scrollToOffset calculé manuellement
+- Nouvelle approche: scrollToIndex (React Native calcule lui-même les positions)
+- onScrollToIndexFailed: fallback avec averageItemLength + retry
+- useEffect pour scroll initial vers aujourd'hui
+
+### ✅ TagPoints (Points d'activité géolocalisés)
+- Création avec géolocalisation, tags, images
+- Recherche par rayon géographique (PostGIS)
+- Vote, commentaires, participants, favoris
+
+### ✅ Services Coach
+- Formulaire 4 étapes (create-service.tsx)
+- WeekCalendar style Teams
+- Vue Doctolib créneaux par date
+
+### ✅ Système de Réservation
+- Booking, confirmation, succès
+- Dashboard coach (accepter/refuser)
+- Mes réservations avec statuts
+
+### ✅ Chat WebSocket temps réel
+- 3 types: service 1-1, tagpoint_group, tagpoint_private
+- Badge non-lus en temps réel
+
+### ✅ Push Notifications (backend prêt, EAS build requis)
+
+---
+
+## Backlog Prioritaire
+
+### P0 - Critique
+- [x] Fix scroll Planning screen - TERMINÉ Mars 2026
+- [x] Splash screen + logo SpotU - TERMINÉ Mars 2026
+
+### P1 - Important
+- [ ] Intégration Stripe (paiements)
+- [ ] Support bilingue i18n (FR/EN)
+- [ ] Fix Action Buttons UI sur spot-you/[id].tsx
+
+### P2 - Futur
+- [ ] Dashboard administrateur
+- [ ] Fix Google Auth Expo Go
+- [ ] Push Notifications EAS build
+- [ ] Fix hot-reload Expo
+
+---
+
+## Issues Techniques Connues
+
+### Récurrentes
+- **Expo hot-reload**: Ne fonctionne pas. Workaround: `sudo supervisorctl restart expo`
+- **Backend connectivity**: `sudo service postgresql start && sudo supervisorctl restart backend`
+
+### Résolues
+- [x] Planning screen scroll drift (Mars 2026)
+- [x] Splash screen fond non-noir (Mars 2026)
+- [x] Tables packages/slots manquantes
+- [x] Chat WebSocket badge non-lus
+
 
 ## Modèle de données clé
 
