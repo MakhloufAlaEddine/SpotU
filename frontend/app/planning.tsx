@@ -279,7 +279,7 @@ export default function PlanningScreen() {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   // ── Construire la liste agenda ──────────────────────────────────────────────
-  const { items, dotDates, eventDates } = useMemo(() => {
+  const { items, dotDates, eventDates, conflictIds } = useMemo(() => {
     const startDate = new Date(); startDate.setDate(startDate.getDate() - 30);
     const endDate = new Date();   endDate.setDate(endDate.getDate() + 90);
 
