@@ -744,13 +744,29 @@ async def toggle_visibility(point_id: str, request: Request):
 async def delete_tag_point(point_id: str, request: Request):
     pool = get_pool()
     user = await require_auth(request, pool)
+    from push_service import send_push_to_user
     async with pool.acquire() as conn:
-        existing = await conn.fetchrow("SELECT user_id FROM tag_points WHERE point_id = $1", point_id)
+        existing = await conn.fetchrow("SELECT user_id, title FROM tag_points WHERE point_id = $1", point_id)
         if not existing:
             raise HTTPException(status_code=404, detail="TagPoint not found")
         if existing["user_id"] != user["user_id"] and user["role"] != "admin":
             raise HTTPException(status_code=403, detail="Not authorized")
+        # Récupérer les participants avant suppression (sauf le créateur)
+        participants = await conn.fetch(
+            "SELECT user_id FROM tag_point_participants WHERE point_id=$1 AND user_id != $2",
+            point_id, existing["user_id"]
+        )
         await conn.execute(
             "UPDATE tag_points SET active = FALSE, updated_at = NOW() WHERE point_id = $1", point_id
         )
+    # Notifier tous les participants (#4)
+    import asyncio
+    title_str = existing["title"] or "SpotYou"
+    for p in participants:
+        asyncio.create_task(send_push_to_user(
+            pool, p["user_id"],
+            title="SpotYou annulé",
+            body=f'"{title_str}" a été annulé et retiré de votre planning.',
+            data={"type": "spotyu_cancelled", "point_id": point_id}
+        ))
     return {"success": True}
