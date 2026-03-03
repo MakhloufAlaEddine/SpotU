@@ -12,57 +12,121 @@
 
 **what currently exists?**
 A full-stack React Native (Expo) and FastAPI application named SpotU with a PostgreSQL database.
--   **Core Features Implemented**: Service creation/management, favorites, real-time chat, a booking system, and a comprehensive SpotYou (event) management system with complex business rules for cancellation, restoration, and visibility based on participant count.
--   **Planning Screen**: A functional screen at  that displays both service bookings and SpotYou events, including their status (e.g., Cancelled).
--   **Notifications**: A  table exists in the database, and a corresponding screen () displays notifications to the user. Notifications are generated for SpotYou lifecycle events.
--   **Backend**: A stable FastAPI backend with routes for all major features, including services, bookings, SpotYou management (), and notifications.
--   **Environment**: The Expo development environment's hot-reload is broken, which is a critical workflow impediment requiring a manual restart of the service after every frontend code change.
+-   **Core Features Implemented**: Service creation/management, favorites, real-time chat, a booking system, SpotYou event management, and a notification system.
+-   **Booking Management**: Coaches can accept or refuse booking requests from both a modal on the service detail screen and a dedicated booking detail page. This feature was completed and tested in the last session.
+-   **Environment**: The Expo development server was highly unstable, frequently crashing due to a file watcher limit ( error). A patch was applied to the  library to prevent it from watching the  directory, which has stabilized the environment for now. The application uses an  tunnel for testing on Expo Go (mobile).
+-   **Address Search**: The application is in the process of migrating from the free Nominatim (OpenStreetMap) API to the Google Places API for all address/location search fields to improve accuracy and find points of interest.
 
 **Last working item**:
--   **Last item agent was working**: Implementing a feature on the service detail screen () to allow users and coaches to view and manage booking requests. The user provided detailed requirements clarifying the behavior for the service owner versus a regular user.
+-   **Last item agent was working**: Migrating all address search functionalities from Nominatim to Google Places API, as requested by the user who provided an API key. This impacts three areas: the reusable  component, the service creation screen, and the SpotYou creation screen.
 -   **Status**: IN PROGRESS
 -   **Agent Testing Done**: N
--   **Which testing method agent to use?**: Both.
-    -   Backend: Use  to test the new and upcoming endpoints for fetching and managing booking requests (, , etc.).
-    -   Frontend: Use the screenshot tool to verify the conditional UI (icons, modals) on the service detail screen for both coach and user roles.
+-   **Which testing method agent to use?**: Frontend testing agent. The agent must verify that all three address search inputs across the app (, service creation, SpotYou creation) correctly use the Google Places API, display suggestions, and update the location on the map upon selection.
 -   **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: Implement booking request management on the service detail screen (P0)**
--   **Issue 2: Expo Hot-Reload is broken (P1 - RECURRING)**
--   **Issue 3: Push notifications are not working in Expo Go (P1)**
+-   **Issue 1: Complete migration of address search to Google Places API (P0)**
+-   **Issue 2: Expo Hot-Reload instability (P1 - RECURRING)**
+-   **Issue 3: Push notifications are not working in Expo Go (P2)**
 -   **Issue 4: User dissatisfaction with action buttons layout (P2 - RECURRING)**
 
 **Issues Detail**:
--   **Issue 1: Implement booking request management on the service detail screen**
-    -   **Attempted fixes**: The agent created an initial backend endpoint  and started scaffolding the frontend UI in . This work was based on an initial, less-detailed request. The user then provided more specific requirements.
+-   **Issue 1: Complete migration of address search to Google Places API**
+    -   **Attempted fixes**: The agent started the migration by adding the user's API key to , planning a shared service file, and initiating parallel edits on the three affected frontend files.
     -   **Next debug checklist**:
-        1.  **Create New Backend Endpoints**: In , create endpoints to manage individual bookings:
-            -   : To fetch the details of a single request.
-            -   : To accept a request.
-            -   : To decline a request.
-        2.  **Create New Frontend Screen**: Create a new Request Detail screen (e.g., ). This screen will be navigated to from the coach's modal and will contain the Accept and Decline buttons.
-        3.  **Update Service Detail Screen ()**:
-            -   Refine the data fetching logic to load both service details and booking requests.
-            -   Implement the conditional logic: always show a requests icon for the service owner; for other users, show the icon only if they have made at least one request.
-            -   Build the two modal views: one for the owner listing all requesters (clickable), and one for the user listing their own requests.
-    -   **Why fix this issue and what will be achieved with the fix?**: This is a core feature for the app's booking functionality, allowing coaches to manage demand for their services.
+        1.  Ensure the new utility file  is created correctly to handle API calls to Google Places.
+        2.  Complete the modifications in , , and  to replace Nominatim logic with the new Google Places service.
+        3.  Map the response from the Google Places API to the application's state (latitude, longitude, address display name).
+        4.  Verify that selecting a place from the new autocomplete list correctly updates the map's center and the location data.
+    -   **Why fix this issue and what will be achieved with the fix?**: The existing Nominatim search could not find specific points of interest or local businesses (e.g., Five Bezons), which was a key user requirement. Google Places API will provide much higher accuracy.
     -   **Status**: IN PROGRESS
     -   **Is recurring issue?**: N
-    -   **Should Test frontend/backend/both after fix?**: Both
+    -   **Should Test frontend/backend/both after fix?**: Frontend
     -   **Blocked on other issue**: None
 
--   **Issue 2: Expo Hot-Reload is broken**
-    -   **Description**: A critical workflow blocker. Any change to a frontend file requires a manual restart (expo: stopped
-expo: started).
-    -   **Status**: NOT STARTED (in this session)
+-   **Issue 2: Expo Hot-Reload instability**
+    -   **Description**: A critical workflow blocker where the Metro bundler would crash with an  error, requiring a manual restart of the 
+  Usage: expo [command] [options]
+
+  Options:
+  
+    -V, --version                     output the version number
+    --non-interactive                 Fail, if an interactive prompt would be required to continue.
+    -h, --help                        output usage information
+  
+  Commands:
+
+    init [name]                       Create a new Expo project
+    start [path]                      Start a local dev server for the app
+    start:web [path]                  Start a Webpack dev server for the web app
+    export [path]                     Export the static files of the app for hosting it on a web server
+    install [packages...]             Install a module or other package to a project
+    run:android [path]                Run the Android app binary locally
+    run:ios [path]                    Run the iOS app binary locally
+    send [path]                       Share the project's URL to an email address
+
+    login                             Login to an Expo account
+    logout                            Logout of an Expo account
+    register                          Sign up for a new Expo account
+    whoami                            Return the currently authenticated account
+
+    client:install:ios                Install Expo Go for iOS on the simulator
+    client:install:android            Install Expo Go for Android on a connected device or emulator
+
+    config [path]                     Show the project config
+    doctor [path]                     Diagnose issues with the project
+    upgrade [sdk-version]             Upgrade the project packages and config for the given SDK version
+
+    customize:web [path]              Eject the default web files for customization
+    prebuild [path]                   Create native iOS and Android project files before building natively.
+                                      Learn more: https://docs.expo.dev/workflow/customizing/
+
+    build:web [path]                  Build the web app for production
+
+    credentials:manager [path]        Superseded by eas credentials in eas-cli
+
+    url [path]                        Log a URL for opening the project in Expo Go
+    url:ipa [path]                    Log the download URL for the standalone iOS binary
+    url:apk [path]                    Log the download URL for the standalone Android binary
+
+    webhooks [path]                   List all webhooks for a project
+    webhooks:add [path]               Add a webhook to a project
+    webhooks:remove [path]            Delete a webhook
+    webhooks:update [path]            Update an existing webhook
+
+    build:ios [path]                  Superseded by eas build in eas-cli
+    build:android [path]              Superseded by eas build in eas-cli
+    build:status [path]               Superseded by eas build:list in eas-cli
+    eject [path]                      Superseded by expo prebuild
+    fetch:ios:certs [path]            Superseded by eas credentials in eas-cli
+    fetch:android:keystore [path]     Superseded by eas credentials in eas-cli
+    fetch:android:hashes [path]       Superseded by eas credentials in eas-cli
+    fetch:android:upload-cert [path]  Superseded by eas credentials in eas-cli
+    publish [path]                    Superseded by eas update in eas-cli
+    publish:set [path]                Superseded by eas update:republish in eas-cli
+    publish:rollback [path]           Superseded by eas update:republish in eas-cli
+    publish:history [path]            Superseded by eas update:list in eas-cli
+    publish:details [path]            Superseded by eas update:view in eas-cli
+    push:android:upload [path]        Superseded by eas credentials in eas-cli
+    push:android:show [path]          Superseded by eas credentials in eas-cli
+    push:android:clear [path]         Superseded by eas credentials in eas-cli
+    upload:android [path]             Superseded by eas submit in eas-cli
+    upload:ios [path]                 Superseded by eas submit in eas-cli
+    client:ios [path]                 Superseded by Expo Dev Clients
+
+[15:50:14]   Run a command with --help for more info 💡
+[15:50:14]     $ expo start --help
+[15:50:14] service. This was diagnosed as the file watcher limit being exhausted.
+    -   **Attempted fixes**: A patch was successfully applied to the  library within the environment to make it ignore the  directory. This has stabilized the server, but it's a fragile, non-permanent solution that may break if dependencies are updated or the container is rebuilt.
+    -   **Next debug checklist**: Monitor the Expo server's stability. If it crashes again, the patch may need re-application.
+    -   **Status**: IN PROGRESS (Workaround in place)
     -   **Is recurring issue?**: Y
-    -   **Should Test frontend/backend/both after fix?**: N/A (Environment issue).
+    -   **Should Test frontend/backend/both after fix?**: N/A (Environment issue)
     -   **Blocked on other issue**: None
 
 -   **Issue 3: Push notifications are not working in Expo Go**
-    -   **Description**: Known Expo SDK limitation. Testing requires a custom development build. The agent previously submitted an Android build; the user needs to install it.
-    -   **Status**: BLOCKED (on user action: install Android APK / get an Apple Developer account for iOS).
+    -   **Description**: This is a known Expo Go limitation. Testing requires a custom development build.
+    -   **Status**: BLOCKED (on user action: install the previously provided Android APK / get an Apple Developer account for an iOS build).
     -   **Is recurring issue?**: N
     -   **Should Test frontend/backend/both after fix?**: Frontend (on a development build).
     -   **Blocked on other issue**: None
@@ -75,11 +139,11 @@ expo: started).
     -   **Blocked on other issue**: None
 
 **In progress Task List**:
--   **Task 1: Implement Booking Request Viewing/Management Feature**
-    -   **Where to resume**: The user has provided detailed requirements. The next agent must create a new plan that includes creating new backend endpoints for accepting/declining bookings and a new frontend screen for request details, then implement this full flow.
-    -   **What will be achieved with this?**: Coaches will be able to view and manage incoming booking requests, and users will be able to track the status of their requests.
+-   **Task 1: Migrate all address search fields to Google Places API**
+    -   **Where to resume**: The agent was executing a parallel tool call to create  and modify , , and . The next agent must verify these changes, complete the implementation, and test thoroughly.
+    -   **What will be achieved with this?**: All address search inputs in the app will use the more powerful and accurate Google Places API.
     -   **Status**: IN PROGRESS
-    -   **Should Test frontend/backend/both after fix?**: Both
+    -   **Should Test frontend/backend/both after fix?**: Frontend
     -   **Blocked on something**: No
 
 **Upcoming and Future Tasks**
@@ -93,86 +157,73 @@ expo: started).
     -   Reminder for user: set up Apple & Google Pay at the end of development.
 
 **Completed work in this session**
--   **SpotYou Management Overhaul (Major Feature)**:
-    -   Implemented complex business rules for deleting, hiding, canceling, and restoring SpotYou events based on participant count. This involved adding a  DB column, creating new backend routes (, ), storing notifications, and building a conditional UI on .
--   **SpotYou Participant List Feature**:
-    -   Added a modal on the SpotYou detail screen to list all participants, with a Vous (You) badge for the current user.
--   **Planning Screen Fixes & Enhancements**:
-    -   Fixed a one-day date offset for recurring events.
-    -   Added a SpotMe badge for the user's own events and an Annulé (Cancelled) badge for cancelled events.
-    -   Fixed a calendar UI bug where the selected date would jump on load.
--   **Home Screen UI Fixes**:
-    -   Removed the Events card and arranged the remaining three cards on a single line on .
+-   **Booking Request Management Feature**: Implemented and tested the full flow for coaches to accept/decline booking requests via backend endpoints (, ) and UI updates on the service detail and booking detail screens.
+-   **Expo Environment Stabilization**: Resolved a critical  error by live-patching the Metro bundler to ignore , which fixed the constant server crashes and restored the  tunnel for mobile testing.
+-   **Backend Stability Fix**: Corrected the  script to prevent crashes on startup if dependent user data was missing, making the backend more resilient.
 
 **Earlier issues found/mentioned but not fixed**
 -   **Action Buttons UX**: The user's dissatisfaction with the action buttons on the SpotYou detail page () remains unaddressed.
 
 **Known issue recurrence from previous fork**
--   **Expo Metro Bundler Instability / Broken Hot-Reload**: This was a major issue in the previous session and persists. The need to manually run expo: stopped
-expo: started after every frontend file change is the primary symptom.
+-   **Expo Metro Bundler Instability**: This was the primary blocker during the session. While a workaround is in place, the root cause in the development environment remains a risk.
 
 **Code Architecture**
-cancellednotifications
+
 
 **Key Technical Concepts**
--   **Conditional UI Rendering**: Extensive use in  based on , , and .
--   **Database Migration via Code**: Added a new  column and a  table using a startup script in .
--   **API Design for Business Logic**: Overhauled the SpotYou API to reflect complex rules (e.g., separating  from ).
--   **React Native Navigation**: The next task requires creating a new screen and handling navigation between the service detail modal and the new request detail screen.
+-   **API Integration (Google Places)**: Replacing a third-party API (Nominatim) with another (Google) across multiple components.
+-   **Environment Debugging**: In-depth troubleshooting of container-level issues ( limits), process management (), and tool-specific problems (Metro bundler, ngrok tunnels).
+-   **Live Patching**: Modifying a  dependency () at runtime to fix a critical bug. This is a temporary solution.
 
 **key DB schema**
--   **tag_points**: Added a  column, defaulting to .
--   **notifications**: New table created: .
+-   No database schema changes were made in this session. Existing booking records are updated with a new .
 
 **All files of reference**
--   : **(IN PROGRESS)** Main file for the current task.
--   : **(NEEDS MODIFICATION)** Backend file for the current task.
--   : Reference for complex conditional UI and owner-specific controls.
--   : Reference for backend business logic and database interactions.
--   : Reference for displaying event status badges.
+-   : **(IN PROGRESS)** Reusable component being migrated.
+-   : **(IN PROGRESS)** Service creation form to be migrated.
+-   : **(IN PROGRESS)** SpotYou creation form to be migrated.
+-   : **(IN PROGRESS)** New file to house the Google Places logic.
+-   : Contains the .
 
 **key api endpoints**
--   : **(NEW & IN PROGRESS)** Endpoint to get booking requests for a service.
--   : New endpoint to mark a SpotYou as cancelled and notify participants.
--   : New endpoint to un-cancel a SpotYou.
--   : New endpoint to fetch all notifications for the user.
--   : Updated to handle notifications intelligently, checking for actual data changes before sending.
+-   : (New) Accepts a booking request.
+-   : (New) Refuses a booking request.
 
 **Critical Info for New Agent**
 -   **Language**: You MUST respond and communicate in **French**.
--   **IMMEDIATE TASK (P0)**: Finish the Booking Requests feature on the service detail page (). The user's latest request (message #390) specifies:
-    -   **Coach View**: Always show an icon. On click, a modal lists all requesters. Clicking a requester navigates to a new Request Detail screen with Accept/Decline buttons.
-    -   **User View**: Show an icon *only if* they've made a request for this service. On click, a modal lists their own requests and statuses.
-    -   **This requires creating new backend endpoints () and a new frontend screen for request details.**
--   **CRITICAL WORKFLOW BLOCKER**: Expo Hot-Reload IS BROKEN. You **MUST** run expo: stopped
-expo: started after every single change to a frontend file. Do not forget this step.
+-   **IMMEDIATE TASK (P0)**: Complete the migration from Nominatim to Google Places API for all address search fields. The user has provided the key, which is stored in  as . You must resume the work on  and update , , and .
+-   **CRITICAL WORKFLOW INFO**: The Expo development server was very unstable but has been patched. It should now work reliably with hot-reloading. If you experience  errors or constant crashes, the patch applied to  may have been reverted, and you may need to investigate  watcher issues again. The user tests on Expo Go, so a working  tunnel is essential.
 
 **documents and test reports created in this job**
--   None in this session.
+-   /app/test_reports/iteration_46.json
+-   /app/test_reports/iteration_47.json
+-   /app/test_reports/iteration_48.json
+-   /app/test_reports/iteration_49.json
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **LATEST (ACTIONABLE)**: User provided detailed, specific requirements for the booking requests feature on the service detail page, differentiating between the coach's view and a regular user's view. (Status: IN PROGRESS)
-2.  User initiated the feature request to see booking demands on the service detail screen. (Status: IN PROGRESS)
-3.  User requested to align the 3 home screen cards on a single line. (Status: COMPLETED)
-4.  User requested to remove the Events icon/card from the home screen. (Status: COMPLETED)
-5.  User cancelled a previous request to remove a button, asking to restore it. (Status: COMPLETED)
-6.  User requested to remove the Events menu entry from another location and reported a UI bug with the calendar date selection. (Status: COMPLETED)
-7.  User specified that modification notifications should not be sent if no data has actually changed. (Status: COMPLETED)
-8.  User clarified the content and conditions for sending modification notifications for SpotYou events. (Status: COMPLETED)
-9.  User provided rules for restoring a cancelled SpotYou and for allowing participants to leave it. (Status: COMPLETED)
-10. User introduced a major change in business logic for SpotYou management (delete/hide vs. cancel/restore based on participant count). (Status: COMPLETED)
+1.  **LATEST (ACTIONABLE)**: User provides Google Places API key and confirms to proceed with the migration for all address search fields. (Status: IN PROGRESS)
+2.  User asks if the map component also needs to be migrated. (Status: Answered, No)
+3.  User asks about the cost of using Google Places API. (Status: Answered)
+4.  User reports not seeing the UI changes for the improved Nominatim search. (Status: Resolved by restarting Expo)
+5.  User requests to improve address search to find places/businesses, not just addresses. (Status: IN PROGRESS, led to Google migration)
+6.  User reports the backend is down. (Status: Resolved)
+7.  User reports the backend is down again. (Status: Resolved, was a PostgreSQL timing issue)
+8.  User shares a screenshot of an error when launching the app on Expo Go. (Status: Resolved, was an  tunnel issue)
+9.  User reports No change, indicating the completed booking management feature was not visible on their device. (Status: Resolved, this triggered the extensive Expo debugging)
+10. User clarifies booking management UI requirements. (Status: COMPLETED)
 
 **Project Health Check:**
--   **Broken**:
-    -   Expo Hot-Reload.
+-   **Broken/Unstable**:
+    -   The Expo development environment is a recurring source of problems. A patch is currently holding it stable, but it should be considered fragile.
 -   **Blocked**:
-    -   Push Notifications (requires user to install the custom dev build).
+    -   Push Notifications (requires user to install a custom dev build).
 
 **3rd Party Integrations**
 -   **EAS (Expo Application Services)**: Used for building the application.
+-   **Google Places API**: **(NEW, IN PROGRESS)** For address and place autocompletion. The key is provided.
 
 **Testing status**
--   **Testing agent used after significant changes**: NO
+-   **Testing agent used after significant changes**: YES (for the booking management feature)
 -   **Troubleshoot agent used after agent stuck in loop**: NO
 -   **Test files created**: None.
 -   **Known regressions**: None.
@@ -180,6 +231,7 @@ expo: started after every single change to a frontend file. Do not forget this s
 **Credentials to test flow:**
 -   **Coach**:  / 
 -   **User**:  / 
+-   **Google Places API Key**:  (available in )
 
 **What agent forgot to execute**
--   The long-standing user request to improve the action buttons' layout on the SpotYou detail screen () is still pending.</analysis>
+-   The user's long-standing request to improve the action buttons' layout on the SpotYou detail screen () is still pending and has not been prioritized.</analysis>
