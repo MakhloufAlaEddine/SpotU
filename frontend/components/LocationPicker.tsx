@@ -64,19 +64,36 @@ export function LocationPicker({
   const handleSearchChange = (text: string) => {
     setSearchQuery(text);
     if (searchTimeout.current) clearTimeout(searchTimeout.current);
-    if (text.length < 3) { setSearchResults([]); setShowResults(false); return; }
+    if (text.length < 2) { setSearchResults([]); setShowResults(false); return; }
     searchTimeout.current = setTimeout(async () => {
       setSearching(true);
       try {
+        // Search addresses + places + POI (amenities, shops, tourism, etc.)
+        const params = new URLSearchParams({
+          format: 'json',
+          q: text,
+          limit: '8',
+          addressdetails: '1',
+          extratags: '1',
+          namedetails: '1',
+          'accept-language': 'fr',
+          countrycodes: 'fr',
+        });
         const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(text)}&limit=5`,
-          { headers: { 'Accept-Language': 'fr' } }
+          `https://nominatim.openstreetmap.org/search?${params}`,
+          { headers: { 'Accept-Language': 'fr', 'User-Agent': 'SpotUApp/1.0' } }
         );
-        const data: NominatimResult[] = await res.json();
+        let data: NominatimResult[] = await res.json();
+        // If no results with countrycodes=fr, retry without restriction
+        if (data.length === 0) {
+          const params2 = new URLSearchParams({ format: 'json', q: text, limit: '8', addressdetails: '1', extratags: '1' });
+          const res2 = await fetch(`https://nominatim.openstreetmap.org/search?${params2}`, { headers: { 'Accept-Language': 'fr', 'User-Agent': 'SpotUApp/1.0' } });
+          data = await res2.json();
+        }
         setSearchResults(data); setShowResults(data.length > 0);
       } catch {}
       setSearching(false);
-    }, 500);
+    }, 350);
   };
 
   const handleSelectResult = (result: NominatimResult) => {
@@ -142,7 +159,7 @@ export function LocationPicker({
               <Ionicons name="search" size={18} color={Colors.muted} style={{ marginRight: 8 }} />
               <TextInput
                 style={st.searchInput}
-                placeholder="Rechercher une adresse…"
+                placeholder="Adresse, lieu, commerce, POI…"
                 placeholderTextColor={Colors.muted}
                 value={searchQuery}
                 onChangeText={handleSearchChange}
@@ -158,12 +175,20 @@ export function LocationPicker({
                   keyExtractor={i => String(i.place_id)}
                   scrollEnabled={false}
                   keyboardShouldPersistTaps="handled"
-                  renderItem={({ item }) => (
-                    <TouchableOpacity style={st.resultRow} onPress={() => handleSelectResult(item)}>
-                      <Ionicons name="location-outline" size={16} color={Colors.primary} style={{ marginRight: 8 }} />
-                      <Text style={st.resultText} numberOfLines={2}>{item.display_name}</Text>
-                    </TouchableOpacity>
-                  )}
+                  renderItem={({ item }) => {
+                    const parts = item.display_name.split(', ');
+                    const mainName = parts[0];
+                    const subName = parts.slice(1, 3).join(', ');
+                    return (
+                      <TouchableOpacity style={st.resultRow} onPress={() => handleSelectResult(item)}>
+                        <Ionicons name="location-outline" size={16} color={Colors.primary} style={{ marginRight: 8, marginTop: 2 }} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={st.resultName} numberOfLines={1}>{mainName}</Text>
+                          {subName ? <Text style={st.resultSub} numberOfLines={1}>{subName}</Text> : null}
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  }}
                 />
               </View>
             )}
@@ -213,8 +238,9 @@ const st = StyleSheet.create({
   searchRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm },
   searchInput: { flex: 1, fontSize: 14, color: Colors.foreground, paddingVertical: 4 },
   resultsBox: { backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, marginTop: 4, overflow: 'hidden' },
-  resultRow: { flexDirection: 'row', alignItems: 'center', padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  resultText: { flex: 1, fontSize: 13, color: Colors.foreground, lineHeight: 18 },
+  resultRow: { flexDirection: 'row', alignItems: 'flex-start', padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  resultName: { fontSize: 13, fontWeight: '600', color: Colors.foreground },
+  resultSub: { fontSize: 11, color: Colors.muted, marginTop: 2 },
 
   mapWrap: { height: 280, marginHorizontal: Spacing.md, borderRadius: Radius.lg, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border },
   addrRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: Colors.card, marginHorizontal: Spacing.md, marginTop: Spacing.md, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border },
