@@ -9,13 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../constants/Colors';
 import { MapViewComponent } from '../components/MapViewComponent';
 import { useLocation } from '../context/LocationContext';
-
-type NominatimResult = {
-  place_id: number;
-  display_name: string;
-  lat: string;
-  lon: string;
-};
+import { searchPlaces, getPlaceDetails, reverseGeocodeGoogle, type PlaceSuggestion } from '../services/googlePlacesService';
 
 const SAVED_ADDRESSES = [
   {
@@ -46,32 +40,16 @@ export default function SetLocationScreen() {
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<NominatimResult[]>([]);
+  const [searchResults, setSearchResults] = useState<PlaceSuggestion[]>([]);
   const [searching, setSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const formatAddress = (data: { display_name: string; address?: Record<string, string> }) => {
-    const a = data.address || {};
-    const parts = [
-      a.road || a.pedestrian || a.footway,
-      a.house_number,
-      a.postcode,
-      a.city || a.town || a.village || a.municipality,
-      a.country,
-    ].filter(Boolean);
-    return parts.length >= 2 ? parts.join(', ') : data.display_name;
-  };
-
   const reverseGeocode = async (lat: number, lng: number) => {
     try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`,
-        { headers: { 'Accept-Language': 'fr' } }
-      );
-      const data = await res.json();
-      if (data && data.display_name) {
-        setCurrentAddress(formatAddress(data));
+      const address = await reverseGeocodeGoogle(lat, lng);
+      if (address) {
+        setCurrentAddress(address);
         setSearchQuery('');
       }
     } catch (_) {}
@@ -105,7 +83,7 @@ export default function SetLocationScreen() {
   const handleSearchChange = (text: string) => {
     setSearchQuery(text);
     if (searchTimeout.current) clearTimeout(searchTimeout.current);
-    if (text.length < 3) {
+    if (text.length < 2) {
       setSearchResults([]);
       setShowResults(false);
       return;
@@ -113,30 +91,29 @@ export default function SetLocationScreen() {
     searchTimeout.current = setTimeout(async () => {
       setSearching(true);
       try {
-        const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(text)}&limit=5`,
-          { headers: { 'Accept-Language': 'fr' } }
-        );
-        const data: NominatimResult[] = await res.json();
-        setSearchResults(data);
-        setShowResults(data.length > 0);
+        const results = await searchPlaces(text);
+        setSearchResults(results);
+        setShowResults(results.length > 0);
       } catch (_) {
         setSearchResults([]);
       }
       setSearching(false);
-    }, 500);
+    }, 400);
   };
 
-  const handleSelectResult = (result: NominatimResult) => {
-    const lat = parseFloat(result.lat);
-    const lng = parseFloat(result.lon);
-    setSelectedLat(lat);
-    setSelectedLng(lng);
-    setCurrentAddress(result.display_name);
+  const handleSelectResult = async (result: PlaceSuggestion) => {
     setSearchQuery('');
     setSearchResults([]);
     setShowResults(false);
     Keyboard.dismiss();
+    try {
+      const details = await getPlaceDetails(result.place_id);
+      if (details) {
+        setSelectedLat(details.lat);
+        setSelectedLng(details.lng);
+        setCurrentAddress(details.address || result.description);
+      }
+    } catch (_) {}
   };
 
   const handleChoose = async () => {
@@ -220,7 +197,7 @@ export default function SetLocationScreen() {
             <View style={styles.resultsDropdown}>
               <FlatList
                 data={searchResults}
-                keyExtractor={(item) => String(item.place_id)}
+                keyExtractor={(item) => item.place_id}
                 scrollEnabled={false}
                 keyboardShouldPersistTaps="handled"
                 renderItem={({ item }) => (
@@ -230,9 +207,14 @@ export default function SetLocationScreen() {
                     testID={`search-result-${item.place_id}`}
                   >
                     <Ionicons name="location-outline" size={16} color={Colors.primary} style={{ marginRight: Spacing.sm }} />
-                    <Text style={styles.resultText} numberOfLines={2}>
-                      {item.display_name}
-                    </Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.resultText} numberOfLines={1}>{item.main_text}</Text>
+                      {item.secondary_text ? (
+                        <Text style={[styles.resultText, { fontSize: 12, color: Colors.muted }]} numberOfLines={1}>
+                          {item.secondary_text}
+                        </Text>
+                      ) : null}
+                    </View>
                   </TouchableOpacity>
                 )}
               />

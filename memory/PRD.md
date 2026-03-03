@@ -8,7 +8,7 @@ SpotU (ex-WINEK) est une plateforme hyperlocale de connexion sportive basée sur
 - **Backend**: FastAPI + asyncpg + PostgreSQL + PostGIS
 - **Auth**: JWT custom + Google Auth (Emergent-managed)
 - **Paiements**: Stripe (planifié)
-- **Géocoding**: OpenStreetMap Nominatim
+- **Géocoding**: Google Places API (Autocomplete + Place Details + Geocoding inversé)
 
 ## Architecture des fichiers clés
 ```
@@ -116,6 +116,12 @@ SpotU (ex-WINEK) est une plateforme hyperlocale de connexion sportive basée sur
   - Écran booking/[id].tsx : boutons Accepter/Refuser pour coach (pending), pay pour user
   - Backend : POST /api/bookings/{id}/accept + POST /api/bookings/{id}/refuse (avec notifs push)
   - Testé : backend 18/18 + frontend 6/6 (iter_45 + iter_46)
+- [x] **Migration Google Places API** - TERMINÉ Mars 2026
+  - Service utilitaire `frontend/services/googlePlacesService.ts` : searchPlaces, getPlaceDetails, reverseGeocodeGoogle
+  - `LocationPicker.tsx` : Autocomplete + geocodage inversé Google
+  - `(tabs)/create.tsx` (SpotYou) : geocodage inversé GPS → Google
+  - `set-location.tsx` : recherche + géocodage → Google
+  - Clé: EXPO_PUBLIC_GOOGLE_PLACES_KEY dans frontend/.env
 
 ### P1 - Important
 - [ ] Intégration Stripe (paiements)

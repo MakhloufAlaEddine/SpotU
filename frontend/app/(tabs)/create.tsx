@@ -16,6 +16,7 @@ import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/LanguageContext';
 import { useRefresh } from '../../context/RefreshContext';
+import { reverseGeocodeGoogle } from '../../services/googlePlacesService';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 
 const { width: SW, height: SH } = Dimensions.get('window');
@@ -286,11 +287,8 @@ export default function CreateSpotYouScreen() {
   };
   const reverseGeocode = async (lat: number, lng: number) => {
     try {
-      const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
-      const d = await r.json();
-      const a = d.address || {};
-      const parts = [a.road, a.house_number, a.postcode, a.city || a.town].filter(Boolean);
-      setLocationAddress(parts.join(' ') || d.display_name?.split(',').slice(0, 2).join(',') || 'Paris, France');
+      const address = await reverseGeocodeGoogle(lat, lng);
+      if (address) setLocationAddress(address);
     } catch {}
   };
 

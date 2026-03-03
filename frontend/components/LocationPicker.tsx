@@ -7,8 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { MapViewComponent } from './MapViewComponent';
 import { Colors, Spacing, Radius } from '../constants/Colors';
-
-type NominatimResult = { place_id: number; display_name: string; lat: string; lon: string };
+import { searchPlaces, getPlaceDetails, reverseGeocodeGoogle, type PlaceSuggestion } from '../services/googlePlacesService';
 
 interface LocationPickerProps {
   visible: boolean;
@@ -27,31 +26,16 @@ export function LocationPicker({
   const [selectedLng, setSelectedLng] = useState(initialLng);
   const [currentAddress, setCurrentAddress] = useState(initialAddress);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<NominatimResult[]>([]);
+  const [searchResults, setSearchResults] = useState<PlaceSuggestion[]>([]);
   const [searching, setSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false);
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const formatAddress = (data: any) => {
-    const a = data.address || {};
-    const parts = [
-      a.road || a.pedestrian || a.footway,
-      a.house_number,
-      a.postcode,
-      a.city || a.town || a.village || a.municipality,
-    ].filter(Boolean);
-    return parts.length >= 2 ? parts.join(', ') : data.display_name?.split(',').slice(0, 3).join(',') || '';
-  };
-
   const reverseGeocode = async (lat: number, lng: number) => {
     try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`,
-        { headers: { 'Accept-Language': 'fr' } }
-      );
-      const data = await res.json();
-      if (data?.display_name) setCurrentAddress(formatAddress(data));
+      const address = await reverseGeocodeGoogle(lat, lng);
+      if (address) setCurrentAddress(address);
     } catch {}
   };
 
@@ -68,39 +52,23 @@ export function LocationPicker({
     searchTimeout.current = setTimeout(async () => {
       setSearching(true);
       try {
-        // Search addresses + places + POI (amenities, shops, tourism, etc.)
-        const params = new URLSearchParams({
-          format: 'json',
-          q: text,
-          limit: '8',
-          addressdetails: '1',
-          extratags: '1',
-          namedetails: '1',
-          'accept-language': 'fr',
-          countrycodes: 'fr',
-        });
-        const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?${params}`,
-          { headers: { 'Accept-Language': 'fr', 'User-Agent': 'SpotUApp/1.0' } }
-        );
-        let data: NominatimResult[] = await res.json();
-        // If no results with countrycodes=fr, retry without restriction
-        if (data.length === 0) {
-          const params2 = new URLSearchParams({ format: 'json', q: text, limit: '8', addressdetails: '1', extratags: '1' });
-          const res2 = await fetch(`https://nominatim.openstreetmap.org/search?${params2}`, { headers: { 'Accept-Language': 'fr', 'User-Agent': 'SpotUApp/1.0' } });
-          data = await res2.json();
-        }
-        setSearchResults(data); setShowResults(data.length > 0);
+        const results = await searchPlaces(text);
+        setSearchResults(results);
+        setShowResults(results.length > 0);
       } catch {}
       setSearching(false);
     }, 350);
   };
 
-  const handleSelectResult = (result: NominatimResult) => {
-    const lat = parseFloat(result.lat), lng = parseFloat(result.lon);
-    setSelectedLat(lat); setSelectedLng(lng);
-    setCurrentAddress(result.display_name.split(',').slice(0, 3).join(','));
+  const handleSelectResult = async (result: PlaceSuggestion) => {
     setSearchQuery(''); setSearchResults([]); setShowResults(false); Keyboard.dismiss();
+    try {
+      const details = await getPlaceDetails(result.place_id);
+      if (details) {
+        setSelectedLat(details.lat); setSelectedLng(details.lng);
+        setCurrentAddress(details.address || result.description);
+      }
+    } catch {}
   };
 
   const handleGPS = async () => {
@@ -172,23 +140,18 @@ export function LocationPicker({
               <View style={st.resultsBox}>
                 <FlatList
                   data={searchResults}
-                  keyExtractor={i => String(i.place_id)}
+                  keyExtractor={i => i.place_id}
                   scrollEnabled={false}
                   keyboardShouldPersistTaps="handled"
-                  renderItem={({ item }) => {
-                    const parts = item.display_name.split(', ');
-                    const mainName = parts[0];
-                    const subName = parts.slice(1, 3).join(', ');
-                    return (
-                      <TouchableOpacity style={st.resultRow} onPress={() => handleSelectResult(item)}>
-                        <Ionicons name="location-outline" size={16} color={Colors.primary} style={{ marginRight: 8, marginTop: 2 }} />
-                        <View style={{ flex: 1 }}>
-                          <Text style={st.resultName} numberOfLines={1}>{mainName}</Text>
-                          {subName ? <Text style={st.resultSub} numberOfLines={1}>{subName}</Text> : null}
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  }}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity style={st.resultRow} onPress={() => handleSelectResult(item)}>
+                      <Ionicons name="location-outline" size={16} color={Colors.primary} style={{ marginRight: 8, marginTop: 2 }} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={st.resultName} numberOfLines={1}>{item.main_text}</Text>
+                        {item.secondary_text ? <Text style={st.resultSub} numberOfLines={1}>{item.secondary_text}</Text> : null}
+                      </View>
+                    </TouchableOpacity>
+                  )}
                 />
               </View>
             )}
