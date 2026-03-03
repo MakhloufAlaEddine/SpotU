@@ -10,6 +10,7 @@ import Slider from '@react-native-community/slider';
 import { api } from '../../lib/api';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { useLocation } from '../../context/LocationContext';
+import { useAuth } from '../../context/AuthContext';
 import { haversineDistance, formatDistance } from '../../utils/distance';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -164,6 +165,7 @@ export default function SearchScreen() {
   const [services, setServices] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const { location } = useLocation();
+  const { user } = useAuth();
 
   // Tag state
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -198,7 +200,7 @@ export default function SearchScreen() {
         api.get(`/tag-points?${params.toString()}`).catch(() => []),
         api.get(`/services?${params.toString()}`).catch(() => []),
       ]);
-      setSpotYou(Array.isArray(pts) ? pts : []);
+      setSpotYou(Array.isArray(pts) ? pts.filter((p: any) => p.user_id !== user?.user_id) : []);
       setServices(Array.isArray(svcs) ? svcs : []);
     } catch {}
     finally { setLoading(false); }

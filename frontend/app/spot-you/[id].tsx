@@ -557,7 +557,10 @@ export default function SpotYouDetail() {
     setShowSimilar(true);
     if (similar.length > 0) return;
     setLoadingSimilar(true);
-    try { setSimilar(await api.get(`/tag-points/${id}/similar`)); } catch {}
+    try { 
+      const data = await api.get(`/tag-points/${id}/similar`);
+      setSimilar(Array.isArray(data) ? data.filter((p: any) => p.user_id !== user?.user_id) : []);
+    } catch {}
     setLoadingSimilar(false);
   };
 
