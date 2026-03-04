@@ -206,7 +206,7 @@ async def update_user_review(user_id: str, review_id: str, data: ProfileReviewCr
         body=f'{reviewer.get("name", "")} {action_text} {stars}',
         data={
             "type": "profile_review",
-            "profile_id": reviewer["user_id"],
+            "profile_id": user_id,
             "sender_id": reviewer["user_id"],
             "sender_name": reviewer.get("name", ""),
             "sender_picture": reviewer.get("picture") or "",
@@ -272,7 +272,7 @@ async def create_user_review(user_id: str, data: ProfileReviewCreate, request: R
         body=f'{reviewer.get("name", "")} {action_text} {stars}',
         data={
             "type": "profile_review",
-            "profile_id": reviewer["user_id"],
+            "profile_id": user_id,
             "sender_id": reviewer["user_id"],
             "sender_name": reviewer.get("name", ""),
             "sender_picture": reviewer.get("picture") or "",
