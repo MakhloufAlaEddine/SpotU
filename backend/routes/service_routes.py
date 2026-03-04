@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request, HTTPException, Query
 from typing import Optional
 from models import ServiceCreate, ServiceUpdate, new_id
-from auth_utils import require_auth
+from auth_utils import require_auth, get_token_from_request, decode_jwt
 from database import get_pool, row_to_dict, rows_to_list
 import json
 
@@ -128,9 +128,24 @@ async def search_services(
     radius: Optional[int] = Query(10000),
     coach_id: Optional[str] = Query(None),
     domain_id: Optional[str] = Query(None),
+    request: Request = None,
 ):
     pool = get_pool()
+
+    # Determine current user to exclude their own services
+    current_user_id = None
+    try:
+        token = get_token_from_request(request)
+        if token:
+            payload = decode_jwt(token)
+            current_user_id = payload.get("user_id")
+    except Exception:
+        pass
+
     conditions = ["active = TRUE"]
+    # Exclure les services créés par l'utilisateur connecté (accessibles via "Mes services")
+    if current_user_id:
+        conditions.append(f"coach_id != '{current_user_id}'")
     params = []
     param_idx = 1
 
