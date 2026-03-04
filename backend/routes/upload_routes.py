@@ -11,6 +11,24 @@ UPLOADS_DIR = Path("/app/backend/uploads")
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 
+def delete_upload_file(url: str):
+    """Supprime un fichier uploadé localement si l'URL pointe vers /api/uploads/."""
+    if url and "/api/uploads/" in url:
+        filename = url.split("/api/uploads/")[-1].split("?")[0]
+        filepath = UPLOADS_DIR / filename
+        try:
+            filepath.unlink(missing_ok=True)
+            logger.info(f"Deleted upload file: {filename}")
+        except Exception as e:
+            logger.warning(f"Could not delete upload file {filename}: {e}")
+
+
+def delete_upload_files(urls: list):
+    """Supprime une liste de fichiers uploadés."""
+    for url in (urls or []):
+        delete_upload_file(url)
+
+
 @router.post("/upload-image")
 async def upload_image(request: Request, file: UploadFile = File(...)):
     """Upload an image file and return its public URL."""

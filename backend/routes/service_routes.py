@@ -344,7 +344,14 @@ async def update_service(service_id: str, data: ServiceUpdate, request: Request)
         if raw.get('tag_ids') is not None:
             update_dict['tag_ids'] = raw['tag_ids']
         if raw.get('images') is not None:
-            update_dict['images'] = json.dumps(raw['images'])
+            old_imgs_row = await conn.fetchrow("SELECT images FROM services WHERE service_id = $1", service_id)
+            old_images = list(old_imgs_row["images"] or []) if old_imgs_row else []
+            new_images = raw['images'] or []
+            removed = [url for url in old_images if url not in new_images]
+            if removed:
+                from routes.upload_routes import delete_upload_files
+                delete_upload_files(removed)
+            update_dict['images'] = json.dumps(new_images)
 
         if update_dict:
             set_clauses = [f"{k} = ${i+1}" for i, k in enumerate(update_dict.keys())]

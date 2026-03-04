@@ -948,6 +948,15 @@ async def update_tag_point(point_id: str, data: TagPointUpdate, request: Request
         set_clauses.append("updated_at = NOW()")
         query = f"UPDATE tag_points SET {', '.join(set_clauses)} WHERE point_id = ${i}"
         await conn.execute(query, *values)
+
+        # Supprimer les images retirées du disque
+        if 'images' in raw:
+            from routes.upload_routes import delete_upload_files
+            old_images = list(existing.get("images") or [])
+            new_images = raw['images'] or []
+            removed = [url for url in old_images if url not in new_images]
+            delete_upload_files(removed)
+
         row = await conn.fetchrow(f"SELECT {TP_FIELDS} FROM tag_points tp LEFT JOIN users u ON tp.user_id = u.user_id WHERE tp.point_id = $1", point_id)
 
         participants = await conn.fetch(

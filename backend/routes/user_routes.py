@@ -31,6 +31,7 @@ async def get_profile(request: Request):
 
 @router.put("/profile")
 async def update_profile(data: UserUpdate, request: Request):
+    from routes.upload_routes import delete_upload_file
     pool = get_pool()
     user = await require_auth(request, pool)
     # Fields that can be explicitly set to NULL to clear them
@@ -43,6 +44,12 @@ async def update_profile(data: UserUpdate, request: Request):
             update_fields[k] = None  # Allow explicitly clearing these fields
     if not update_fields:
         return user
+
+    # Supprimer l'ancienne photo si elle est remplacée ou effacée
+    if 'picture' in update_fields:
+        old_picture = user.get("picture")
+        if old_picture and old_picture != update_fields['picture']:
+            delete_upload_file(old_picture)
 
     set_clauses = []
     values = []
