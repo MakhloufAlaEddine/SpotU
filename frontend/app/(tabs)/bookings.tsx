@@ -25,6 +25,19 @@ const NOTIF_CFG: Record<string, { icon: any; color: string; bg: string; label: s
   info:              { icon: 'information-circle-outline', color: Colors.muted,    bg: Colors.card,             label: 'Info' },
 };
 
+function timeAgo(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "à l'instant";
+  if (mins < 60) return `${mins}min`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}j`;
+  const d = new Date(iso);
+  return `${d.getDate()}/${d.getMonth() + 1}`;
+}
+
 // ── Item notification ─────────────────────────────────────────────────────────
 function NotifItem({ item, onPress }: { item: any; onPress: () => void }) {
   const cfg = NOTIF_CFG[item.type] || NOTIF_CFG.info;
