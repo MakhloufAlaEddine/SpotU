@@ -559,7 +559,7 @@ export default function SpotYouDetail() {
     setLoadingSimilar(true);
     try { 
       const data = await api.get(`/tag-points/${id}/similar`);
-      setSimilar(Array.isArray(data) ? data.filter((p: any) => p.user_id !== user?.user_id) : []);
+      setSimilar(Array.isArray(data) ? data : []);
     } catch {}
     setLoadingSimilar(false);
   };

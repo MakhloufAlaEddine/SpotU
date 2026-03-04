@@ -136,6 +136,9 @@ async def search_tag_points(
         pass
 
     conditions = ["active = TRUE", f"(tp.is_public = TRUE OR tp.user_id = '{current_user_id or ''}')"]
+    # Exclure les SpotYou créés par l'utilisateur connecté (accessibles via SpotMe)
+    if current_user_id:
+        conditions.append(f"tp.user_id != '{current_user_id}'")
     params = []
     param_idx = 1
 
@@ -292,8 +295,19 @@ async def get_tag_point(point_id: str, request: Request):
 
 
 @router.get("/tag-points/{point_id}/similar")
-async def get_similar_tag_points(point_id: str):
+async def get_similar_tag_points(point_id: str, request: Request = None):
     pool = get_pool()
+
+    # Determine current user to exclude their own SpotYou
+    current_user_id = None
+    try:
+        token = get_token_from_request(request)
+        if token:
+            payload = decode_jwt(token)
+            current_user_id = payload.get("user_id")
+    except Exception:
+        pass
+
     async with pool.acquire() as conn:
         current = await conn.fetchrow(
             "SELECT tag_ids, location FROM tag_points WHERE point_id = $1", point_id
@@ -310,6 +324,7 @@ async def get_similar_tag_points(point_id: str):
             tag_ids_list = []
 
         if tag_ids_list:
+            exclude_clause = f"AND tp.user_id != '{current_user_id}'" if current_user_id else ""
             rows = await conn.fetch(
                 f"""
                 SELECT {TP_FIELDS},
@@ -318,6 +333,7 @@ async def get_similar_tag_points(point_id: str):
                 LEFT JOIN users u ON tp.user_id = u.user_id
                 WHERE tp.point_id != $1
                   AND tp.active = TRUE
+                  {exclude_clause}
                   AND (
                       tp.tag_ids IS NOT NULL
                       AND EXISTS (
@@ -349,6 +365,7 @@ async def get_similar_tag_points(point_id: str):
                 point_id, current["location"], tag_ids_list
             )
         else:
+            exclude_clause = f"AND tp.user_id != '{current_user_id}'" if current_user_id else ""
             rows = await conn.fetch(
                 f"""
                 SELECT {TP_FIELDS},
@@ -357,6 +374,7 @@ async def get_similar_tag_points(point_id: str):
                 LEFT JOIN users u ON tp.user_id = u.user_id
                 WHERE tp.point_id != $1
                   AND tp.active = TRUE
+                  {exclude_clause}
                   AND ST_DWithin(tp.location::geography, $2::geography, 10000)
                 ORDER BY dist_m
                 LIMIT 10

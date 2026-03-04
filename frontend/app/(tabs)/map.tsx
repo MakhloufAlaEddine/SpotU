@@ -311,7 +311,7 @@ export default function HomeScreen() {
         api.get(`/tag-points?lat=${location.lat}&lng=${location.lng}&radius=50000`).catch(() => []),
         api.get(`/services?lat=${location.lat}&lng=${location.lng}&radius=50000`).catch(() => []),
       ]);
-      setSpotYou(Array.isArray(nearby) ? nearby.filter((p: any) => p.user_id !== user?.user_id) : []);
+      setSpotYou(Array.isArray(nearby) ? nearby : []);
       setServices(Array.isArray(svcs) ? svcs : []);
     } catch {}
     finally { setLoading(false); setRefreshing(false); }
