@@ -509,30 +509,36 @@ async def get_tag_point_participants(point_id: str):
 
 @router.get("/users/me/notifications")
 async def get_my_notifications(request: Request, limit: int = Query(50)):
-    """Récupère les notifications in-app de l'utilisateur connecté."""
+    """Récupère les notifications in-app avec la photo de profil à jour du sender."""
     pool = get_pool()
     user = await require_auth(request, pool)
     async with pool.acquire() as conn:
         rows = await conn.fetch(
-            """SELECT notif_id, type, title, body, data, read, created_at
-               FROM notifications
-               WHERE user_id = $1
-               ORDER BY created_at DESC
+            """SELECT n.notif_id, n.type, n.title, n.body, n.data, n.read, n.created_at,
+                      u.picture as sender_current_picture
+               FROM notifications n
+               LEFT JOIN users u ON u.user_id = (n.data->>'sender_id')
+               WHERE n.user_id = $1
+               ORDER BY n.created_at DESC
                LIMIT $2""",
             user["user_id"], limit
         )
-    return [
-        {
+    result = []
+    for r in rows:
+        data = dict(r["data"]) if r["data"] else {}
+        # Toujours utiliser la photo actuelle du sender (pas celle stockée)
+        if r["sender_current_picture"] is not None:
+            data["sender_picture"] = r["sender_current_picture"]
+        result.append({
             "id": r["notif_id"],
             "type": r["type"],
             "title": r["title"],
             "body": r["body"],
-            "data": r["data"],
+            "data": data,
             "read": r["read"],
             "created_at": r["created_at"].isoformat() if r["created_at"] else None,
-        }
-        for r in rows
-    ]
+        })
+    return result
 
 
 @router.patch("/users/me/notifications/{notif_id}/read")
