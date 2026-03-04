@@ -203,7 +203,7 @@ async def update_user_review(user_id: str, review_id: str, data: ProfileReviewCr
     asyncio.create_task(send_push_to_user(
         pool, user_id,
         title="Évaluation modifiée",
-        body=f'{reviewer.get("name", "")} {action_text} {stars}',
+        body=f'{action_text} {stars}',
         data={
             "type": "profile_review",
             "profile_id": user_id,
@@ -269,7 +269,7 @@ async def create_user_review(user_id: str, data: ProfileReviewCreate, request: R
     asyncio.create_task(send_push_to_user(
         pool, user_id,
         title="Nouvelle évaluation de profil",
-        body=f'{reviewer.get("name", "")} {action_text} {stars}',
+        body=f'{action_text} {stars}',
         data={
             "type": "profile_review",
             "profile_id": user_id,
