@@ -174,6 +174,7 @@ export default function NotificationsScreen() {
             let action = '/planning';
             if (d.point_id) action = `/spot-you/${d.point_id}`;
             else if (d.service_id) action = `/service/${d.service_id}`;
+            else if (d.profile_id) action = `/user/${d.profile_id}`;
 
             return {
               id: n.id,
