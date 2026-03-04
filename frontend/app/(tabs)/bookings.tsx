@@ -12,71 +12,18 @@ import { Colors, Spacing, Radius } from '../../constants/Colors';
 
 // ── Config visuelle par type ──────────────────────────────────────────────────
 const NOTIF_CFG: Record<string, { icon: any; color: string; bg: string; label: string }> = {
-  booking_new:       { icon: 'calendar-outline',          color: Colors.primary,  bg: Colors.primary + '1A',  label: 'Réservation' },
-  new_booking:       { icon: 'calendar-outline',          color: Colors.primary,  bg: Colors.primary + '1A',  label: 'Réservation' },
-  booking_accepted:  { icon: 'checkmark-circle-outline',  color: '#10B981',       bg: '#10B9811A',             label: 'Acceptée' },
-  booking_refused:   { icon: 'close-circle-outline',      color: '#EF4444',       bg: '#EF44441A',             label: 'Refusée' },
-  booking_pending:   { icon: 'time-outline',              color: '#F59E0B',       bg: '#F59E0B1A',             label: 'En attente' },
-  booking_status:    { icon: 'calendar-outline',          color: Colors.primary,  bg: Colors.primary + '1A',  label: 'Réservation' },
-  spotyu_join:       { icon: 'person-add-outline',        color: '#10B981',       bg: '#10B9811A',             label: 'Rejoint' },
-  spotyu_leave:      { icon: 'person-remove-outline',     color: '#F59E0B',       bg: '#F59E0B1A',             label: 'Quitté' },
-  spotyu_vote:       { icon: 'star-outline',              color: '#FBBF24',       bg: '#FBBF241A',             label: 'Évaluation SpotYou' },
-  spotyu_cancelled:  { icon: 'close-circle',              color: '#EF4444',       bg: '#EF44441A',             label: 'SpotYou annulé' },
-  spotyu_restored:   { icon: 'refresh-circle',            color: '#10B981',       bg: '#10B9811A',             label: 'SpotYou restauré' },
-  spotyu_updated:    { icon: 'create-outline',            color: '#F59E0B',       bg: '#F59E0B1A',             label: 'SpotYou mis à jour' },
-  profile_review:    { icon: 'star-half-outline',         color: '#8B5CF6',       bg: '#8B5CF61A',             label: 'Évaluation profil' },
-  info:              { icon: 'information-circle-outline', color: Colors.muted,   bg: Colors.card,             label: 'Info' },
+  new_booking:       { icon: 'calendar-outline',           color: Colors.primary,  bg: Colors.primary + '1A',  label: 'Réservation' },
+  booking_accepted:  { icon: 'checkmark-circle-outline',   color: '#10B981',       bg: '#10B9811A',             label: 'Acceptée' },
+  booking_refused:   { icon: 'close-circle-outline',       color: '#EF4444',       bg: '#EF44441A',             label: 'Refusée' },
+  spotyu_join:       { icon: 'person-add-outline',         color: '#10B981',       bg: '#10B9811A',             label: 'Rejoint' },
+  spotyu_leave:      { icon: 'person-remove-outline',      color: '#F59E0B',       bg: '#F59E0B1A',             label: 'Quitté' },
+  spotyu_vote:       { icon: 'star-outline',               color: '#FBBF24',       bg: '#FBBF241A',             label: 'Évaluation SpotYou' },
+  spotyu_cancelled:  { icon: 'close-circle',               color: '#EF4444',       bg: '#EF44441A',             label: 'SpotYou annulé' },
+  spotyu_restored:   { icon: 'refresh-circle',             color: '#10B981',       bg: '#10B9811A',             label: 'SpotYou restauré' },
+  spotyu_updated:    { icon: 'create-outline',             color: '#F59E0B',       bg: '#F59E0B1A',             label: 'SpotYou mis à jour' },
+  profile_review:    { icon: 'star-half-outline',          color: '#8B5CF6',       bg: '#8B5CF61A',             label: 'Évaluation profil' },
+  info:              { icon: 'information-circle-outline', color: Colors.muted,    bg: Colors.card,             label: 'Info' },
 };
-
-function timeAgo(iso: string) {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "à l'instant";
-  if (mins < 60) return `${mins}min`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h`;
-  const days = Math.floor(hrs / 24);
-  if (days < 7) return `${days}j`;
-  const d = new Date(iso);
-  return `${d.getDate()}/${d.getMonth() + 1}`;
-}
-
-function bookingToNotif(b: any, isCoach: boolean) {
-  const svcTitle  = b.service?.title || 'une séance';
-  const coachName = b.coach?.name || '';
-  const coachPic  = b.coach?.picture || '';
-  const userName  = b.user?.name || '';
-  const userPic   = b.user?.picture || '';
-
-  let type: string;
-  let action_text: string;
-  let sender_name: string;
-  let sender_picture: string;
-
-  if (isCoach) {
-    type          = b.status === 'pending' ? 'new_booking' : b.status === 'accepted' ? 'booking_accepted' : 'booking_refused';
-    action_text   = b.status === 'pending' ? 'souhaite réserver' : b.status === 'accepted' ? 'a confirmé sa réservation' : 'a annulé sa réservation';
-    sender_name   = userName;
-    sender_picture = userPic;
-  } else {
-    type          = b.status === 'accepted' ? 'booking_accepted' : b.status === 'refused' ? 'booking_refused' : 'booking_pending';
-    action_text   = b.status === 'accepted' ? 'a accepté votre réservation' : b.status === 'refused' ? 'a refusé votre réservation' : 'n\'a pas encore répondu';
-    sender_name   = coachName;
-    sender_picture = coachPic;
-  }
-
-  return {
-    id: b.booking_id,
-    type,
-    action_text,
-    content_title: svcTitle,
-    sender_name,
-    sender_picture,
-    time: b.created_at || new Date().toISOString(),
-    action: b.service?.service_id ? `/service/${b.service.service_id}` : '/planning',
-    read: b.status !== 'pending',
-  };
-}
 
 // ── Item notification ─────────────────────────────────────────────────────────
 function NotifItem({ item, onPress }: { item: any; onPress: () => void }) {
@@ -154,23 +101,11 @@ export default function NotificationsScreen() {
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     try {
-      const [me, bookings, dbNotifs] = await Promise.all([
-        api.get<any>('/auth/me'),
-        api.get<any[]>('/bookings/mine').catch(() => []),
-        api.get<any[]>('/users/me/notifications').catch(() => []),
-      ]);
-      const isCoach = me?.role === 'coach' || me?.is_coach;
+      const dbNotifs = await api.get<any[]>('/users/me/notifications').catch(() => []);
 
-      // Booking → notification
-      const bookingList = Array.isArray(bookings)
-        ? bookings.map(b => bookingToNotif(b, isCoach))
-        : [];
-
-      // DB notifications (SpotYou, etc.)
-      const dbList = Array.isArray(dbNotifs)
+      const notifList = Array.isArray(dbNotifs)
         ? dbNotifs.map(n => {
             const d = n.data || {};
-            // Routing intelligent
             let action = '/planning';
             if (d.point_id) action = `/spot-you/${d.point_id}`;
             else if (d.service_id) action = `/service/${d.service_id}`;
@@ -186,15 +121,12 @@ export default function NotificationsScreen() {
               time: n.created_at || new Date().toISOString(),
               action,
               read: n.read,
-              is_db_notif: true,
             };
           })
         : [];
 
-      const merged = [...bookingList, ...dbList];
-      merged.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
-      setNotifs(merged);
-      setUnreadCount(merged.filter(n => !n.read).length);
+      setNotifs(notifList);
+      setUnreadCount(notifList.filter(n => !n.read).length);
     } catch {
       setNotifs([]);
     } finally {
@@ -212,8 +144,7 @@ export default function NotificationsScreen() {
   };
 
   const handleNotifPress = useCallback(async (item: any) => {
-    // Marquer comme lu si c'est une notification DB non lue
-    if (item.is_db_notif && !item.read) {
+    if (!item.read) {
       try {
         await api.patch(`/users/me/notifications/${item.id}/read`, {});
         setNotifs(prev => prev.map(n => n.id === item.id ? { ...n, read: true } : n));
