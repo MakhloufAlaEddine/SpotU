@@ -211,7 +211,7 @@ async def update_user_review(user_id: str, review_id: str, data: ProfileReviewCr
             "sender_name": reviewer.get("name", ""),
             "sender_picture": reviewer.get("picture") or "",
             "action_text": action_text,
-            "content_title": reviewer.get("name", ""),
+            "content_title": "",
             "rating": data.rating,
         },
         notif_type="profile_review"
@@ -277,7 +277,7 @@ async def create_user_review(user_id: str, data: ProfileReviewCreate, request: R
             "sender_name": reviewer.get("name", ""),
             "sender_picture": reviewer.get("picture") or "",
             "action_text": action_text,
-            "content_title": reviewer.get("name", ""),
+            "content_title": "",
             "rating": data.rating,
         },
         notif_type="profile_review"
