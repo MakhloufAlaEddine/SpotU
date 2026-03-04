@@ -31,8 +31,25 @@ function ChatTabIcon({ focused, unread }: { focused: boolean; unread: number }) 
   );
 }
 
+function NotifTabIcon({ focused, unread }: { focused: boolean; unread: number }) {
+  return (
+    <View style={{ width: 30, height: 30, alignItems: 'center', justifyContent: 'center' }}>
+      <Ionicons
+        name={focused ? 'notifications' : 'notifications-outline'}
+        size={24}
+        color={focused ? Colors.primary : Colors.muted}
+      />
+      {unread > 0 && (
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>{unread > 99 ? '99+' : String(unread)}</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
 export default function TabLayout() {
-  const { unreadTotal } = useNotifications();
+  const { unreadTotal, unreadNotif } = useNotifications();
 
   return (
     <Tabs
@@ -85,7 +102,7 @@ export default function TabLayout() {
         options={{
           title: 'Notifications',
           tabBarIcon: ({ focused }) => (
-            <TabIcon name={focused ? 'notifications' : 'notifications-outline'} focused={focused} />
+            <NotifTabIcon focused={focused} unread={unreadNotif} />
           ),
         }}
       />

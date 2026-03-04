@@ -535,16 +535,37 @@ async def get_my_notifications(request: Request, limit: int = Query(50)):
     ]
 
 
+@router.patch("/users/me/notifications/{notif_id}/read")
+async def mark_notification_read(notif_id: str, request: Request):
+    """Marque une notification spécifique comme lue et diffuse le nouveau compteur."""
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    from chat_manager import notif_manager
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE notifications SET read = TRUE WHERE notif_id = $1 AND user_id = $2",
+            notif_id, user["user_id"]
+        )
+        unread = await conn.fetchval(
+            "SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND read = FALSE",
+            user["user_id"]
+        )
+    await notif_manager.notify(user["user_id"], {"type": "unread_notif", "count": int(unread)})
+    return {"success": True, "unread_notif": int(unread)}
+
+
 @router.patch("/users/me/notifications/read-all")
 async def mark_all_notifications_read(request: Request):
     """Marque toutes les notifications comme lues."""
     pool = get_pool()
     user = await require_auth(request, pool)
+    from chat_manager import notif_manager
     async with pool.acquire() as conn:
         await conn.execute(
             "UPDATE notifications SET read = TRUE WHERE user_id = $1 AND read = FALSE",
             user["user_id"]
         )
+    await notif_manager.notify(user["user_id"], {"type": "unread_notif", "count": 0})
     return {"success": True}
 
 

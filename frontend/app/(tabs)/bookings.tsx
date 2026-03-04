@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   ActivityIndicator, RefreshControl, Image,
@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
+import { subscribeNewNotification } from '../../lib/chat';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 
 // ── Config visuelle par type ──────────────────────────────────────────────────
@@ -19,10 +20,11 @@ const NOTIF_CFG: Record<string, { icon: any; color: string; bg: string; label: s
   booking_status:    { icon: 'calendar-outline',          color: Colors.primary,  bg: Colors.primary + '1A',  label: 'Réservation' },
   spotyu_join:       { icon: 'person-add-outline',        color: '#10B981',       bg: '#10B9811A',             label: 'Rejoint' },
   spotyu_leave:      { icon: 'person-remove-outline',     color: '#F59E0B',       bg: '#F59E0B1A',             label: 'Quitté' },
-  spotyu_vote:       { icon: 'star-outline',              color: '#FBBF24',       bg: '#FBBF241A',             label: 'Évaluation' },
-  spotyu_cancelled:  { icon: 'close-circle',              color: '#EF4444',       bg: '#EF44441A',             label: 'Annulé' },
-  spotyu_restored:   { icon: 'refresh-circle',            color: '#10B981',       bg: '#10B9811A',             label: 'Restauré' },
-  spotyu_updated:    { icon: 'create-outline',            color: '#F59E0B',       bg: '#F59E0B1A',             label: 'Mis à jour' },
+  spotyu_vote:       { icon: 'star-outline',              color: '#FBBF24',       bg: '#FBBF241A',             label: 'Évaluation SpotYou' },
+  spotyu_cancelled:  { icon: 'close-circle',              color: '#EF4444',       bg: '#EF44441A',             label: 'SpotYou annulé' },
+  spotyu_restored:   { icon: 'refresh-circle',            color: '#10B981',       bg: '#10B9811A',             label: 'SpotYou restauré' },
+  spotyu_updated:    { icon: 'create-outline',            color: '#F59E0B',       bg: '#F59E0B1A',             label: 'SpotYou mis à jour' },
+  profile_review:    { icon: 'star-half-outline',         color: '#8B5CF6',       bg: '#8B5CF61A',             label: 'Évaluation profil' },
   info:              { icon: 'information-circle-outline', color: Colors.muted,   bg: Colors.card,             label: 'Info' },
 };
 
@@ -206,6 +208,23 @@ export default function NotificationsScreen() {
       setUnreadCount(0);
     } catch {}
   };
+
+  const handleNotifPress = useCallback(async (item: any) => {
+    // Marquer comme lu si c'est une notification DB non lue
+    if (item.is_db_notif && !item.read) {
+      try {
+        await api.patch(`/users/me/notifications/${item.id}/read`, {});
+        setNotifs(prev => prev.map(n => n.id === item.id ? { ...n, read: true } : n));
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      } catch {}
+    }
+    router.push(item.action as any);
+  }, [router]);
+
+  // Écouter les nouvelles notifications via WebSocket
+  useEffect(() => {
+    return subscribeNewNotification(() => load());
+  }, [load]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 

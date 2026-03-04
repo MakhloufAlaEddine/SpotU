@@ -29,10 +29,24 @@ export interface Conversation {
   participant_count?: number;
 }
 
+// ── Emitter module-level pour les nouvelles notifications ─────────────────────
+type NotifHandler = (notif: any) => void;
+let _notifHandlers: NotifHandler[] = [];
+
+export function subscribeNewNotification(fn: NotifHandler): () => void {
+  _notifHandlers.push(fn);
+  return () => { _notifHandlers = _notifHandlers.filter(h => h !== fn); };
+}
+
+function _emitNewNotification(notif: any) {
+  _notifHandlers.forEach(fn => { try { fn(notif); } catch {} });
+}
+
 // ── Hook: canal de notifications temps réel ────────────────────────────────────
 
 export function useNotifications() {
   const [unreadTotal, setUnreadTotal] = useState(0);
+  const [unreadNotif, setUnreadNotif] = useState(0);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -47,9 +61,9 @@ export function useNotifications() {
     ws.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data);
-        if (data.type === 'unread_total') {
-          setUnreadTotal(data.count ?? 0);
-        }
+        if (data.type === 'unread_total') setUnreadTotal(data.count ?? 0);
+        if (data.type === 'unread_notif') setUnreadNotif(data.count ?? 0);
+        if (data.type === 'new_notification') _emitNewNotification(data.notification);
       } catch {}
     };
 
@@ -75,7 +89,7 @@ export function useNotifications() {
     };
   }, []);
 
-  return { unreadTotal };
+  return { unreadTotal, unreadNotif };
 }
 
 // ── Hook: chat temps réel ──────────────────────────────────────────────────────

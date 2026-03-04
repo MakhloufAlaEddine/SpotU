@@ -22,6 +22,15 @@ class MessageCreate(BaseModel):
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
+async def _get_unread_notif(conn, user_id: str) -> int:
+    """Nombre de notifications non-lues en DB."""
+    row = await conn.fetchrow(
+        "SELECT COUNT(*) as cnt FROM notifications WHERE user_id = $1 AND read = FALSE",
+        user_id
+    )
+    return int(row["cnt"]) if row else 0
+
+
 async def _get_unread_total(conn, user_id: str) -> int:
     """Nombre total de messages non-lus pour un utilisateur."""
     row = await conn.fetchrow(
@@ -382,10 +391,12 @@ async def ws_notifications(websocket: WebSocket, token: str = Query(...)):
     await notif_manager.connect(user_id, websocket)
 
     try:
-        # Envoyer le total initial dès la connexion
+        # Envoyer les compteurs initiaux dès la connexion
         async with pool.acquire() as conn:
             total = await _get_unread_total(conn, user_id)
+            notif_unread = await _get_unread_notif(conn, user_id)
         await websocket.send_json({"type": "unread_total", "count": total})
+        await websocket.send_json({"type": "unread_notif", "count": notif_unread})
 
         # Maintenir la connexion ouverte
         while True:

@@ -239,3 +239,25 @@ async def create_user_review(user_id: str, data: ProfileReviewCreate, request: R
             review_id
         )
     return row_to_dict(row)
+    # Notifier le propriétaire du profil évalué
+    from push_service import send_push_to_user
+    import asyncio
+    action_text = "a évalué et commenté votre profil" if data.comment else "a évalué votre profil"
+    stars = "⭐" * data.rating
+    asyncio.create_task(send_push_to_user(
+        pool, user_id,
+        title="Nouvelle évaluation de profil",
+        body=f'{reviewer.get("name", "")} {action_text} {stars}',
+        data={
+            "type": "profile_review",
+            "profile_id": user_id,
+            "sender_id": reviewer["user_id"],
+            "sender_name": reviewer.get("name", ""),
+            "sender_picture": reviewer.get("picture") or "",
+            "action_text": action_text,
+            "content_title": reviewer.get("name", ""),
+            "rating": data.rating,
+        },
+        notif_type="profile_review"
+    ))
+

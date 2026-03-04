@@ -49,15 +49,28 @@ async def send_push_notification(
 
 
 async def store_notification(pool, user_id: str, notif_type: str, title: str, body: str, data: Optional[dict] = None):
-    """Stocke une notification en DB pour l'écran notifications."""
+    """Stocke une notification en DB et diffuse via WebSocket."""
     import uuid
+    from datetime import datetime, timezone
+    from chat_manager import notif_manager
     notif_id = "notif_" + str(uuid.uuid4()).replace("-", "")[:16]
+    created_at = datetime.now(timezone.utc).isoformat()
     async with pool.acquire() as conn:
         await conn.execute(
             """INSERT INTO notifications (notif_id, user_id, type, title, body, data)
                VALUES ($1, $2, $3, $4, $5, $6)""",
             notif_id, user_id, notif_type, title, body, data or {}
         )
+        unread = await conn.fetchval(
+            "SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND read = FALSE", user_id
+        )
+    # Diffusion temps réel
+    notif_payload = {
+        "id": notif_id, "type": notif_type, "title": title, "body": body,
+        "data": data or {}, "read": False, "created_at": created_at,
+    }
+    await notif_manager.notify(user_id, {"type": "new_notification", "notification": notif_payload})
+    await notif_manager.notify(user_id, {"type": "unread_notif", "count": int(unread)})
 
 
 async def send_push_to_user(pool, user_id: str, title: str, body: str, data: Optional[dict] = None,
