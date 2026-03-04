@@ -238,7 +238,7 @@ async def create_user_review(user_id: str, data: ProfileReviewCreate, request: R
                WHERE r.review_id = $1""",
             review_id
         )
-    return row_to_dict(row)
+    review_data = row_to_dict(row)
     # Notifier le propriétaire du profil évalué
     from push_service import send_push_to_user
     import asyncio
@@ -260,4 +260,5 @@ async def create_user_review(user_id: str, data: ProfileReviewCreate, request: R
         },
         notif_type="profile_review"
     ))
+    return review_data
 

@@ -1,0 +1,48 @@
+{
+  "summary": "Iteration 47 - Backend notification system fully tested. All 22 tests PASS (100%). Tested all 8 notification endpoints: GET notifications, profile_review, new_booking, booking_accepted, booking_refused, spotyu_join, mark-one-read, mark-all-read. All async notification creation (via asyncio.create_task + store_notification) verified to correctly persist in DB and appear in user notification lists.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "PUT /api/bookings/{id}/status",
+        "issue": "This legacy endpoint (line 241-246 booking_routes.py) sends push notification with data.type='booking_status' (generic) instead of 'booking_accepted'/'booking_refused', and does not pass notif_type so it defaults to 'info'. The new /accept and /refuse routes are correct. This endpoint is a separate code path that is inconsistent.",
+        "priority": "LOW"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_notifications_iter47.py",
+    "/app/test_reports/pytest/iter47_notifications.xml"
+  ],
+  "action_items": [
+    "Optional: Fix PUT /api/bookings/{id}/status legacy endpoint to use proper notif_type='booking_accepted'/'booking_refused' for consistency (low priority since /accept and /refuse routes are correct)"
+  ],
+  "critical_code_review_comments": [
+    "PUT /api/bookings/{id}/status (line 241-246 booking_routes.py): push notification uses data.type='booking_status' and no notif_type (defaults to 'info') — inconsistent with /accept + /refuse routes which use 'booking_accepted'/'booking_refused'. Low priority since this endpoint appears unused by frontend.",
+    "asyncio.create_task usage: if create_task fails silently (e.g., event loop shutdown during request), notifications would be silently dropped. Consider adding error logging to catch task failures.",
+    "domain_id in TagPointCreate model is required (str, not Optional[str]) — sending null causes 422. The frontend must always send a valid domain_id when creating SpotYou."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_notifications_iter47.py"
+  ],
+  "success_rate": {
+    "backend": "100% (22/22 tests pass)",
+    "frontend": "N/A (not tested - backend only)"
+  },
+  "test_credentials": {
+    "coach": "coach@winek.app / WinekCoach2024! (Sophie Martin, user_coach001)",
+    "user": "user@winek.app / WinekUser2024! (Thomas Dupont, user_demo001)",
+    "admin": "admin@winek.app / WinekAdmin2024!"
+  },
+  "seed_data_creation": "Created 3 new bookings (user→svc_demo001): 1 left pending for new_booking test, 1 accepted by coach, 1 refused by coach. Created 1 SpotYou (coach, dom_sport, Paris) for join test. Created 1 review (coach→user_demo001, rating=4).",
+  "retest_needed": false,
+  "main_agent_can_self_test": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All 8 notification endpoints are fully functional and tested (22/22 PASS). Notification flow: action endpoint → asyncio.create_task(send_push_to_user) → store_notification() → DB insert + WebSocket broadcast. Note: user→coach review (rev_5f1aaf5f4be9) already exists so test used coach→user direction. svc_demo001 has accumulated many bookings from testing. The domain_id field in TagPointCreate is required (not optional). Backend 100% green for notification system.",
+  "rca_of_issue": "Previous bug: profile_review notification was created AFTER the return statement in user_routes.py line 200 (so it was never executed). Fix: moved asyncio.create_task(send_push_to_user(...)) before the return. Similarly, booking_routes.py was missing notif_type parameter. Both fixes confirmed working in this test run."
+}

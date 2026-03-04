@@ -185,6 +185,7 @@ export default function NotificationsScreen() {
               time: n.created_at || new Date().toISOString(),
               action,
               read: n.read,
+              is_db_notif: true,
             };
           })
         : [];
@@ -262,7 +263,7 @@ export default function NotificationsScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={Colors.primary} />
           }
           renderItem={({ item }) => (
-            <NotifItem item={item} onPress={() => router.push(item.action as any)} />
+            <NotifItem item={item} onPress={() => handleNotifPress(item)} />
           )}
           ItemSeparatorComponent={() => (
             <View style={{ height: 1, backgroundColor: Colors.border, marginLeft: 74 }} />
