@@ -419,13 +419,32 @@ async def unsave_tag_point(point_id: str, request: Request):
 async def join_tag_point(point_id: str, request: Request):
     pool = get_pool()
     user = await require_auth(request, pool)
+    from push_service import send_push_to_user
+    import asyncio
     pid = new_id("part")
     async with pool.acquire() as conn:
+        tp = await conn.fetchrow("SELECT user_id, title FROM tag_points WHERE point_id = $1", point_id)
         await conn.execute(
             "INSERT INTO tag_point_participants (participant_id, point_id, user_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING",
             pid, point_id, user["user_id"]
         )
         count = await conn.fetchval("SELECT COUNT(*) FROM tag_point_participants WHERE point_id=$1", point_id)
+    # Notifier le propriétaire du SpotYou (sauf si c'est lui-même)
+    if tp and tp["user_id"] != user["user_id"]:
+        content_title = tp["title"] or "SpotYou"
+        asyncio.create_task(send_push_to_user(
+            pool, tp["user_id"],
+            title="Nouveau participant",
+            body=f'{user["name"]} a rejoint votre SpotYou «{content_title}»',
+            data={
+                "type": "spotyu_join", "point_id": point_id,
+                "sender_id": user["user_id"], "sender_name": user.get("name", ""),
+                "sender_picture": user.get("picture") or "",
+                "action_text": "a rejoint votre SpotYou",
+                "content_title": content_title,
+            },
+            notif_type="spotyu_join"
+        ))
     return {"success": True, "participants_count": count, "is_participant": True}
 
 
@@ -433,12 +452,31 @@ async def join_tag_point(point_id: str, request: Request):
 async def leave_tag_point(point_id: str, request: Request):
     pool = get_pool()
     user = await require_auth(request, pool)
+    from push_service import send_push_to_user
+    import asyncio
     async with pool.acquire() as conn:
+        tp = await conn.fetchrow("SELECT user_id, title FROM tag_points WHERE point_id = $1", point_id)
         await conn.execute(
             "DELETE FROM tag_point_participants WHERE point_id=$1 AND user_id=$2",
             point_id, user["user_id"]
         )
         count = await conn.fetchval("SELECT COUNT(*) FROM tag_point_participants WHERE point_id=$1", point_id)
+    # Notifier le propriétaire du SpotYou (sauf si c'est lui-même)
+    if tp and tp["user_id"] != user["user_id"]:
+        content_title = tp["title"] or "SpotYou"
+        asyncio.create_task(send_push_to_user(
+            pool, tp["user_id"],
+            title="Participant retiré",
+            body=f'{user["name"]} a quitté votre SpotYou «{content_title}»',
+            data={
+                "type": "spotyu_leave", "point_id": point_id,
+                "sender_id": user["user_id"], "sender_name": user.get("name", ""),
+                "sender_picture": user.get("picture") or "",
+                "action_text": "a quitté votre SpotYou",
+                "content_title": content_title,
+            },
+            notif_type="spotyu_leave"
+        ))
     return {"success": True, "participants_count": count, "is_participant": False}
 
 
@@ -676,6 +714,8 @@ async def get_my_vote(point_id: str, request: Request):
 async def vote_tag_point(point_id: str, request: Request):
     pool = get_pool()
     user = await require_auth(request, pool)
+    from push_service import send_push_to_user
+    import asyncio
     body = await request.json()
     rating = body.get("rating")
     comment = body.get("comment", None)
@@ -684,7 +724,13 @@ async def vote_tag_point(point_id: str, request: Request):
         raise HTTPException(status_code=400, detail="Rating must be between 1 and 5")
 
     vid = new_id("vote")
+    tp_owner_id = None
+    tp_title = None
     async with pool.acquire() as conn:
+        tp = await conn.fetchrow("SELECT user_id, title FROM tag_points WHERE point_id = $1", point_id)
+        if tp:
+            tp_owner_id = tp["user_id"]
+            tp_title = tp["title"]
         existing = await conn.fetchrow(
             "SELECT vote_id FROM tag_point_votes WHERE point_id = $1 AND user_id = $2",
             point_id, user["user_id"]
@@ -699,11 +745,31 @@ async def vote_tag_point(point_id: str, request: Request):
                 "INSERT INTO tag_point_votes (vote_id, point_id, user_id, rating, comment) VALUES ($1, $2, $3, $4, $5)",
                 vid, point_id, user["user_id"], int(rating), comment
             )
-        # Return updated stats
         stats = await conn.fetchrow(
             "SELECT ROUND(AVG(rating)::numeric, 1) as avg_rating, COUNT(*) as vote_count FROM tag_point_votes WHERE point_id = $1",
             point_id
         )
+    # Notifier le propriétaire du SpotYou (sauf si c'est lui-même)
+    if tp_owner_id and tp_owner_id != user["user_id"]:
+        content_title = tp_title or "SpotYou"
+        stars = "⭐" * int(rating)
+        action_text = f"a évalué votre SpotYou {stars}"
+        if comment:
+            action_text = f"a évalué et commenté votre SpotYou {stars}"
+        asyncio.create_task(send_push_to_user(
+            pool, tp_owner_id,
+            title="Nouvelle évaluation",
+            body=f'{user["name"]} {action_text} «{content_title}»',
+            data={
+                "type": "spotyu_vote", "point_id": point_id,
+                "sender_id": user["user_id"], "sender_name": user.get("name", ""),
+                "sender_picture": user.get("picture") or "",
+                "action_text": action_text,
+                "content_title": content_title,
+                "rating": int(rating),
+            },
+            notif_type="spotyu_vote"
+        ))
     return {
         "success": True,
         "avg_rating": float(stats["avg_rating"]) if stats["avg_rating"] else 0,
@@ -871,7 +937,13 @@ async def update_tag_point(point_id: str, data: TagPointUpdate, request: Request
                 pool, p["user_id"],
                 title="SpotYou mis à jour",
                 body=f'"{title_str}" a été mis à jour par son créateur.',
-                data={"type": "spotyu_updated", "point_id": point_id},
+                data={
+                    "type": "spotyu_updated", "point_id": point_id,
+                    "sender_id": user["user_id"], "sender_name": user.get("name", ""),
+                    "sender_picture": user.get("picture") or "",
+                    "action_text": "a mis à jour le SpotYou",
+                    "content_title": title_str,
+                },
                 notif_type="spotyu_updated"
             ))
 
@@ -958,7 +1030,13 @@ async def cancel_tag_point(point_id: str, request: Request):
             pool, p["user_id"],
             title="SpotYou annulé",
             body=f'"{title_str}" a été annulé par son créateur. Les créneaux restent visibles dans votre planning.',
-            data={"type": "spotyu_cancelled", "point_id": point_id},
+            data={
+                "type": "spotyu_cancelled", "point_id": point_id,
+                "sender_id": user["user_id"], "sender_name": user.get("name", ""),
+                "sender_picture": user.get("picture") or "",
+                "action_text": "a annulé le SpotYou",
+                "content_title": title_str,
+            },
             notif_type="spotyu_cancelled"
         ))
     return {"success": True, "cancelled": True}
@@ -994,7 +1072,13 @@ async def restore_tag_point(point_id: str, request: Request):
             pool, p["user_id"],
             title="SpotYou restauré !",
             body=f'"{title_str}" est de nouveau actif. Le badge "Annulé" a été retiré de votre planning.',
-            data={"type": "spotyu_restored", "point_id": point_id},
+            data={
+                "type": "spotyu_restored", "point_id": point_id,
+                "sender_id": user["user_id"], "sender_name": user.get("name", ""),
+                "sender_picture": user.get("picture") or "",
+                "action_text": "a restauré le SpotYou",
+                "content_title": title_str,
+            },
             notif_type="spotyu_restored"
         ))
     return {"success": True, "cancelled": False}

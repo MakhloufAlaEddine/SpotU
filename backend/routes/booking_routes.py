@@ -134,11 +134,19 @@ async def _change_booking_status(booking_id: str, new_status: str, request: Requ
         svc_row = await conn2.fetchrow("SELECT title FROM services WHERE service_id = $1", booking["service_id"])
     svc_name = svc_row["title"] if svc_row else "votre service"
     status_fr = "acceptée ✅" if new_status == "accepted" else "refusée ❌"
+    action_text = f"a accepté votre réservation" if new_status == "accepted" else "a refusé votre réservation"
     asyncio.create_task(send_push_to_user(
         pool, booking["user_id"],
         title=f"Réservation {status_fr}",
         body=f"Votre réservation pour {svc_name} a été {status_fr}",
-        data={"type": "booking_status", "bookingId": booking_id, "status": new_status}
+        data={
+            "type": "booking_status", "bookingId": booking_id, "status": new_status,
+            "service_id": booking["service_id"],
+            "sender_id": user["user_id"], "sender_name": user.get("name", ""),
+            "sender_picture": user.get("picture") or "",
+            "action_text": action_text,
+            "content_title": svc_name,
+        }
     ))
     return booking
 
@@ -192,7 +200,13 @@ async def create_booking(data: BookingCreate, request: Request):
         pool, svc["coach_id"],
         title="Nouvelle réservation",
         body=f"{user_name} souhaite réserver : {svc_name}",
-        data={"type": "new_booking", "bookingId": bid}
+        data={
+            "type": "new_booking", "bookingId": bid, "service_id": data.service_id,
+            "sender_id": user["user_id"], "sender_name": user.get("name", ""),
+            "sender_picture": user.get("picture") or "",
+            "action_text": f"souhaite réserver",
+            "content_title": svc_name,
+        }
     ))
     return row_to_dict(row)
 
