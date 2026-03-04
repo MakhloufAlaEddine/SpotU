@@ -124,6 +124,13 @@ SpotU (ex-WINEK) est une plateforme hyperlocale de connexion sportive basée sur
   - `(tabs)/create.tsx` (SpotYou) : geocodage inversé GPS → Google
   - `set-location.tsx` : recherche + géocodage → Google
   - Clé: EXPO_PUBLIC_GOOGLE_PLACES_KEY dans frontend/.env
+- [x] **Système de Notifications Temps Réel** - TERMINÉ Mars 2026
+  - Backend : table `notifications`, `store_notification()`, `send_push_to_user()` avec `notif_type` correct
+  - Types : `new_booking`, `booking_accepted`, `booking_refused`, `spotyu_join`, `spotyu_leave`, `spotyu_vote`, `profile_review`
+  - WebSocket `/api/ws/notifications` : compteurs `unread_total` + `unread_notif` en temps réel
+  - Endpoints : `GET /api/users/me/notifications`, `PATCH /api/users/me/notifications/{id}/read`, `PATCH /api/users/me/notifications/read-all`
+  - Frontend : écran Notifications redesigné (bookings.tsx), badge cloche, marquage lu individuel/global
+  - Testé : backend 22/22 (iter_47)
 
 ### P1 - Important
 - [ ] Intégration Stripe (paiements)
