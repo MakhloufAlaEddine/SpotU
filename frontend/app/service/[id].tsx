@@ -73,11 +73,8 @@ export default function ServiceDetailScreen() {
 
   const [service, setService] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [showBooking, setShowBooking] = useState(false);
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
-  const [notes, setNotes] = useState('');
-  const [submitting, setSubmitting] = useState(false);
   const [activeLocIdx, setActiveLocIdx] = useState(0);
   const [collapsedDates, setCollapsedDates] = useState<Set<string>>(new Set());
   const [visibleCount, setVisibleCount] = useState(4);
@@ -86,10 +83,7 @@ export default function ServiceDetailScreen() {
   const [savingInProgress, setSavingInProgress] = useState(false);
   const photoListRef = useRef<FlatList>(null);
 
-  // ── Demandes / réservations ─────────────────────────────────────────────────
-  const [serviceBookings, setServiceBookings] = useState<any[]>([]);
-  const [showRequests, setShowRequests]       = useState(false);
-  const [loadingRequests, setLoadingRequests] = useState(false);
+  // ── États pour les demandes/réservations supprimés (géré dans booking/confirm) ──
 
   const toggleDate = (key: string) => {
     setCollapsedDates(prev => {
@@ -131,10 +125,6 @@ export default function ServiceDetailScreen() {
         try {
           const saved = await api.get('/services/saved');
           setIsSaved((saved || []).some((s: any) => s.service_id === id));
-        } catch {}
-        try {
-          const bookings = await api.get<any[]>(`/bookings/service/${id}`);
-          setServiceBookings(bookings || []);
         } catch {}
       }
     } catch (e: any) {
@@ -190,24 +180,6 @@ export default function ServiceDetailScreen() {
     finally { setChatLoading(false); }
   };
 
-  const handleAcceptInModal = async (bookingId: string) => {
-    try {
-      await api.post(`/bookings/${bookingId}/accept`, {});
-      setServiceBookings(prev => prev.map(b => b.booking_id === bookingId ? { ...b, status: 'accepted' } : b));
-    } catch (e: any) {
-      Alert.alert('Erreur', e.message || 'Impossible d\'accepter');
-    }
-  };
-
-  const handleRefuseInModal = async (bookingId: string) => {
-    try {
-      await api.post(`/bookings/${bookingId}/refuse`, {});
-      setServiceBookings(prev => prev.map(b => b.booking_id === bookingId ? { ...b, status: 'refused' } : b));
-    } catch (e: any) {
-      Alert.alert('Erreur', e.message || 'Impossible de refuser');
-    }
-  };
-
   if (loading) {
     return (
       <View style={{ flex: 1, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' }}>
@@ -246,33 +218,7 @@ export default function ServiceDetailScreen() {
         </TouchableOpacity>
         <Text style={s.headerTitle} numberOfLines={1}>Détail du service</Text>
         {/* Bouton favoris */}
-        {/* Bouton demandes (coach) / ma demande (user) + favoris */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-          {isOwnService && (
-            <TouchableOpacity
-              style={s.headerBackBtn}
-              onPress={() => setShowRequests(true)}
-              testID="requests-btn"
-            >
-              <View>
-                <Ionicons name="people-outline" size={22} color={Colors.primary} />
-                {serviceBookings.length > 0 && (
-                  <View style={rb.badge}>
-                    <Text style={rb.badgeTxt}>{serviceBookings.length > 9 ? '9+' : serviceBookings.length}</Text>
-                  </View>
-                )}
-              </View>
-            </TouchableOpacity>
-          )}
-          {!isOwnService && serviceBookings.length > 0 && (
-            <TouchableOpacity
-              style={s.headerBackBtn}
-              onPress={() => setShowRequests(true)}
-              testID="my-booking-btn"
-            >
-              <Ionicons name="calendar-outline" size={22} color={Colors.primary} />
-            </TouchableOpacity>
-          )}
           <TouchableOpacity
             style={s.headerBackBtn}
             onPress={handleToggleSave}
@@ -699,101 +645,6 @@ export default function ServiceDetailScreen() {
         </View>
       )}
 
-      {/* ── Booking Modal ─────────────────────────────────────────────────── */}
-
-      {/* ── Modal Demandes / Ma demande ────────────────────────────────────── */}
-      <Modal visible={showRequests} animationType="slide" transparent onRequestClose={() => setShowRequests(false)}>
-        <View style={rb.overlay}>
-          <TouchableOpacity style={rb.backdrop} activeOpacity={1} onPress={() => setShowRequests(false)} />
-          <View style={[rb.sheet, { maxHeight: '80%' }]}>
-            {/* Header modal */}
-            <View style={rb.header}>
-              <Text style={rb.title}>
-                {isOwnService
-                  ? `Demandes reçues (${serviceBookings.length})`
-                  : 'Ma demande'}
-              </Text>
-              <TouchableOpacity onPress={() => setShowRequests(false)} testID="close-requests-modal">
-                <Ionicons name="close" size={22} color={Colors.foreground} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {serviceBookings.length === 0 ? (
-                <View style={rb.empty}>
-                  <Ionicons name="calendar-outline" size={40} color={Colors.muted} />
-                  <Text style={rb.emptyTxt}>Aucune demande pour l'instant</Text>
-                </View>
-              ) : (
-                serviceBookings.map((b) => {
-                  const STATUS: Record<string, { label: string; color: string }> = {
-                    pending:  { label: 'En attente', color: '#F59E0B' },
-                    accepted: { label: 'Acceptée',   color: Colors.primary },
-                    refused:  { label: 'Refusée',    color: '#EF4444' },
-                  };
-                  const st = STATUS[b.status] ?? STATUS.pending;
-                  const person = isOwnService ? b.user : b.coach;
-                  return (
-                    <View key={b.booking_id} style={rb.rowContainer}>
-                      <TouchableOpacity
-                        style={rb.row}
-                        activeOpacity={0.75}
-                        onPress={() => { setShowRequests(false); router.push(`/booking/${b.booking_id}` as any); }}
-                        testID={`booking-row-${b.booking_id}`}
-                      >
-                        {/* Avatar */}
-                        <View style={rb.avatar}>
-                          {person?.picture
-                            ? <Image source={{ uri: person.picture }} style={{ width: '100%', height: '100%' }} />
-                            : <Text style={rb.avatarLetter}>{person?.name?.charAt(0)?.toUpperCase() || '?'}</Text>
-                          }
-                        </View>
-                        <View style={rb.rowContent}>
-                          <Text style={rb.rowName} numberOfLines={1}>{person?.name || '—'}</Text>
-                          {b.slot && (
-                            <Text style={rb.rowSub} numberOfLines={1}>
-                              {b.slot.slot_date ?? `Jour ${b.slot.day_of_week}`}
-                              {b.slot.start_time ? `  ${b.slot.start_time}→${b.slot.end_time}` : ''}
-                            </Text>
-                          )}
-                          {b.notes ? <Text style={rb.rowNote} numberOfLines={1}>{b.notes}</Text> : null}
-                        </View>
-                        <View style={[rb.statusBadge, { backgroundColor: st.color + '22', borderColor: st.color + '55' }]}>
-                          <Text style={[rb.statusTxt, { color: st.color }]}>{st.label}</Text>
-                        </View>
-                        <Ionicons name="chevron-forward" size={14} color={Colors.muted} />
-                      </TouchableOpacity>
-                      {isOwnService && b.status === 'pending' && (
-                        <View style={rb.actionRow}>
-                          <TouchableOpacity
-                            style={rb.acceptBtn}
-                            onPress={() => handleAcceptInModal(b.booking_id)}
-                            testID={`accept-booking-${b.booking_id}`}
-                            activeOpacity={0.8}
-                          >
-                            <Ionicons name="checkmark" size={13} color="#fff" />
-                            <Text style={rb.acceptBtnTxt}>Accepter</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={rb.refuseBtn}
-                            onPress={() => handleRefuseInModal(b.booking_id)}
-                            testID={`refuse-booking-${b.booking_id}`}
-                            activeOpacity={0.8}
-                          >
-                            <Ionicons name="close" size={13} color="#EF4444" />
-                            <Text style={rb.refuseBtnTxt}>Refuser</Text>
-                          </TouchableOpacity>
-                        </View>
-                      )}
-                    </View>
-                  );
-                })
-              )}
-              <View style={{ height: 24 }} />
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -1032,98 +883,5 @@ const s = StyleSheet.create({
     backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border,
   },
   bookBtnText: { fontSize: 13, fontWeight: '800', color: Colors.background },
-});
-
-const ms = StyleSheet.create({
-  overlay: { flex: 1, justifyContent: 'flex-end' },
-  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)' },
-  sheet: {
-    backgroundColor: Colors.background,
-    borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    padding: Spacing.lg, paddingBottom: 36,
-    maxHeight: '90%',
-  },
-  sheetHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    marginBottom: Spacing.lg,
-  },
-  sheetTitle: { fontSize: 18, fontWeight: '800', color: Colors.foreground },
-
-  // Groups
-  group: { marginBottom: Spacing.md },
-  groupLabel: {
-    fontSize: 11, fontWeight: '700', color: Colors.muted,
-    textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8,
-  },
-
-  // Option cards (location / slot)
-  optCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    padding: 12, borderRadius: Radius.lg, marginBottom: 8,
-    backgroundColor: Colors.card, borderWidth: 1.5, borderColor: Colors.border,
-  },
-  optCardActive: { borderColor: ORANGE, backgroundColor: ORANGE_LIGHT },
-  optText: { fontSize: 14, fontWeight: '600', color: Colors.muted, flex: 1 },
-  optTextActive: { color: Colors.foreground },
-  optSub: { fontSize: 11, color: Colors.muted, marginTop: 2 },
-
-  // Notes
-  notesInput: {
-    backgroundColor: Colors.card, borderRadius: Radius.md,
-    borderWidth: 1, borderColor: Colors.border,
-    padding: Spacing.md, fontSize: 14, color: Colors.foreground,
-    minHeight: 80, textAlignVertical: 'top',
-  },
-
-  // Price summary
-  priceSummary: {
-    backgroundColor: Colors.card, borderRadius: Radius.lg,
-    padding: Spacing.md, marginBottom: Spacing.md,
-    borderWidth: 1, borderColor: Colors.border, gap: 6,
-  },
-  priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  priceRowLabel: { fontSize: 13, color: Colors.foreground },
-  priceRowValue: { fontSize: 13, fontWeight: '700', color: Colors.foreground },
-  priceTotalRow: {
-    marginTop: 6, paddingTop: 8,
-    borderTopWidth: 1, borderTopColor: Colors.border,
-  },
-  priceTotalLabel: { fontSize: 15, fontWeight: '700', color: Colors.foreground },
-  priceTotalValue: { fontSize: 18, fontWeight: '900', color: ORANGE },
-
-  // Confirm button
-  confirmBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-    backgroundColor: ORANGE, borderRadius: Radius.full, paddingVertical: 15,
-  },
-  confirmBtnDisabled: { opacity: 0.5 },
-  confirmBtnText: { fontSize: 16, fontWeight: '800', color: Colors.background },
-});
-
-const rb = StyleSheet.create({
-  badge:        { position: 'absolute', top: -4, right: -4, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
-  badgeTxt:     { fontSize: 9, fontWeight: '800', color: Colors.background },
-  overlay:      { flex: 1, justifyContent: 'flex-end' },
-  backdrop:     { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.55)' },
-  sheet:        { backgroundColor: Colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: Spacing.lg, paddingBottom: 40 },
-  header:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.lg },
-  title:        { fontSize: 17, fontWeight: '800', color: Colors.foreground },
-  rowContainer: { borderBottomWidth: 1, borderBottomColor: Colors.border },
-  row:          { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
-  actionRow:    { flexDirection: 'row', gap: 8, paddingBottom: 12 },
-  acceptBtn:    { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 9, borderRadius: 10, backgroundColor: Colors.primary },
-  acceptBtnTxt: { fontSize: 13, fontWeight: '700', color: Colors.background },
-  refuseBtn:    { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 9, borderRadius: 10, backgroundColor: 'rgba(239,68,68,0.08)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.3)' },
-  refuseBtnTxt: { fontSize: 13, fontWeight: '700', color: '#EF4444' },
-  avatar:       { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 },
-  avatarLetter: { fontSize: 16, fontWeight: '700', color: Colors.primary },
-  rowContent:   { flex: 1, gap: 2 },
-  rowName:      { fontSize: 14, fontWeight: '700', color: Colors.foreground },
-  rowSub:       { fontSize: 12, color: Colors.muted },
-  rowNote:      { fontSize: 12, color: Colors.muted, fontStyle: 'italic' },
-  statusBadge:  { borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1 },
-  statusTxt:    { fontSize: 11, fontWeight: '700' },
-  empty:        { alignItems: 'center', paddingVertical: 40, gap: 12 },
-  emptyTxt:     { fontSize: 14, color: Colors.muted },
 });
 

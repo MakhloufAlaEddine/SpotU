@@ -16,7 +16,6 @@ from routes.domain_routes import router as domain_router
 from routes.tagpoint_routes import router as tagpoint_router
 from routes.service_routes import router as service_router
 from routes.booking_routes import router as booking_router
-from routes.payment_routes import router as payment_router
 from routes.admin_routes import router as admin_router
 from routes.upload_routes import router as upload_router
 from routes.chat_routes import router as chat_router
@@ -34,7 +33,6 @@ api_router.include_router(domain_router, tags=["domains"])
 api_router.include_router(tagpoint_router, tags=["tagpoints"])
 api_router.include_router(service_router, tags=["services"])
 api_router.include_router(booking_router, tags=["bookings"])
-api_router.include_router(payment_router, tags=["payments"])
 api_router.include_router(admin_router, prefix="/admin", tags=["admin"])
 api_router.include_router(chat_router, tags=["chat"])
 api_router.include_router(push_router, prefix="/users", tags=["push"])

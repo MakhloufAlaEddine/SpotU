@@ -201,16 +201,6 @@ class BookingCreate(BaseModel):
     notes: Optional[str] = None
 
 
-class BookingStatusUpdate(BaseModel):
-    status: BookingStatus
-
-
-# --- PAYMENT ---
-class PaymentCheckoutRequest(BaseModel):
-    booking_id: str
-    origin_url: str
-
-
 # --- REVIEW ---
 class ReviewCreate(BaseModel):
     booking_id: str

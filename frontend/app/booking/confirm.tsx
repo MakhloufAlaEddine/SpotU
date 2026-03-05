@@ -58,7 +58,7 @@ export default function BookingConfirmScreen() {
         scheduled_at: scheduledAt || null,
         notes: notes.trim() || null,
       });
-      router.replace('/booking/success' as any);
+      router.replace('/(tabs)/' as any);
     } catch (err: any) {
       alert(err.message || 'Impossible de créer la réservation');
     } finally {

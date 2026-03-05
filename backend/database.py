@@ -130,11 +130,10 @@ CREATE TABLE IF NOT EXISTS bookings (
     scheduled_at TIMESTAMPTZ,
     notes TEXT,
     amount NUMERIC(10,2),
-    commission NUMERIC(10,2),
-    payment_status TEXT DEFAULT 'pending',
-    payment_session_id TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    slot_id TEXT,
+    location_id TEXT
 );
 
 CREATE TABLE IF NOT EXISTS reviews (
@@ -145,20 +144,6 @@ CREATE TABLE IF NOT EXISTS reviews (
     rating INTEGER CHECK (rating >= 1 AND rating <= 5),
     comment TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS payment_transactions (
-    transaction_id TEXT PRIMARY KEY,
-    booking_id TEXT,
-    user_id TEXT,
-    session_id TEXT,
-    amount NUMERIC(10,2),
-    currency TEXT DEFAULT 'eur',
-    status TEXT DEFAULT 'initiated',
-    payment_status TEXT DEFAULT 'pending',
-    metadata JSONB DEFAULT '{}',
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS tag_point_votes (

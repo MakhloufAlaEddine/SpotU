@@ -28,17 +28,6 @@ function formatDuration(start: string, end: string) {
   return mins < 60 ? `${mins}min` : `${Math.floor(mins/60)}h${mins%60 ? (mins%60)+'min' : ''}`;
 }
 
-function bookingDate(b: any): string | null {
-  return b.slot?.slot_date || b.slot?.date || null;
-}
-
-const STATUS_CFG: Record<string, { color: string; label: string }> = {
-  confirmed: { color: Colors.primary,  label: 'Confirmé'  },
-  pending:   { color: '#F59E0B',        label: 'En attente'},
-  cancelled: { color: '#EF4444',        label: 'Annulé'   },
-  completed: { color: Colors.muted,     label: 'Terminé'  },
-};
-
 // Couleur des événements SpotYou / SpotMe
 const EVENT_COLOR    = '#8B5CF6'; // violet — SpotYou
 const SPOTME_COLOR   = '#10B981'; // vert emeraude — SpotMe (mes propres événements)
@@ -57,30 +46,16 @@ function intervalsOverlap(s1: string, e1: string, s2: string, e2: string): boole
   return timeToMin(s1) < timeToMin(e2) && timeToMin(s2) < timeToMin(e1);
 }
 
-/** Retourne le Set des IDs d'items en conflit pour une journée donnée.
- *  Clé booking → booking_id, clé event → point_id_date */
-function detectDayConflicts(
-  bks: any[],
-  evts: any[],
-): Set<string> {
-  // Construire une liste normalisée {id, start, end}
+/** Retourne le Set des IDs d'événements en conflit pour une journée donnée. */
+function detectDayConflicts(evts: any[]): Set<string> {
   const timed: { id: string; start: string; end: string }[] = [];
-
-  bks.forEach(b => {
-    const start = b.slot?.start_time;
-    const end   = b.slot?.end_time;
-    if (start) {
-      const endFallback = end || `${String(Math.floor(timeToMin(start) / 60 + DEFAULT_DURATION_MIN / 60)).padStart(2,'0')}:${String((timeToMin(start) + DEFAULT_DURATION_MIN) % 60).padStart(2,'0')}`;
-      timed.push({ id: b.booking_id, start, end: endFallback });
-    }
-  });
 
   evts.forEach(e => {
     if (e.time) {
       const s = e.time;
       const totalMin = timeToMin(s) + DEFAULT_DURATION_MIN;
       const endFallback = `${String(Math.floor(totalMin / 60)).padStart(2,'0')}:${String(totalMin % 60).padStart(2,'0')}`;
-      timed.push({ id: `${e.point_id}_${e.date}`, start: s, end: endFallback });
+      timed.push({ id: `${e.point_id}_${e.date}`, start: s, end: e.end_time || endFallback });
     }
   });
 
@@ -97,12 +72,11 @@ function detectDayConflicts(
 }
 
 type AgendaItem =
-  | { kind: 'header';  date: string }
-  | { kind: 'empty';   date: string }
-  | { kind: 'booking'; date: string; booking: any }
-  | { kind: 'event';   date: string; event: any };
+  | { kind: 'header'; date: string }
+  | { kind: 'empty';  date: string }
+  | { kind: 'event';  date: string; event: any };
 
-type FilterType = 'all' | 'bookings' | 'events';
+type FilterType = 'all' | 'events';
 
 // ── Bande de semaine ───────────────────────────────────────────────────────────
 function WeekStrip({ selectedDate, dotDates, eventDates, onSelectDate }: {
@@ -167,49 +141,7 @@ function WeekStrip({ selectedDate, dotDates, eventDates, onSelectDate }: {
   );
 }
 
-// ── Carte de réservation ───────────────────────────────────────────────────────
-function BookingCard({ booking, onPress, isConflict }: { booking: any; onPress: () => void; isConflict?: boolean }) {
-  const sc = STATUS_CFG[booking.status] || STATUS_CFG.pending;
-  const slot = booking.slot || {};
-  const time = slot.start_time || '--:--';
-  const duration = slot.start_time && slot.end_time ? formatDuration(slot.start_time, slot.end_time) : null;
-
-  return (
-    <TouchableOpacity
-      style={[bc.row, isConflict && bc.rowConflict]}
-      onPress={onPress} activeOpacity={0.75}
-      testID={`booking-${booking.booking_id}`}>
-      <View style={bc.timeCol}>
-        <Text style={[bc.time, isConflict && bc.timeConflict]}>{time}</Text>
-        {duration && <Text style={bc.duration}>{duration}</Text>}
-      </View>
-      <View style={[bc.stripe, { backgroundColor: sc.color }]} />
-      <View style={bc.content}>
-        <Text style={[bc.title, isConflict && bc.titleConflict]} numberOfLines={1}>
-          {booking.service?.title || 'Séance'}
-        </Text>
-        <Text style={bc.sub} numberOfLines={1}>
-          {booking.coach?.name || 'Coach'}
-          {booking.service?.category ? ` · ${booking.service.category}` : ''}
-        </Text>
-      </View>
-      <View style={bc.badges}>
-        {isConflict && (
-          <View style={bc.conflictBadge}>
-            <Ionicons name="warning" size={10} color={CONFLICT_COLOR} />
-            <Text style={bc.conflictTxt}>Conflit</Text>
-          </View>
-        )}
-        <View style={[bc.badge, { backgroundColor: sc.color + '22' }]}>
-          <Text style={[bc.badgeTxt, { color: sc.color }]}>{sc.label}</Text>
-        </View>
-      </View>
-      <Ionicons name="chevron-forward" size={14} color={Colors.muted} />
-    </TouchableOpacity>
-  );
-}
-
-// ── Carte d'événement SpotYou / SpotMe ────────────────────────────────────────
+// ── Écran principal ────────────────────────────────────────────────────────────
 function EventCard({ event, onPress, isConflict }: { event: any; onPress: () => void; isConflict?: boolean }) {
   const isOwn      = !!event.is_own;
   const isCancelled = !!event.is_cancelled;
@@ -261,7 +193,6 @@ export default function PlanningScreen() {
   const router = useRouter();
   const today = isoDate(new Date());
 
-  const [bookings, setBookings]     = useState<any[]>([]);
   const [events, setEvents]         = useState<any[]>([]);
   const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -277,14 +208,9 @@ export default function PlanningScreen() {
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     try {
-      const [bData, eData] = await Promise.all([
-        api.get<any[]>('/bookings/mine').catch(() => []),
-        api.get<any[]>('/users/me/planning-events').catch(() => []),
-      ]);
-      setBookings(Array.isArray(bData) ? bData : []);
+      const eData = await api.get<any[]>('/users/me/planning-events').catch(() => []);
       setEvents(Array.isArray(eData) ? eData : []);
     } catch {
-      setBookings([]);
       setEvents([]);
     } finally {
       setLoading(false);
@@ -299,33 +225,23 @@ export default function PlanningScreen() {
     const startDate = new Date(); startDate.setDate(startDate.getDate() - 30);
     const endDate = new Date();   endDate.setDate(endDate.getDate() + 90);
 
-    // Étendre la plage jusqu'au dernier élément
-    [...bookings, ...events].forEach(item => {
-      const d = item.date ? parseDate(item.date) : (bookingDate(item) ? parseDate(bookingDate(item)!) : null);
-      if (d && d > endDate) endDate.setTime(d.getTime());
+    events.forEach(item => {
+      if (item.date) {
+        const d = parseDate(item.date);
+        if (d > endDate) endDate.setTime(d.getTime());
+      }
     });
 
-    // Indexer bookings et events par date
-    const byDate: Record<string, { bks: any[]; evts: any[] }> = {};
+    const byDate: Record<string, any[]> = {};
     const dots = new Set<string>();
     const evtDots = new Set<string>();
 
-    const showBks = filter !== 'events';
-    const showEvts = filter !== 'bookings';
-
-    if (showBks) bookings.forEach(b => {
-      const d = bookingDate(b);
-      if (d) {
-        if (!byDate[d]) byDate[d] = { bks: [], evts: [] };
-        byDate[d].bks.push(b);
-        dots.add(d);
-      }
-    });
-    if (showEvts) events.forEach(e => {
+    events.forEach(e => {
       if (e.date) {
-        if (!byDate[e.date]) byDate[e.date] = { bks: [], evts: [] };
-        byDate[e.date].evts.push(e);
+        if (!byDate[e.date]) byDate[e.date] = [];
+        byDate[e.date].push(e);
         evtDots.add(e.date);
+        dots.add(e.date);
       }
     });
 
@@ -341,29 +257,12 @@ export default function PlanningScreen() {
       result.push({ kind: 'header', date: ds });
       idx++;
 
-      const day = byDate[ds];
-      const allItems: AgendaItem[] = [];
-
-      const dayBks = day?.bks || [];
-      const dayEvts = day?.evts || [];
-
-      // Détecter les conflits pour cette journée
-      const dayConflicts = detectDayConflicts(dayBks, dayEvts);
+      const dayEvts = (byDate[ds] || []).sort((a, b) => (a.time || '') < (b.time || '') ? -1 : 1);
+      const dayConflicts = detectDayConflicts(dayEvts);
       dayConflicts.forEach(id => allConflicts.add(id));
 
-      if (dayBks.length > 0) {
-        dayBks
-          .sort((a, b) => (a.slot?.start_time || '') < (b.slot?.start_time || '') ? -1 : 1)
-          .forEach(bk => allItems.push({ kind: 'booking', date: ds, booking: bk }));
-      }
       if (dayEvts.length > 0) {
-        dayEvts
-          .sort((a, b) => (a.time || '') < (b.time || '') ? -1 : 1)
-          .forEach(ev => allItems.push({ kind: 'event', date: ds, event: ev }));
-      }
-
-      if (allItems.length > 0) {
-        allItems.forEach(i => { result.push(i); idx++; });
+        dayEvts.forEach(ev => { result.push({ kind: 'event', date: ds, event: ev }); idx++; });
       } else {
         result.push({ kind: 'empty', date: ds });
         idx++;
@@ -374,7 +273,7 @@ export default function PlanningScreen() {
     dateIndexMap.current = idxMap;
     hasScrolledToday.current = false;
     return { items: result, dotDates: dots, eventDates: evtDots, conflictIds: allConflicts };
-  }, [bookings, events, filter]);
+  }, [events, filter]);
 
   // ── Scroll vers aujourd'hui après chargement ───────────────────────────────
   useEffect(() => {
@@ -443,23 +342,14 @@ export default function PlanningScreen() {
         />
       );
     }
-    // booking
-    const bk = (item as any).booking;
-    const svcId = bk.service?.service_id || bk.service_id;
-    return (
-      <BookingCard
-        booking={bk}
-        isConflict={conflictIds.has(bk.booking_id)}
-        onPress={() => { if (svcId) router.push(`/service/${svcId}` as any); }}
-      />
-    );
+    return null;
   }, [today, conflictIds]);
 
   const keyExtractor = useCallback((item: AgendaItem, index: number) => {
     if (item.kind === 'header') return `hdr-${item.date}`;
     if (item.kind === 'empty')   return `emp-${item.date}-${index}`;
     if (item.kind === 'event')   return `evt-${(item as any).event.point_id}-${item.date}`;
-    return `bkg-${(item as any).booking.booking_id}-${index}`;
+    return `item-${index}`;
   }, []);
 
   const filterBtnStyle = (f: FilterType) => [
@@ -489,14 +379,10 @@ export default function PlanningScreen() {
           <View style={{ width: 40 }} />
         </View>
 
-        {/* Filtre : Tout / Réservations / Événements */}
+        {/* Filtre : Tout / Événements */}
         <View style={s.filterBar}>
           <TouchableOpacity style={filterBtnStyle('all')} onPress={() => setFilter('all')} testID="filter-all">
             <Text style={filterTxtStyle('all')}>Tout</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={filterBtnStyle('bookings')} onPress={() => setFilter('bookings')} testID="filter-bookings">
-            <Ionicons name="calendar" size={12} color={filter === 'bookings' ? Colors.background : Colors.muted} />
-            <Text style={filterTxtStyle('bookings')}>Réservations</Text>
           </TouchableOpacity>
           <TouchableOpacity style={filterBtnStyle('events')} onPress={() => setFilter('events')} testID="filter-events">
             <Ionicons name="location" size={12} color={filter === 'events' ? Colors.background : EVENT_COLOR} />
@@ -583,24 +469,6 @@ const ag = StyleSheet.create({
   emptyTxt: { fontSize: 13, color: Colors.muted, fontStyle: 'italic' },
 });
 
-const bc = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
-  rowConflict: { backgroundColor: '#EF444408' },
-  timeCol: { width: 52, alignItems: 'flex-end', gap: 2 },
-  time: { fontSize: 14, fontWeight: '700', color: Colors.foreground },
-  timeConflict: { color: CONFLICT_COLOR },
-  duration: { fontSize: 11, color: Colors.muted },
-  stripe: { width: 3, height: 40, borderRadius: 2 },
-  content: { flex: 1, gap: 3 },
-  title: { fontSize: 14, fontWeight: '600', color: Colors.foreground },
-  titleConflict: { color: CONFLICT_COLOR },
-  sub: { fontSize: 12, color: Colors.muted },
-  badges: { flexDirection: 'column', alignItems: 'flex-end', gap: 4 },
-  badge: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8 },
-  badgeTxt: { fontSize: 10, fontWeight: '700' },
-  conflictBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#EF444422', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8 },
-  conflictTxt: { fontSize: 10, fontWeight: '700', color: CONFLICT_COLOR },
-});
 
 const ec = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
