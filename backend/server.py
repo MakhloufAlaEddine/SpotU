@@ -45,12 +45,31 @@ _uploads_dir = ROOT_DIR / "uploads"
 _uploads_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/api/uploads", StaticFiles(directory=str(_uploads_dir)), name="uploads")
 
+# ── [SEC-11] CORS — origines explicites depuis l'environnement ───────────────
+# ALLOWED_ORIGINS : liste CSV d'origines autorisées (ex: https://app.exemple.com,http://localhost:3000)
+# Ne JAMAIS utiliser ["*"] avec allow_credentials=True (invalide selon la spec CORS).
+_raw_origins = os.environ.get("ALLOWED_ORIGINS", "").strip()
+if _raw_origins:
+    _allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+else:
+    # Fallback sur APP_URL si ALLOWED_ORIGINS absent — log avertissement
+    _app_url = os.environ.get("APP_URL", "").strip()
+    _allowed_origins = [_app_url] if _app_url else []
+    logger.warning(
+        "CORS: ALLOWED_ORIGINS absent du .env — utilisation de APP_URL=%r en fallback. "
+        "Définissez ALLOWED_ORIGINS explicitement en production.",
+        _app_url or "(vide)",
+    )
+
+if not _allowed_origins:
+    logger.error("CORS: aucune origine autorisée configurée — toutes les requêtes CORS seront bloquées.")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 
