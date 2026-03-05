@@ -325,7 +325,7 @@ agent_communication:
       - Coach: coach@winek.app / WinekCoach2024!
       - User: user@winek.app / WinekUser2024!
       
-      FRONTEND URL: https://realtime-discovery.preview.emergentagent.com
-      BACKEND URL: https://realtime-discovery.preview.emergentagent.com/api
+      FRONTEND URL: https://taglive-demo.preview.emergentagent.com
+      BACKEND URL: https://taglive-demo.preview.emergentagent.com/api
       
       Test all high priority features. Note: Stripe payment test not critical for MVP verification.
