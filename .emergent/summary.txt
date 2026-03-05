@@ -11,80 +11,77 @@
 **User's preferred language**: French. The next agent MUST respond in **French**.
 
 **what currently exists?**
-A full-stack application using Expo (React Native) for the frontend and FastAPI for the backend. The agent has just worked through a series of user-reported bugs, including multiple frontend environment failures (Expo Metro bundler crashes), file upload issues, and data display problems. Several fixes have been implemented, but the core file upload functionality remains broken for the user, who is testing on a web browser, not the native Expo Go app.
+A full-stack application using Expo (React Native) for the frontend and FastAPI/PostgreSQL for the backend. A comprehensive Playwright E2E test suite has just been created and successfully executed for the web version of the application, covering all major features. The agent has fixed several critical bugs, including platform-specific file upload issues (for both web and native), incorrect image display on home/search screens, and a duplicate import crash. The last user-reported issue is that images deleted from a SpotYou/Service are not being removed from the database upon saving.
 
 **Last working item**:
--   **Last item agent was working**: Fixing a file upload failure. The agent had implemented a fix using , which is a native-only Expo API. The user provided a screenshot showing they were testing in a web browser (◀ Chrome), which caused the native API to fail. The agent correctly identified this platform mismatch as the root cause of the persistent failure.
+-   **Last item agent was working**: Investigating a bug where the backend  endpoints for SpotYous and Services were not correctly updating the  array in the database when images were removed on the frontend. The agent discovered the root cause: a misunderstanding of how  handles  types. The agent incorrectly added  to the  list before the database query, which caused PostgreSQL to store a JSON *string* instead of a native JSONB array, breaking the update logic. After extensive testing with , the agent concluded that the  was an error and the correct approach is to pass the raw Python list directly to  with a  cast. The agent was in the process of reverting the incorrect  additions.
 -   **Status**: IN PROGRESS
--   **Agent Testing Done**: N (The implemented fix was not platform-aware and thus failed for the user's environment)
--   **Which testing method agent to use?**: manual testing by curl. The agent should first implement a platform-aware upload solution, then test it via  for the backend and by running the frontend and attempting an upload in a web context.
+-   **Agent Testing Done**: N (The fix has been identified but not yet implemented and tested.)
+-   **Which testing method agent to use?**: backend testing agent. Use  to test the  and  endpoints.
 -   **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: File Upload Fails on Web Browser (P0)**
+-   **Issue 1: Deleted images are not removed from the database (P0)**
 -   **Issue 2: Update SpotYou flow does not work (P1)**
 -   **Issue 3: Expo Hot-Reload Instability (P1 - RECURRING)**
--   **Issue 4: Pre-existing tests are failing (P2)**
+-   **Issue 4: Pre-existing backend tests are failing (P2)**
 
 **Issues Detail**:
--   **Issue 1: File Upload Fails on Web Browser**
-    -   **Attempted fixes**: The agent replaced a buggy  call with . This failed because  is a native-only API and the user is testing on the web.
+-   **Issue 1: Deleted images are not removed from the database**
+    -   **Attempted fixes**: The agent incorrectly added  to the  payload in  and , which caused further issues with data typing (storing a string instead of a JSONB array).
     -   **Next debug checklist**:
-        1.  Go to .
-        2.  In the  function, add platform detection using .
-        3.  If , use the standard  with  approach.
-        4.  If  is  or , use the already implemented .
-        5.  Ensure the frontend correctly rebuilds and test the upload functionality again.
-    -   **Why fix this issue and what will be achieved with the fix?**: This is a critical bug blocking the core functionality of creating and updating SpotYous with images.
+        1.  Open .
+        2.  In the  function, find the  query. Remove the  call around the  variable, passing the Python list directly.
+        3.  Open .
+        4.  In the  function, verify that  and  are also passed as Python lists directly to the query, without .
+        5.  Restart the backend service.
+        6.  Use  to test the  endpoint for both a SpotYou and a Service, sending a payload with a modified  list (e.g., with one fewer image) to confirm the database is updated correctly.
+    -   **Why fix this issue and what will be achieved with the fix?**: This is a critical data integrity bug. Fixing it will ensure that user edits to image galleries are correctly saved.
     -   **Status**: IN PROGRESS
-    -   **Is recurring issue?**: Y
-    -   **Should Test frontend/backend/both after fix?**: both
+    -   **Is recurring issue?**: N
+    -   **Should Test frontend/backend/both after fix?**: backend
     -   **Blocked on other issue**: None
 
 -   **Issue 2: Update SpotYou flow does not work**
-    -   **Attempted fixes**: The agent confirmed via logs that the backend  endpoint returns a . The investigation was paused to focus on the file upload bug, which affects this flow as well. The root cause is likely in the frontend's state management or navigation after the update completes.
+    -   **Description**: This was an earlier reported issue that was blocked by file upload problems. Now that uploads are fixed, this needs to be re-evaluated. It might be a side-effect of the image deletion bug (Issue 1).
     -   **Next debug checklist**:
-        1.  Once the upload issue (Issue 1) is resolved, re-examine the  function in the frontend.
-        2.  Trace the state updates and navigation calls after the API request succeeds.
-        3.  Check the browser console for any client-side errors during the update process.
-    -   **Why fix this issue and what will be achieved with the fix?**: It will restore a core CRUD functionality for users managing their SpotYous.
+        1.  After Issue 1 is resolved, use the E2E test suite () to test the entire SpotYou update flow.
+        2.  If it fails, check the browser console and backend logs for errors during the update process.
+    -   **Why fix this issue and what will be achieved with the fix?**: Restores core CRUD functionality.
     -   **Status**: NOT STARTED
     -   **Is recurring issue?**: N
-    -   **Should Test frontend/backend/both after fix?**: frontend
-    -   **Blocked on other issue**: Issue 1: File Upload Fails on Web Browser
+    -   **Should Test frontend/backend/both after fix?**: both
+    -   **Blocked on other issue**: Issue 1: Deleted images are not removed from the database
 
 -   **Issue 3: Expo Hot-Reload Instability**
-    -   **Description**: The Metro bundler crashes with an  error in the containerized environment.
-    -   **Attempted fixes**: The agent applied a monkey-patch to  to swallow the error. This patch is brittle and gets overwritten every time yarn install v1.22.22
+    -   **Description**: The Metro bundler crashes with an  error.
+    -   **Attempted fixes**: A fragile monkey-patch in  is the only thing keeping the environment stable. This patch is removed on yarn install v1.22.22
 [1/4] Resolving packages...
 success Already up-to-date.
-Done in 0.66s. modifies  (e.g., yarn add v1.22.22
-info Visit https://yarnpkg.com/en/docs/cli/add for documentation about this command.).
-    -   **Next debug checklist**: The patch needs to be reapplied after any dependency change. A more permanent solution would involve configuring the Metro bundler to use polling, but previous attempts failed. The current patch is the only working (but fragile) solution.
-    -   **Why fix this issue and what will be achieved with the fix?**: To stabilize the development environment and ensure code changes are reliably reflected without constant manual intervention.
-    -   **Status**: IN PROGRESS (fragile workaround applied)
+Done in 0.57s..
+    -   **Next debug checklist**: Re-apply the patch if the server crashes after dependency changes. A permanent fix is needed but has not been prioritized.
+    -   **Why fix this issue and what will be achieved with the fix?**: Stabilizes the development environment.
+    -   **Status**: IN PROGRESS (fragile workaround)
     -   **Is recurring issue?**: Y
     -   **Should Test frontend/backend/both after fix?**: frontend
     -   **Blocked on other issue**: None
 
 -   **Issue 4: Pre-existing tests are failing**
-    -   **Description**: During regression testing, the agent discovered that several older test files have failures unrelated to the current changes. These include missing environment variables (, ) in the test runner context and a test that fails because it finds AsyncStorage inside a comment block.
-    -   **Attempted fixes**: The agent identified the causes but did not fix them, classifying them as pre-existing issues.
+    -   **Description**: Older backend test files (, , ) have failures due to missing env variables and incorrect assertions. The agent created a new test suite but did not fix these.
     -   **Next debug checklist**:
-        1.  Modify the test execution script or Pytest configuration to load necessary environment variables.
-        2.  Fix the string-matching test in  to ignore comments.
-        3.  Fix the networking tests in  to use a valid base URL.
-    -   **Why fix this issue and what will be achieved with the fix?**: A clean test suite is essential for reliable regression testing and preventing future bugs.
+        1.  Modify test runner config to load  variables for Pytest.
+        2.  Update test assertions to be more robust (e.g., ignore comments).
+    -   **Why fix this issue and what will be achieved with the fix?**: Ensures a clean and reliable test suite for regression.
     -   **Status**: NOT STARTED
     -   **Is recurring issue?**: Y
     -   **Should Test frontend/backend/both after fix?**: backend
+    -   **Blocked on other issue**: None
 
 **In progress Task List**:
 None.
 
 **Upcoming and Future Tasks**
 -   **Upcoming Tasks**:
-    -   **(P0) Create End-to-End Frontend Tests**: The user explicitly requested integration tests for all frontend scenarios using real data.
     -   **(P1) Stripe Integration**: Re-introduce a payment flow for service bookings.
     -   **(P2) Bilingual Support (i18n)**: Add French/English translations to the mobile application.
 -   **Future Tasks**:
@@ -92,111 +89,102 @@ None.
     -   Enhance the Admin Dashboard with more features.
 
 **Completed work in this session**
--   **[SEC-02] Secure Mobile Storage**: Migrated JWT storage from  to  and created a comprehensive Jest test suite () to verify the implementation.
--   **[SEC-12] API Rate Limiting**: Hardened , , and  endpoints by adding strict  validation to pagination  parameters in FastAPI. Created a new test file () with 21 tests to validate the fix.
--   **Bugfix - Chat Notifications**: Fixed a bug where new chat messages were incorrectly creating entries in the main notifications list. The fix involved setting  in  and cleaning up the database.
--   **Bugfix - SpotYou Discovery**: Fixed a critical backend bug where spots would not appear on the map for logged-in users. The issue was a SQL parameter indexing error in  which was corrected.
--   **Bugfix - HEIC Image Upload**: Modified the backend upload endpoint () to correctly identify and accept HEIC/HEIF image formats commonly used by iPhones.
--   **Dev Environment Stability**: Resolved multiple critical startup failures in the frontend environment, including a corrupt  directory, ngrok tunnel conflicts, and  file watcher crashes (via a temporary patch).
+-   **End-to-End Test Suite Creation**: Implemented a comprehensive Playwright test suite for the frontend, covering Auth, Profile, Home, SpotYou creation/editing, Chat, Search, and Bookings. All 43 tests are passing.
+-   **File Upload Bug Fix (Native & Web)**: Resolved a critical file upload failure by creating a platform-aware function in  and  that uses standard  with  for both web and native, and ensures the auth token is correctly passed.
+-   **Image Display Consistency Fix**: Modified  and  to use the  instead of a legacy  field, ensuring the primary SpotYou image is displayed consistently across lists and detail views.
+-   **Frontend Crash Fix**: Resolved a runtime crash on app reload by removing a duplicate  import from .
 
 **Earlier issues found/mentioned but not fixed**
--   **Issue 1: Failures in **
-    -   **Debug checklist**: The test fails with  because it tries to make a request to a relative URL. The test fixture needs to be updated to use a full base URL like .
-    -   **Why to solve this issue**: To ensure the test suite is reliable.
-    -   **Should Test frontend/backend/both after fix**: backend
-    -   **Is recurring issue?**: Y
--   **Issue 2: Failures in **
-    -   **Debug checklist**: The tests require the  environment variable to be set, which is missing when ============================= test session starts ==============================
-platform linux -- Python 3.11.14, pytest-9.0.2, pluggy-1.6.0
-rootdir: /app/frontend
-plugins: anyio-4.12.1
-collected 0 items
-
-============================ no tests ran in 0.01s ============================= is run directly. The test runner configuration needs to be updated to load the backend  file.
-    -   **Why to solve this issue**: To re-enable critical security regression tests.
-    -   **Should Test frontend/backend/both after fix**: backend
-    -   **Is recurring issue?**: Y
+-   Same as **Issue 4: Pre-existing tests are failing**. The old backend test suite needs to be fixed.
 
 **Known issue recurrence from previous fork**
 -   **Issue recurrence in previous fork**: Expo Metro Bundler Instability ( error).
--   **Recurrence count**: 3+ in this session alone.
+-   **Recurrence count**: 3+
 -   **Status**: IN PROGRESS (A fragile patch is in place but keeps getting undone).
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Platform-Specific Code**: Using  in React Native to execute different code for web vs. native (iOS/Android). This is crucial for the file upload fix.
--   **Expo FileSystem API**: Understanding the difference between  (native, reliable) and standard  with  (web-compatible but can be buggy on native).
--   **Expo Metro Bundler Issues**: The  error is a known issue when using Expo in containerized environments with low file watcher limits. The current workaround involves patching , which is highly fragile.
--   **FastAPI Parameter Validation**: Using  to add server-side validation to API endpoint parameters, preventing abuse.
+-   **PostgreSQL JSONB Serialization**: The core of the current issue. When using , Python lists for  columns should be passed directly to the query parameters with a  cast. Using  results in incorrect data type storage (a JSON string instead of a native JSON array).
+-   **Playwright E2E Testing**: A new test suite was built using Playwright and Pytest to test the React Native web application.
+-   **Test Authentication Strategy**: The E2E tests bypass the UI login for speed and to avoid rate-limiting by directly setting the JWT in  before navigating to protected pages.
+-   **Platform-Aware File Uploads**: The file upload logic now correctly uses standard  with  for both web and native environments, resolving previous inconsistencies.
 
 **key DB schema**
-No changes to schema in this session.
+-   **tag_points**:  column is .
+-   **services**:  and  columns are .
 
 **All files of reference**
--   : Contains the  function that needs to be fixed.
--   : Location of the fixed SpotYou discovery SQL bug.
--   : Location of the HEIC image support fix.
--   : New test file for API limit validation.
--   : New test file for the secure storage migration.
--   : The file that is repeatedly being patched to stabilize the dev environment.
+-   : Contains the  function with the serialization bug.
+-   : Contains the  function to be verified for the same bug.
+-   : Contains the corrected platform-aware upload logic.
+-   : Contains the corrected platform-aware upload logic.
+-   : Contains the corrected image display logic.
+-   : Contains the corrected image display logic.
+-   : Directory containing the entire new E2E test suite.
 
 **Areas that need refactoring**:
--   The monkey-patch on  is a critical liability. A more permanent solution for the  error must be found, likely involving a different Metro configuration or Docker environment setup.
--   The older, failing backend tests should be fixed to ensure a reliable CI/CD pipeline and prevent regressions.
+-   The monkey-patch for the  error is a critical liability and needs a permanent solution.
+-   The old, failing backend tests should be fixed or removed to ensure a clean test suite.
 
 **key api endpoints**
--   : Endpoint for uploading files.
--   : Endpoint for searching and listing SpotYous.
--   : Endpoint for updating a SpotYou.
+-   : Endpoint for updating a SpotYou, location of the current bug.
+-   : Endpoint for updating a Service, also affected by the bug.
+-   : File upload endpoint, now fixed.
 
 **Critical Info for New Agent**
--   **USER IS ON WEB**: The user is testing the application in a **web browser**, not the native Expo Go mobile app. All frontend changes, especially file handling, MUST be compatible with web standards (, ). Do not use native-only APIs like  without a web fallback.
--   **LANGUAGE**: You MUST communicate in **French**.
--   **ENVIRONMENT INSTABILITY**: The frontend development server is extremely fragile due to the  file watcher limit. A patch is repeatedly applied to , but yarn install v1.22.22
-[1/4] Resolving packages...
-success Already up-to-date.
-Done in 0.53s. commands will undo it, causing the server to crash. Be prepared to re-apply this patch.
--   **USER FRUSTRATION**: The user is frustrated with the recurring bugs and has explicitly requested the creation of a comprehensive end-to-end test suite for the frontend. This should be prioritized after fixing the blocking upload bug.
+-   **JSONB Bug**: The immediate priority is to fix the backend data serialization bug. **Do not use  for  columns with **. The correct method is to pass the Python list directly in the query parameters. Revert the changes made in .
+-   **E2E Tests Exist**: A full, passing Playwright E2E test suite now exists in . Use it to validate any frontend changes. Run tests with ============================= test session starts ==============================
+platform linux -- Python 3.11.14, pytest-9.0.2, pluggy-1.6.0
+rootdir: /app/frontend
+plugins: anyio-4.12.1, base-url-2.1.0, playwright-0.7.2
+collected 0 items
+
+============================ no tests ran in 0.01s =============================.
+-   **User Environment**: The user tests on both web and the Expo Go mobile app. All fixes must work on both platforms.
+-   **Dev Environment Instability**: The  error can crash the frontend server. If it crashes, the patch in  may need to be reapplied.
 
 **documents and test reports created in this job**
+-    (directory)
 -   
 -   
+-   
+-    (updated)
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **LATEST**: Ça marche toujours pas Cree moi des testes d’intégrations coté front end to end qui teste tous les scénarios possibles dans l’application avec des données réels - (It still doesn't work. Create E2E frontend integration tests for me that test all possible scenarios with real data.) **Status: NOT STARTED**
-2.  Ça marche toujours pas - (It still doesn't work.) - User reporting upload failure after the  fix. **Status: IN PROGRESS**
-3.  L’update de spotyou ne marche pas - (The SpotYou update doesn't work.) **Status: NOT STARTED**
-4.  1- upload photos a la creation d’un spotyou ne marche pas 2- les spot n’apparaissent pas sur l’écran d’accueil et recherche - (1- photo upload on spotyou creation doesn't work 2- spots don't appear on the home screen and search). **Status: Bug 2 was fixed, Bug 1 is IN PROGRESS.**
-5.  Mais qu’est-ce tu as fait Les messages doivent s’afficher dans message pas dans notification Je ne veux plus voir des messages dans notification - (What have you done? Messages should be in 'messages' not 'notifications'. I don't want to see messages in notifications anymore.) **Status: COMPLETED**
-6.  Pourquoi j’ai le message dans mes notifications - (Why do I have the message in my notifications?) - User reporting the chat notification bug. **Status: COMPLETED**
-7.  mais c’est pas possible Erreur - (It's not possible, Error) - User reporting an error in Expo Go due to a cached/stale URL. **Status: COMPLETED**
-8.  Erreur au lancement - (Error on launch) - User reported multiple startup errors with Expo/ngrok. **Status: COMPLETED**
-9.  Demarre le backend - (Start the backend). **Status: COMPLETED**
-10. Approved the plan to fix API pagination limits. **Status: COMPLETED**
+1.  **LATEST**: À fixer Dans spotyou et service ne pas garder dans la bdd les photos supprimées - (To fix: In spotyou and service, do not keep deleted photos in the db). **Status: IN PROGRESS**
+2.  C’est fixé - (It's fixed). Acknowledging the image display fix. **Status: COMPLETED**
+3.  **USER UPLOADED IMAGE**: Shows that the main photo is not displayed correctly in search/home lists. **Status: COMPLETED**
+4.  Photo affiché dans recherche et accueil n’est pas la meme photo dans spotyou détail, Afficher toujours la photo principale dans spotyou - (Photo in search/home is not the same as in detail, always show main photo). **Status: COMPLETED**
+5.  Corrigé ! Limport dupliqué est supprimé. Rechargez Expo Go maintenant — lerreur disparaîtra. - (Fixed! The duplicate import is removed. Reload Expo Go now - the error will disappear). Agent confirming a fix. **Status: COMPLETED**
+6.  **USER UPLOADED IMAGE**: Shows a runtime error  related to . **Status: COMPLETED**
+7.  Erreur quand reload application - (Error when reloading application). **Status: COMPLETED**
+8.  Agent provides a summary of the upload fix. **Status: COMPLETED**
+9.  l’upload photo sur web dans spotyou marche mais pas sur l’application. L’upload photo marche dans le profil sur l’application. Fixer l’upload photo sur l’application dans spotyou et service - (Photo upload works on web but not in the app for spotyou. It works for profile in the app. Fix photo upload in the app for spotyou and service). **Status: COMPLETED**
+10. Agent provides final summary of the E2E test creation. **Status: COMPLETED**
 
 **Project Health Check:**
 -   **Broken**:
-    -   Frontend development environment (Metro bundler crashes frequently).
-    -   File upload functionality (works on native, broken on web where the user is testing).
-    -   SpotYou update functionality.
+    -   Backend logic for updating image arrays in SpotYous/Services is broken due to the JSONB serialization bug.
+    -   Frontend development environment remains fragile due to the  file watcher issue.
 -   **Mocked**: None.
 
 **3rd Party Integrations**
--   **EAS (Expo Application Services)**
--   **Google Places API**
--   **slowapi**: For backend rate limiting.
--   **expo-secure-store**: For secure JWT storage on native.
--   **expo-file-system**: Added for file handling.
+-   EAS (Expo Application Services)
+-   Google Places API
+-   slowapi (backend rate limiting)
+-   expo-secure-store
+-   expo-file-system
 
 **Testing status**
--   **Testing agent used after significant changes**: NO
+-   **Testing agent used after significant changes**: NO (Agent self-tested with Playwright).
 -   **Troubleshoot agent used after agent stuck in loop**: NO
 -   **Test files created**:
+    -   All files in 
     -   
     -   
--   **Known regressions**: None introduced in this session, but several pre-existing tests are broken.
+-   **Known regressions**: Several pre-existing backend tests are broken and have not been fixed.
 
 **Credentials to test flow:**
 -   **Admin**:  / 
@@ -204,6 +192,5 @@ Done in 0.53s. commands will undo it, causing the server to crash. Be prepared t
 -   **User**:  / 
 
 **What agent forgot to execute**
--   The agent did not initially account for the user testing on a web browser, leading to the implementation of a native-only solution that failed.
--   The agent did not start the user's new request to create end-to-end frontend tests.
--   The agent did not fix the pre-existing broken tests that it discovered during regression runs.</analysis>
+-   The agent has not yet applied the correct fix (reverting the  change) for the image deletion bug.
+-   The agent did not fix the pre-existing broken backend tests identified in the initial handoff.</analysis>

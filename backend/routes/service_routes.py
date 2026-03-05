@@ -344,7 +344,7 @@ async def update_service(service_id: str, data: ServiceUpdate, request: Request)
         raw = data.model_dump()
         update_dict = {k: raw[k] for k in SCALAR_FIELDS if raw.get(k) is not None}
         if raw.get('tag_ids') is not None:
-            update_dict['tag_ids'] = raw['tag_ids']
+            update_dict['tag_ids'] = json.dumps(raw['tag_ids'])  # sérialiser pour JSONB
         if raw.get('images') is not None:
             old_imgs_row = await conn.fetchrow("SELECT images FROM services WHERE service_id = $1", service_id)
             old_images = list(old_imgs_row["images"] or []) if old_imgs_row else []

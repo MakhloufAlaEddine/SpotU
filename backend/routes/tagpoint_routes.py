@@ -942,7 +942,7 @@ async def update_tag_point(point_id: str, data: TagPointUpdate, request: Request
                     set_clauses.append(f"{key} = NULL")
                 else:
                     set_clauses.append(f"{key} = ${i}::jsonb")
-                    values.append(val)
+                    values.append(val)  # passer la liste Python directement (asyncpg codec gère l'encodage)
                     i += 1
             else:
                 if val is None:
