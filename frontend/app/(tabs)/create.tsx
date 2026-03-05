@@ -8,7 +8,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
 import { MapViewComponent } from '../../components/MapViewComponent';
 import { LocationPicker } from '../../components/LocationPicker';
 import { DateTimePickerModal } from '../../components/DateTimePicker';
@@ -848,23 +847,19 @@ async function uploadImage(uri: string, token: string): Promise<string | null> {
       return (await res.json()).url || null;
     }
 
-    // Native iOS/Android: FileSystem.uploadAsync — fiable, évite le bug fetch+keep-alive
-    const result = await FileSystem.uploadAsync(
-      `${BASE_URL}/api/upload-image`,
-      uri,
-      {
-        httpMethod: 'POST',
-        uploadType: FileSystem.FileSystemUploadType.MULTIPART,
-        fieldName: 'file',
-        mimeType,
-        headers: { Authorization: `Bearer ${token}` },
-      },
-    );
-    if (result.status < 200 || result.status >= 300) {
-      console.warn(`Upload failed ${result.status}:`, result.body);
+    // Native iOS/Android: RN FormData avec { uri, name, type } — pattern officiel React Native
+    const formData = new FormData();
+    formData.append('file', { uri, name: `photo.${ext}`, type: mimeType } as any);
+    const res = await fetch(`${BASE_URL}/api/upload-image`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
+    if (!res.ok) {
+      console.warn(`Upload native failed ${res.status}:`, await res.text());
       return null;
     }
-    return JSON.parse(result.body).url || null;
+    return (await res.json()).url || null;
   } catch (e) {
     console.warn('Image upload error:', e);
     return null;

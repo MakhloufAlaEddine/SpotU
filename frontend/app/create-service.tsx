@@ -15,6 +15,7 @@ import { WeekCalendar } from '../components/WeekCalendar';
 import type { DaySlot } from '../components/WeekCalendar';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import { Platform } from 'react-native';
 import { useLang } from '../context/LanguageContext';
 import { Colors, Spacing, Radius } from '../constants/Colors';
 
@@ -55,7 +56,7 @@ function computeScore(
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function CreateServiceScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const { lang } = useLang();
   const scrollRef = useRef<ScrollView>(null);
   const { serviceId } = useLocalSearchParams<{ serviceId?: string }>();
@@ -76,15 +77,36 @@ export default function CreateServiceScreen() {
   const [images, setImages] = useState<string[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
 
-  // ─── Upload image helper (même pattern que SpotYou) ───────────────────────
+  // ─── Upload image helper (platform-aware) ────────────────────────────────────
   const uploadImage = async (uri: string): Promise<string> => {
-    const token = (user as any)?.token || '';
     const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
-    const form = new FormData();
     const filename = uri.split('/').pop() || 'photo.jpg';
     const ext = filename.split('.').pop()?.toLowerCase() || 'jpg';
-    const mime = ext === 'png' ? 'image/png' : ext === 'gif' ? 'image/gif' : 'image/jpeg';
-    form.append('file', { uri, name: filename, type: mime } as any);
+    const mimeMap: Record<string, string> = {
+      jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
+      gif: 'image/gif', webp: 'image/webp', heic: 'image/heic', heif: 'image/heic',
+    };
+    const mimeType = mimeMap[ext] || 'image/jpeg';
+
+    if (Platform.OS === 'web') {
+      // Web: fetch blob URI → real Blob/File → FormData
+      const blobRes = await fetch(uri);
+      const blob = await blobRes.blob();
+      const file = new File([blob], `photo.${ext}`, { type: blob.type || mimeType });
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch(`${BASE_URL}/api/upload-image`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (!res.ok) throw new Error(`Upload failed ${res.status}`);
+      return (await res.json()).url;
+    }
+
+    // Native iOS/Android: pattern RN FormData officiel
+    const form = new FormData();
+    form.append('file', { uri, name: `photo.${ext}`, type: mimeType } as any);
     const res = await fetch(`${BASE_URL}/api/upload-image`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
