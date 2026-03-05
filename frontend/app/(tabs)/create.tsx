@@ -819,14 +819,6 @@ async function uploadImage(uri: string, token: string): Promise<string | null> {
   try {
     const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
-    // Lire le fichier avec expo-file-system pour garantir la lecture sur iOS/Android
-    const fileInfo = await FileSystem.getInfoAsync(uri);
-    if (!fileInfo.exists) {
-      console.warn('Upload: fichier introuvable', uri);
-      return null;
-    }
-
-    // Déterminer l'extension et le MIME type
     const ext = uri.split('.').pop()?.toLowerCase() || 'jpg';
     const mimeMap: Record<string, string> = {
       jpg: 'image/jpeg', jpeg: 'image/jpeg',
@@ -834,26 +826,29 @@ async function uploadImage(uri: string, token: string): Promise<string | null> {
       webp: 'image/webp', heic: 'image/heic', heif: 'image/heic',
     };
     const mimeType = mimeMap[ext] || 'image/jpeg';
-    const filename = `photo_${Date.now()}.${ext === 'heic' || ext === 'heif' ? 'jpg' : ext}`;
 
-    const formData = new FormData();
-    formData.append('file', { uri, name: filename, type: mimeType } as any);
+    // Utiliser FileSystem.uploadAsync — méthode native Expo,
+    // fiable sur iOS/Android (évite le bug React Native fetch+FormData+keep-alive)
+    const result = await FileSystem.uploadAsync(
+      `${BASE_URL}/api/upload-image`,
+      uri,
+      {
+        httpMethod: 'POST',
+        uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+        fieldName: 'file',
+        mimeType,
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
 
-    const res = await fetch(`${BASE_URL}/api/upload-image`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      body: formData,
-    });
-
-    if (!res.ok) {
-      const errBody = await res.text().catch(() => '');
-      console.warn(`Upload failed ${res.status}:`, errBody);
+    if (result.status < 200 || result.status >= 300) {
+      console.warn(`Upload failed ${result.status}:`, result.body);
       return null;
     }
-    const data = await res.json();
+    const data = JSON.parse(result.body);
     return data.url || null;
   } catch (e) {
-    console.warn('Image upload failed:', e);
+    console.warn('Image upload error:', e);
     return null;
   }
 }

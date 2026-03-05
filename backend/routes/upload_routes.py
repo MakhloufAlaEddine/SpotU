@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Request, UploadFile, File, HTTPException
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from pathlib import Path
 import uuid
 import os
@@ -18,7 +20,16 @@ _UPLOADS_DIR_RESOLVED = UPLOADS_DIR.resolve()
 MAX_UPLOAD_SIZE = 5 * 1024 * 1024  # 5 Mo
 
 # Extension de sortie par type détecté
-_EXT_MAP = {"jpeg": "jpg", "png": "png", "gif": "gif", "webp": "webp", "heic": "heic"}
+_EXT_MAP = {"jpeg": "jpg", "png": "png", "gif": "gif", "webp": "webp", "heic": "heic", "heif": "heic"}
+
+
+@router.post("/upload-image/debug-422")
+async def debug_upload(request: Request):
+    """Endpoint temporaire pour diagnostiquer les 422 sur upload."""
+    ct = request.headers.get("content-type", "")
+    body = await request.body()
+    logger.warning(f"[DEBUG-422] content-type={ct} body_len={len(body)} body_start={body[:200]!r}")
+    return {"content_type": ct, "body_len": len(body), "body_start": body[:100].hex()}
 
 
 def _detect_image_type(data: bytes) -> str | None:
