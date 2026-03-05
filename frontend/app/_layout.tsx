@@ -91,8 +91,7 @@ export default function RootLayout() {
               }}
             />
             <Stack.Screen name="coach/[id]" />
-            <Stack.Screen name="booking/[id]" />
-            <Stack.Screen name="booking/success" />
+            <Stack.Screen name="booking/confirm" />
             <Stack.Screen name="admin/index" />
             <Stack.Screen
               name="set-location"

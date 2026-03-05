@@ -309,7 +309,7 @@ export default function MenuScreen() {
           <Text style={st.sectionTitle}>Paramètres</Text>
           <View style={st.settingsCard}>
             {user.role === 'admin' && (
-              <TouchableOpacity style={st.settingRow} onPress={() => router.push('/(main)/admin')} activeOpacity={0.7}>
+              <TouchableOpacity style={st.settingRow} onPress={() => router.push('/admin' as any)} activeOpacity={0.7}>
                 <View style={st.settingLeft}>
                   <View style={[st.settingIconBox, { backgroundColor: '#FF453A22' }]}>
                     <Ionicons name="shield-outline" size={18} color="#FF453A" />
