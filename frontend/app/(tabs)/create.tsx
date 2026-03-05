@@ -362,12 +362,23 @@ export default function CreateSpotYouScreen() {
       if (newImages.length > 0 && token) {
         setUploadProgress({ current: 0, total: newImages.length });
         Animated.timing(uploadBarAnim, { toValue: 0, duration: 0, useNativeDriver: false }).start();
+        let hasUploadError = false;
         for (let i = 0; i < newImages.length; i++) {
           const url = await uploadImage(newImages[i], token);
-          if (url) uploadedUrls.push(url);
+          if (url) {
+            uploadedUrls.push(url);
+          } else {
+            hasUploadError = true;
+          }
           const progress = (i + 1) / newImages.length;
           setUploadProgress({ current: i + 1, total: newImages.length });
           Animated.timing(uploadBarAnim, { toValue: progress, duration: 250, useNativeDriver: false }).start();
+        }
+        if (hasUploadError) {
+          Alert.alert('Erreur upload', "Certaines photos n'ont pas pu être envoyées. Vérifiez votre connexion et réessayez.");
+          setSubmitting(false);
+          setUploadProgress(null);
+          return;
         }
         setUploadProgress(null);
       }

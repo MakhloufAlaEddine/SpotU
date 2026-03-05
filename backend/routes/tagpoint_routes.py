@@ -149,8 +149,10 @@ async def search_tag_points(
         conditions.append("tp.is_public = TRUE")
 
     if lat is not None and lng is not None:
+        lng_idx = param_idx
+        lat_idx = param_idx + 1
         conditions.append(
-            f"ST_DWithin(location::geography, ST_SetSRID(ST_MakePoint(${param_idx}, ${param_idx+1}), 4326)::geography, ${param_idx+2})"
+            f"ST_DWithin(location::geography, ST_SetSRID(ST_MakePoint(${lng_idx}, ${lat_idx}), 4326)::geography, ${param_idx+2})"
         )
         params.extend([lng, lat, radius])
         param_idx += 3
@@ -171,8 +173,8 @@ async def search_tag_points(
     order_clause = ""
     distance_field = ""
     if lat is not None and lng is not None:
-        order_clause = f"ORDER BY tp.location::geography <-> ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography"
-        distance_field = f", ST_Distance(tp.location::geography, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) as distance"
+        order_clause = f"ORDER BY tp.location::geography <-> ST_SetSRID(ST_MakePoint(${lng_idx}, ${lat_idx}), 4326)::geography"
+        distance_field = f", ST_Distance(tp.location::geography, ST_SetSRID(ST_MakePoint(${lng_idx}, ${lat_idx}), 4326)::geography) as distance"
 
     query = f"""SELECT {TP_FIELDS} {distance_field}
         FROM tag_points tp 

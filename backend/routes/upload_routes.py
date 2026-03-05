@@ -18,13 +18,13 @@ _UPLOADS_DIR_RESOLVED = UPLOADS_DIR.resolve()
 MAX_UPLOAD_SIZE = 5 * 1024 * 1024  # 5 Mo
 
 # Extension de sortie par type détecté
-_EXT_MAP = {"jpeg": "jpg", "png": "png", "gif": "gif", "webp": "webp"}
+_EXT_MAP = {"jpeg": "jpg", "png": "png", "gif": "gif", "webp": "webp", "heic": "heic"}
 
 
 def _detect_image_type(data: bytes) -> str | None:
     """
     Détecte le vrai type d'image via magic bytes.
-    Retourne 'jpeg' | 'png' | 'gif' | 'webp', ou None si non reconnu.
+    Retourne 'jpeg' | 'png' | 'gif' | 'webp' | 'heic', ou None si non reconnu.
     Ne fait JAMAIS confiance au Content-Type déclaré par le client.
     """
     if len(data) < 12:
@@ -37,6 +37,12 @@ def _detect_image_type(data: bytes) -> str | None:
         return "gif"
     if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
         return "webp"
+    # HEIC/HEIF (iPhone camera) — ISO Base Media File Format
+    # box: [size 4B][ftyp 4B][brand 4B] — brand starts at offset 8
+    if len(data) >= 12 and data[4:8] == b"ftyp":
+        brand = data[8:12]
+        if brand[:3] in (b"hei", b"hev", b"mif", b"msf", b"avi"):
+            return "heic"
     return None
 
 
