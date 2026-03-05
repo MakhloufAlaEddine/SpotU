@@ -409,7 +409,7 @@ export default function SearchScreen() {
                 return (
                   <ResultItem
                     key={item.point_id}
-                    image={item.image_url}
+                    image={item.images?.[0] || item.image_url}
                     title={item.title || 'Sans titre'}
                     author={item.owner?.name || 'Anonyme'}
                     distance={getDistance(item)}

@@ -88,8 +88,8 @@ function HeroCard({ point, onPress }: { point: any; onPress: () => void }) {
   const votes = (point.upvotes ?? 0) - (point.downvotes ?? 0);
   return (
     <TouchableOpacity style={[heroSt.card, { width: SW - 32 }]} onPress={onPress} activeOpacity={0.94} testID={`hero-card-${point.point_id}`}>
-      {point.image_url
-        ? <Image source={{ uri: point.image_url }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+      {(point.images?.[0] || point.image_url)
+        ? <Image source={{ uri: point.images?.[0] || point.image_url }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
         : <View style={[StyleSheet.absoluteFillObject, { backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }]}>
             <Ionicons name={icon} size={80} color="rgba(255,255,255,0.1)" />
           </View>
@@ -228,8 +228,8 @@ function RecentRow({ point, userLat, userLng, onPress }: { point: any; userLat: 
     <TouchableOpacity style={recSt.row} onPress={onPress} activeOpacity={0.82} testID={`recent-row-${point.point_id}`}>
       {/* Thumb */}
       <View style={recSt.thumb}>
-        {point.image_url
-          ? <Image source={{ uri: point.image_url }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+        {(point.images?.[0] || point.image_url)
+          ? <Image source={{ uri: point.images?.[0] || point.image_url }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
           : <View style={[StyleSheet.absoluteFillObject, { backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }]}>
               <Ionicons name={icon} size={22} color="rgba(255,255,255,0.4)" />
             </View>

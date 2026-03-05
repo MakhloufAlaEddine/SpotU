@@ -42,7 +42,7 @@ Fonctionnalités : création/découverte de services et SpotYous, système de r�
 | 2026-02 | Bugfix: Messages chat dans notifications → corrigé | backend/routes/chat_routes.py |
 | 2026-02 | Bugfix: SpotYou discovery bug (SQL param index) | backend/routes/tagpoint_routes.py |
 | 2026-02 | Bugfix: HEIC image upload | backend/routes/upload_routes.py |
-| 2026-03 | **P0 Fix: Upload web (blob URI → fetch → FormData)** | frontend/app/(tabs)/create.tsx |
+| 2026-03 | Bugfix: Photo principale dans accueil/recherche (images[] vs image_url) | frontend/app/(tabs)/map.tsx, search.tsx |
 | 2026-03 | **E2E Tests: 45 tests Playwright couvrant tous les scénarios** | frontend/e2e/ |
 | 2026-03 | testIDs ajoutés: hero-card, recent-row, header-search-btn | frontend/app/(tabs)/map.tsx |
 | 2026-03 | Rate limit login: 5/min → 30/min | backend/routes/auth_routes.py |
