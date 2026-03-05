@@ -518,7 +518,7 @@ async def get_tag_point_participants(point_id: str):
 
 
 @router.get("/users/me/notifications")
-async def get_my_notifications(request: Request, limit: int = Query(50)):
+async def get_my_notifications(request: Request, limit: int = Query(50, ge=1, le=200)):
     """Récupère les notifications in-app avec la photo de profil à jour du sender."""
     pool = get_pool()
     user = await require_auth(request, pool)

@@ -35,7 +35,7 @@ async def get_stats(request: Request):
 async def list_users(
     request: Request,
     role: Optional[str] = Query(None),
-    limit: int = Query(50),
+    limit: int = Query(50, ge=1, le=500),
 ):
     pool = get_pool()
     await require_role(request, pool, "admin")

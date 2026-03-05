@@ -238,7 +238,7 @@ async def list_conversations(request: Request):
 
 
 @router.get("/conversations/{conv_id}/messages")
-async def get_messages(conv_id: str, request: Request, limit: int = Query(50), before: Optional[str] = Query(None)):
+async def get_messages(conv_id: str, request: Request, limit: int = Query(50, ge=1, le=100), before: Optional[str] = Query(None)):
     pool = get_pool()
     user = await require_auth(request, pool)
     async with pool.acquire() as conn:
