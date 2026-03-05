@@ -144,10 +144,12 @@ async def search_services(
 
     conditions = ["active = TRUE"]
     # Exclure les services créés par l'utilisateur connecté (accessibles via "Mes services")
-    if current_user_id:
-        conditions.append(f"coach_id != '{current_user_id}'")
-    params = []
+    params: list = []
     param_idx = 1
+    if current_user_id:
+        conditions.append(f"coach_id != ${param_idx}")
+        params.append(current_user_id)
+        param_idx += 1
 
     if lat is not None and lng is not None:
         conditions.append(

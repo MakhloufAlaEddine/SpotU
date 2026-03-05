@@ -572,10 +572,10 @@ async def seed_initial_data():
             for bkg in all_bookings:
                 await conn.execute("""
                     INSERT INTO bookings
-                        (booking_id, service_id, user_id, coach_id, slot_id, status, amount, commission, payment_status)
-                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'pending')
+                        (booking_id, service_id, user_id, coach_id, slot_id, status, amount)
+                    VALUES ($1,$2,$3,$4,$5,$6,$7)
                     ON CONFLICT (booking_id) DO NOTHING
-                """, bkg[0], bkg[1], bkg[2], bkg[3], bkg[4], bkg[5], bkg[6], round(bkg[6] * 0.1, 2))
+                """, bkg[0], bkg[1], bkg[2], bkg[3], bkg[4], bkg[5], bkg[6])
 
             logger.info("Seeded 10 demo bookings for planning (5 upcoming + 5 history)")
 

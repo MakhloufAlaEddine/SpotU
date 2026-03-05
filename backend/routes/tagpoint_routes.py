@@ -135,12 +135,18 @@ async def search_tag_points(
     except Exception:
         pass
 
-    conditions = ["active = TRUE", f"(tp.is_public = TRUE OR tp.user_id = '{current_user_id or ''}')"]
-    # Exclure les SpotYou créés par l'utilisateur connecté (accessibles via SpotMe)
-    if current_user_id:
-        conditions.append(f"tp.user_id != '{current_user_id}'")
-    params = []
+    conditions = ["active = TRUE"]
+    params: list = []
     param_idx = 1
+
+    # Visibilité : si connecté, exclure ses propres SpotYou; sinon seulement les publics
+    if current_user_id:
+        conditions.append("tp.is_public = TRUE")
+        conditions.append(f"tp.user_id != ${param_idx}")
+        params.append(current_user_id)
+        param_idx += 1
+    else:
+        conditions.append("tp.is_public = TRUE")
 
     if lat is not None and lng is not None:
         conditions.append(
@@ -324,7 +330,9 @@ async def get_similar_tag_points(point_id: str, request: Request = None):
             tag_ids_list = []
 
         if tag_ids_list:
-            exclude_clause = f"AND tp.user_id != '{current_user_id}'" if current_user_id else ""
+            uid_idx = 4 if current_user_id else None
+            exclude_clause = f"AND tp.user_id != ${uid_idx}" if current_user_id else ""
+            extra_params = [current_user_id] if current_user_id else []
             rows = await conn.fetch(
                 f"""
                 SELECT {TP_FIELDS},
@@ -362,10 +370,12 @@ async def get_similar_tag_points(point_id: str, request: Request = None):
                     dist_m
                 LIMIT 10
                 """,
-                point_id, current["location"], tag_ids_list
+                point_id, current["location"], tag_ids_list, *extra_params
             )
         else:
-            exclude_clause = f"AND tp.user_id != '{current_user_id}'" if current_user_id else ""
+            uid_idx = 3 if current_user_id else None
+            exclude_clause = f"AND tp.user_id != ${uid_idx}" if current_user_id else ""
+            extra_params = [current_user_id] if current_user_id else []
             rows = await conn.fetch(
                 f"""
                 SELECT {TP_FIELDS},
@@ -379,7 +389,7 @@ async def get_similar_tag_points(point_id: str, request: Request = None):
                 ORDER BY dist_m
                 LIMIT 10
                 """,
-                point_id, current["location"]
+                point_id, current["location"], *extra_params
             )
 
     result = []

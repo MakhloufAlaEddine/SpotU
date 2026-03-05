@@ -20,7 +20,7 @@ def _load_base_url():
                     return line.split('=', 1)[1].strip().rstrip('/')
     except Exception:
         pass
-    return 'https://spotu-coach.preview.emergentagent.com'
+    return 'https://realtime-discovery.preview.emergentagent.com'
 
 BASE_URL = _load_base_url()
 

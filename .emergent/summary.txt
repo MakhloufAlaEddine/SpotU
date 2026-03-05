@@ -1,237 +1,211 @@
-<analysis>**original_problem_statement**: The user wants to build a mobile application, SpotU, which is a hyperlocal, tag-based connection platform. The core features include a multi-step service creation and management flow for coaches, service discovery, a booking system, and real-time chat. The application was previously named WINEK, with TagPoints becoming SpotYou and My TagPoints becoming SpotMe.
+<analysis>**original_problem_statement**: The user wants to build a mobile application, SpotU, a hyperlocal, tag-based connection platform. The core features include service/SpotYou creation and discovery, a booking request system, and real-time chat/notifications.
 
 **PRODUCT REQUIREMENTS**:
--   **Service Creation/Update Stepper**: A unified form for creating and editing services.
--   **Service Discovery**: Services must be visible on the main map and search screen.
--   **Booking System & Planning**: A flow for users to book services, for coaches to manage bookings via a calendar/planning view, and logic to handle slot availability. This includes integrating user-joined SpotYou events.
--   **Real-time Chat**: A comprehensive chat system allowing users to communicate.
--   **Push Notifications**: For key events like new messages and booking status changes. A notification system is partially implemented, storing notifications in the database.
--   **Database Persistence**: All schema changes must be included in startup scripts.
+-   **Service & SpotYou Management**: Full CRUD for user-generated services and activities.
+-   **Service Discovery**: Services and SpotYous must be discoverable on a map and in search, excluding content created by the searching user.
+-   **Booking System**: A user can send a booking request to a coach for a specific service slot. The flow stops after the request is sent. All subsequent management features (coach accept/refuse, booking history, payments) have been explicitly removed at the user's request.
+-   **Real-time Notifications & Chat**: A comprehensive, real-time system for key events (new booking requests, SpotYou interactions, profile ratings) and direct user communication.
+-   **Secure File Handling**: Uploaded images (profile, service, SpotYou) must be handled securely, and old files must be deleted from the server when replaced.
 
 **User's preferred language**: French. The next agent MUST respond in **French**.
 
 **what currently exists?**
-A full-stack React Native (Expo) and FastAPI application named SpotU with a PostgreSQL database.
--   **Core Features Implemented**: Service creation/management, favorites, real-time chat, a booking system, SpotYou event management, and a notification system.
--   **Booking Management**: Coaches can accept or refuse booking requests from both a modal on the service detail screen and a dedicated booking detail page. This feature was completed and tested in the last session.
--   **Environment**: The Expo development server was highly unstable, frequently crashing due to a file watcher limit ( error). A patch was applied to the  library to prevent it from watching the  directory, which has stabilized the environment for now. The application uses an  tunnel for testing on Expo Go (mobile).
--   **Address Search**: The application is in the process of migrating from the free Nominatim (OpenStreetMap) API to the Google Places API for all address/location search fields to improve accuracy and find points of interest.
+A full-stack Expo (React Native) and FastAPI application. The core features (Auth, SpotYou/Service CRUD, Chat, Notifications) are implemented.
+A major refactoring was just completed to remove the entire booking management flow, simplifying it to just a booking request feature.
+Following this, a comprehensive technical audit was performed, revealing several critical security and performance vulnerabilities. The agent has started implementing the highest-priority (P0) fixes for JWT handling and SQL Injection.
 
 **Last working item**:
--   **Last item agent was working**: Migrating all address search functionalities from Nominatim to Google Places API, as requested by the user who provided an API key. This impacts three areas: the reusable  component, the service creation screen, and the SpotYou creation screen.
+-   **Last item agent was working**: Implementing P0 security fixes identified in a technical audit. Specifically, hardening the JWT secret handling in  to prevent token forging and fixing multiple critical SQL injection vulnerabilities in  and  by replacing f-string formatting with parameterized queries.
 -   **Status**: IN PROGRESS
 -   **Agent Testing Done**: N
--   **Which testing method agent to use?**: Frontend testing agent. The agent must verify that all three address search inputs across the app (, service creation, SpotYou creation) correctly use the Google Places API, display suggestions, and update the location on the map upon selection.
+-   **Which testing method agent to use?**: backend testing agent. A new test file  has been created to validate these specific fixes. The next step is to run ============================= test session starts ==============================
+platform linux -- Python 3.11.14, pytest-9.0.2, pluggy-1.6.0
+rootdir: /app/frontend
+plugins: anyio-4.12.1
+collected 0 items
+
+============================ no tests ran in 0.01s ============================= to execute these tests.
 -   **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: Complete migration of address search to Google Places API (P0)**
--   **Issue 2: Expo Hot-Reload instability (P1 - RECURRING)**
--   **Issue 3: Push notifications are not working in Expo Go (P2)**
--   **Issue 4: User dissatisfaction with action buttons layout (P2 - RECURRING)**
+-   **Issue 1: Complete and Test P0 Security Fixes (P0 - HIGHEST PRIORITY)**
+-   **Issue 2: Unauthenticated File Upload Endpoint (P0)**
+-   **Issue 3: Insecure File Upload Handling (No Size/MIME check) (P0)**
+-   **Issue 4: Misconfigured CORS Policy (P0)**
+-   **Issue 5: Missing Critical Database Indexes (P1)**
+-   **Issue 6: Insecure JWT Storage on Mobile Client (P1)**
+-   **Issue 7: No Rate Limiting on Login Endpoint (P1)**
+-   **Issue 8: Expo Hot-Reload Instability (P1 - RECURRING)**
 
 **Issues Detail**:
--   **Issue 1: Complete migration of address search to Google Places API**
-    -   **Attempted fixes**: The agent started the migration by adding the user's API key to , planning a shared service file, and initiating parallel edits on the three affected frontend files.
+-   **Issue 1: Complete and Test P0 Security Fixes**
+    -   **Attempted fixes**: The agent has already written the code to fix the JWT secret vulnerability and the SQL injection points. A new test file  was created.
     -   **Next debug checklist**:
-        1.  Ensure the new utility file  is created correctly to handle API calls to Google Places.
-        2.  Complete the modifications in , , and  to replace Nominatim logic with the new Google Places service.
-        3.  Map the response from the Google Places API to the application's state (latitude, longitude, address display name).
-        4.  Verify that selecting a place from the new autocomplete list correctly updates the map's center and the location data.
-    -   **Why fix this issue and what will be achieved with the fix?**: The existing Nominatim search could not find specific points of interest or local businesses (e.g., Five Bezons), which was a key user requirement. Google Places API will provide much higher accuracy.
+        1.  Run ============================= test session starts ==============================
+platform linux -- Python 3.11.14, pytest-9.0.2, pluggy-1.6.0
+rootdir: /app/frontend
+plugins: anyio-4.12.1
+collected 0 items
+
+============================ no tests ran in 0.00s =============================.
+        2.  Ensure all tests pass. If not, debug the fixes in , , and .
+        3.  Confirm the backend starts correctly with the new mandatory  in the  file.
+    -   **Why fix this issue and what will be achieved with the fix?**: To patch critical vulnerabilities that could lead to complete database compromise (SQLi) and total application takeover (JWT forging).
     -   **Status**: IN PROGRESS
     -   **Is recurring issue?**: N
-    -   **Should Test frontend/backend/both after fix?**: Frontend
+    -   **Should Test frontend/backend/both after fix?**: backend
     -   **Blocked on other issue**: None
 
--   **Issue 2: Expo Hot-Reload instability**
-    -   **Description**: A critical workflow blocker where the Metro bundler would crash with an  error, requiring a manual restart of the 
-  Usage: expo [command] [options]
+-   **Issue 2: Unauthenticated File Upload Endpoint**
+    -   **Description**: The  endpoint in  can be called without a valid JWT, allowing anyone to fill the server's disk. This was identified in the audit as **[SEC-07]**.
+    -   **Next debug checklist**: Add the  dependency to the endpoint.
+    -   **Status**: NOT STARTED
+    -   **Is recurring issue?**: N
+    -   **Should Test frontend/backend/both after fix?**: backend
 
-  Options:
-  
-    -V, --version                     output the version number
-    --non-interactive                 Fail, if an interactive prompt would be required to continue.
-    -h, --help                        output usage information
-  
-  Commands:
+-   **Issue 3: Insecure File Upload Handling (No Size/MIME check)**
+    -   **Description**: The upload endpoint does not validate file size (risking memory/disk exhaustion) or true file type via magic bytes (risking script uploads). Identified in the audit as **[SEC-08]** and **[SEC-09]**.
+    -   **Next debug checklist**: Implement file size limits and MIME type validation using magic bytes in .
+    -   **Status**: NOT STARTED
+    -   **Is recurring issue?**: N
+    -   **Should Test frontend/backend/both after fix?**: backend
 
-    init [name]                       Create a new Expo project
-    start [path]                      Start a local dev server for the app
-    start:web [path]                  Start a Webpack dev server for the web app
-    export [path]                     Export the static files of the app for hosting it on a web server
-    install [packages...]             Install a module or other package to a project
-    run:android [path]                Run the Android app binary locally
-    run:ios [path]                    Run the iOS app binary locally
-    send [path]                       Share the project's URL to an email address
+-   **Issue 4: Misconfigured CORS Policy**
+    -   **Description**: The backend in  uses  with , a combination forbidden by browsers and a security risk. Identified in the audit as **[SEC-11]**.
+    -   **Next debug checklist**: Change the configuration to use an environment variable that specifies the exact allowed origins.
+    -   **Status**: NOT STARTED
+    -   **Is recurring issue?**: N
+    -   **Should Test frontend/backend/both after fix?**: backend
 
-    login                             Login to an Expo account
-    logout                            Logout of an Expo account
-    register                          Sign up for a new Expo account
-    whoami                            Return the currently authenticated account
+-   **Issue 5: Missing Critical Database Indexes**
+    -   **Description**: The database is missing indexes on many foreign keys and frequently queried columns (, , etc.), which will cause severe performance degradation. Identified in the audit as **[PERF-01]**.
+    -   **Next debug checklist**: Create a new database migration script to add all the recommended indexes.
+    -   **Status**: NOT STARTED
+    -   **Is recurring issue?**: N
+    -   **Should Test frontend/backend/both after fix?**: backend
 
-    client:install:ios                Install Expo Go for iOS on the simulator
-    client:install:android            Install Expo Go for Android on a connected device or emulator
+-   **Issue 6: Insecure JWT Storage on Mobile Client**
+    -   **Description**: The token is stored in  (), which is unencrypted. Identified as **[SEC-02]**.
+    -   **Next debug checklist**: Migrate from  to .
+    -   **Status**: NOT STARTED
+    -   **Is recurring issue?**: N
+    -   **Should Test frontend/backend/both after fix?**: frontend
 
-    config [path]                     Show the project config
-    doctor [path]                     Diagnose issues with the project
-    upgrade [sdk-version]             Upgrade the project packages and config for the given SDK version
+-   **Issue 7: No Rate Limiting on Login Endpoint**
+    -   **Description**: The  endpoint is vulnerable to brute-force attacks. Identified as **[SEC-03]**.
+    -   **Next debug checklist**: Implement rate limiting using a library like .
+    -   **Status**: NOT STARTED
+    -   **Is recurring issue?**: N
+    -   **Should Test frontend/backend/both after fix?**: backend
 
-    customize:web [path]              Eject the default web files for customization
-    prebuild [path]                   Create native iOS and Android project files before building natively.
-                                      Learn more: https://docs.expo.dev/workflow/customizing/
-
-    build:web [path]                  Build the web app for production
-
-    credentials:manager [path]        Superseded by eas credentials in eas-cli
-
-    url [path]                        Log a URL for opening the project in Expo Go
-    url:ipa [path]                    Log the download URL for the standalone iOS binary
-    url:apk [path]                    Log the download URL for the standalone Android binary
-
-    webhooks [path]                   List all webhooks for a project
-    webhooks:add [path]               Add a webhook to a project
-    webhooks:remove [path]            Delete a webhook
-    webhooks:update [path]            Update an existing webhook
-
-    build:ios [path]                  Superseded by eas build in eas-cli
-    build:android [path]              Superseded by eas build in eas-cli
-    build:status [path]               Superseded by eas build:list in eas-cli
-    eject [path]                      Superseded by expo prebuild
-    fetch:ios:certs [path]            Superseded by eas credentials in eas-cli
-    fetch:android:keystore [path]     Superseded by eas credentials in eas-cli
-    fetch:android:hashes [path]       Superseded by eas credentials in eas-cli
-    fetch:android:upload-cert [path]  Superseded by eas credentials in eas-cli
-    publish [path]                    Superseded by eas update in eas-cli
-    publish:set [path]                Superseded by eas update:republish in eas-cli
-    publish:rollback [path]           Superseded by eas update:republish in eas-cli
-    publish:history [path]            Superseded by eas update:list in eas-cli
-    publish:details [path]            Superseded by eas update:view in eas-cli
-    push:android:upload [path]        Superseded by eas credentials in eas-cli
-    push:android:show [path]          Superseded by eas credentials in eas-cli
-    push:android:clear [path]         Superseded by eas credentials in eas-cli
-    upload:android [path]             Superseded by eas submit in eas-cli
-    upload:ios [path]                 Superseded by eas submit in eas-cli
-    client:ios [path]                 Superseded by Expo Dev Clients
-
-[15:50:14]   Run a command with --help for more info 💡
-[15:50:14]     $ expo start --help
-[15:50:14] service. This was diagnosed as the file watcher limit being exhausted.
-    -   **Attempted fixes**: A patch was successfully applied to the  library within the environment to make it ignore the  directory. This has stabilized the server, but it's a fragile, non-permanent solution that may break if dependencies are updated or the container is rebuilt.
-    -   **Next debug checklist**: Monitor the Expo server's stability. If it crashes again, the patch may need re-application.
+-   **Issue 8: Expo Hot-Reload instability**
+    -   **Description**: The Metro bundler can crash with an  error due to the file watcher limit. A temporary patch is in place.
     -   **Status**: IN PROGRESS (Workaround in place)
     -   **Is recurring issue?**: Y
-    -   **Should Test frontend/backend/both after fix?**: N/A (Environment issue)
-    -   **Blocked on other issue**: None
-
--   **Issue 3: Push notifications are not working in Expo Go**
-    -   **Description**: This is a known Expo Go limitation. Testing requires a custom development build.
-    -   **Status**: BLOCKED (on user action: install the previously provided Android APK / get an Apple Developer account for an iOS build).
-    -   **Is recurring issue?**: N
-    -   **Should Test frontend/backend/both after fix?**: Frontend (on a development build).
-    -   **Blocked on other issue**: None
-
--   **Issue 4: User dissatisfaction with action buttons layout**
-    -   **Description**: A long-standing request to improve the layout of the Similar, Share, Save buttons on the SpotYou detail screen ().
-    -   **Status**: NOT STARTED
-    -   **Is recurring issue?**: Y
-    -   **Should Test frontend/backend/both after fix?**: Frontend
     -   **Blocked on other issue**: None
 
 **In progress Task List**:
--   **Task 1: Migrate all address search fields to Google Places API**
-    -   **Where to resume**: The agent was executing a parallel tool call to create  and modify , , and . The next agent must verify these changes, complete the implementation, and test thoroughly.
-    -   **What will be achieved with this?**: All address search inputs in the app will use the more powerful and accurate Google Places API.
+-   **Task 1: Apply and Verify P0 Security Fixes (P0)**
+    -   **Where to resume**: The code fixes are complete. The next action is to run ============================= test session starts ==============================
+platform linux -- Python 3.11.14, pytest-9.0.2, pluggy-1.6.0
+rootdir: /app/frontend
+plugins: anyio-4.12.1
+collected 0 items
+
+============================ no tests ran in 0.00s ============================= to validate them.
+    -   **What will be achieved with this?**: The application will be secured against the two most critical vulnerabilities: SQL Injection and JWT forging.
     -   **Status**: IN PROGRESS
-    -   **Should Test frontend/backend/both after fix?**: Frontend
+    -   **Should Test frontend/backend/both after fix?**: backend
     -   **Blocked on something**: No
 
 **Upcoming and Future Tasks**
 -   **Upcoming Tasks (P1)**:
-    -   Stripe Integration: Finalize the payment flow for service bookings.
+    -   Implement the remaining P0 audit fixes (Upload security, CORS).
+    -   Implement the high-priority P1 audit fixes (DB indexes, Rate Limiting, SecureStore).
+    -   Stripe Integration: Re-introduce a payment flow for service bookings.
     -   Bilingual Support (i18n): Add French/English translations.
 -   **Future Tasks (P2)**:
-    -   Admin Dashboard.
-    -   Fix Action Buttons UI (Issue #4).
-    -   Finalize Push Notifications with EAS Build (related to Issue #3).
-    -   Reminder for user: set up Apple & Google Pay at the end of development.
+    -   Finalize Push Notifications with EAS Build.
+    -   Admin Dashboard enhancements.
+    -   Address remaining lower-priority audit findings (e.g., mobile performance  optimization).
 
 **Completed work in this session**
--   **Booking Request Management Feature**: Implemented and tested the full flow for coaches to accept/decline booking requests via backend endpoints (, ) and UI updates on the service detail and booking detail screens.
--   **Expo Environment Stabilization**: Resolved a critical  error by live-patching the Metro bundler to ignore , which fixed the constant server crashes and restored the  tunnel for mobile testing.
--   **Backend Stability Fix**: Corrected the  script to prevent crashes on startup if dependent user data was missing, making the backend more resilient.
+-   **MAJOR TASK: Technical Audit**: Performed a comprehensive security, performance, and robustness audit of the entire application and produced a detailed report.
+-   **MAJOR REFACTORING: Booking Flow Removal**: At the user's request, completely removed the booking management flow (accept/refuse, history, etc.). This involved deleting backend routes (, ), frontend screens (, ), DB tables (), and DB columns (, etc.), and cleaning up dead code across the app.
+-   **MAJOR FEATURE: Secure File Deletion**: Implemented logic across the backend (, , ) to automatically delete old image files from the disk whenever a profile, SpotYou, or service image is updated.
+-   **Notification System Debugging**:
+    -   Fixed a major architectural flaw where the notification screen was incorrectly mixing real notifications with booking history.
+    -   Resolved multiple bugs related to notification redirection, text content, and ensuring profile pictures are always up-to-date.
+-   **Admin Section Fix**: Repaired a broken link that prevented access to the admin dashboard.
 
 **Earlier issues found/mentioned but not fixed**
--   **Action Buttons UX**: The user's dissatisfaction with the action buttons on the SpotYou detail page () remains unaddressed.
+-   All remaining P0 and P1 vulnerabilities identified in the audit report (see All Pending/In progress Issue list).
 
 **Known issue recurrence from previous fork**
--   **Expo Metro Bundler Instability**: This was the primary blocker during the session. While a workaround is in place, the root cause in the development environment remains a risk.
+-   **Expo Metro Bundler Instability**: Remains a risk for the development environment.
 
 **Code Architecture**
-
+POST
 
 **Key Technical Concepts**
--   **API Integration (Google Places)**: Replacing a third-party API (Nominatim) with another (Google) across multiple components.
--   **Environment Debugging**: In-depth troubleshooting of container-level issues ( limits), process management (), and tool-specific problems (Metro bundler, ngrok tunnels).
--   **Live Patching**: Modifying a  dependency () at runtime to fix a critical bug. This is a temporary solution.
+-   **Security Audit**: A systematic review of the codebase for vulnerabilities.
+-   **Parameterized Queries**: The correct way to prevent SQL injection, implemented to fix f-string vulnerabilities.
+-   **Secure JWT Handling**: Ensuring secrets are not hardcoded and are mandatory for application startup.
+-   **Secure File Lifecycle**: Deleting orphaned files from persistent storage to prevent disk bloat and data leaks.
+-   **Major Code Refactoring**: Large-scale removal of a core feature (booking management) and its dependencies across the entire stack.
 
 **key DB schema**
--   No database schema changes were made in this session. Existing booking records are updated with a new .
+-   **bookings**: The , , and  columns have been **removed**.
+-   **payment_transactions**: This table has been **dropped**.
 
 **All files of reference**
--   : **(IN PROGRESS)** Reusable component being migrated.
--   : **(IN PROGRESS)** Service creation form to be migrated.
--   : **(IN PROGRESS)** SpotYou creation form to be migrated.
--   : **(IN PROGRESS)** New file to house the Google Places logic.
--   : Contains the .
-
-**key api endpoints**
--   : (New) Accepts a booking request.
--   : (New) Refuses a booking request.
+-   : **(IN PROGRESS)** Modified for JWT secret hardening.
+-   : **(IN PROGRESS)** Modified to fix SQL injection.
+-   : **(IN PROGRESS)** Modified to fix SQL injection.
+-   : **(CREATED)** Contains tests for the security fixes.
+-   : **(MODIFIED)** A strong  was generated and added.
+-   The full audit report is in message #347 of the history.
 
 **Critical Info for New Agent**
 -   **Language**: You MUST respond and communicate in **French**.
--   **IMMEDIATE TASK (P0)**: Complete the migration from Nominatim to Google Places API for all address search fields. The user has provided the key, which is stored in  as . You must resume the work on  and update , , and .
--   **CRITICAL WORKFLOW INFO**: The Expo development server was very unstable but has been patched. It should now work reliably with hot-reloading. If you experience  errors or constant crashes, the patch applied to  may have been reverted, and you may need to investigate  watcher issues again. The user tests on Expo Go, so a working  tunnel is essential.
-
-**documents and test reports created in this job**
--   /app/test_reports/iteration_46.json
--   /app/test_reports/iteration_47.json
--   /app/test_reports/iteration_48.json
--   /app/test_reports/iteration_49.json
+-   **IMMEDIATE TASK (P0)**: Your first priority is to finish the security fixes. Run the tests in . After they pass, you must immediately proceed to fix the other **P0 vulnerabilities** identified in the audit: the unauthenticated upload endpoint, missing file size/type checks, and the misconfigured CORS policy.
+-   **CONTEXT**: The application is in a fragile state post-audit. Do not develop new features until all P0 and critical P1 security/performance issues are resolved.
+-   **USER DECISIONS**: The user has explicitly decided to **remove booking management** and **ignore UI changes to SpotYou buttons**. Do not suggest re-implementing these.
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **LATEST (ACTIONABLE)**: User provides Google Places API key and confirms to proceed with the migration for all address search fields. (Status: IN PROGRESS)
-2.  User asks if the map component also needs to be migrated. (Status: Answered, No)
-3.  User asks about the cost of using Google Places API. (Status: Answered)
-4.  User reports not seeing the UI changes for the improved Nominatim search. (Status: Resolved by restarting Expo)
-5.  User requests to improve address search to find places/businesses, not just addresses. (Status: IN PROGRESS, led to Google migration)
-6.  User reports the backend is down. (Status: Resolved)
-7.  User reports the backend is down again. (Status: Resolved, was a PostgreSQL timing issue)
-8.  User shares a screenshot of an error when launching the app on Expo Go. (Status: Resolved, was an  tunnel issue)
-9.  User reports No change, indicating the completed booking management feature was not visible on their device. (Status: Resolved, this triggered the extensive Expo debugging)
-10. User clarifies booking management UI requirements. (Status: COMPLETED)
+1.  **LATEST**: Instructed the agent to personally fix the P0 JWT and SQLi vulnerabilities and to run tests to confirm the fixes. (Status: IN PROGRESS)
+2.  Requested a comprehensive technical audit of the application with a specific format. (Status: COMPLETED)
+3.  Asked about the Admin section's location, as it was not visible. (Status: COMPLETED, link was fixed)
+4.  Asked for an updated list of functional features after the booking refactor. (Status: COMPLETED)
+5.  Confirmed the plan to remove the entire booking management flow. (Status: COMPLETED)
+6.  Clarified the scope of the booking removal: everything after the user clicks Send request to coach should be deleted. (Status: COMPLETED)
+7.  Requested the removal of the booking management feature, asking for a confirmation of files to be deleted before execution. (Status: COMPLETED)
+8.  Asked for a list of all developed features in the application. (Status: COMPLETED)
+9.  Stated a critical new requirement: old image files must be deleted from the database/disk when replaced or removed. (Status: COMPLETED)
+10. Asked for clarification on how profile pictures in notifications are handled and if old photos are deleted. (Status: COMPLETED)
 
 **Project Health Check:**
 -   **Broken/Unstable**:
-    -   The Expo development environment is a recurring source of problems. A patch is currently holding it stable, but it should be considered fragile.
+    -   : A critical P0 vulnerability exists; the endpoint is unauthenticated and lacks size/type validation.
+    -   The database is missing critical performance indexes.
+    -   The Expo development environment remains fragile due to the  patch.
 -   **Blocked**:
     -   Push Notifications (requires user to install a custom dev build).
 
 **3rd Party Integrations**
 -   **EAS (Expo Application Services)**: Used for building the application.
--   **Google Places API**: **(NEW, IN PROGRESS)** For address and place autocompletion. The key is provided.
+-   **Google Places API**: Used for address autocompletion.
 
 **Testing status**
--   **Testing agent used after significant changes**: YES (for the booking management feature)
+-   **Testing agent used after significant changes**: YES (for the notification system, but not for the subsequent refactoring/audit).
 -   **Troubleshoot agent used after agent stuck in loop**: NO
--   **Test files created**: None.
--   **Known regressions**: None.
+-   **Test files created**:  (created, not yet run).
+-   **Known regressions**: None identified, but the major refactoring and security fixes are high-risk for introducing them.
 
 **Credentials to test flow:**
+-   **Admin**:  / 
 -   **Coach**:  / 
 -   **User**:  / 
--   **Google Places API Key**:  (available in )
 
 **What agent forgot to execute**
--   The user's long-standing request to improve the action buttons' layout on the SpotYou detail screen () is still pending and has not been prioritized.</analysis>
+-   The agent created the test file  but did not execute it to confirm the fixes before the session ended. This is the immediate next step.</analysis>

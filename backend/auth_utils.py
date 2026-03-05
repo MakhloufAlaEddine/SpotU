@@ -7,7 +7,12 @@ from fastapi import HTTPException, Request
 from typing import Optional
 from database import row_to_dict
 
-JWT_SECRET = os.environ.get("JWT_SECRET", "winek-secret-2024")
+JWT_SECRET = os.environ.get("JWT_SECRET")
+if not JWT_SECRET:
+    raise RuntimeError(
+        "CRITICAL: JWT_SECRET environment variable is not set. "
+        "Generate one with: openssl rand -hex 32"
+    )
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_DAYS = 7
 COMMISSION_RATE = 0.15  # 15%
@@ -35,9 +40,17 @@ def create_jwt(user_id: str, role: str) -> str:
 
 def decode_jwt(token: str) -> dict:
     try:
-        return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        payload = jwt.decode(
+            token,
+            JWT_SECRET,
+            algorithms=[JWT_ALGORITHM],
+            options={"require": ["exp", "user_id"]},
+        )
+        return payload
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidAlgorithmError:
+        raise HTTPException(status_code=401, detail="Invalid token algorithm")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
