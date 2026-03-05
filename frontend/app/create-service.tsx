@@ -15,7 +15,6 @@ import { WeekCalendar } from '../components/WeekCalendar';
 import type { DaySlot } from '../components/WeekCalendar';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
-import { Platform } from 'react-native';
 import { useLang } from '../context/LanguageContext';
 import { Colors, Spacing, Radius } from '../constants/Colors';
 
