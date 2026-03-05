@@ -316,6 +316,34 @@ async def connect_to_db():
             CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, created_at DESC);
         """)
 
+        # [PERF-01] Index de performance — migration idempotente
+        await conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_bookings_user_id
+                ON bookings(user_id);
+            CREATE INDEX IF NOT EXISTS idx_bookings_coach_id
+                ON bookings(coach_id);
+            CREATE INDEX IF NOT EXISTS idx_bookings_service_id
+                ON bookings(service_id);
+            CREATE INDEX IF NOT EXISTS idx_bookings_status
+                ON bookings(status);
+            CREATE INDEX IF NOT EXISTS idx_reviews_reviewee_id
+                ON reviews(reviewee_id);
+            CREATE INDEX IF NOT EXISTS idx_reviews_reviewer_id
+                ON reviews(reviewer_id);
+            CREATE INDEX IF NOT EXISTS idx_service_slots_service_id
+                ON service_slots(service_id);
+            CREATE INDEX IF NOT EXISTS idx_service_packages_service_id
+                ON service_packages(service_id);
+            CREATE INDEX IF NOT EXISTS idx_services_coach_id
+                ON services(coach_id);
+            CREATE INDEX IF NOT EXISTS idx_services_active_created
+                ON services(active, created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_tag_point_participants_user_id
+                ON tag_point_participants(user_id);
+            CREATE INDEX IF NOT EXISTS idx_conversations_created_by
+                ON conversations(created_by);
+        """)
+
     # 2. Seed données de base (users, tagpoints, tags, domaines...)
     from seed import seed_initial_data
     await seed_initial_data()
