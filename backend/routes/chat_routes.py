@@ -419,7 +419,14 @@ async def ws_chat(websocket: WebSocket, conv_id: str):
                     pool, pid,
                     title=user_info["name"],
                     body=content[:100],
-                    data={"type": "chat_message", "conversationId": conv_id}
+                    data={
+                        "type": "chat_message",
+                        "conversationId": conv_id,
+                        "sender_id": user_id,
+                        "sender_name": user_info["name"],
+                        "sender_picture": user_info.get("picture") or "",
+                    },
+                    notif_type="chat_message",
                 ))
 
     except WebSocketDisconnect:

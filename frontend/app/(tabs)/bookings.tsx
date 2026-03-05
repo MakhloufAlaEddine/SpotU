@@ -22,6 +22,7 @@ const NOTIF_CFG: Record<string, { icon: any; color: string; bg: string; label: s
   spotyu_restored:   { icon: 'refresh-circle',             color: '#10B981',       bg: '#10B9811A',             label: 'SpotYou restauré' },
   spotyu_updated:    { icon: 'create-outline',             color: '#F59E0B',       bg: '#F59E0B1A',             label: 'SpotYou mis à jour' },
   profile_review:    { icon: 'star-half-outline',          color: '#8B5CF6',       bg: '#8B5CF61A',             label: 'Évaluation profil' },
+  chat_message:      { icon: 'chatbubble-outline',          color: Colors.primary,  bg: Colors.primary + '1A',  label: 'Message' },
   info:              { icon: 'information-circle-outline', color: Colors.muted,    bg: Colors.card,             label: 'Info' },
 };
 
@@ -126,13 +127,15 @@ export default function NotificationsScreen() {
 
             return {
               id: n.id,
-              type: n.type || d.type || 'info',
-              sender_name: d.sender_name || '',
+              type: d.type === 'chat_message' ? 'chat_message' : (n.type || d.type || 'info'),
+              sender_name: d.sender_name || n.title || '',
               sender_picture: d.sender_picture || '',
               action_text: d.action_text || n.body || '',
               content_title: d.content_title || '',
               time: n.created_at || new Date().toISOString(),
-              action,
+              action: d.type === 'chat_message' && d.conversationId
+                ? `/chat/${d.conversationId}`
+                : action,
               read: n.read,
             };
           })
