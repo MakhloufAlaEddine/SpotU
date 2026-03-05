@@ -1,8 +1,10 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, Request
 from starlette.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from pathlib import Path
+from slowapi.errors import RateLimitExceeded
 import os
 import logging
 
@@ -25,6 +27,33 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="SpotU API", version="1.0.0")
+
+# ── [SEC-03] Rate Limiting — slowapi ─────────────────────────────────────────
+from limiter import limiter
+
+def _rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+    """
+    [SEC-03] Gestionnaire 429 personnalisé.
+    Ajoute Retry-After en calculant la durée de la fenêtre du rate limit.
+    Note : headers_enabled=False sur le limiter — l'injection automatique de
+    headers sur les réponses 200 (dicts FastAPI) est incompatible avec slowapi
+    qui attend un objet starlette.Response, pas un dict.
+    """
+    GRANULARITY_SECONDS = {"second": 1, "minute": 60, "hour": 3600, "day": 86400}
+    granularity_name = "minute"
+    try:
+        granularity_name = exc.limit.granularity.name if exc.limit else "minute"
+    except Exception:
+        pass
+    retry_after = GRANULARITY_SECONDS.get(granularity_name, 60)
+    return JSONResponse(
+        {"error": f"Rate limit exceeded: {exc.detail}"},
+        status_code=429,
+        headers={"Retry-After": str(retry_after)},
+    )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_handler)
 
 api_router = APIRouter(prefix="/api")
 api_router.include_router(auth_router, prefix="/auth", tags=["auth"])

@@ -170,9 +170,17 @@ class TestSEC11_RequêtesGET:
 
     def test_login_api_fonctionne(self):
         """L'API d'authentification n'est pas cassée."""
+        import uuid as _uuid
+        # IP unique pour ne pas être bloqué par les tests de rate limit
+        unique_ip = (
+            f"10.{_uuid.uuid4().int % 254 + 1}"
+            f".{_uuid.uuid4().int % 254 + 1}"
+            f".{_uuid.uuid4().int % 254 + 1}"
+        )
         resp = httpx.post(
             f"{API_URL}/api/auth/login",
             json={"email": "user@winek.app", "password": "WinekUser2024!"},
+            headers={"X-Forwarded-For": unique_ip},
             timeout=10,
         )
         assert resp.status_code == 200, f"Login échoué: {resp.status_code} {resp.text}"

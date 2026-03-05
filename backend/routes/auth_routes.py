@@ -3,13 +3,15 @@ from datetime import datetime, timezone
 from models import UserCreate, UserLogin, GoogleAuthRequest, PasswordChange, new_id
 from auth_utils import hash_password, verify_password, create_jwt, require_auth, fetch_emergent_session, USER_FIELDS
 from database import get_pool, row_to_dict
+from limiter import limiter
 import json
 
 router = APIRouter()
 
 
 @router.post("/register")
-async def register(data: UserCreate):
+@limiter.limit("5/minute")
+async def register(request: Request, data: UserCreate):
     pool = get_pool()
     async with pool.acquire() as conn:
         existing = await conn.fetchrow("SELECT user_id FROM users WHERE email = $1", data.email.lower())
@@ -27,7 +29,8 @@ async def register(data: UserCreate):
 
 
 @router.post("/login")
-async def login(data: UserLogin):
+@limiter.limit("5/minute")
+async def login(request: Request, data: UserLogin):
     pool = get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow("SELECT user_id, password_hash, role FROM users WHERE email = $1", data.email.lower())
@@ -41,7 +44,8 @@ async def login(data: UserLogin):
 
 
 @router.post("/google")
-async def google_auth(data: GoogleAuthRequest):
+@limiter.limit("10/minute")
+async def google_auth(request: Request, data: GoogleAuthRequest):
     pool = get_pool()
     session_data = await fetch_emergent_session(data.session_id)
     email = session_data.get("email", "").lower()

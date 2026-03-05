@@ -39,15 +39,33 @@ PDF_BYTES  = b"%PDF-1.4 fake pdf content that is not an image"
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
-def _login() -> str:
-    """Récupère un JWT valide (utilisateur test)."""
-    resp = httpx.post(f"{API_URL}/api/auth/login", json=TEST_USER, timeout=10)
-    assert resp.status_code == 200, f"Login a échoué: {resp.text}"
-    return resp.json()["token"]
+# Token cache — évite de dépasser le rate limit /login (5/min par IP) quand
+# toute la suite de tests est exécutée d'un coup.
+_TOKEN: dict = {"value": None}
+
+def _get_token() -> str:
+    """Obtient un JWT valide une seule fois et le met en cache."""
+    if _TOKEN["value"] is None:
+        import uuid as _uuid
+        # IP unique → n'interfère pas avec les autres suites de test
+        unique_ip = (
+            f"10.{_uuid.uuid4().int % 254 + 1}"
+            f".{_uuid.uuid4().int % 254 + 1}"
+            f".{_uuid.uuid4().int % 254 + 1}"
+        )
+        resp = httpx.post(
+            f"{API_URL}/api/auth/login",
+            json=TEST_USER,
+            headers={"X-Forwarded-For": unique_ip},
+            timeout=10,
+        )
+        assert resp.status_code == 200, f"Login a échoué: {resp.text}"
+        _TOKEN["value"] = resp.json()["token"]
+    return _TOKEN["value"]
 
 
 def _auth_headers() -> dict:
-    return {"Authorization": f"Bearer {_login()}"}
+    return {"Authorization": f"Bearer {_get_token()}"}
 
 
 def _upload(data: bytes, filename: str, content_type: str, headers: dict | None = None) -> httpx.Response:
