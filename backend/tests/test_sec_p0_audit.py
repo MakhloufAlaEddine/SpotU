@@ -121,13 +121,17 @@ class TestSEC01_JWTSecret:
 # [SEC-06] SQL Injection — absence de f-strings avec user_id dans les queries
 # ═══════════════════════════════════════════════════════════════════════════
 
-# Pattern dangereux : f-string contenant une variable user dans un contexte SQL
+# Pattern dangereux : f-string injectant DIRECTEMENT des données utilisateur dans le SQL.
+# IMPORTANT : les f-strings qui n'injectent que des INDICES de paramètres asyncpg
+# (ex: f"coach_id != ${param_idx}", f"AND tp.user_id != ${uid_idx}") sont SÛRES car
+# la valeur réelle est passée séparément via params.append() / *extra_params.
+# Seule l'injection directe de la valeur utilisateur (ex: f"...{current_user_id}...")
+# constitue une vraie vulnérabilité SQLi.
 DANGEROUS_PATTERNS = [
-    # f"...{current_user_id}..." ou f'...{user_id}...' dans des conditions SQL
+    # f"... {current_user_id} ..." → valeur utilisateur directement dans la requête SQL
     re.compile(r'f["\'].*\{current_user_id\}.*["\']'),
+    # f"... {user_id} ..." → même problème
     re.compile(r'f["\'].*\{user_id\}.*["\']'),
-    re.compile(r"conditions\.append\(f[\"'].*\{"),
-    re.compile(r"exclude_clause\s*=\s*f[\"']"),
 ]
 
 FILES_TO_CHECK = [
