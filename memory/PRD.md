@@ -102,7 +102,13 @@ SpotU (ex-WINEK) est une plateforme hyperlocale de connexion sportive basée sur
 
 ## Backlog Prioritaire
 
-### P0 - Critique
+### P0 - Critique (Audit Sécurité)
+- [x] **[SEC-01] JWT Secret hardening** — RuntimeError si absent, secret fort, algo strict — TERMINÉ Mars 2026
+- [x] **[SEC-06] SQL Injection** — requêtes paramétrées asyncpg, plus de f-strings avec user_id — TERMINÉ Mars 2026
+- [x] **[SEC-07] Auth upload** — `require_auth` sur `POST /api/upload-image` — TERMINÉ Mars 2026
+- [x] **[SEC-08] Limite taille upload** — MAX 5 Mo, `file.read(MAX+1)` pour éviter OOM — TERMINÉ Mars 2026
+- [x] **[SEC-09] Magic bytes validation** — Content-Type ignoré, détection réelle JPEG/PNG/WebP/GIF — TERMINÉ Mars 2026
+- [x] **[SEC-10] Path traversal delete** — `filepath.relative_to()` bloque toute sortie hors UPLOADS_DIR — TERMINÉ Mars 2026
 - [x] Fix scroll Planning screen - TERMINÉ Mars 2026
 - [x] Splash screen + logo SpotU - TERMINÉ Mars 2026
 - [x] Fix décalage dates événements récurrents dans Planning - TERMINÉ Mars 2026

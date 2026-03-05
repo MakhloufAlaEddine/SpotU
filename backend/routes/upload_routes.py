@@ -1,26 +1,71 @@
-from fastapi import APIRouter, Request, UploadFile, File
+from fastapi import APIRouter, Request, UploadFile, File, HTTPException
 from pathlib import Path
 import uuid
 import os
 import logging
+
+from auth_utils import require_auth
+from database import get_pool
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 UPLOADS_DIR = Path("/app/backend/uploads")
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+# Résolution anticipée pour la protection path-traversal
+_UPLOADS_DIR_RESOLVED = UPLOADS_DIR.resolve()
 
+MAX_UPLOAD_SIZE = 5 * 1024 * 1024  # 5 Mo
+
+# Extension de sortie par type détecté
+_EXT_MAP = {"jpeg": "jpg", "png": "png", "gif": "gif", "webp": "webp"}
+
+
+def _detect_image_type(data: bytes) -> str | None:
+    """
+    Détecte le vrai type d'image via magic bytes.
+    Retourne 'jpeg' | 'png' | 'gif' | 'webp', ou None si non reconnu.
+    Ne fait JAMAIS confiance au Content-Type déclaré par le client.
+    """
+    if len(data) < 12:
+        return None
+    if data[:3] == b"\xff\xd8\xff":
+        return "jpeg"
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        return "png"
+    if data[:6] in (b"GIF87a", b"GIF89a"):
+        return "gif"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "webp"
+    return None
+
+
+# ─── Utilitaires de suppression ───────────────────────────────────────────────
 
 def delete_upload_file(url: str):
-    """Supprime un fichier uploadé localement si l'URL pointe vers /api/uploads/."""
-    if url and "/api/uploads/" in url:
-        filename = url.split("/api/uploads/")[-1].split("?")[0]
-        filepath = UPLOADS_DIR / filename
-        try:
-            filepath.unlink(missing_ok=True)
-            logger.info(f"Deleted upload file: {filename}")
-        except Exception as e:
-            logger.warning(f"Could not delete upload file {filename}: {e}")
+    """
+    Supprime un fichier uploadé localement.
+    [SEC-10] Protection path traversal : le chemin résolu DOIT rester sous UPLOADS_DIR.
+    Si le chemin est invalide ou hors-répertoire → log warning, pas de crash.
+    """
+    if not url or "/api/uploads/" not in url:
+        return
+
+    filename = url.split("/api/uploads/")[-1].split("?")[0]
+
+    try:
+        filepath = (UPLOADS_DIR / filename).resolve()
+        # relative_to() lève ValueError si filepath n'est pas sous _UPLOADS_DIR_RESOLVED
+        filepath.relative_to(_UPLOADS_DIR_RESOLVED)
+    except (ValueError, Exception) as e:
+        logger.warning(f"[SEC-10] Path traversal bloqué ou chemin invalide: {filename!r} — {e}")
+        return
+
+    try:
+        filepath.unlink(missing_ok=True)
+        logger.info(f"Deleted upload file: {filename}")
+    except Exception as e:
+        logger.warning(f"Could not delete upload file {filename}: {e}")
 
 
 def delete_upload_files(urls: list):
@@ -29,21 +74,42 @@ def delete_upload_files(urls: list):
         delete_upload_file(url)
 
 
+# ─── Endpoint ─────────────────────────────────────────────────────────────────
+
 @router.post("/upload-image")
 async def upload_image(request: Request, file: UploadFile = File(...)):
-    """Upload an image file and return its public URL."""
-    content = await file.read()
+    """
+    Upload sécurisé d'une image.
+    [SEC-07] Auth JWT requise.
+    [SEC-08] Limite de taille : MAX 5 Mo — lecture avec borne pour éviter l'OOM.
+    [SEC-09] Vérification magic bytes — le Content-Type déclaré est ignoré.
+    """
+    # [SEC-07] Authentification obligatoire
+    pool = get_pool()
+    await require_auth(request, pool)
 
-    ext = "jpg"
-    if file.content_type and "/" in file.content_type:
-        raw_ext = file.content_type.split("/")[-1]
-        ext = "jpg" if raw_ext in ("jpeg", "jpg") else raw_ext[:10]
+    # [SEC-08] Lire au plus MAX_UPLOAD_SIZE+1 octets pour détecter le dépassement
+    # sans charger tout un fichier géant en mémoire
+    content = await file.read(MAX_UPLOAD_SIZE + 1)
+    if len(content) > MAX_UPLOAD_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Fichier trop volumineux (max {MAX_UPLOAD_SIZE // (1024*1024)} Mo)",
+        )
 
+    # [SEC-09] Validation du type réel via magic bytes (ignorer Content-Type)
+    img_type = _detect_image_type(content)
+    if img_type is None:
+        raise HTTPException(
+            status_code=415,
+            detail="Type de fichier non supporté. Formats acceptés : JPEG, PNG, WebP, GIF",
+        )
+
+    ext = _EXT_MAP[img_type]
     filename = f"img_{uuid.uuid4().hex[:16]}.{ext}"
     filepath = UPLOADS_DIR / filename
     filepath.write_bytes(content)
 
-    # Use forwarded headers from proxy if present, otherwise fall back to env var
     forwarded_host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
     forwarded_proto = request.headers.get("x-forwarded-proto", "https")
     if forwarded_host:
