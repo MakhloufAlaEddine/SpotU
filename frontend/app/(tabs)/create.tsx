@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import { MapViewComponent } from '../../components/MapViewComponent';
 import { LocationPicker } from '../../components/LocationPicker';
 import { DateTimePickerModal } from '../../components/DateTimePicker';
@@ -816,15 +817,39 @@ export default function CreateSpotYouScreen() {
 // ─── Image upload helper ──────────────────────────────────────────────────────
 async function uploadImage(uri: string, token: string): Promise<string | null> {
   try {
-    const formData = new FormData();
-    formData.append('file', { uri, name: 'photo.jpg', type: 'image/jpeg' } as any);
     const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+
+    // Lire le fichier avec expo-file-system pour garantir la lecture sur iOS/Android
+    const fileInfo = await FileSystem.getInfoAsync(uri);
+    if (!fileInfo.exists) {
+      console.warn('Upload: fichier introuvable', uri);
+      return null;
+    }
+
+    // Déterminer l'extension et le MIME type
+    const ext = uri.split('.').pop()?.toLowerCase() || 'jpg';
+    const mimeMap: Record<string, string> = {
+      jpg: 'image/jpeg', jpeg: 'image/jpeg',
+      png: 'image/png', gif: 'image/gif',
+      webp: 'image/webp', heic: 'image/heic', heif: 'image/heic',
+    };
+    const mimeType = mimeMap[ext] || 'image/jpeg';
+    const filename = `photo_${Date.now()}.${ext === 'heic' || ext === 'heif' ? 'jpg' : ext}`;
+
+    const formData = new FormData();
+    formData.append('file', { uri, name: filename, type: mimeType } as any);
+
     const res = await fetch(`${BASE_URL}/api/upload-image`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: formData,
     });
-    if (!res.ok) return null;
+
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => '');
+      console.warn(`Upload failed ${res.status}:`, errBody);
+      return null;
+    }
     const data = await res.json();
     return data.url || null;
   } catch (e) {
