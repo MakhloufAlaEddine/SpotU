@@ -110,6 +110,10 @@ SpotU (ex-WINEK) est une plateforme hyperlocale de connexion sportive basée sur
 - [x] **[SEC-09] Magic bytes validation** — Content-Type ignoré, détection réelle JPEG/PNG/WebP/GIF — TERMINÉ Mars 2026
 - [x] **[SEC-10] Path traversal delete** — `filepath.relative_to()` bloque toute sortie hors UPLOADS_DIR — TERMINÉ Mars 2026
 - [x] **[SEC-03] Rate limiting** — `slowapi` 5/min par IP sur `/login` et `/register`, 10/min sur `/google`. Handler 429 custom avec `Retry-After`. IP via X-Forwarded-For (compatible K8s ingress) — TERMINÉ Mars 2026
+- [x] **[SEC-11] CORS** — `allow_origins=["*"]` supprimé → origines CSV depuis `ALLOWED_ORIGINS` env — TERMINÉ Mars 2026
+- [x] **[SEC-14] WebSocket token URL** — handshake JSON `{token}` post-accept, timeout 5s, close 4001/4003 — TERMINÉ Mars 2026
+- [x] **[SEC-15] Anti-spam WS** — 1 msg/500ms (drop silencieux), 8Ko max → close 4009 — TERMINÉ Mars 2026
+- [x] **[SEC-16] Cleanup WS** — `finally: disconnect()`, `except` loggués, connexions mortes nettoyées — TERMINÉ Mars 2026
 - [x] Splash screen + logo SpotU - TERMINÉ Mars 2026
 - [x] Fix décalage dates événements récurrents dans Planning - TERMINÉ Mars 2026
 - [x] Ajout flag `is_own` + badge "SpotMe" dans Planning - TERMINÉ Mars 2026

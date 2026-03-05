@@ -54,9 +54,16 @@ export function useNotifications() {
     const token = await storage.get('spotu_token');
     if (!token) return;
 
-    const url = `${BASE_WS}/api/ws/notifications?token=${token}`;
+    // [SEC-14] Token envoyé en premier message JSON après ouverture,
+    //          JAMAIS dans l'URL (logs serveur, proxies, historique browser).
+    const url = `${BASE_WS}/api/ws/notifications`;
     const ws = new WebSocket(url);
     wsRef.current = ws;
+
+    ws.onopen = () => {
+      // Handshake : premier message = {token}
+      ws.send(JSON.stringify({ token }));
+    };
 
     ws.onmessage = (e) => {
       try {
@@ -67,8 +74,9 @@ export function useNotifications() {
       } catch {}
     };
 
-    ws.onclose = () => {
-      // Reconnexion automatique après 5s
+    ws.onclose = (e) => {
+      // Ne pas reconnecter si auth refusée (4001) ou accès interdit (4003)
+      if (e.code === 4001 || e.code === 4003) return;
       reconnectRef.current = setTimeout(() => {
         if (wsRef.current === ws) connect();
       }, 5000);
@@ -111,14 +119,20 @@ export function useChat(conversationId: string | null) {
     const token = await storage.get('spotu_token');
     if (!token) return;
 
-    const url = `${BASE_WS}/api/ws/chat/${conversationId}?token=${token}`;
+    // [SEC-14] Token envoyé en premier message JSON, JAMAIS dans l'URL.
+    const url = `${BASE_WS}/api/ws/chat/${conversationId}`;
     const ws = new WebSocket(url);
     wsRef.current = ws;
 
-    ws.onopen = () => setIsConnected(true);
-    ws.onclose = () => {
+    ws.onopen = () => {
+      // Handshake : premier message = {token}
+      ws.send(JSON.stringify({ token }));
+      setIsConnected(true);
+    };
+    ws.onclose = (e) => {
       setIsConnected(false);
-      // Auto-reconnect after 3s
+      // Ne pas reconnecter si auth refusée ou accès interdit
+      if (e.code === 4001 || e.code === 4003) return;
       setTimeout(() => {
         if (wsRef.current === ws) connect();
       }, 3000);

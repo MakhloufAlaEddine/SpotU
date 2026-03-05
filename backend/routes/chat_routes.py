@@ -7,8 +7,12 @@ from auth_utils import require_auth, decode_jwt
 from database import get_pool, row_to_dict, rows_to_list
 from chat_manager import manager, notif_manager
 from push_service import send_push_to_user
+import asyncio
+import time
+import logging
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 class ConversationCreate(BaseModel):
@@ -291,26 +295,59 @@ async def mark_read(conv_id: str, request: Request):
 
 # ── WebSocket ──────────────────────────────────────────────────────────────────
 
+MSG_MIN_INTERVAL = 0.5   # 500 ms entre messages (anti-spam)
+MSG_MAX_BYTES    = 8192  # 8 Ko par message
+
+
+# ── WebSocket Chat ──────────────────────────────────────────────────────────────
+
 @router.websocket("/ws/chat/{conv_id}")
-async def ws_chat(websocket: WebSocket, conv_id: str, token: str = Query(...)):
+async def ws_chat(websocket: WebSocket, conv_id: str):
+    """
+    [SEC-14] Handshake sécurisé : accept() → attendre JSON {token} dans 5 s → valider → vérifier membre.
+             Le token ne transite JAMAIS dans l'URL.
+    [SEC-14] Permissions : si l'utilisateur n'est pas membre → close 4003.
+    [SEC-15] Anti-spam : max 1 message / 500 ms ; max 8 Ko/message → close 4009.
+    [SEC-16] Cleanup : except loggués + disconnect garanti dans finally.
+    """
     pool = get_pool()
 
-    # Auth
+    # [SEC-14] Accepter AVANT l'auth (requis par le protocole WebSocket)
+    await websocket.accept()
+
+    # Attendre le message d'auth { "token": "..." } avec timeout 5 s
+    try:
+        auth_msg = await asyncio.wait_for(websocket.receive_json(), timeout=5.0)
+        token = auth_msg.get("token", "")
+    except asyncio.TimeoutError:
+        logger.warning("[WS chat] Timeout handshake (conv=%s)", conv_id)
+        await websocket.close(code=4001)
+        return
+    except Exception as exc:
+        logger.warning("[WS chat] Erreur handshake (conv=%s): %s", conv_id, exc)
+        await websocket.close(code=4001)
+        return
+
+    # Valider le JWT
     try:
         payload = decode_jwt(token)
     except Exception:
         await websocket.close(code=4001)
         return
 
-    user_id = payload["user_id"]
+    user_id = payload.get("user_id")
+    if not user_id:
+        await websocket.close(code=4001)
+        return
 
-    # Check participant
+    # [SEC-14] Vérifier que l'utilisateur est membre de la conversation
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             "SELECT 1 FROM conversation_participants WHERE conversation_id=$1 AND user_id=$2",
             conv_id, user_id
         )
         if not row:
+            logger.warning("[WS chat] Accès refusé (user=%s, conv=%s)", user_id, conv_id)
             await websocket.close(code=4003)
             return
         user_row = await conn.fetchrow(
@@ -318,7 +355,11 @@ async def ws_chat(websocket: WebSocket, conv_id: str, token: str = Query(...)):
         )
         user_info = row_to_dict(user_row)
 
-    await manager.connect(conv_id, websocket)
+    manager.add(conv_id, websocket)
+
+    # État anti-spam local à cette connexion
+    _last_msg_time: float = 0.0
+
     try:
         while True:
             data = await websocket.receive_json()
@@ -326,17 +367,32 @@ async def ws_chat(websocket: WebSocket, conv_id: str, token: str = Query(...)):
             if not content:
                 continue
 
+            # [SEC-15] Limite de taille (8 Ko)
+            if len(content.encode("utf-8")) > MSG_MAX_BYTES:
+                logger.warning(
+                    "[WS chat] Message trop grand (user=%s, conv=%s, size=%d)",
+                    user_id, conv_id, len(content.encode("utf-8"))
+                )
+                await websocket.close(code=4009)
+                break
+
+            # [SEC-15] Limite de fréquence (1 msg / 500 ms) — rejet silencieux
+            now = time.monotonic()
+            if now - _last_msg_time < MSG_MIN_INTERVAL:
+                continue
+            _last_msg_time = now
+
             msg_id = new_id("msg")
-            now = datetime.now(timezone.utc)
+            ts = datetime.now(timezone.utc)
 
             async with pool.acquire() as conn:
                 await conn.execute(
                     "INSERT INTO messages (message_id, conversation_id, sender_id, content, created_at) VALUES ($1,$2,$3,$4,$5)",
-                    msg_id, conv_id, user_id, content, now
+                    msg_id, conv_id, user_id, content, ts
                 )
                 await conn.execute(
                     "UPDATE conversations SET last_message_at = $1 WHERE conversation_id = $2",
-                    now, conv_id
+                    ts, conv_id
                 )
 
             await manager.broadcast(conv_id, {
@@ -346,10 +402,9 @@ async def ws_chat(websocket: WebSocket, conv_id: str, token: str = Query(...)):
                 "sender_name": user_info["name"],
                 "sender_picture": user_info.get("picture"),
                 "content": content,
-                "created_at": now.isoformat(),
+                "created_at": ts.isoformat(),
             })
 
-            # Pousser le total non-lu à tous les autres participants
             async with pool.acquire() as conn2:
                 participants = await conn2.fetch(
                     "SELECT user_id FROM conversation_participants WHERE conversation_id = $1 AND user_id != $2",
@@ -359,8 +414,6 @@ async def ws_chat(websocket: WebSocket, conv_id: str, token: str = Query(...)):
                 for p in participants:
                     await _push_unread(conn2, p["user_id"])
 
-            # Envoyer push notification aux autres participants (en arrière-plan)
-            import asyncio
             for pid in participant_ids:
                 asyncio.create_task(send_push_to_user(
                     pool, pid,
@@ -370,40 +423,68 @@ async def ws_chat(websocket: WebSocket, conv_id: str, token: str = Query(...)):
                 ))
 
     except WebSocketDisconnect:
-        manager.disconnect(conv_id, websocket)
-    except Exception:
+        logger.info("[WS chat] Déconnexion propre (user=%s, conv=%s)", user_id, conv_id)
+    except Exception as exc:
+        logger.warning("[WS chat] Erreur inattendue (user=%s, conv=%s): %s", user_id, conv_id, exc)
+    finally:
+        # [SEC-16] Garantir le nettoyage même en cas d'exception
         manager.disconnect(conv_id, websocket)
 
 
-# ── WebSocket Notifications (unread count) ─────────────────────────────────────
+# ── WebSocket Notifications ────────────────────────────────────────────────────
 
 @router.websocket("/ws/notifications")
-async def ws_notifications(websocket: WebSocket, token: str = Query(...)):
-    """Canal personnel de notifications en temps réel (total non-lus)."""
+async def ws_notifications(websocket: WebSocket):
+    """
+    Canal personnel de notifications temps réel.
+    [SEC-14] Handshake sécurisé : accept() → attendre JSON {token} dans 5 s → valider.
+             Le token ne transite JAMAIS dans l'URL.
+    [SEC-16] Cleanup : except loggués + disconnect garanti dans finally.
+    """
     pool = get_pool()
+
+    # [SEC-14] Accepter AVANT l'auth
+    await websocket.accept()
+
+    try:
+        auth_msg = await asyncio.wait_for(websocket.receive_json(), timeout=5.0)
+        token = auth_msg.get("token", "")
+    except asyncio.TimeoutError:
+        logger.warning("[WS notif] Timeout handshake")
+        await websocket.close(code=4001)
+        return
+    except Exception as exc:
+        logger.warning("[WS notif] Erreur handshake: %s", exc)
+        await websocket.close(code=4001)
+        return
+
     try:
         payload = decode_jwt(token)
     except Exception:
         await websocket.close(code=4001)
         return
 
-    user_id = payload["user_id"]
-    await notif_manager.connect(user_id, websocket)
+    user_id = payload.get("user_id")
+    if not user_id:
+        await websocket.close(code=4001)
+        return
+
+    notif_manager.add(user_id, websocket)
 
     try:
-        # Envoyer les compteurs initiaux dès la connexion
         async with pool.acquire() as conn:
             total = await _get_unread_total(conn, user_id)
             notif_unread = await _get_unread_notif(conn, user_id)
         await websocket.send_json({"type": "unread_total", "count": total})
         await websocket.send_json({"type": "unread_notif", "count": notif_unread})
 
-        # Maintenir la connexion ouverte
         while True:
             await websocket.receive_text()
+
     except WebSocketDisconnect:
-        pass
-    except Exception:
-        pass
+        logger.info("[WS notif] Déconnexion propre (user=%s)", user_id)
+    except Exception as exc:
+        logger.warning("[WS notif] Erreur inattendue (user=%s): %s", user_id, exc)
     finally:
+        # [SEC-16] Garantir le nettoyage
         notif_manager.disconnect(user_id, websocket)
