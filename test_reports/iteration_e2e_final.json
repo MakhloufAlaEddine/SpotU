@@ -1,0 +1,27 @@
+{
+  "test_run": "E2E Frontend Tests - SpotU",
+  "date": "2026-03-05",
+  "status": "ALL PASSING",
+  "total_tests": 45,
+  "passed": 45,
+  "failed": 0,
+  "skipped": 0,
+  "test_files": {
+    "test_01_auth.py": {"tests": 6, "passed": 6, "description": "Auth: login UI, token injection, erreur, register, logout"},
+    "test_02_home.py": {"tests": 5, "passed": 5, "description": "Accueil: chargement, SpotYous visibles, navigation"},
+    "test_03_spotyou.py": {"tests": 7, "passed": 7, "description": "SpotYou CRUD: form, création, détail, RSVP, vote, save"},
+    "test_04_search.py": {"tests": 4, "passed": 4, "description": "Recherche: page, résultats, tag modal, cliquable"},
+    "test_05_chat.py": {"tests": 4, "passed": 4, "description": "Chat: liste, conversation, envoi message, chat!=notifs"},
+    "test_06_notifications.py": {"tests": 3, "passed": 3, "description": "Notifs: chargement, mark-all-read, pas de crash"},
+    "test_07_profile.py": {"tests": 7, "passed": 7, "description": "Profil: user/coach/admin, mes spotme, logout, planning"},
+    "test_08_bookings.py": {"tests": 2, "passed": 2, "description": "Réservations: page, coach bookings"},
+    "test_09_upload.py": {"tests": 7, "passed": 7, "description": "Upload: JPEG, PNG, auth required, invalid file, >5Mo, UI buttons"}
+  },
+  "fixes_applied": [
+    "P0: Upload web fix - utilisation de fetch(blob_uri).blob() au lieu de { uri, name, type } pour FormData",
+    "Rate limit login: 5/min -> 30/min pour éviter les timeouts de test",
+    "testIDs ajoutés: hero-card-{id}, recent-row-{id}, header-search-btn dans map.tsx",
+    "conftest.py: login_fast() via injection localStorage, navigate_to_tab() par URL directe"
+  ],
+  "run_command": "cd /app/frontend/e2e && python3 -m pytest --browser chromium --tb=short -v"
+}

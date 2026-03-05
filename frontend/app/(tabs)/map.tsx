@@ -87,7 +87,7 @@ function HeroCard({ point, onPress }: { point: any; onPress: () => void }) {
   const tag = point.tags?.[0];
   const votes = (point.upvotes ?? 0) - (point.downvotes ?? 0);
   return (
-    <TouchableOpacity style={[heroSt.card, { width: SW - 32 }]} onPress={onPress} activeOpacity={0.94}>
+    <TouchableOpacity style={[heroSt.card, { width: SW - 32 }]} onPress={onPress} activeOpacity={0.94} testID={`hero-card-${point.point_id}`}>
       {point.image_url
         ? <Image source={{ uri: point.image_url }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
         : <View style={[StyleSheet.absoluteFillObject, { backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }]}>
@@ -225,7 +225,7 @@ function RecentRow({ point, userLat, userLng, onPress }: { point: any; userLat: 
   const votes = (point.upvotes ?? 0) - (point.downvotes ?? 0);
   const tag = point.tags?.[0];
   return (
-    <TouchableOpacity style={recSt.row} onPress={onPress} activeOpacity={0.82}>
+    <TouchableOpacity style={recSt.row} onPress={onPress} activeOpacity={0.82} testID={`recent-row-${point.point_id}`}>
       {/* Thumb */}
       <View style={recSt.thumb}>
         {point.image_url
@@ -342,7 +342,7 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
           {/* Right: search */}
-          <TouchableOpacity style={hdrSt.searchBtn} onPress={() => router.push('/(tabs)/search' as any)}>
+          <TouchableOpacity style={hdrSt.searchBtn} onPress={() => router.push('/(tabs)/search' as any)} testID="header-search-btn">
             <Ionicons name="search" size={20} color={Colors.foreground} />
           </TouchableOpacity>
         </View>

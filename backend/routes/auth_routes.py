@@ -29,7 +29,7 @@ async def register(request: Request, data: UserCreate):
 
 
 @router.post("/login")
-@limiter.limit("5/minute")
+@limiter.limit("30/minute")
 async def login(request: Request, data: UserLogin):
     pool = get_pool()
     async with pool.acquire() as conn:

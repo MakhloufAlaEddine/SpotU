@@ -3,138 +3,200 @@
 **PRODUCT REQUIREMENTS**:
 -   **Service & SpotYou Management**: Full CRUD for user-generated services and activities.
 -   **Service Discovery**: Services and SpotYous must be discoverable on a map and in search, excluding content created by the searching user.
--   **Booking System**: A user can send a booking request to a coach for a specific service slot. The flow stops after the request is sent. All subsequent management features (coach accept/refuse, booking history, payments) have been explicitly removed at the user's request.
--   **Real-time Notifications & Chat**: A comprehensive, real-time system for key events (new booking requests, SpotYou interactions, profile ratings) and direct user communication.
--   **Secure File Handling**: Uploaded images (profile, service, SpotYou) must be handled securely, and old files must be deleted from the server when replaced.
+-   **Booking System**: A user can send a booking request to a coach for a specific service slot.
+-   **Real-time Notifications & Chat**: A comprehensive, real-time system for key events and direct user communication. Chat messages should NOT appear in the notification list.
+-   **Secure File Handling**: Uploaded images (profile, service, SpotYou) must be handled securely.
+-   **End-to-End Frontend Tests**: The user has requested the creation of a full end-to-end integration test suite for the frontend to validate all scenarios with real data.
 
 **User's preferred language**: French. The next agent MUST respond in **French**.
 
 **what currently exists?**
-A full-stack Expo (React Native) and FastAPI application. The core features (Auth, SpotYou/Service CRUD, Chat, Notifications) are implemented. A comprehensive security and performance hardening phase has just been completed, where the agent systematically addressed and fixed numerous critical vulnerabilities identified in a technical audit. Each fix was accompanied by dedicated tests and a full regression suite run.
+A full-stack application using Expo (React Native) for the frontend and FastAPI for the backend. The agent has just worked through a series of user-reported bugs, including multiple frontend environment failures (Expo Metro bundler crashes), file upload issues, and data display problems. Several fixes have been implemented, but the core file upload functionality remains broken for the user, who is testing on a web browser, not the native Expo Go app.
 
 **Last working item**:
--   **Last item agent was working**: Migrating JWT storage on the mobile client from  to the more secure  to fix audit issue **[SEC-02]**. This involved updating the storage abstraction layer in  and adding  as a dependency.
--   **Status**: USER VERIFICATION PENDING
--   **Agent Testing Done**: Y
--   **Which testing method agent to use?**: NA. The agent has already created a test file , run  and , and performed a manual E2E test via  to confirm functionality. The fix is considered complete from the agent's side.
+-   **Last item agent was working**: Fixing a file upload failure. The agent had implemented a fix using , which is a native-only Expo API. The user provided a screenshot showing they were testing in a web browser (◀ Chrome), which caused the native API to fail. The agent correctly identified this platform mismatch as the root cause of the persistent failure.
+-   **Status**: IN PROGRESS
+-   **Agent Testing Done**: N (The implemented fix was not platform-aware and thus failed for the user's environment)
+-   **Which testing method agent to use?**: manual testing by curl. The agent should first implement a platform-aware upload solution, then test it via  for the backend and by running the frontend and attempting an upload in a web context.
 -   **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: Expo Hot-Reload Instability (P1 - RECURRING)**
+-   **Issue 1: File Upload Fails on Web Browser (P0)**
+-   **Issue 2: Update SpotYou flow does not work (P1)**
+-   **Issue 3: Expo Hot-Reload Instability (P1 - RECURRING)**
+-   **Issue 4: Pre-existing tests are failing (P2)**
 
 **Issues Detail**:
--   **Issue 1: Expo Hot-Reload Instability**
-    -   **Description**: The Metro bundler can crash with an  error due to the file watcher limit. A temporary patch (fs.inotify.max_user_watches=524288) is in place, but the underlying issue can resurface.
-    -   **Attempted fixes**: A workaround is applied at the start of sessions, but it's not a permanent solution.
-    -   **Next debug checklist**: Investigate more permanent solutions for Expo/Metro bundler file watching issues in a containerized environment if the problem persists and becomes a significant blocker.
-    -   **Why fix this issue and what will be achieved with the fix?**: To improve development environment stability and prevent interruptions.
-    -   **Status**: NOT STARTED (Workaround active)
+-   **Issue 1: File Upload Fails on Web Browser**
+    -   **Attempted fixes**: The agent replaced a buggy  call with . This failed because  is a native-only API and the user is testing on the web.
+    -   **Next debug checklist**:
+        1.  Go to .
+        2.  In the  function, add platform detection using .
+        3.  If , use the standard  with  approach.
+        4.  If  is  or , use the already implemented .
+        5.  Ensure the frontend correctly rebuilds and test the upload functionality again.
+    -   **Why fix this issue and what will be achieved with the fix?**: This is a critical bug blocking the core functionality of creating and updating SpotYous with images.
+    -   **Status**: IN PROGRESS
+    -   **Is recurring issue?**: Y
+    -   **Should Test frontend/backend/both after fix?**: both
+    -   **Blocked on other issue**: None
+
+-   **Issue 2: Update SpotYou flow does not work**
+    -   **Attempted fixes**: The agent confirmed via logs that the backend  endpoint returns a . The investigation was paused to focus on the file upload bug, which affects this flow as well. The root cause is likely in the frontend's state management or navigation after the update completes.
+    -   **Next debug checklist**:
+        1.  Once the upload issue (Issue 1) is resolved, re-examine the  function in the frontend.
+        2.  Trace the state updates and navigation calls after the API request succeeds.
+        3.  Check the browser console for any client-side errors during the update process.
+    -   **Why fix this issue and what will be achieved with the fix?**: It will restore a core CRUD functionality for users managing their SpotYous.
+    -   **Status**: NOT STARTED
+    -   **Is recurring issue?**: N
+    -   **Should Test frontend/backend/both after fix?**: frontend
+    -   **Blocked on other issue**: Issue 1: File Upload Fails on Web Browser
+
+-   **Issue 3: Expo Hot-Reload Instability**
+    -   **Description**: The Metro bundler crashes with an  error in the containerized environment.
+    -   **Attempted fixes**: The agent applied a monkey-patch to  to swallow the error. This patch is brittle and gets overwritten every time yarn install v1.22.22
+[1/4] Resolving packages...
+success Already up-to-date.
+Done in 0.66s. modifies  (e.g., yarn add v1.22.22
+info Visit https://yarnpkg.com/en/docs/cli/add for documentation about this command.).
+    -   **Next debug checklist**: The patch needs to be reapplied after any dependency change. A more permanent solution would involve configuring the Metro bundler to use polling, but previous attempts failed. The current patch is the only working (but fragile) solution.
+    -   **Why fix this issue and what will be achieved with the fix?**: To stabilize the development environment and ensure code changes are reliably reflected without constant manual intervention.
+    -   **Status**: IN PROGRESS (fragile workaround applied)
     -   **Is recurring issue?**: Y
     -   **Should Test frontend/backend/both after fix?**: frontend
     -   **Blocked on other issue**: None
+
+-   **Issue 4: Pre-existing tests are failing**
+    -   **Description**: During regression testing, the agent discovered that several older test files have failures unrelated to the current changes. These include missing environment variables (, ) in the test runner context and a test that fails because it finds AsyncStorage inside a comment block.
+    -   **Attempted fixes**: The agent identified the causes but did not fix them, classifying them as pre-existing issues.
+    -   **Next debug checklist**:
+        1.  Modify the test execution script or Pytest configuration to load necessary environment variables.
+        2.  Fix the string-matching test in  to ignore comments.
+        3.  Fix the networking tests in  to use a valid base URL.
+    -   **Why fix this issue and what will be achieved with the fix?**: A clean test suite is essential for reliable regression testing and preventing future bugs.
+    -   **Status**: NOT STARTED
+    -   **Is recurring issue?**: Y
+    -   **Should Test frontend/backend/both after fix?**: backend
 
 **In progress Task List**:
 None.
 
 **Upcoming and Future Tasks**
--   **Upcoming Tasks (P1)**:
-    -   **Stripe Integration**: Re-introduce a payment flow for service bookings.
-    -   **Bilingual Support (i18n)**: Add French/English translations to the mobile application.
--   **Future Tasks (P2)**:
+-   **Upcoming Tasks**:
+    -   **(P0) Create End-to-End Frontend Tests**: The user explicitly requested integration tests for all frontend scenarios using real data.
+    -   **(P1) Stripe Integration**: Re-introduce a payment flow for service bookings.
+    -   **(P2) Bilingual Support (i18n)**: Add French/English translations to the mobile application.
+-   **Future Tasks**:
     -   Finalize Push Notifications with EAS Build.
     -   Enhance the Admin Dashboard with more features.
-    -   Address any remaining lower-priority audit findings.
 
 **Completed work in this session**
-A major security and performance overhaul was completed, addressing all user-requested audit items. Each fix was validated with new, dedicated automated tests and full regression testing.
--   **P0 JWT & SQLi Fixes**: Patched JWT secret handling and multiple SQL Injection vulnerabilities. Verified with .
--   **P0 Upload Security**: Hardened the file upload endpoint () by adding authentication, file size limits (5MB), MIME type validation via magic bytes, and path traversal protection. Verified with .
--   **P0 CORS Fix**: Correctly configured the CORS policy in  to use an explicit allow-list from environment variables, fixing a critical vulnerability. Verified with .
--   **P1 Rate Limiting**: Implemented rate limiting on authentication endpoints (, ) using  to prevent brute-force attacks. Verified with .
--   **P1 WebSocket Security**: Reworked WebSocket connections for chat and notifications to use a secure token handshake protocol instead of passing tokens in the URL. Added anti-spam, message size limits, and robust connection handling. Verified with .
--   **P1 Database Performance**: Added 12 critical database indexes via an idempotent migration in  to prevent performance degradation. Verified with  and .
--   **P1 Secure Mobile Storage**: Migrated JWT storage on the client from  to the encrypted . Verified with manual tests and .
+-   **[SEC-02] Secure Mobile Storage**: Migrated JWT storage from  to  and created a comprehensive Jest test suite () to verify the implementation.
+-   **[SEC-12] API Rate Limiting**: Hardened , , and  endpoints by adding strict  validation to pagination  parameters in FastAPI. Created a new test file () with 21 tests to validate the fix.
+-   **Bugfix - Chat Notifications**: Fixed a bug where new chat messages were incorrectly creating entries in the main notifications list. The fix involved setting  in  and cleaning up the database.
+-   **Bugfix - SpotYou Discovery**: Fixed a critical backend bug where spots would not appear on the map for logged-in users. The issue was a SQL parameter indexing error in  which was corrected.
+-   **Bugfix - HEIC Image Upload**: Modified the backend upload endpoint () to correctly identify and accept HEIC/HEIF image formats commonly used by iPhones.
+-   **Dev Environment Stability**: Resolved multiple critical startup failures in the frontend environment, including a corrupt  directory, ngrok tunnel conflicts, and  file watcher crashes (via a temporary patch).
 
 **Earlier issues found/mentioned but not fixed**
-None. The agent systematically addressed all issues requested by the user during this session.
+-   **Issue 1: Failures in **
+    -   **Debug checklist**: The test fails with  because it tries to make a request to a relative URL. The test fixture needs to be updated to use a full base URL like .
+    -   **Why to solve this issue**: To ensure the test suite is reliable.
+    -   **Should Test frontend/backend/both after fix**: backend
+    -   **Is recurring issue?**: Y
+-   **Issue 2: Failures in **
+    -   **Debug checklist**: The tests require the  environment variable to be set, which is missing when ============================= test session starts ==============================
+platform linux -- Python 3.11.14, pytest-9.0.2, pluggy-1.6.0
+rootdir: /app/frontend
+plugins: anyio-4.12.1
+collected 0 items
+
+============================ no tests ran in 0.01s ============================= is run directly. The test runner configuration needs to be updated to load the backend  file.
+    -   **Why to solve this issue**: To re-enable critical security regression tests.
+    -   **Should Test frontend/backend/both after fix**: backend
+    -   **Is recurring issue?**: Y
 
 **Known issue recurrence from previous fork**
--   **Issue recurrence in previous fork**: Expo Metro Bundler Instability
--   **Recurrence count**: 2+
--   **Status**: NOT STARTED
+-   **Issue recurrence in previous fork**: Expo Metro Bundler Instability ( error).
+-   **Recurrence count**: 3+ in this session alone.
+-   **Status**: IN PROGRESS (A fragile patch is in place but keeps getting undone).
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Security Hardening**: A systematic process of identifying and fixing vulnerabilities.
--   **Rate Limiting**: Using  to protect endpoints from brute-force attacks. The implementation correctly handles  headers for proxy compatibility.
--   **Secure WebSocket Handshake**: Moving authentication from URL parameters to a post-connection message-based protocol to prevent token leakage.
--   **Database Indexing**: Using  for idempotent migrations and  (with ) to verify index usage on small datasets.
--   **Secure Mobile Storage**: Migrating from unencrypted  to encrypted  for sensitive data like JWTs.
--   **Comprehensive Testing**: Creating dedicated test files for each security fix and running a full regression suite to prevent breaking changes.
+-   **Platform-Specific Code**: Using  in React Native to execute different code for web vs. native (iOS/Android). This is crucial for the file upload fix.
+-   **Expo FileSystem API**: Understanding the difference between  (native, reliable) and standard  with  (web-compatible but can be buggy on native).
+-   **Expo Metro Bundler Issues**: The  error is a known issue when using Expo in containerized environments with low file watcher limits. The current workaround involves patching , which is highly fragile.
+-   **FastAPI Parameter Validation**: Using  to add server-side validation to API endpoint parameters, preventing abuse.
 
 **key DB schema**
-No changes to schema in this session. 12 indexes were added to existing tables.
+No changes to schema in this session.
 
 **All files of reference**
--   : Main application file, modified for CORS and Rate Limiting.
--   : Contains the database initialization and the new performance indexes.
--   : All routes that were hardened (auth, upload, chat, notifications).
--   : Directory containing all the new test files created for each security/performance fix.
--   : The abstraction layer for client-side storage, now using .
--    & : Frontend WebSocket clients updated for the new auth handshake.
--   : Contains the product requirements and has been updated with completed tasks.
+-   : Contains the  function that needs to be fixed.
+-   : Location of the fixed SpotYou discovery SQL bug.
+-   : Location of the HEIC image support fix.
+-   : New test file for API limit validation.
+-   : New test file for the secure storage migration.
+-   : The file that is repeatedly being patched to stabilize the dev environment.
+
+**Areas that need refactoring**:
+-   The monkey-patch on  is a critical liability. A more permanent solution for the  error must be found, likely involving a different Metro configuration or Docker environment setup.
+-   The older, failing backend tests should be fixed to ensure a reliable CI/CD pipeline and prevent regressions.
+
+**key api endpoints**
+-   : Endpoint for uploading files.
+-   : Endpoint for searching and listing SpotYous.
+-   : Endpoint for updating a SpotYou.
 
 **Critical Info for New Agent**
--   **Language**: You MUST respond and communicate in **French**.
--   **CONTEXT**: The application has just undergone a major security and performance overhaul. All high-priority audit items requested by the user have been fixed and verified with automated tests. The application is in a much more robust and secure state.
--   **NEXT STEPS**: All blocking security work is complete. You can now proceed with the user's desired feature work from the Upcoming Tasks list, such as Stripe integration or i18n support. Propose a plan to the user based on these upcoming features.
+-   **USER IS ON WEB**: The user is testing the application in a **web browser**, not the native Expo Go mobile app. All frontend changes, especially file handling, MUST be compatible with web standards (, ). Do not use native-only APIs like  without a web fallback.
+-   **LANGUAGE**: You MUST communicate in **French**.
+-   **ENVIRONMENT INSTABILITY**: The frontend development server is extremely fragile due to the  file watcher limit. A patch is repeatedly applied to , but yarn install v1.22.22
+[1/4] Resolving packages...
+success Already up-to-date.
+Done in 0.53s. commands will undo it, causing the server to crash. Be prepared to re-apply this patch.
+-   **USER FRUSTRATION**: The user is frustrated with the recurring bugs and has explicitly requested the creation of a comprehensive end-to-end test suite for the frontend. This should be prioritized after fixing the blocking upload bug.
 
 **documents and test reports created in this job**
--   /app/backend/tests/test_perf_indexes.py
--   /app/backend/tests/test_sec_cors_audit.py
--   /app/backend/tests/test_sec_p0_audit.py
--   /app/backend/tests/test_sec_ratelimit_audit.py
--   /app/backend/tests/test_sec_upload_audit.py
--   /app/backend/tests/test_sec_websocket_audit.py
--   /app/frontend/tests/test_sec_storage.test.ts
--   /app/memory/PRD.md (updated)
+-   
+-   
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **LATEST**: Instructed the agent to migrate mobile JWT storage from  to . (Status: COMPLETED by agent, pending user verification)
-2.  Instructed the agent to add database indexes from the audit report. (Status: COMPLETED)
-3.  Instructed the agent to fix all WebSocket security vulnerabilities. (Status: COMPLETED)
-4.  Instructed the agent to add rate limiting to authentication endpoints. (Status: COMPLETED)
-5.  Instructed the agent to fix the misconfigured CORS policy. (Status: COMPLETED)
-6.  Instructed the agent to fix all file upload security vulnerabilities. (Status: COMPLETED)
-7.  Confirmed the plan to fix upload vulnerabilities after the agent provided a full implementation plan. (Status: COMPLETED)
-8.  Confirmed the successful fix of the initial P0 JWT/SQLi vulnerabilities after the agent debugged the tests. (Status: COMPLETED)
-9.  Instructed the agent to verify test coverage and execute tests for the JWT/SQLi fixes. (Status: COMPLETED)
-10. Approved the agent's initial plan to tackle the security audit items. (Status: COMPLETED)
+1.  **LATEST**: Ça marche toujours pas Cree moi des testes d’intégrations coté front end to end qui teste tous les scénarios possibles dans l’application avec des données réels - (It still doesn't work. Create E2E frontend integration tests for me that test all possible scenarios with real data.) **Status: NOT STARTED**
+2.  Ça marche toujours pas - (It still doesn't work.) - User reporting upload failure after the  fix. **Status: IN PROGRESS**
+3.  L’update de spotyou ne marche pas - (The SpotYou update doesn't work.) **Status: NOT STARTED**
+4.  1- upload photos a la creation d’un spotyou ne marche pas 2- les spot n’apparaissent pas sur l’écran d’accueil et recherche - (1- photo upload on spotyou creation doesn't work 2- spots don't appear on the home screen and search). **Status: Bug 2 was fixed, Bug 1 is IN PROGRESS.**
+5.  Mais qu’est-ce tu as fait Les messages doivent s’afficher dans message pas dans notification Je ne veux plus voir des messages dans notification - (What have you done? Messages should be in 'messages' not 'notifications'. I don't want to see messages in notifications anymore.) **Status: COMPLETED**
+6.  Pourquoi j’ai le message dans mes notifications - (Why do I have the message in my notifications?) - User reporting the chat notification bug. **Status: COMPLETED**
+7.  mais c’est pas possible Erreur - (It's not possible, Error) - User reporting an error in Expo Go due to a cached/stale URL. **Status: COMPLETED**
+8.  Erreur au lancement - (Error on launch) - User reported multiple startup errors with Expo/ngrok. **Status: COMPLETED**
+9.  Demarre le backend - (Start the backend). **Status: COMPLETED**
+10. Approved the plan to fix API pagination limits. **Status: COMPLETED**
 
 **Project Health Check:**
--   **Broken/Unstable**:
-    -   The Expo development environment remains potentially fragile due to the  file watcher limit, although a workaround is active.
+-   **Broken**:
+    -   Frontend development environment (Metro bundler crashes frequently).
+    -   File upload functionality (works on native, broken on web where the user is testing).
+    -   SpotYou update functionality.
 -   **Mocked**: None.
 
 **3rd Party Integrations**
--   **EAS (Expo Application Services)**: Used for building the application.
--   **Google Places API**: Used for address autocompletion.
--   **slowapi**: Newly added for rate limiting the backend API.
+-   **EAS (Expo Application Services)**
+-   **Google Places API**
+-   **slowapi**: For backend rate limiting.
+-   **expo-secure-store**: For secure JWT storage on native.
+-   **expo-file-system**: Added for file handling.
 
 **Testing status**
--   **Testing agent used after significant changes**: NO (The main agent performed all testing).
+-   **Testing agent used after significant changes**: NO
 -   **Troubleshoot agent used after agent stuck in loop**: NO
 -   **Test files created**:
     -   
     -   
-    -   
-    -   
-    -   
-    -   
-    -   
--   **Known regressions**: None. Extensive regression testing (over 100 tests) was performed after each significant change.
+-   **Known regressions**: None introduced in this session, but several pre-existing tests are broken.
 
 **Credentials to test flow:**
 -   **Admin**:  / 
@@ -142,4 +204,6 @@ No changes to schema in this session. 12 indexes were added to existing tables.
 -   **User**:  / 
 
 **What agent forgot to execute**
-Nothing. The agent was extremely thorough, following user instructions precisely, creating tests for every change, and ensuring no regressions were introduced.</analysis>
+-   The agent did not initially account for the user testing on a web browser, leading to the implementation of a native-only solution that failed.
+-   The agent did not start the user's new request to create end-to-end frontend tests.
+-   The agent did not fix the pre-existing broken tests that it discovered during regression runs.</analysis>
