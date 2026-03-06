@@ -18,7 +18,9 @@ TP_FIELDS = """
     tp.image_url, tp.images, tp.schedule, tp.event_date, tp.event_end_date, tp.event_schedule, tp.new_date_coming,
     ST_Y(tp.location::geometry) as latitude,
     ST_X(tp.location::geometry) as longitude,
-    u.name as owner_name, u.picture as owner_picture, u.role as owner_role
+    u.name as owner_name, u.picture as owner_picture, u.role as owner_role,
+    COALESCE((SELECT ROUND(AVG(v.rating)::numeric, 1) FROM tag_point_votes v WHERE v.point_id = tp.point_id), 0) as rating,
+    COALESCE((SELECT COUNT(*) FROM tag_point_votes v WHERE v.point_id = tp.point_id), 0) as vote_count
 """
 
 TP_FIELDS_SIMPLE = """
