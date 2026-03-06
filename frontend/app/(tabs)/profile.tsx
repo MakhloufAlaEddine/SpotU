@@ -271,7 +271,7 @@ export default function MenuScreen() {
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.tpScroll}>
               {mySpotYou.slice(0, 6).map((pt) => {
-                const thumb = (pt.images as string[] | null)?.[0] || pt.image_url;
+                const thumb = (pt.images as string[] | null)?.[0];
                 return (
                   <TouchableOpacity key={pt.point_id} style={st.tpCard}
                     onPress={() => router.push(`/spot-you/${pt.point_id}`)} activeOpacity={0.85}

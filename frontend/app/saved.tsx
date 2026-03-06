@@ -55,8 +55,8 @@ function SavedCard({ item, onPress, onUnsave }: { item: SavedPoint; onPress: () 
   return (
     <TouchableOpacity style={card.container} onPress={onPress} activeOpacity={0.8} testID={`saved-card-${item.point_id}`}>
       <View style={card.imageWrap}>
-        {(item.images?.[0] || item.image_url)
-          ? <Image source={{ uri: item.images?.[0] || item.image_url }} style={card.image} resizeMode="cover" />
+        {item.images?.[0]
+          ? <Image source={{ uri: item.images[0] }} style={card.image} resizeMode="cover" />
           : <View style={card.imageFallback}><Ionicons name="image-outline" size={28} color={Colors.muted} /></View>}
       </View>
       <View style={card.info}>

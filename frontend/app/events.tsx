@@ -73,8 +73,8 @@ function EventCard({ item, onLeave }: { item: EventPoint; onLeave: () => void })
       <View style={[card.accent, isRecurring && card.accentRecurring]} />
 
       <View style={card.imageWrap}>
-        {(item.images?.[0] || item.image_url)
-          ? <Image source={{ uri: item.images?.[0] || item.image_url }} style={card.image} resizeMode="cover" />
+        {item.images?.[0]
+          ? <Image source={{ uri: item.images[0] }} style={card.image} resizeMode="cover" />
           : <View style={card.imageFallback}><Ionicons name="calendar-outline" size={24} color={Colors.muted} /></View>}
       </View>
 

@@ -200,10 +200,9 @@ function SpotYouSkeleton() {
 }
 
 // ─── Image Carousel ───────────────────────────────────────────────────────────
-function ImageCarousel({ images, fallback }: { images: string[]; fallback?: string }) {
+function ImageCarousel({ images }: { images: string[] }) {
   const [index, setIndex] = useState(0);
-  const allImgs = images.length > 0 ? images : fallback ? [fallback] : [];
-  if (allImgs.length === 0) {
+  if (images.length === 0) {
     return (
       <View style={carSt.box}>
         <View style={carSt.placeholder}><Ionicons name="image-outline" size={64} color={Colors.muted} /></View>
@@ -213,7 +212,7 @@ function ImageCarousel({ images, fallback }: { images: string[]; fallback?: stri
   return (
     <View style={carSt.box}>
       <FlatList
-        data={allImgs}
+        data={images}
         horizontal pagingEnabled showsHorizontalScrollIndicator={false}
         keyExtractor={(_, i) => String(i)}
         onMomentumScrollEnd={e => setIndex(Math.round(e.nativeEvent.contentOffset.x / (SCREEN_W - Spacing.md * 2)))}
@@ -223,9 +222,9 @@ function ImageCarousel({ images, fallback }: { images: string[]; fallback?: stri
           </View>
         )}
       />
-      {allImgs.length > 1 && (
+      {images.length > 1 && (
         <View style={carSt.dots}>
-          {allImgs.map((_, i) => (
+          {images.map((_, i) => (
             <View key={i} style={[carSt.dot, i === index && carSt.dotActive]} />
           ))}
         </View>
@@ -470,13 +469,11 @@ export default function SpotYouDetail() {
 
   const handleEdit = () => {
     if (!point) return;
-    // Merge images array + fallback image_url (for points with only a single image_url)
+    // Utiliser uniquement images[] — image_url sera supprimé
     const parsedImages: string[] = (() => {
       try { return Array.isArray(point.images) ? point.images : JSON.parse(point.images || '[]'); } catch { return []; }
     })();
-    const allImages = parsedImages.length > 0
-      ? parsedImages
-      : (point.image_url ? [point.image_url] : []);
+    const allImages = parsedImages;
     router.push({
       pathname: '/(tabs)/create' as any,
       params: {
@@ -707,7 +704,7 @@ export default function SpotYouDetail() {
 
         {/* 1. Image Carousel */}
         <View style={{ marginHorizontal: Spacing.md, marginTop: Spacing.md }}>
-          <ImageCarousel images={images} fallback={point.image_url} />
+          <ImageCarousel images={images} />
           {/* Owner avatar overlay */}
           {point.owner && (
             <TouchableOpacity
@@ -1121,8 +1118,8 @@ export default function SpotYouDetail() {
                             onPress={() => { setShowSimilar(false); router.replace(`/spot-you/${item.point_id}` as any); }}
                             testID={`similar-card-${item.point_id}`}>
                             <View style={ms.simImg}>
-                              {(item.images?.[0] || item.image_url)
-                                ? <Image source={{ uri: item.images?.[0] || item.image_url }} style={{ width: '100%', height: '100%', borderRadius: Radius.md }} />
+                              {item.images?.[0]
+                                ? <Image source={{ uri: item.images[0] }} style={{ width: '100%', height: '100%', borderRadius: Radius.md }} />
                                 : <View style={{ flex: 1, backgroundColor: Colors.border, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' }}>
                                     <Ionicons name="image-outline" size={24} color={Colors.muted} />
                                   </View>}
