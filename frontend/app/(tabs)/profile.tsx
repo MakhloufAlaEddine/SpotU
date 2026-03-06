@@ -207,7 +207,7 @@ export default function MenuScreen() {
             <View style={st.actionIconBox}>
               <Ionicons name="location" size={22} color={Colors.primary} />
             </View>
-            <Text style={st.actionLabel}>Mes Points</Text>
+            <Text style={st.actionLabel}>Mes SpotMe</Text>
             <Text style={st.actionSub}>{mySpotYou.length} créés</Text>
           </TouchableOpacity>
 
@@ -240,21 +240,6 @@ export default function MenuScreen() {
               <Ionicons name="chevron-forward" size={18} color="#FF9500" />
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[st.coachCreateBtn, { marginTop: 10, borderColor: 'rgba(29,191,115,0.3)' }]}
-              onPress={() => router.push('/planning' as any)}
-              activeOpacity={0.85}
-              testID="coach-bookings-btn"
-            >
-              <View style={[st.coachCreateIconBox, { backgroundColor: 'rgba(29,191,115,0.1)' }]}>
-                <Ionicons name="calendar" size={26} color={Colors.primary} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={st.coachCreateTitle}>Mon Planning</Text>
-                <Text style={st.coachCreateSub}>Voir mes séances à venir</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
-            </TouchableOpacity>
           </View>
         )}
 
