@@ -24,6 +24,7 @@ function NavigationGuard() {
   const navigationState = useRootNavigationState();
   const pushTokenRef = useRef<string | null>(null);
   const [splashReady, setSplashReady] = useState(false);
+  const splashHiddenRef = useRef(false);
 
   // Durée minimale du splash : 1.8s pour que l'utilisateur voie le logo
   useEffect(() => {
@@ -49,8 +50,11 @@ function NavigationGuard() {
     if (Platform.OS === 'web' && !navigationState?.key) return;
     if (loading || !splashReady) return;
 
-    // Cacher le splash screen natif une fois l'auth vérifiée
-    SplashScreen.hideAsync();
+    // Cacher le splash screen natif une seule fois
+    if (!splashHiddenRef.current) {
+      splashHiddenRef.current = true;
+      SplashScreen.hideAsync().catch(() => {});
+    }
 
     const inAuth = segments[0] === '(auth)';
     const atRoot = segments.length === 0;
