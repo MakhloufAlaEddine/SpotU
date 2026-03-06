@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  ScrollView, ActivityIndicator, RefreshControl,
+  ScrollView, ActivityIndicator, RefreshControl, InteractionManager,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -198,9 +198,10 @@ export default function PlanningScreen() {
   const [events, setEvents]         = useState<any[]>([]);
   const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedDate, setSelectedDate] = useState('');     // aucune date sélectionnée au départ
+  const [selectedDate, setSelectedDate] = useState(today);
   const [showTodayBtn, setShowTodayBtn] = useState(false);
   const [filter, setFilter]         = useState<FilterType>('all');
+  const [focusTrigger, setFocusTrigger] = useState(0);
 
   const flatRef = useRef<FlatList>(null);
   const dateIndexMap = useRef<Record<string, number>>({});
@@ -228,7 +229,8 @@ export default function PlanningScreen() {
 
   useFocusEffect(useCallback(() => {
     hasScrolledToday.current = false;
-    setSelectedDate('');  // aucune date sélectionnée
+    setSelectedDate(today);
+    setFocusTrigger(t => t + 1);
 
     AsyncStorage.getItem(CACHE_KEY).then(cached => {
       if (cached) {
@@ -296,17 +298,8 @@ export default function PlanningScreen() {
     }
 
     dateIndexMap.current = idxMap;
-    hasScrolledToday.current = false;
     return { items: result, dotDates: dots, eventDates: evtDots, conflictIds: allConflicts };
   }, [events, filter]);
-
-  // Quand tout est prêt → même code que le bouton "Aujourd'hui"
-  useEffect(() => {
-    if (!loading && items.length > 0 && !hasScrolledToday.current) {
-      hasScrolledToday.current = true;
-      requestAnimationFrame(() => handleSelectDate(today));
-    }
-  }, [loading, items, today]);
 
   const handleSelectDate = useCallback((date: string) => {
     setSelectedDate(date);
@@ -316,6 +309,18 @@ export default function PlanningScreen() {
       flatRef.current.scrollToIndex({ index: targetIdx, animated: true, viewPosition: 0 });
     }
   }, []);
+
+  // Scroll vers aujourd'hui après chaque prise de focus, une fois les items prêts
+  useEffect(() => {
+    if (focusTrigger === 0 || loading || items.length === 0) return;
+    const task = InteractionManager.runAfterInteractions(() => {
+      if (!hasScrolledToday.current) {
+        hasScrolledToday.current = true;
+        handleSelectDate(today);
+      }
+    });
+    return () => task.cancel();
+  }, [focusTrigger, loading, items.length, today, handleSelectDate]);
 
   const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
     // Ignorer les mises à jour déclenchées par un scroll programmatique (tap sur calendrier)
