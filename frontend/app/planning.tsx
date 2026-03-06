@@ -197,10 +197,8 @@ export default function PlanningScreen() {
 
   const [events, setEvents]         = useState<any[]>([]);
   const [loading, setLoading]       = useState(true);
-  const [visible, setVisible]       = useState(false);
-  const [showSkeleton, setShowSkeleton] = useState(true); // false si cache dispo
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(today);
+  const [selectedDate, setSelectedDate] = useState('');     // aucune date sélectionnée au départ
   const [showTodayBtn, setShowTodayBtn] = useState(false);
   const [filter, setFilter]         = useState<FilterType>('all');
 
@@ -230,27 +228,18 @@ export default function PlanningScreen() {
 
   useFocusEffect(useCallback(() => {
     hasScrolledToday.current = false;
+    setSelectedDate('');  // aucune date sélectionnée
 
-    // Vérifier le cache AVANT d'afficher le skeleton
     AsyncStorage.getItem(CACHE_KEY).then(cached => {
       if (cached) {
-        // Cache trouvé → pas de skeleton, scroll silencieux puis reveal
         const cachedArr = JSON.parse(cached);
         setEvents(Array.isArray(cachedArr) ? cachedArr : []);
-        setShowSkeleton(false);  // pas de skeleton
-        setVisible(false);       // FlatList cachée (opacity:0) pour scroll silencieux
         setLoading(false);
       } else {
-        // Pas de cache → skeleton + chargement complet
-        setShowSkeleton(true);
-        setVisible(false);
         setLoading(true);
       }
-      // Dans tous les cas : fetch frais en arrière-plan
       fetchAndSync();
     }).catch(() => {
-      setShowSkeleton(true);
-      setVisible(false);
       setLoading(true);
       fetchAndSync();
     });
@@ -311,21 +300,11 @@ export default function PlanningScreen() {
     return { items: result, dotDates: dots, eventDates: evtDots, conflictIds: allConflicts };
   }, [events, filter]);
 
-  // ── Étape 2 : quand données prêtes → scroll silencieux → révéler la FlatList ──
+  // Quand tout est prêt → même code que le bouton "Aujourd'hui"
   useEffect(() => {
     if (!loading && items.length > 0 && !hasScrolledToday.current) {
       hasScrolledToday.current = true;
-      isProgrammaticScroll.current = true;
-      const todayIdx = dateIndexMap.current[today] ?? 0;
-      // Laisser la FlatList se rendre avec ses dimensions réelles
-      setTimeout(() => {
-        flatRef.current?.scrollToIndex({ index: todayIdx, animated: false, viewPosition: 0 });
-        // Révéler après que le scroll soit appliqué
-        setTimeout(() => {
-          setVisible(true);
-          isProgrammaticScroll.current = false;
-        }, 80);
-      }, 80);
+      requestAnimationFrame(() => handleSelectDate(today));
     }
   }, [loading, items, today]);
 
@@ -440,16 +419,31 @@ export default function PlanningScreen() {
         />
       </SafeAreaView>
 
-      {/* FlatList toujours rendue avec ses vraies dimensions (sinon scrollToIndex échoue) */}
-      {/* opacity:0 tant que le scroll initial n'est pas positionné */}
-      <View style={{ flex: 1 }}>
+      {/* Skeleton pendant le chargement initial */}
+      {loading ? (
+        <View style={{ flex: 1, paddingHorizontal: 16, paddingTop: 12 }}>
+          {[0,1,2,3,4,5,6].map(i => (
+            <View key={i} style={{ marginBottom: 14 }}>
+              <View style={{ width: 130, height: 14, borderRadius: 7, backgroundColor: Colors.card, marginBottom: 10 }} />
+              <View style={{ height: 68, borderRadius: 14, backgroundColor: Colors.card, flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 }}>
+                <View style={{ width: 4, height: 40, borderRadius: 2, backgroundColor: Colors.border }} />
+                <View style={{ flex: 1, gap: 9 }}>
+                  <View style={{ width: '65%', height: 11, borderRadius: 6, backgroundColor: Colors.border }} />
+                  <View style={{ width: '40%', height: 9, borderRadius: 5, backgroundColor: Colors.border }} />
+                </View>
+              </View>
+            </View>
+          ))}
+        </View>
+      ) : (
+        /* Données prêtes : FlatList visible directement, handleSelectDate(today) a déjà scrollé */
         <FlatList
           ref={flatRef}
           data={items}
           keyExtractor={keyExtractor}
           renderItem={renderItem}
           showsVerticalScrollIndicator={false}
-          style={{ flex: 1, opacity: visible ? 1 : 0 }}
+          style={{ flex: 1 }}
           onScrollToIndexFailed={({ index, averageItemLength }) => {
             flatRef.current?.scrollToOffset({ offset: index * averageItemLength, animated: false });
             setTimeout(() => {
@@ -465,25 +459,7 @@ export default function PlanningScreen() {
           }
           contentContainerStyle={{ paddingBottom: 80 }}
         />
-
-        {/* Skeleton en overlay absolu — uniquement si showSkeleton (pas de cache) */}
-        {!visible && showSkeleton && (
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: Colors.background, paddingHorizontal: 16, paddingTop: 12 }]}>
-            {[0, 1, 2, 3, 4, 5, 6].map(i => (
-              <View key={i} style={{ marginBottom: 14 }}>
-                <View style={{ width: 130, height: 14, borderRadius: 7, backgroundColor: Colors.card, marginBottom: 10 }} />
-                <View style={{ height: 68, borderRadius: 14, backgroundColor: Colors.card, flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 }}>
-                  <View style={{ width: 4, height: 40, borderRadius: 2, backgroundColor: Colors.border }} />
-                  <View style={{ flex: 1, gap: 9 }}>
-                    <View style={{ width: '65%', height: 11, borderRadius: 6, backgroundColor: Colors.border }} />
-                    <View style={{ width: '40%', height: 9, borderRadius: 5, backgroundColor: Colors.border }} />
-                  </View>
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
-      </View>
+      )}
 
       {/* Bouton Aujourd'hui */}
       {showTodayBtn && (
