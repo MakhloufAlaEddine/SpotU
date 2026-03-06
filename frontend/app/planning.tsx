@@ -6,9 +6,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../constants/Colors';
-
 import { api } from '../lib/api';
+
+const CACHE_KEY = 'planning_events_cache';
 
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -207,12 +209,35 @@ export default function PlanningScreen() {
   const isProgrammaticScroll = useRef(false);
 
   const load = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      // Étape 1 : afficher le cache immédiatement si disponible
+      try {
+        const cached = await AsyncStorage.getItem(CACHE_KEY);
+        if (cached) {
+          const cachedArr = JSON.parse(cached);
+          setEvents(Array.isArray(cachedArr) ? cachedArr : []);
+          setLoading(false); // cache trouvé → fin du skeleton
+        }
+      } catch (_) {}
+    }
+
+    // Étape 2 : appel backend en arrière-plan
     try {
-      const eData = await api.get<any[]>('/users/me/planning-events').catch(() => []);
-      setEvents(Array.isArray(eData) ? eData : []);
-    } catch {
-      setEvents([]);
+      const fresh = await api.get<any[]>('/users/me/planning-events').catch(() => null);
+      if (!fresh) return;
+      const freshArr = Array.isArray(fresh) ? fresh : [];
+
+      // Comparer avec le cache pour ne mettre à jour qu'en cas de différence
+      const cached = await AsyncStorage.getItem(CACHE_KEY);
+      const hasChanged = JSON.stringify(freshArr) !== cached;
+      if (hasChanged) {
+        setEvents(freshArr);
+        await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(freshArr));
+      }
+    } catch (_) {
+      // Erreur réseau : garder les données du cache, ne pas effacer
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -221,6 +246,7 @@ export default function PlanningScreen() {
 
   useFocusEffect(useCallback(() => {
     setVisible(false);
+    setLoading(true);          // garantit la transition loading→false pour l'useEffect
     hasScrolledToday.current = false;
     load();
   }, [load]));
