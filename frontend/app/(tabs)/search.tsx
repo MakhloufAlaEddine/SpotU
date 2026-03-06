@@ -350,6 +350,21 @@ export default function SearchScreen() {
             style={{ flex: 1 }}
           />
 
+          {/* Badge résultats flottant — toujours visible en vue carte */}
+          <View style={resultBadgeSt.wrap} pointerEvents="box-none">
+            <View style={resultBadgeSt.pill}>
+              <Text style={resultBadgeSt.text}>
+                {combinedResults.length} résultat{combinedResults.length !== 1 ? 's' : ''}
+                {selectedTags.length > 0 ? ` · ${selectedTags.length} tag${selectedTags.length !== 1 ? 's' : ''} (${combineMode ? 'ET' : 'OU'})` : ''}
+              </Text>
+              {selectedTags.length > 0 && (
+                <TouchableOpacity onPress={() => setSelectedTags([])}>
+                  <Text style={resultBadgeSt.clear}>Effacer</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+
           {/* Carte flottante item sélectionné */}
           {selectedMapItem && (
             <TouchableOpacity
@@ -645,8 +660,7 @@ const toggleSt = StyleSheet.create({
 });
 
 // ─── Map item card ─────────────────────────────────────────────────────────────
-const mapCardSt = StyleSheet.create({
-  card: {
+const mapCardSt = StyleSheet.create({  card: {
     position: 'absolute', bottom: 20, left: 16, right: 16,
     backgroundColor: Colors.card, borderRadius: 16,
     flexDirection: 'row', alignItems: 'center', gap: 12,
@@ -661,4 +675,23 @@ const mapCardSt = StyleSheet.create({
   badgeText: { fontSize: 10, fontWeight: '700', color: '#fff', textTransform: 'uppercase' },
   title: { fontSize: 15, fontWeight: '700', color: Colors.foreground },
   sub: { fontSize: 13, color: Colors.muted, marginTop: 2 },
+});
+
+
+// ─── Badge résultats (vue carte) ──────────────────────────────────────────────
+const resultBadgeSt = StyleSheet.create({
+  wrap: {
+    position: 'absolute', bottom: 100, left: 0, right: 0,
+    alignItems: 'center', pointerEvents: 'box-none',
+  },
+  pill: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: 'rgba(13,17,23,0.88)',
+    paddingHorizontal: 18, paddingVertical: 10,
+    borderRadius: Radius.full,
+    shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+  },
+  text: { fontSize: 14, color: 'rgba(255,255,255,0.8)', fontWeight: '500' },
+  clear: { fontSize: 14, color: Colors.primary, fontWeight: '700' },
 });
