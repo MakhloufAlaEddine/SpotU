@@ -197,7 +197,8 @@ export default function PlanningScreen() {
 
   const [events, setEvents]         = useState<any[]>([]);
   const [loading, setLoading]       = useState(true);
-  const [visible, setVisible]       = useState(false); // FlatList scrollée + prête à afficher
+  const [visible, setVisible]       = useState(false);
+  const [showSkeleton, setShowSkeleton] = useState(true); // false si cache dispo
   const [refreshing, setRefreshing] = useState(false);
   const [selectedDate, setSelectedDate] = useState(today);
   const [showTodayBtn, setShowTodayBtn] = useState(false);
@@ -208,48 +209,52 @@ export default function PlanningScreen() {
   const hasScrolledToday = useRef(false);
   const isProgrammaticScroll = useRef(false);
 
-  const load = useCallback(async (isRefresh = false) => {
-    if (isRefresh) {
-      setRefreshing(true);
-    } else {
-      // Étape 1 : afficher le cache immédiatement si disponible
-      try {
-        const cached = await AsyncStorage.getItem(CACHE_KEY);
-        if (cached) {
-          const cachedArr = JSON.parse(cached);
-          setEvents(Array.isArray(cachedArr) ? cachedArr : []);
-          setLoading(false); // cache trouvé → fin du skeleton
-        }
-      } catch (_) {}
-    }
-
-    // Étape 2 : appel backend en arrière-plan
+  // Fetch frais en arrière-plan, applique la diff si besoin
+  const fetchAndSync = useCallback(async () => {
     try {
       const fresh = await api.get<any[]>('/users/me/planning-events').catch(() => null);
       if (!fresh) return;
       const freshArr = Array.isArray(fresh) ? fresh : [];
-
-      // Comparer avec le cache pour ne mettre à jour qu'en cas de différence
       const cached = await AsyncStorage.getItem(CACHE_KEY);
       const hasChanged = JSON.stringify(freshArr) !== cached;
       if (hasChanged) {
         setEvents(freshArr);
         await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(freshArr));
       }
-    } catch (_) {
-      // Erreur réseau : garder les données du cache, ne pas effacer
-    } finally {
+    } catch (_) {}
+    finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, []);
 
   useFocusEffect(useCallback(() => {
-    setVisible(false);
-    setLoading(true);          // garantit la transition loading→false pour l'useEffect
     hasScrolledToday.current = false;
-    load();
-  }, [load]));
+
+    // Vérifier le cache AVANT d'afficher le skeleton
+    AsyncStorage.getItem(CACHE_KEY).then(cached => {
+      if (cached) {
+        // Cache trouvé → pas de skeleton, scroll silencieux puis reveal
+        const cachedArr = JSON.parse(cached);
+        setEvents(Array.isArray(cachedArr) ? cachedArr : []);
+        setShowSkeleton(false);  // pas de skeleton
+        setVisible(false);       // FlatList cachée (opacity:0) pour scroll silencieux
+        setLoading(false);
+      } else {
+        // Pas de cache → skeleton + chargement complet
+        setShowSkeleton(true);
+        setVisible(false);
+        setLoading(true);
+      }
+      // Dans tous les cas : fetch frais en arrière-plan
+      fetchAndSync();
+    }).catch(() => {
+      setShowSkeleton(true);
+      setVisible(false);
+      setLoading(true);
+      fetchAndSync();
+    });
+  }, [fetchAndSync]));
 
   // ── Construire la liste agenda ──────────────────────────────────────────────
   const { items, dotDates, eventDates, conflictIds } = useMemo(() => {
@@ -456,13 +461,13 @@ export default function PlanningScreen() {
           onViewableItemsChanged={onViewableItemsChanged.current}
           viewabilityConfig={viewabilityConfig.current}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={Colors.primary} />
+            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchAndSync(); }} tintColor={Colors.primary} />
           }
           contentContainerStyle={{ paddingBottom: 80 }}
         />
 
-        {/* Skeleton en overlay absolu — masqué dès que visible=true */}
-        {!visible && (
+        {/* Skeleton en overlay absolu — uniquement si showSkeleton (pas de cache) */}
+        {!visible && showSkeleton && (
           <View style={[StyleSheet.absoluteFill, { backgroundColor: Colors.background, paddingHorizontal: 16, paddingTop: 12 }]}>
             {[0, 1, 2, 3, 4, 5, 6].map(i => (
               <View key={i} style={{ marginBottom: 14 }}>
