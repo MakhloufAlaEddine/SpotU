@@ -195,7 +195,7 @@ export default function PlanningScreen() {
 
   const [events, setEvents]         = useState<any[]>([]);
   const [loading, setLoading]       = useState(true);
-  const [dataReady, setDataReady]   = useState(false); // FlatList rendu + données prêtes
+  const [visible, setVisible]       = useState(false); // FlatList scrollée + prête à afficher
   const [refreshing, setRefreshing] = useState(false);
   const [selectedDate, setSelectedDate] = useState(today);
   const [showTodayBtn, setShowTodayBtn] = useState(false);
@@ -220,7 +220,7 @@ export default function PlanningScreen() {
   }, []);
 
   useFocusEffect(useCallback(() => {
-    setDataReady(false);
+    setVisible(false);
     hasScrolledToday.current = false;
     load();
   }, [load]));
@@ -280,14 +280,23 @@ export default function PlanningScreen() {
     return { items: result, dotDates: dots, eventDates: evtDots, conflictIds: allConflicts };
   }, [events, filter]);
 
-  // ── Étape 2 : le calendrier pilote le scroll au premier chargement ───────────
+  // ── Étape 2 : quand données prêtes → scroll silencieux → révéler la FlatList ──
   useEffect(() => {
-    if (!loading && dataReady && items.length > 0 && !hasScrolledToday.current) {
+    if (!loading && items.length > 0 && !hasScrolledToday.current) {
       hasScrolledToday.current = true;
-      // On passe par handleSelectDate → isProgrammaticScroll = true → scroll précis
-      handleSelectDate(today);
+      isProgrammaticScroll.current = true;
+      const todayIdx = dateIndexMap.current[today] ?? 0;
+      // Laisser la FlatList se rendre avec ses dimensions réelles
+      setTimeout(() => {
+        flatRef.current?.scrollToIndex({ index: todayIdx, animated: false, viewPosition: 0 });
+        // Révéler après que le scroll soit appliqué
+        setTimeout(() => {
+          setVisible(true);
+          isProgrammaticScroll.current = false;
+        }, 80);
+      }, 80);
     }
-  }, [loading, dataReady, items, today, handleSelectDate]);
+  }, [loading, items, today]);
 
   const handleSelectDate = useCallback((date: string) => {
     setSelectedDate(date);
@@ -400,50 +409,50 @@ export default function PlanningScreen() {
         />
       </SafeAreaView>
 
-      {/* Étape 1 : Skeleton — visible pendant loading */}
-      {(loading || !dataReady) && (
-        <View style={{ flex: 1, paddingHorizontal: 16, paddingTop: 12 }}>
-          {[0, 1, 2, 3].map(i => (
-            <View key={i} style={{ marginBottom: 12 }}>
-              {/* En-tête de jour skeleton */}
-              <View style={{ width: 120, height: 16, borderRadius: 8, backgroundColor: Colors.border, marginBottom: 8 }} />
-              {/* Carte événement skeleton */}
-              <View style={{ height: 64, borderRadius: 12, backgroundColor: Colors.card, flexDirection: 'row', alignItems: 'center', padding: 12, gap: 12 }}>
-                <View style={{ width: 4, height: 40, borderRadius: 2, backgroundColor: Colors.border }} />
-                <View style={{ flex: 1, gap: 8 }}>
-                  <View style={{ width: '70%', height: 12, borderRadius: 6, backgroundColor: Colors.border }} />
-                  <View style={{ width: '45%', height: 10, borderRadius: 5, backgroundColor: Colors.border }} />
+      {/* FlatList toujours rendue avec ses vraies dimensions (sinon scrollToIndex échoue) */}
+      {/* opacity:0 tant que le scroll initial n'est pas positionné */}
+      <View style={{ flex: 1 }}>
+        <FlatList
+          ref={flatRef}
+          data={items}
+          keyExtractor={keyExtractor}
+          renderItem={renderItem}
+          showsVerticalScrollIndicator={false}
+          style={{ flex: 1, opacity: visible ? 1 : 0 }}
+          onScrollToIndexFailed={({ index, averageItemLength }) => {
+            flatRef.current?.scrollToOffset({ offset: index * averageItemLength, animated: false });
+            setTimeout(() => {
+              flatRef.current?.scrollToIndex({ index, animated: false, viewPosition: 0 });
+            }, 200);
+          }}
+          onScrollBeginDrag={() => { isProgrammaticScroll.current = false; }}
+          onMomentumScrollEnd={() => { isProgrammaticScroll.current = false; }}
+          onViewableItemsChanged={onViewableItemsChanged.current}
+          viewabilityConfig={viewabilityConfig.current}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={Colors.primary} />
+          }
+          contentContainerStyle={{ paddingBottom: 80 }}
+        />
+
+        {/* Skeleton en overlay absolu — masqué dès que visible=true */}
+        {!visible && (
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: Colors.background, paddingHorizontal: 16, paddingTop: 12 }]}>
+            {[0, 1, 2, 3, 4, 5, 6].map(i => (
+              <View key={i} style={{ marginBottom: 14 }}>
+                <View style={{ width: 130, height: 14, borderRadius: 7, backgroundColor: Colors.card, marginBottom: 10 }} />
+                <View style={{ height: 68, borderRadius: 14, backgroundColor: Colors.card, flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 }}>
+                  <View style={{ width: 4, height: 40, borderRadius: 2, backgroundColor: Colors.border }} />
+                  <View style={{ flex: 1, gap: 9 }}>
+                    <View style={{ width: '65%', height: 11, borderRadius: 6, backgroundColor: Colors.border }} />
+                    <View style={{ width: '40%', height: 9, borderRadius: 5, backgroundColor: Colors.border }} />
+                  </View>
                 </View>
               </View>
-            </View>
-          ))}
-        </View>
-      )}
-
-      {/* Étape 2 : FlatList — montée dès que les données arrivent, pilotée par le calendrier */}
-      <FlatList
-        ref={flatRef}
-        data={items}
-        keyExtractor={keyExtractor}
-        renderItem={renderItem}
-        showsVerticalScrollIndicator={false}
-        style={loading || !dataReady ? { height: 0, opacity: 0 } : { flex: 1 }}
-        onLayout={() => { if (!dataReady) setDataReady(true); }}
-        onScrollToIndexFailed={({ index, averageItemLength }) => {
-          flatRef.current?.scrollToOffset({ offset: index * averageItemLength, animated: false });
-          setTimeout(() => {
-            flatRef.current?.scrollToIndex({ index, animated: false, viewPosition: 0 });
-          }, 200);
-        }}
-        onScrollBeginDrag={() => { isProgrammaticScroll.current = false; }}
-        onMomentumScrollEnd={() => { isProgrammaticScroll.current = false; }}
-        onViewableItemsChanged={onViewableItemsChanged.current}
-        viewabilityConfig={viewabilityConfig.current}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={Colors.primary} />
-        }
-        contentContainerStyle={{ paddingBottom: 80 }}
-      />
+            ))}
+          </View>
+        )}
+      </View>
 
       {/* Bouton Aujourd'hui */}
       {showTodayBtn && (
