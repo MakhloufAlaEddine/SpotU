@@ -18,6 +18,7 @@ interface EventPoint {
   point_id: string;
   title: string;
   image_url?: string;
+  images?: string[];
   latitude?: number;
   longitude?: number;
   event_date?: string;
@@ -72,8 +73,8 @@ function EventCard({ item, onLeave }: { item: EventPoint; onLeave: () => void })
       <View style={[card.accent, isRecurring && card.accentRecurring]} />
 
       <View style={card.imageWrap}>
-        {item.image_url
-          ? <Image source={{ uri: item.image_url }} style={card.image} resizeMode="cover" />
+        {(item.images?.[0] || item.image_url)
+          ? <Image source={{ uri: item.images?.[0] || item.image_url }} style={card.image} resizeMode="cover" />
           : <View style={card.imageFallback}><Ionicons name="calendar-outline" size={24} color={Colors.muted} /></View>}
       </View>
 

@@ -1121,8 +1121,8 @@ export default function SpotYouDetail() {
                             onPress={() => { setShowSimilar(false); router.replace(`/spot-you/${item.point_id}` as any); }}
                             testID={`similar-card-${item.point_id}`}>
                             <View style={ms.simImg}>
-                              {item.image_url
-                                ? <Image source={{ uri: item.image_url }} style={{ width: '100%', height: '100%', borderRadius: Radius.md }} />
+                              {(item.images?.[0] || item.image_url)
+                                ? <Image source={{ uri: item.images?.[0] || item.image_url }} style={{ width: '100%', height: '100%', borderRadius: Radius.md }} />
                                 : <View style={{ flex: 1, backgroundColor: Colors.border, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' }}>
                                     <Ionicons name="image-outline" size={24} color={Colors.muted} />
                                   </View>}
