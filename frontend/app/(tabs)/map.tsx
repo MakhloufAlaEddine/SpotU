@@ -94,7 +94,8 @@ function HeroCard({ point, onPress }: { point: any; onPress: () => void }) {
             <Ionicons name={icon} size={80} color="rgba(255,255,255,0.1)" />
           </View>
       }
-      {/* Gradient bottom */}
+      {/* Gradient bottom — fondu + bande */}
+      <View style={heroSt.gradientFade} />
       <View style={heroSt.gradient} />
       {/* Tag chip top-left */}
       {tag && (
@@ -131,7 +132,8 @@ function HeroCard({ point, onPress }: { point: any; onPress: () => void }) {
 }
 const heroSt = StyleSheet.create({
   card: { height: HERO_H, borderRadius: 20, overflow: 'hidden', backgroundColor: Colors.card },
-  gradient: { position: 'absolute', bottom: 0, left: 0, right: 0, height: '65%', backgroundColor: 'rgba(13,17,23,0.82)' },
+  gradient: { position: 'absolute', bottom: 0, left: 0, right: 0, height: '38%', backgroundColor: 'rgba(13,17,23,0.88)' },
+  gradientFade: { position: 'absolute', bottom: '36%', left: 0, right: 0, height: '14%', backgroundColor: 'rgba(13,17,23,0.3)' },
   tagChip: { position: 'absolute', top: 14, left: 14, backgroundColor: 'rgba(29,191,115,0.18)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: 'rgba(29,191,115,0.4)' },
   tagText: { fontSize: 11, fontWeight: '700', color: Colors.primary },
   voteBadge: { position: 'absolute', top: 14, right: 14, flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(13,17,23,0.7)', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4 },
