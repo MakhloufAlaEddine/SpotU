@@ -98,7 +98,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="bookings"
+        name="notifications"
         options={{
           title: 'Notifications',
           tabBarIcon: ({ focused }) => (
