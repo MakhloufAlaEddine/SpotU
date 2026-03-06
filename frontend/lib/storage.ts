@@ -13,13 +13,18 @@
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
+// [SEC-02] Accessibilité keychain : lisible dès le premier déverrouillage,
+// sans exiger d'interaction biométrique à chaque appel (évite "User interaction is not allowed")
+const KEYCHAIN_OPTIONS: SecureStore.SecureStoreOptions = {
+  keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK,
+};
+
 export const storage = {
   async set(key: string, value: string): Promise<void> {
     if (Platform.OS === 'web') {
       try { localStorage.setItem(key, value); } catch {}
     } else {
-      // [SEC-02] Stockage chiffré via Secure Enclave (iOS) ou Android Keystore
-      await SecureStore.setItemAsync(key, value);
+      await SecureStore.setItemAsync(key, value, KEYCHAIN_OPTIONS);
     }
   },
 
@@ -27,16 +32,14 @@ export const storage = {
     if (Platform.OS === 'web') {
       try { return localStorage.getItem(key); } catch { return null; }
     }
-    // [SEC-02] Lecture depuis le stockage chiffré
-    return SecureStore.getItemAsync(key);
+    return SecureStore.getItemAsync(key, KEYCHAIN_OPTIONS);
   },
 
   async remove(key: string): Promise<void> {
     if (Platform.OS === 'web') {
       try { localStorage.removeItem(key); } catch {}
     } else {
-      // [SEC-02] Suppression depuis le stockage chiffré
-      await SecureStore.deleteItemAsync(key);
+      await SecureStore.deleteItemAsync(key, KEYCHAIN_OPTIONS);
     }
   },
 };
