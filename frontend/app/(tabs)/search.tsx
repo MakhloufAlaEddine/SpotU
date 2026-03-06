@@ -681,7 +681,7 @@ const mapCardSt = StyleSheet.create({  card: {
 // ─── Badge résultats (vue carte) ──────────────────────────────────────────────
 const resultBadgeSt = StyleSheet.create({
   wrap: {
-    position: 'absolute', bottom: 100, left: 0, right: 0,
+    position: 'absolute', bottom: 130, left: 0, right: 0,
     alignItems: 'center', pointerEvents: 'box-none',
   },
   pill: {
