@@ -11,6 +11,7 @@ import { api } from '../../lib/api';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { useLocation } from '../../context/LocationContext';
 import { haversineDistance, formatDistance } from '../../utils/distance';
+import { MapViewComponent, MapPin } from '../../components/MapViewComponent';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Tag { tag_id: string; label_fr: string; label_en: string; name: string; }
@@ -165,6 +166,10 @@ export default function SearchScreen() {
   const [loading, setLoading] = useState(false);
   const { location } = useLocation();
 
+  // Vue : liste ou carte
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+
   // Tag state
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [showTagModal, setShowTagModal] = useState(false);
@@ -248,6 +253,32 @@ export default function SearchScreen() {
     return mixed.sort((a, b) => getDistVal(a) - getDistVal(b));
   }, [SpotYou, services, selectedTags, combineMode, location.lat, location.lng]);
 
+  // ─── Pins pour la vue carte ───────────────────────────────────────────────
+  const mapPins = useMemo<MapPin[]>(() => {
+    return combinedResults
+      .map(item => {
+        if (item._type === 'service') {
+          const loc = item.locations?.[0];
+          if (!loc?.latitude || !loc?.longitude) return null;
+          const label = item.price ? `${Math.round(item.price)}€` : 'Service';
+          return { id: item.service_id, lat: loc.latitude, lng: loc.longitude,
+            title: item.title, color: SERVICE_ORANGE, label };
+        }
+        const lat = item.latitude ?? item.location?.coordinates?.[1];
+        const lng = item.longitude ?? item.location?.coordinates?.[0];
+        if (lat == null || lng == null) return null;
+        const label = item.rating ? `★ ${Number(item.rating).toFixed(1)}` : 'SpotYou';
+        return { id: item.point_id, lat, lng, title: item.title, color: Colors.primary, label };
+      })
+      .filter(Boolean) as MapPin[];
+  }, [combinedResults]);
+
+  const selectedMapItem = useMemo(() =>
+    selectedItemId ? combinedResults.find(i =>
+      (i._type === 'service' ? i.service_id : i.point_id) === selectedItemId
+    ) : null,
+  [selectedItemId, combinedResults]);
+
   const toggleTag = (id: string) => {
     setSelectedTags(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]);
   };
@@ -260,11 +291,112 @@ export default function SearchScreen() {
           <Ionicons name="chevron-back" size={24} color={Colors.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Résultats</Text>
-        <TouchableOpacity style={styles.headerAction} onPress={() => router.push('/set-location' as any)}>
-          <Ionicons name="location" size={24} color={Colors.primary} />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 4 }}>
+          {/* Toggle liste / carte */}
+          <View style={toggleSt.wrap}>
+            <TouchableOpacity
+              style={[toggleSt.btn, viewMode === 'list' && toggleSt.active]}
+              onPress={() => setViewMode('list')} testID="view-list-btn">
+              <Ionicons name="list" size={18} color={viewMode === 'list' ? '#fff' : Colors.muted} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[toggleSt.btn, viewMode === 'map' && toggleSt.active]}
+              onPress={() => setViewMode('map')} testID="view-map-btn">
+              <Ionicons name="map" size={18} color={viewMode === 'map' ? '#fff' : Colors.muted} />
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity style={styles.headerAction} onPress={() => router.push('/set-location' as any)}>
+            <Ionicons name="location" size={24} color={Colors.primary} />
+          </TouchableOpacity>
+        </View>
       </View>
 
+      {viewMode === 'map' ? (
+        /* ─── VUE CARTE ─────────────────────────────────────── */
+        <View style={{ flex: 1 }}>
+          {/* Barre de filtres compacte */}
+          <View style={styles.tagInputRow}>
+            <TouchableOpacity
+              style={[styles.tagBtn, selectedTags.length > 0 && styles.tagBtnActive]}
+              onPress={() => setShowTagModal(true)} testID="tag-search-button" activeOpacity={0.8}
+            >
+              <Ionicons name="pricetags-outline" size={16} color={selectedTags.length > 0 ? Colors.primary : Colors.muted} />
+              {selectedTags.length === 0
+                ? <Text style={styles.tagBtnPlaceholder}>Chercher des tags</Text>
+                : <Text style={styles.tagBtnCount} numberOfLines={1}>
+                    {tagsMap[selectedTags[0]]?.label_fr || '1 tag'}
+                    {selectedTags.length > 1 ? ` +${selectedTags.length - 1}` : ''}
+                  </Text>}
+              {selectedTags.length > 0
+                ? <TouchableOpacity onPress={() => setSelectedTags([])} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Ionicons name="close-circle" size={18} color={Colors.primary} />
+                  </TouchableOpacity>
+                : <Ionicons name="chevron-down" size={16} color={Colors.muted} />}
+            </TouchableOpacity>
+            <View style={{ paddingHorizontal: 10, paddingVertical: 8, backgroundColor: Colors.card, borderRadius: Radius.full, borderWidth: 1.5, borderColor: Colors.border }}>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: Colors.foreground }}>{radiusKm} km</Text>
+            </View>
+          </View>
+
+          {/* Carte */}
+          <MapViewComponent
+            centerLat={location.lat}
+            centerLng={location.lng}
+            zoom={11}
+            pins={mapPins}
+            showUserMarker
+            searchRadius={radiusKm * 1000}
+            onPinPress={(id) => setSelectedItemId(prev => prev === id ? null : id)}
+            style={{ flex: 1 }}
+          />
+
+          {/* Carte flottante item sélectionné */}
+          {selectedMapItem && (
+            <TouchableOpacity
+              style={mapCardSt.card}
+              activeOpacity={0.92}
+              onPress={() => {
+                const item = selectedMapItem;
+                if (item._type === 'service') router.push(`/service/${item.service_id}` as any);
+                else router.push(`/spot-you/${item.point_id}`);
+              }}
+            >
+              {selectedMapItem.images?.[0] || selectedMapItem.locations?.[0] ? (
+                <Image
+                  source={{ uri: selectedMapItem.images?.[0] }}
+                  style={mapCardSt.img}
+                  resizeMode="cover"
+                />
+              ) : (
+                <View style={[mapCardSt.img, mapCardSt.imgPlaceholder]}>
+                  <Ionicons name="image-outline" size={32} color={Colors.muted} />
+                </View>
+              )}
+              <View style={mapCardSt.info}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                  <View style={[mapCardSt.badge, { backgroundColor: selectedMapItem._type === 'service' ? SERVICE_ORANGE : Colors.primary }]}>
+                    <Text style={mapCardSt.badgeText}>{selectedMapItem._type === 'service' ? 'Service' : 'SpotYou'}</Text>
+                  </View>
+                </View>
+                <Text style={mapCardSt.title} numberOfLines={2}>{selectedMapItem.title || 'Sans titre'}</Text>
+                <Text style={mapCardSt.sub} numberOfLines={1}>
+                  {selectedMapItem._type === 'service'
+                    ? (selectedMapItem.price ? `À partir de ${selectedMapItem.price}€` : selectedMapItem.coach?.name || 'Coach')
+                    : (selectedMapItem.owner?.name || 'Anonyme')}
+                </Text>
+                {selectedMapItem._type !== 'service' && selectedMapItem.rating > 0 && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                    <Ionicons name="star" size={12} color={Colors.star} />
+                    <Text style={{ fontSize: 12, color: Colors.muted }}>{Number(selectedMapItem.rating).toFixed(1)}</Text>
+                  </View>
+                )}
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={Colors.primary} style={{ marginLeft: 'auto' }} />
+            </TouchableOpacity>
+          )}
+        </View>
+      ) : (
+        /* ─── VUE LISTE ─────────────────────────────────────── */
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         {/* Tag search row */}
         <View style={styles.tagInputRow}>
@@ -422,6 +554,7 @@ export default function SearchScreen() {
           </View>
         )}
       </ScrollView>
+      )}
 
       {/* Tag Modal */}
       <TagModal
@@ -502,4 +635,30 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xxl },
   empty: { alignItems: 'center', padding: Spacing.xl, gap: 12 },
   emptyText: { fontSize: 15, color: Colors.muted, textAlign: 'center' },
+});
+
+// ─── Toggle List/Map ───────────────────────────────────────────────────────────
+const toggleSt = StyleSheet.create({
+  wrap: { flexDirection: 'row', backgroundColor: Colors.card, borderRadius: Radius.full, padding: 3, borderWidth: 1, borderColor: Colors.border },
+  btn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: Radius.full },
+  active: { backgroundColor: Colors.primary },
+});
+
+// ─── Map item card ─────────────────────────────────────────────────────────────
+const mapCardSt = StyleSheet.create({
+  card: {
+    position: 'absolute', bottom: 20, left: 16, right: 16,
+    backgroundColor: Colors.card, borderRadius: 16,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    padding: 12,
+    shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
+  img: { width: 72, height: 72, borderRadius: 12 },
+  imgPlaceholder: { backgroundColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
+  info: { flex: 1 },
+  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: Radius.full },
+  badgeText: { fontSize: 10, fontWeight: '700', color: '#fff', textTransform: 'uppercase' },
+  title: { fontSize: 15, fontWeight: '700', color: Colors.foreground },
+  sub: { fontSize: 13, color: Colors.muted, marginTop: 2 },
 });

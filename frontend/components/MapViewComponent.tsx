@@ -15,6 +15,7 @@ export interface MapPin {
   title: string;
   color: string;
   type?: string;
+  label?: string;  // Texte affiché dans le marqueur pill (style Airbnb)
 }
 
 interface Props {
@@ -70,15 +71,38 @@ function mkPin(color){
     iconSize:[28,36],iconAnchor:[14,36],popupAnchor:[0,-36],className:''
   });
 }
+function mkPill(label,color,selected){
+  var bg=selected?color:'#fff';
+  var fg=selected?'#fff':color;
+  var bw=selected?0:1.5;
+  var fs=Math.min(13,Math.max(10,Math.floor(120/Math.max(label.length,1))));
+  var w=Math.max(64,label.length*fs*0.6+20);
+  return L.divIcon({
+    html:'<div style="display:inline-flex;align-items:center;justify-content:center;background:'+bg+';color:'+fg+';border:'+bw+'px solid '+color+';border-radius:20px;padding:5px 10px;font-size:'+fs+'px;font-weight:700;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.18);min-width:'+w+'px;max-width:130px;overflow:hidden;text-overflow:ellipsis">'+label+'</div>',
+    iconSize:[w,28],iconAnchor:[w/2,14],className:''
+  });
+}
 var userIcon=L.divIcon({
   html:'<div style="width:20px;height:20px;background:#007AFF;border:3px solid white;border-radius:50%;box-shadow:0 0 0 4px rgba(0,122,255,0.25)"></div>',
   iconSize:[20,20],iconAnchor:[10,10],className:''
 });
 if(CFG.showUser){L.marker([CFG.lat,CFG.lng],{icon:userIcon}).addTo(map);}
+var markers={};
 CFG.pins.forEach(function(p){
-  var m=L.marker([p.lat,p.lng],{icon:mkPin(p.color)}).addTo(map);
-  m.bindPopup('<b>'+p.title+'</b>',{maxWidth:200,closeButton:false});
-  m.on('click',function(){msg({type:'pin',id:p.id});});
+  var icon=p.label?mkPill(p.label,p.color,false):mkPin(p.color);
+  var m=L.marker([p.lat,p.lng],{icon:icon}).addTo(map);
+  markers[p.id]=m;
+  if(!p.label){m.bindPopup('<b>'+p.title+'</b>',{maxWidth:200,closeButton:false});}
+  m.on('click',function(){
+    if(p.label){
+      // Reset all pills to unselected
+      CFG.pins.forEach(function(q){
+        if(q.label && markers[q.id]){markers[q.id].setIcon(mkPill(q.label,q.color,false));}
+      });
+      m.setIcon(mkPill(p.label,p.color,true));
+    }
+    msg({type:'pin',id:p.id});
+  });
 });
 if(CFG.radius){
   L.circle([CFG.lat,CFG.lng],{radius:CFG.radius,color:'#1DBF73',fillColor:'#1DBF73',fillOpacity:0.06,weight:1.5,dashArray:'6,4'}).addTo(map);
