@@ -61,9 +61,13 @@ function ConvItem({ item, currentUserId }: { item: Conversation; currentUserId: 
       {/* Avatar */}
       <View style={st.avatarWrap}>
         {isGroup ? (
-          <View style={[st.avatar, { backgroundColor: Colors.primaryLight }]}>
-            <Ionicons name="people" size={22} color={Colors.primary} />
-          </View>
+          item.context_image ? (
+            <Image source={{ uri: item.context_image }} style={st.avatar} />
+          ) : (
+            <View style={[st.avatar, { backgroundColor: Colors.primaryLight }]}>
+              <Ionicons name="people" size={22} color={Colors.primary} />
+            </View>
+          )
         ) : other?.picture ? (
           <Image source={{ uri: other.picture }} style={st.avatar} />
         ) : (

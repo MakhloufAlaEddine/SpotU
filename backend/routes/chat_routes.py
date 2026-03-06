@@ -94,13 +94,25 @@ async def _enrich_conversations(conn, convs: list, current_user_id: str) -> list
             )
             c["other_participant"] = row_to_dict(other) if other else None
         else:
-            # For group: show participant count
+            # For group: show participant count + first image of the SpotYou
             cnt = await conn.fetchrow(
                 "SELECT COUNT(*) as cnt FROM conversation_participants WHERE conversation_id = $1",
                 c["conversation_id"]
             )
             c["participant_count"] = cnt["cnt"] if cnt else 0
             c["other_participant"] = None
+            # Récupérer la première image du SpotYou associé
+            img_row = await conn.fetchrow(
+                "SELECT images FROM tag_points WHERE point_id = $1", c["context_id"]
+            )
+            context_images = img_row["images"] if img_row else []
+            if isinstance(context_images, str):
+                import json as _j
+                try:
+                    context_images = _j.loads(context_images)
+                except Exception:
+                    context_images = []
+            c["context_image"] = context_images[0] if context_images else None
 
         result.append(c)
     return result

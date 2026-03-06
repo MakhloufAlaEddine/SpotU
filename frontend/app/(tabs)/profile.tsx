@@ -16,7 +16,7 @@ import { Colors, Spacing, Radius } from '../../constants/Colors';
 export default function MenuScreen() {
   const router = useRouter();
   const { user, logout, loading, refreshUser } = useAuth();
-  const { lang, setLang } = useLang();
+  const { lang, setLanguage } = useLang();
   const [refreshing, setRefreshing] = useState(false);
   const [mySpotYou, setMySpotYou] = useState<any[]>([]);
   const [showLangModal, setShowLangModal] = useState(false);
@@ -359,7 +359,7 @@ export default function MenuScreen() {
             <Text style={st.modalTitle}>Langue</Text>
             {(['fr', 'en'] as const).map(l => (
               <TouchableOpacity key={l} style={[st.langOption, lang === l && st.langOptionActive]}
-                onPress={() => { setLang(l); setShowLangModal(false); }}>
+                onPress={() => { setLanguage(l); setShowLangModal(false); }}>
                 <Text style={st.langOptionText}>{l === 'fr' ? 'Français' : 'English'}</Text>
                 {lang === l && <Ionicons name="checkmark-circle" size={20} color={Colors.primary} />}
               </TouchableOpacity>
