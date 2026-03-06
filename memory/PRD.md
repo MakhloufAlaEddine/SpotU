@@ -45,6 +45,8 @@ Fonctionnalités : création/découverte de services et SpotYous, système de r�
 | 2026-03 | Bugfix: Photo principale dans accueil/recherche (images[] vs image_url) | frontend/app/(tabs)/map.tsx, search.tsx |
 | 2026-03 | **E2E Tests: 45 tests Playwright couvrant tous les scénarios** | frontend/e2e/ |
 | 2026-03 | testIDs ajoutés: hero-card, recent-row, header-search-btn | frontend/app/(tabs)/map.tsx |
+| 2026-03-05 | **P0 Bugfix: Suppression images BDD — service_routes.py JSONB fix** | backend/routes/service_routes.py |
+| 2026-03-05 | **E2E test_10_image_deletion.py : 4 tests SpotYou+Service image deletion** | frontend/e2e/test_10_image_deletion.py |
 | 2026-03 | Rate limit login: 5/min → 30/min | backend/routes/auth_routes.py |
 
 ## Test Suite (E2E Playwright)

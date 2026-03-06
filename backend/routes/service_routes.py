@@ -264,7 +264,7 @@ async def create_service(data: ServiceCreate, request: Request):
                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,TRUE)""",
             sid, user["user_id"], data.title, data.description, data.address,
             service_price, data.duration_min, data.tag_ids, data.domain_id,
-            data.max_participants, json.dumps(data.images or [])
+            data.max_participants, data.images or []
         )
 
         # Handle packages (new model)
@@ -343,25 +343,50 @@ async def update_service(service_id: str, data: ServiceUpdate, request: Request)
                          'location_description', 'max_participants', 'domain_id'}
         raw = data.model_dump()
         update_dict = {k: raw[k] for k in SCALAR_FIELDS if raw.get(k) is not None}
+
+        # JSONB fields — passer les listes Python directement avec cast ::jsonb
+        jsonb_updates: dict = {}
         if raw.get('tag_ids') is not None:
-            update_dict['tag_ids'] = json.dumps(raw['tag_ids'])  # sérialiser pour JSONB
+            jsonb_updates['tag_ids'] = raw['tag_ids']
+
         if raw.get('images') is not None:
             old_imgs_row = await conn.fetchrow("SELECT images FROM services WHERE service_id = $1", service_id)
-            old_images = list(old_imgs_row["images"] or []) if old_imgs_row else []
+            if old_imgs_row:
+                raw_old = old_imgs_row["images"]
+                if isinstance(raw_old, str):
+                    try:
+                        old_images = json.loads(raw_old)
+                    except Exception:
+                        old_images = []
+                elif isinstance(raw_old, list):
+                    old_images = raw_old
+                else:
+                    old_images = []
+            else:
+                old_images = []
             new_images = raw['images'] or []
             removed = [url for url in old_images if url not in new_images]
             if removed:
                 from routes.upload_routes import delete_upload_files
                 delete_upload_files(removed)
-            update_dict['images'] = json.dumps(new_images)
+            jsonb_updates['images'] = new_images
 
-        if update_dict:
-            set_clauses = [f"{k} = ${i+1}" for i, k in enumerate(update_dict.keys())]
+        if update_dict or jsonb_updates:
+            set_clauses = []
+            values = []
+            i = 1
+            for k, v in update_dict.items():
+                set_clauses.append(f"{k} = ${i}")
+                values.append(v)
+                i += 1
+            for k, v in jsonb_updates.items():
+                set_clauses.append(f"{k} = ${i}::jsonb")
+                values.append(v)
+                i += 1
             set_clauses.append("updated_at = NOW()")
-            values = list(update_dict.values())
             values.append(service_id)
             await conn.execute(
-                f"UPDATE services SET {', '.join(set_clauses)} WHERE service_id = ${len(values)}",
+                f"UPDATE services SET {', '.join(set_clauses)} WHERE service_id = ${i}",
                 *values
             )
 
