@@ -37,7 +37,7 @@ async def update_profile(data: UserUpdate, request: Request):
     # Fields that can be explicitly set to NULL to clear them
     CLEARABLE_FIELDS = {'iban', 'bic', 'iban_name', 'bio', 'phone', 'picture'}
     update_fields = {}
-    for k, v in data.model_dump().items():
+    for k, v in data.model_dump(exclude_unset=True).items():
         if v is not None:
             update_fields[k] = v
         elif k in CLEARABLE_FIELDS:
