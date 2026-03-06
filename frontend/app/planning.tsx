@@ -391,10 +391,10 @@ export default function PlanningScreen() {
           </TouchableOpacity>
           <View style={s.headerCenter}>
             <Text style={s.headerMonth}>
-              {MONTHS_LONG[parseDate(selectedDate).getMonth()].charAt(0).toUpperCase()
-                + MONTHS_LONG[parseDate(selectedDate).getMonth()].slice(1)}
+              {MONTHS_LONG[parseDate(selectedDate || today).getMonth()].charAt(0).toUpperCase()
+                + MONTHS_LONG[parseDate(selectedDate || today).getMonth()].slice(1)}
             </Text>
-            <Text style={s.headerYear}>{parseDate(selectedDate).getFullYear()}</Text>
+            <Text style={s.headerYear}>{parseDate(selectedDate || today).getFullYear()}</Text>
           </View>
           <View style={{ width: 40 }} />
         </View>
