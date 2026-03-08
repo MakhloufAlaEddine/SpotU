@@ -289,6 +289,59 @@ export default function MenuScreen() {
           </View>
         )}
 
+        {/* ── RÉSERVATIONS & ABONNEMENTS ────────────────────── */}
+        <View style={st.section}>
+          <Text style={st.sectionTitle}>Réservations & Services</Text>
+          <View style={st.settingsCard}>
+            <TouchableOpacity
+              style={st.settingRow}
+              onPress={() => router.push('/bookings' as any)}
+              activeOpacity={0.7}
+              testID="my-bookings-btn"
+            >
+              <View style={st.settingLeft}>
+                <View style={[st.settingIconBox, { backgroundColor: '#007AFF22' }]}>
+                  <Ionicons name="calendar-outline" size={18} color="#007AFF" />
+                </View>
+                <Text style={st.settingLabel}>Mes réservations</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={Colors.muted} />
+            </TouchableOpacity>
+
+            {isCoach && (
+              <TouchableOpacity
+                style={st.settingRow}
+                onPress={() => router.push('/bookings/received' as any)}
+                activeOpacity={0.7}
+                testID="received-bookings-btn"
+              >
+                <View style={st.settingLeft}>
+                  <View style={[st.settingIconBox, { backgroundColor: '#FF950022' }]}>
+                    <Ionicons name="mail-open-outline" size={18} color="#FF9500" />
+                  </View>
+                  <Text style={st.settingLabel}>Demandes reçues</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={Colors.muted} />
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              style={[st.settingRow, st.settingRowLast]}
+              onPress={() => router.push('/subscriptions' as any)}
+              activeOpacity={0.7}
+              testID="subscriptions-btn"
+            >
+              <View style={st.settingLeft}>
+                <View style={[st.settingIconBox, { backgroundColor: '#BF5AF222' }]}>
+                  <Ionicons name="ribbon-outline" size={18} color="#BF5AF2" />
+                </View>
+                <Text style={st.settingLabel}>Abonnements</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={Colors.muted} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* ── SETTINGS ──────────────────────────────────────── */}
         <View style={st.section}>
           <Text style={st.sectionTitle}>Paramètres</Text>

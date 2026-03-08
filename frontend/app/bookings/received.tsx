@@ -295,7 +295,7 @@ export default function ReceivedBookingsScreen() {
         <View style={s.center}><ActivityIndicator size="large" color={Colors.primary} /></View>
       ) : filtered.length === 0 ? (
         <View style={s.center}>
-          <Ionicons name="inbox-outline" size={52} color={Colors.muted} />
+          <Ionicons name="mail-open-outline" size={52} color={Colors.muted} />
           <Text style={s.emptyTitle}>
             {filter === 'pending' ? 'Aucune demande en attente' : 'Aucune demande'}
           </Text>

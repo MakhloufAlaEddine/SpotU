@@ -1,0 +1,74 @@
+{
+  "summary": "Iteration 54 — Navigation monetization screens (Mes réservations, Demandes reçues, Abonnements). 22/22 backend tests PASS. All frontend navigation flows PASS. One icon bug fixed: inbox-outline → mail-open-outline in profile.tsx and received.tsx.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "profile.tsx / received.tsx",
+        "issue": "FIXED: 'inbox-outline' is not a valid Ionicons 5 icon name — renders as '?' character. Replaced with 'mail-open-outline' in both profile.tsx (Demandes reçues button icon) and received.tsx (empty state icon).",
+        "selector": "[data-testid='received-bookings-btn'] (icon area)",
+        "priority": "LOW (cosmetic, fixed by T1)"
+      },
+      {
+        "component": "bookings/index.tsx",
+        "issue": "Booking cards show 'avec —' for receiver_name field (null in seeded data). Not a new bug — existing data issue. The field is correctly passed from backend.",
+        "selector": "[data-testid^='booking-card-']",
+        "priority": "LOW (data issue, not code bug)"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Profile - RÉSERVATIONS & SERVICES section",
+        "issues": ["Section correctly displays 2 buttons for admin (Mes réservations + Abonnements), 3 buttons for coach (+ Demandes reçues). Coach-only restriction working."]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_navigation_endpoints_iter54.py",
+    "/app/test_reports/pytest/iter54_navigation.xml"
+  ],
+  "action_items": [
+    "MINOR: user@winek.app has role='coach' in DB (labeled 'User' in test credentials, actually a coach account). Both provided test accounts are coaches. Not a blocking issue but worth noting for future test isolation if a pure 'user' role test case is needed.",
+    "DONE: inbox-outline icon fixed to mail-open-outline (already applied)"
+  ],
+  "critical_code_review_comments": [
+    "profile.tsx line 85: isCoach = user.role === 'coach' — correct and simple. Works properly.",
+    "bookings/index.tsx: filterBookings() logic is clean. 'expired' status not shown in booking_status_map for the Annulées filter but is handled ('expired' is included in cancelled filter). OK.",
+    "received.tsx: handleRefuse uses Alert.alert with native confirm — works well on web but Alert.alert may behave differently on native mobile. Worth testing on device.",
+    "subscriptions/index.tsx: Promise.all for plans + subscription fetched in parallel — good pattern. Error boundary is silent (empty catch) — user won't see errors if API fails.",
+    "profile.tsx + received.tsx: inbox-outline icon bug FIXED (mail-open-outline). No other invalid icon names detected in the new screens.",
+    "Backend booking_routes.py: Both GET /bookings/me and GET /bookings/received include proper join for service title and user names. Data is correctly structured."
+  ],
+  "updated_files": [
+    "/app/frontend/app/bookings/received.tsx (inbox-outline → mail-open-outline)",
+    "/app/frontend/app/(tabs)/profile.tsx (inbox-outline → mail-open-outline)",
+    "/app/backend/tests/test_navigation_endpoints_iter54.py (new test file)"
+  ],
+  "success_rate": {
+    "backend": "100% (22/22 tests pass)",
+    "frontend": "100% — All 3 navigation flows pass, all filter tabs work, plan cards load correctly, coach-only visibility correct"
+  },
+  "test_credentials": {
+    "user (actually coach)": "user@winek.app / WinekUser2024! (role=coach, Thomas Dupont)",
+    "coach": "coach@winek.app / WinekCoach2024! (role=coach, Sophie Martin)",
+    "admin": "admin@winek.app / WinekAdmin2024! (role=admin, Admin WINEK)"
+  },
+  "seed_data_creation": "No new seed data. Used existing seeded bookings (10 for Thomas Dupont) and subscription plans (3: Basic, Premium, Pro Annuel).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 54 complete. All navigation flows tested and passing. Key facts: (1) profile.tsx has 3 new buttons in 'RÉSERVATIONS & SERVICES' section — all with data-testid; (2) received-bookings-btn only shown for role='coach' — verified against admin (role=admin); (3) user@winek.app and coach@winek.app both have role='coach' in DB — no pure 'user' role test account exists; (4) inbox-outline icon bug fixed → mail-open-outline; (5) All filter tabs work on both bookings screens; (6) Subscription plans (3 active plans: Basic, Premium, Pro Annuel) load correctly from /api/subscription-plans; (7) Backend 22/22 tests in test_navigation_endpoints_iter54.py.",
+  "rca_of_issue": {
+    "bug": "inbox-outline icon renders as '?' in profile.tsx and received.tsx",
+    "root_cause": "Ionicons v5 (@expo/vector-icons 15.1.1) does not include an icon named 'inbox-outline'. The icon lookup fails silently and renders a '?' placeholder character.",
+    "fix_applied": "Replaced 'inbox-outline' with 'mail-open-outline' in both affected files. mail-open-outline is a valid Ionicons 5 icon that semantically represents received/opened messages.",
+    "files_modified": [
+      "/app/frontend/app/(tabs)/profile.tsx",
+      "/app/frontend/app/bookings/received.tsx"
+    ]
+  }
+}
