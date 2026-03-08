@@ -500,7 +500,7 @@ function Label({ children }: { children: string }) {
 
 // ── Écran principal ───────────────────────────────────────────────────────────
 export default function AdminScreen() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [tab, setTab] = useState<Tab>('stats');
   const [stats, setStats] = useState<Stats | null>(null);
@@ -510,8 +510,7 @@ export default function AdminScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  if (user?.role !== 'admin') { router.back(); return null; }
-
+  // ALL hooks must be defined before any conditional returns (Rules of Hooks)
   const load = useCallback(async (refresh = false) => {
     if (refresh) setRefreshing(true);
     try {
@@ -529,7 +528,21 @@ export default function AdminScreen() {
     }
   }, []);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(useCallback(() => {
+    if (!authLoading && user?.role === 'admin') {
+      load();
+    }
+  }, [load, authLoading, user]));
+
+  // Use useEffect for navigation to avoid "navigate before mounting" error
+  React.useEffect(() => {
+    if (!authLoading && user?.role !== 'admin') {
+      router.back();
+    }
+  }, [authLoading, user, router]);
+
+  if (authLoading) return <View style={{ flex: 1, backgroundColor: Colors.background }}><ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 100 }} /></View>;
+  if (!user || user.role !== 'admin') return null;
 
   const TABS: { key: Tab; label: string; icon: string }[] = [
     { key: 'stats',    label: 'Aperçu',   icon: 'bar-chart-outline' },
