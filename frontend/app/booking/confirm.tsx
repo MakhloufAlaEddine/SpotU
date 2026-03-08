@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
-  ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform, Image,
+  ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform, Image, Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -31,6 +31,10 @@ export default function BookingConfirmScreen() {
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [bookingDone, setBookingDone] = useState(false);
+  const [bookingId, setBookingId] = useState<string | null>(null);
+  const [pricing, setPricing] = useState<{ payer_total_amount: number; base_amount: number } | null>(null);
+  const [paymentLoading, setPaymentLoading] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -51,18 +55,52 @@ export default function BookingConfirmScreen() {
   const handleConfirm = async () => {
     setSubmitting(true);
     try {
-      await api.post('/bookings', {
+      const result = await api.post<any>('/bookings', {
         service_id: serviceId,
         slot_id: slotId || null,
         location_id: locationId || null,
         scheduled_at: scheduledAt || null,
         notes: notes.trim() || null,
       });
-      router.replace('/(tabs)/' as any);
+      setBookingId(result.booking_id);
+      // Calculer le montant depuis le snapshot de pricing
+      const snap = result.pricing_snapshot;
+      if (snap) {
+        setPricing({
+          payer_total_amount: snap.payer_total_amount ?? result.amount,
+          base_amount: snap.base_amount ?? result.amount,
+        });
+      } else {
+        setPricing({ payer_total_amount: result.amount, base_amount: result.amount });
+      }
+      setBookingDone(true);
     } catch (err: any) {
       alert(err.message || 'Impossible de créer la réservation');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handlePay = async () => {
+    if (!bookingId) return;
+    setPaymentLoading(true);
+    try {
+      const originUrl = typeof window !== 'undefined'
+        ? window.location.origin
+        : process.env.EXPO_PUBLIC_BACKEND_URL || '';
+      const res = await api.post<{ url: string; session_id: string }>('/payments/checkout/session', {
+        booking_id: bookingId,
+        origin_url: originUrl,
+      });
+      // Ouvrir Stripe Checkout dans le navigateur
+      if (typeof window !== 'undefined') {
+        window.location.href = res.url;
+      } else {
+        await Linking.openURL(res.url);
+      }
+    } catch (err: any) {
+      alert(err.message || 'Impossible de lancer le paiement');
+      setPaymentLoading(false);
     }
   };
 
@@ -185,21 +223,54 @@ export default function BookingConfirmScreen() {
 
         {/* Confirm button */}
         <SafeAreaView edges={['bottom']} style={s.footer}>
-          <TouchableOpacity
-            style={[s.confirmBtn, submitting && s.confirmBtnDisabled]}
-            onPress={handleConfirm}
-            disabled={submitting}
-            testID="confirm-booking-btn"
-          >
-            {submitting ? (
-              <ActivityIndicator color={Colors.background} />
-            ) : (
-              <>
-                <Ionicons name="checkmark-circle" size={20} color={Colors.background} />
-                <Text style={s.confirmBtnText}>Envoyer la demande au coach</Text>
-              </>
-            )}
-          </TouchableOpacity>
+          {!bookingDone ? (
+            <TouchableOpacity
+              style={[s.confirmBtn, submitting && s.confirmBtnDisabled]}
+              onPress={handleConfirm}
+              disabled={submitting}
+              testID="confirm-booking-btn"
+            >
+              {submitting ? (
+                <ActivityIndicator color={Colors.background} />
+              ) : (
+                <>
+                  <Ionicons name="checkmark-circle" size={20} color={Colors.background} />
+                  <Text style={s.confirmBtnText}>Envoyer la demande au coach</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          ) : (
+            <View style={s.paymentStep}>
+              <View style={s.paymentSuccessRow}>
+                <Ionicons name="checkmark-circle" size={20} color={Colors.success} />
+                <Text style={s.paymentSuccessText}>Demande envoyée !</Text>
+              </View>
+              {pricing && (
+                <View style={s.pricingRow}>
+                  <Text style={s.pricingLabel}>Total à payer</Text>
+                  <Text style={s.pricingTotal}>{pricing.payer_total_amount.toFixed(2)} €</Text>
+                </View>
+              )}
+              <TouchableOpacity
+                style={[s.payBtn, paymentLoading && s.confirmBtnDisabled]}
+                onPress={handlePay}
+                disabled={paymentLoading}
+                testID="pay-now-btn"
+              >
+                {paymentLoading ? (
+                  <ActivityIndicator color={Colors.background} />
+                ) : (
+                  <>
+                    <Ionicons name="card" size={20} color={Colors.background} />
+                    <Text style={s.confirmBtnText}>Payer maintenant</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity style={s.skipPayBtn} onPress={() => router.replace('/(tabs)/map' as any)} testID="skip-pay-btn">
+                <Text style={s.skipPayText}>Payer plus tard</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </SafeAreaView>
       </KeyboardAvoidingView>
     </View>
@@ -237,4 +308,13 @@ const s = StyleSheet.create({
   confirmBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.primary, borderRadius: Radius.full, paddingVertical: 16, marginTop: 12 },
   confirmBtnDisabled: { opacity: 0.5 },
   confirmBtnText: { fontSize: 16, fontWeight: '800', color: Colors.background },
+  paymentStep: { gap: 8, paddingTop: 12 },
+  paymentSuccessRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  paymentSuccessText: { fontSize: 15, fontWeight: '700', color: Colors.success },
+  pricingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors.card, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: Colors.border },
+  pricingLabel: { fontSize: 14, color: Colors.muted },
+  pricingTotal: { fontSize: 22, fontWeight: '800', color: ORANGE },
+  payBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#635BFF', borderRadius: Radius.full, paddingVertical: 16 },
+  skipPayBtn: { alignItems: 'center', paddingVertical: 8 },
+  skipPayText: { fontSize: 14, color: Colors.muted },
 });

@@ -71,7 +71,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (typeof window !== 'undefined') {
       const inHash = window.location.hash?.includes('session_id=');
       const inSearch = window.location.search?.includes('session_id=');
-      if (inHash || inSearch) {
+      // Only skip auth check on the OAuth callback page, not on other pages
+      // (e.g. /payment-success also uses session_id but needs normal auth check)
+      const isCallbackPage = window.location.pathname?.includes('/callback');
+      if ((inHash || inSearch) && isCallbackPage) {
         setLoading(false);
         return;
       }

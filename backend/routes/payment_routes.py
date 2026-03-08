@@ -3,17 +3,25 @@ payment_routes.py — Routes de gestion des paiements SpotU
 ==========================================================
 Ces routes gèrent le cycle de vie des payments :
 - Lecture par user (payeur ou bénéficiaire)
-- Mise à jour Stripe (webhook ready)
+- Création session checkout Stripe + vérification statut
+- Webhook Stripe
 - Accès admin agrégé
 """
 
 from fastapi import APIRouter, Request, HTTPException
+from fastapi.responses import JSONResponse
 from auth_utils import require_auth, require_role
 from database import get_pool, row_to_dict, rows_to_list
 from models import new_id
+import os
 import json
+from emergentintegrations.payments.stripe.checkout import (
+    StripeCheckout, CheckoutSessionRequest
+)
 
 router = APIRouter()
+
+STRIPE_API_KEY = os.environ.get("STRIPE_API_KEY", "")
 
 
 def _deserialize(d: dict) -> dict:
@@ -65,6 +73,175 @@ async def get_payment(payment_id: str, request: Request):
     ):
         raise HTTPException(status_code=403, detail="Access denied")
     return _deserialize(d)
+
+
+# ── Stripe Checkout ───────────────────────────────────────────────────────────
+
+@router.post("/payments/checkout/session")
+async def create_checkout_session(request: Request):
+    """
+    Crée une session Stripe Checkout pour un paiement existant (lié à un booking).
+    Body: { booking_id: str, origin_url: str }
+    """
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    body = await request.json()
+    booking_id = body.get("booking_id")
+    origin_url = body.get("origin_url", "")
+
+    if not booking_id:
+        raise HTTPException(status_code=400, detail="booking_id requis")
+
+    async with pool.acquire() as conn:
+        # Charger le paiement lié au booking
+        pay_row = await conn.fetchrow(
+            """SELECT p.*, b.service_id FROM payments p
+               LEFT JOIN bookings b ON b.booking_id = p.booking_id
+               WHERE p.booking_id = $1 AND p.payer_user_id = $2""",
+            booking_id, user["user_id"]
+        )
+        if not pay_row:
+            raise HTTPException(status_code=404, detail="Paiement non trouvé")
+
+    payment = row_to_dict(pay_row)
+    amount = float(payment["payer_total_amount"])
+    currency = (payment.get("currency") or "EUR").lower()
+    payment_id = payment["payment_id"]
+
+    # Ne pas recréer une session si déjà payé
+    if payment.get("status") == "succeeded":
+        raise HTTPException(status_code=400, detail="Ce paiement est déjà complété")
+
+    success_url = f"{origin_url}/payment-success?session_id={{CHECKOUT_SESSION_ID}}&booking_id={booking_id}"
+    cancel_url  = f"{origin_url}/booking/confirm?serviceId={payment.get('product_id', '')}"
+
+    stripe = StripeCheckout(
+        api_key=STRIPE_API_KEY,
+        webhook_url=f"{origin_url}/api/webhook/stripe",
+    )
+    session = await stripe.create_checkout_session(
+        CheckoutSessionRequest(
+            amount=float(round(amount, 2)),
+            currency=currency,
+            success_url=success_url,
+            cancel_url=cancel_url,
+            metadata={
+                "payment_id": payment_id,
+                "booking_id": booking_id,
+                "payer_user_id": user["user_id"],
+            },
+        )
+    )
+
+    # Sauvegarder le session_id Stripe dans la table payments
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE payments SET stripe_payment_intent_id = $1, updated_at = NOW() WHERE payment_id = $2",
+            session.session_id, payment_id
+        )
+
+    return {"url": session.url, "session_id": session.session_id}
+
+
+@router.get("/payments/checkout/status/{session_id}")
+async def get_checkout_status(session_id: str, request: Request):
+    """
+    Vérifie le statut d'une session Stripe Checkout et met à jour la BDD.
+    """
+    pool = get_pool()
+    user = await require_auth(request, pool)
+
+    # Retrouver le payment_id depuis la session Stripe stockée
+    async with pool.acquire() as conn:
+        pay_row = await conn.fetchrow(
+            "SELECT * FROM payments WHERE stripe_payment_intent_id = $1",
+            session_id
+        )
+    if not pay_row:
+        raise HTTPException(status_code=404, detail="Session de paiement non trouvée")
+
+    payment = row_to_dict(pay_row)
+    if payment["payer_user_id"] != user["user_id"] and user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Accès refusé")
+
+    stripe = StripeCheckout(
+        api_key=STRIPE_API_KEY,
+        webhook_url="",
+    )
+    status_resp = await stripe.get_checkout_status(session_id)
+
+    # Mettre à jour si le paiement est complété et pas encore traité
+    if status_resp.payment_status == "paid" and payment["status"] != "succeeded":
+        async with pool.acquire() as conn:
+            async with conn.transaction():
+                await conn.execute(
+                    "UPDATE payments SET status = 'succeeded', updated_at = NOW() WHERE payment_id = $1",
+                    payment["payment_id"]
+                )
+                if payment.get("booking_id"):
+                    await conn.execute(
+                        "UPDATE bookings SET payment_status = 'paid', updated_at = NOW() WHERE booking_id = $1",
+                        payment["booking_id"]
+                    )
+    elif status_resp.status == "expired" and payment["status"] == "pending":
+        async with pool.acquire() as conn:
+            await conn.execute(
+                "UPDATE payments SET status = 'cancelled', updated_at = NOW() WHERE payment_id = $1",
+                payment["payment_id"]
+            )
+
+    return {
+        "payment_id": payment["payment_id"],
+        "booking_id": payment.get("booking_id"),
+        "session_id": session_id,
+        "status": status_resp.status,
+        "payment_status": status_resp.payment_status,
+        "amount": status_resp.amount_total / 100 if status_resp.amount_total else float(payment["payer_total_amount"]),
+        "currency": status_resp.currency or payment.get("currency", "EUR"),
+    }
+
+
+@router.post("/webhook/stripe")
+async def stripe_webhook(request: Request):
+    """Webhook Stripe — met à jour les paiements et bookings en temps réel."""
+    pool = get_pool()
+    body_bytes = await request.body()
+    signature = request.headers.get("Stripe-Signature", "")
+
+    stripe = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url="")
+    try:
+        event = await stripe.handle_webhook(body_bytes, signature)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Webhook invalide: {e}")
+
+    metadata = event.metadata or {}
+    payment_id = metadata.get("payment_id")
+
+    if not payment_id:
+        return {"received": True}
+
+    async with pool.acquire() as conn:
+        pay_row = await conn.fetchrow(
+            "SELECT * FROM payments WHERE payment_id = $1", payment_id
+        )
+        if not pay_row:
+            return {"received": True}
+        payment = row_to_dict(pay_row)
+
+    if event.payment_status == "paid" and payment["status"] != "succeeded":
+        async with pool.acquire() as conn:
+            async with conn.transaction():
+                await conn.execute(
+                    "UPDATE payments SET status = 'succeeded', updated_at = NOW() WHERE payment_id = $1",
+                    payment_id
+                )
+                if payment.get("booking_id"):
+                    await conn.execute(
+                        "UPDATE bookings SET payment_status = 'paid', updated_at = NOW() WHERE booking_id = $1",
+                        payment["booking_id"]
+                    )
+
+    return {"received": True}
 
 
 # ── Webhook Stripe (à compléter lors de l'intégration Stripe) ────────────────
