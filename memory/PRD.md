@@ -64,11 +64,22 @@ Fonctionnalités : création/découverte de services et SpotYous, système de r�
 | Date | Fonctionnalité | Fichiers modifiés |
 |------|---------------|-------------------|
 | 2026-03-08 | **stripe_service.py créé** : wrapper SDK natif, create_checkout_session (capture_method=manual), capture_payment_intent, cancel_payment_intent, parse_webhook_event, Stripe Connect | backend/stripe_service.py |
-| 2026-03-08 | **payment_routes.py réécrit** : SDK Stripe natif (pas emergentintegrations), checkout session avec capture manuelle, status polling, webhook complet (checkout.session.completed, payment_intent.succeeded, payment_intent.canceled, etc.) | backend/routes/payment_routes.py |
-| 2026-03-08 | **booking_routes.py étendu** : capture Stripe après accept, annulation Stripe après refuse/cancel (hors transaction) | backend/routes/booking_routes.py |
-| 2026-03-08 | **expiry_worker.py étendu** : annulation Stripe PaymentIntent lors de l'expiration + sélection stripe_payment_intent_id | backend/expiry_worker.py |
+| 2026-03-08 | **payment_routes.py réécrit** : SDK Stripe natif, checkout session avec capture manuelle, status polling, webhook dispatcher | backend/routes/payment_routes.py |
+| 2026-03-08 | **booking_routes.py étendu** : capture Stripe après accept, annulation Stripe après refuse/cancel | backend/routes/booking_routes.py |
+| 2026-03-08 | **expiry_worker.py étendu** : annulation Stripe PaymentIntent lors de l'expiration | backend/expiry_worker.py |
 | 2026-03-08 | DB migration: stripe_checkout_session_id colonne dans payments | backend/database.py |
 | 2026-03-08 | Test suite: 61 tests backend Stripe (100% pass) | backend/tests/test_stripe_payment_iter50.py |
+
+### Phase 5 - Abonnements Stripe (2026-03-08)
+| Date | Fonctionnalité | Fichiers modifiés |
+|------|---------------|-------------------|
+| 2026-03-08 | **stripe_service.py** : ensure_subscription_price (Product+Price idempotent), create_subscription_checkout_session (mode='subscription'), cancel_subscription (at_period_end), retrieve_subscription | backend/stripe_service.py |
+| 2026-03-08 | **subscription_routes.py créé** : GET plans, GET/history me, POST subscribe, POST cancel, admin endpoints, handle_subscription_event() exporté | backend/routes/subscription_routes.py |
+| 2026-03-08 | **pricing_engine.py refactorisé** : _load_subscription_benefits() isolé, compute_pricing() avec audit savings_payer/savings_receiver | backend/pricing_engine.py |
+| 2026-03-08 | **payment_routes.py webhook** : dispatcher unifié → délègue subscription events à handle_subscription_event (bugfix: dispatch avant early-return) | backend/routes/payment_routes.py |
+| 2026-03-08 | DB migration: stripe_product_id, stripe_price_id sur subscription_plans | backend/database.py |
+| 2026-03-08 | Données test: plan_basic, plan_premium, plan_pro_annual | DB seed |
+| 2026-03-08 | Test suite: 27 tests abonnements (100% pass) | backend/tests/test_subscriptions_iter51.py |
 
 ## Test Suite
 ```bash
