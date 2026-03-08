@@ -466,6 +466,24 @@ async def connect_to_db():
                 WHERE status = 'requested';
         """)
 
+        # [STRIPE-V2] PaymentIntent + Stripe Connect + customer management
+        await conn.execute("""
+            ALTER TABLE users
+                ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT;
+            ALTER TABLE users
+                ADD COLUMN IF NOT EXISTS stripe_account_id TEXT;
+
+            ALTER TABLE payments
+                ADD COLUMN IF NOT EXISTS stripe_checkout_session_id TEXT;
+
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_users_stripe_customer
+                ON users(stripe_customer_id)
+                WHERE stripe_customer_id IS NOT NULL;
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_users_stripe_account
+                ON users(stripe_account_id)
+                WHERE stripe_account_id IS NOT NULL;
+        """)
+
         # [PERF-01] Index de performance — migration idempotente
         await conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_bookings_user_id

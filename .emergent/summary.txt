@@ -1,180 +1,182 @@
 <analysis>**original_problem_statement**: The user wants to build a mobile application, SpotU, a hyperlocal, tag-based connection platform. The core features include service/SpotYou creation and discovery, a booking request system, and real-time chat/notifications.
 
-**PRODUCT REQUIREMENTS**:
--   **Service & SpotYou Management**: Full CRUD for user-generated services and activities.
--   **Service Discovery**: Services and SpotYous must be discoverable on a map and in search.
--   **Booking System**: A user can send a booking request to a coach for a specific service slot.
--   **Real-time Notifications & Chat**: A comprehensive, real-time system for key events and direct user communication.
--   **Secure File Handling**: Uploaded images must be handled securely.
--   **View Toggle on Search**: The search results page should allow users to toggle between a list view and a map view.
--   **Performant Planning Screen**: The user's schedule/planning screen should load instantly using cached data while fetching fresh data in the background.
+The most recent work has focused on implementing a robust and generic backend for service bookings and payments, with the following mandatory constraints:
+-   **Atomic & Idempotent Transactions**: Operations must be safe from race conditions (e.g., double bookings) and network retries (e.g., duplicate requests).
+-   **Row-Level Locking**: Use SQL locks () to prevent concurrent users from booking the same time slot.
+-   **Centralized Pricing Engine**: All price calculations must originate from the existing . No price logic should exist outside of it.
+-   **Generic Payment Flow**: Payments must be possible between any two users, not tied to fixed roles like coach or client.
+-   **Robust State Machines**: The system must manage a detailed set of statuses for bookings, service slots, and payments.
+-   **Automatic Expiration**:  bookings must expire automatically after a configurable time (TTL), releasing the slot and cancelling any payment authorization.
+-   **Stripe Integration**: Integrate Stripe using a  flow with manual capture: authorize on booking request, capture on acceptance, and cancel on refusal/expiration.
 
 **User's preferred language**: French. The next agent MUST respond in **French**.
 
 **what currently exists?**
-A full-stack application with a React Native (Expo) frontend and a FastAPI/PostgreSQL backend. A comprehensive Playwright E2E test suite validates the web version of the application. In this session, the agent has resolved several critical bugs, including image deletion, profile picture loss, inconsistent image display, and incorrect group chat avatars. A new list/map view toggle feature was added to the search screen. The agent also implemented a stale-while-revalidate caching mechanism for the planning screen to improve performance, but this introduced a new bug related to the initial scroll position.
+A full-stack application with a React Native (Expo) frontend and a FastAPI/PostgreSQL backend.
+
+The agent has successfully implemented a highly robust backend booking engine that meets most of the user's recent, strict requirements. This includes:
+-   **Rewritten Booking Routes**:  was completely overhauled to use atomic transactions and row-level locking () to prevent double bookings.
+-   **Comprehensive State Machines**: New, detailed  statuses for , , and  have been added to the database and Pydantic models to accurately track the lifecycle of a transaction.
+-   **Idempotency**: Booking requests now support an  to prevent duplicate creation.
+-   **Automatic Expiration Worker**: A new background worker () has been created using . It periodically finds and expires pending bookings, atomically releasing the associated slot and preparing for payment cancellation.
+-   **Extensive Backend Tests**: New test suites (, ) were created to validate the new locking, state transition, and expiration logic.
+-   **Stripe Scaffolding**: An audit of the payment system was performed, revealing that the previous Stripe Checkout integration was insufficient. The agent planned a new architecture using the Stripe Python SDK for  with manual capture and created the necessary database migration files to support it.
 
 **Last working item**:
--   **Last item agent was working**: Fixing a bug on the  screen where, on initial load, the view does not automatically scroll to the current day, and the calendar component does not highlight the correct date. The user diagnosed that  is being called before the  component has finished rendering its items. The agent's last approach was to use  within the  callback of the  to ensure  is called only after all rendering is complete.
+-   **Last item agent was working**: Implementing the full Stripe  workflow. The agent audited the existing code, designed the new architecture using the Stripe SDK directly, and created the database migration files to add  and  to the  table.
 -   **Status**: IN PROGRESS
 -   **Agent Testing Done**: N
--   **Which testing method agent to use?**: frontend testing agent. The agent should verify the initial load behavior of the planning screen on Expo Go, ensuring the list scrolls to the current date and the calendar is synchronized without any visible flicker or incorrect positioning.
+-   **Which testing method agent to use?**: backend testing agent
 -   **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: Planning screen initial scroll is not working correctly (P0)**
+-   **Issue 1: Implement Stripe PaymentIntents (P0)**
 -   **Issue 2: Update SpotYou flow not fully verified (P1)**
--   **Issue 3: Expo Hot-Reload Instability (P1 - RECURRING)**
--   **Issue 4: Pre-existing backend tests are failing (P2)**
+-   **Issue 3: Expo Hot-Reload Instability (P2 - RECURRING)**
+-   **Issue 4: Pre-existing backend tests are failing (P3)**
 
 **Issues Detail**:
--   **Issue 1: Planning screen initial scroll is not working correctly**
-    -   **Attempted fixes**:
-        1.  Calling  in an  triggered by data loading. This was too early.
-        2.  Using . This was also too early.
-        3.  The current attempt involves using  and  to delay the scroll until the UI is fully interactive.
+-   **Issue 1: Implement Stripe PaymentIntents**
+    -   **Description**: The current Stripe integration uses a simple Checkout flow. It must be replaced with a  flow () to allow for authorization on request and capture on acceptance. The database migrations have been created.
+    -   **Attempted fixes**: The agent correctly identified that  was insufficient and planned to use the  Python SDK directly. Migration files were created in .
     -   **Next debug checklist**:
-        1.  Review the code in .
-        2.  Ensure the  prop on the  calls a function that uses .
-        3.  Inside the  callback, call the  function, which handles both calendar selection and list scrolling.
-        4.  Make sure any state flags () are correctly managed to prevent the scroll from happening on every render.
-    -   **Why fix this issue and what will be achieved with the fix?**: This bug breaks the user experience of the planning screen. Fixing it will provide a smooth, intuitive entry into the user's schedule, starting them at the current day.
+        1.  Create  to act as a wrapper for all Stripe SDK calls (create/retrieve customer, create/capture/cancel PaymentIntent). Use  for non-blocking calls.
+        2.  Integrate  into  and .
+        3.  Modify  () to create a Stripe Customer (if not exists) and then create and authorize a . Store the  and .
+        4.  Modify  () to call .
+        5.  Modify  (, ) and  to call .
+        6.  Implement the Stripe webhook handler at  to update payment status based on events like , , etc.
+        7.  Document and add the required environment variables (, ) to .
+    -   **Why fix this issue and what will be achieved with the fix?**: This is the final step to enable real, secure, and flexible transactions on the platform, fulfilling a core product requirement.
     -   **Status**: IN PROGRESS
     -   **Is recurring issue?**: N
-    -   **Should Test frontend/backend/both after fix?**: frontend
+    -   **Should Test frontend/backend/both after fix?**: backend
     -   **Blocked on other issue**: None
 
 -   **Issue 2: Update SpotYou flow not fully verified**
-    -   **Description**: An earlier reported issue, Update SpotYou flow does not work, was blocked by file upload problems. The underlying bug (images not being deleted from the DB) has been fixed and an E2E test was created for it. However, the complete end-to-end user flow has not been re-verified by the user.
-    -   **Next debug checklist**: After fixing Issue 1, ask the user to test the Update SpotYou feature again, including adding and removing images, to confirm it now works as expected.
-    -   **Why fix this issue and what will be achieved with the fix?**: To confirm the resolution of a core CRUD functionality issue.
+    -   **Description**: A user flow from a previous session that was never fully re-verified after an underlying bug fix.
     -   **Status**: USER VERIFICATION PENDING
     -   **Is recurring issue?**: N
     -   **Should Test frontend/backend/both after fix?**: both
     -   **Blocked on other issue**: None
 
 -   **Issue 3: Expo Hot-Reload Instability**
-    -   **Description**: The Metro bundler frequently crashes with  (conflicting tunnel) or .
-    -   **Attempted fixes**: The agent repeatedly killed  processes and restarted supervisor services. This is a temporary workaround. A more permanent fix for the  error (a patch in ) from a previous session is fragile.
-    -   **Next debug checklist**: If Expo crashes, run  and then frontend: ERROR (no such process)
-frontend: ERROR (no such process).
-    -   **Why fix this issue and what will be achieved with the fix?**: Stabilizes the development environment, reducing downtime.
+    -   **Description**: The Metro bundler frequently crashes with  or  errors.
+    -   **Attempted fixes**: A patch was applied to . The workaround is to run .
     -   **Status**: IN PROGRESS (fragile workaround)
     -   **Is recurring issue?**: Y
-    -   **Should Test frontend/backend/both after fix?**: frontend
-    -   **Blocked on other issue**: None
 
 -   **Issue 4: Pre-existing tests are failing**
-    -   **Description**: Older backend test files (, , ) have failures. This was noted in the initial handoff and remains unfixed.
-    -   **Next debug checklist**: Investigate the cause of failures (likely missing env variables or outdated assertions) and fix them.
-    -   **Why fix this issue and what will be achieved with the fix?**: Ensures a clean and reliable test suite for backend regression testing.
+    -   **Description**: Older backend test files (, , etc.) have failures.
     -   **Status**: NOT STARTED
     -   **Is recurring issue?**: Y
     -   **Should Test frontend/backend/both after fix?**: backend
-    -   **Blocked on other issue**: None
 
 **In progress Task List**:
-None.
+-   **Task 1: Complete Stripe PaymentIntent Integration**
+    -   **Where to resume**: The DB migration files are located in . The next step is to create the  module as outlined in the plan.
+    -   **What will be achieved with this?**: A complete, secure payment lifecycle (authorize, capture, cancel) fully integrated with the booking state machine.
+    -   **Status**: IN PROGRESS
+    -   **Should Test frontend/backend/both after fix?**: backend
 
 **Upcoming and Future Tasks**
 -   **Upcoming Tasks**:
-    -   **(P1) Stripe Integration**: Re-introduce a payment flow for service bookings.
-    -   **(P2) Bilingual Support (i18n)**: Add French/English translations to the mobile application.
+    -   **(P1) User Subscription Flow**: Implement the frontend for users to browse and manage subscription plans.
 -   **Future Tasks**:
+    -   **(P2) Bilingual Support (i18n)**: Fully implement French/English translations.
     -   Finalize Push Notifications with EAS Build.
-    -   Enhance the Admin Dashboard with more features.
 
 **Completed work in this session**
--   **Image Deletion Bug Fix**: Resolved a critical data integrity bug where deleted images were not removed from the database for SpotYous and Services. Corrected the  misuse in  and .
--   **E2E Test for Image Deletion**: Created a new Playwright test () to verify the image deletion fix.
--   **Profile Picture Loss Fix**: Fixed a bug where updating a user profile would erase the profile picture. The fix involved using  in .
--   **Image Display Consistency**: Refactored the entire frontend to exclusively use the  field instead of the legacy , ensuring visual consistency across all lists and detail views (, , , , etc.).
--   **Group Chat Avatar Fix**: Modified  to include  and updated  to display the SpotYou's primary image as the group chat avatar.
--   **Rating Display Fix**: Fixed a bug where ratings were always '0' in lists by adding a rating calculation subquery to the main SpotYou query in .
--   **Search View Toggle Feature**: Implemented a new feature on the search screen () allowing users to toggle between a list view and a map view with custom price/rating markers.
--   **UI/UX Improvements**:
-    -   Adjusted the home screen hero card gradient for better text visibility ().
-    -   Renamed Mes points to Mes SpotMe and removed a redundant Mon planning link from the profile screen ().
-    -   Added a results count badge to the search map view.
--   **Planning Screen Caching**: Implemented a stale-while-revalidate caching strategy using  in  for near-instantaneous loads on subsequent visits.
+-   **Robust Booking Workflow Implementation**:
+    -   Completely rewrote  to use atomic transactions () and row-level locking () to guarantee data integrity and prevent race conditions.
+    -   Implemented idempotency for booking requests via a unique constraint on  and a client-side .
+    -   Enhanced DB schema and models with comprehensive status enums (, , ).
+    -   Created  to validate the new concurrency-safe logic.
+-   **Automatic Booking Expiration Worker**:
+    -   Created a new background job in  using  to handle the automatic expiration of pending bookings.
+    -   The worker atomically updates booking status to  and slot status to .
+    -   Integrated the worker into the main  to run on startup.
+    -   Created  to test the expiration logic.
+-   **Admin Dashboard Verification & Bug Fix**:
+    -   Successfully verified the Admin Monetization UI using the testing agent and fixed a critical bug related to React hooks that prevented the UI from working.
+-   **Database Initialization Fix**:
+    -   Resolved a critical startup failure by correcting the execution order of database migrations, ensuring base tables are created before monetization tables that depend on them.
 
 **Earlier issues found/mentioned but not fixed**
 -   Same as **Issue 4: Pre-existing tests are failing**. The old backend test suite needs to be fixed.
 
 **Known issue recurrence from previous fork**
--   **Issue recurrence in previous fork**: Expo Metro Bundler Instability ( error and  conflicts).
+-   **Issue recurrence in previous fork**: Expo Metro Bundler Instability ( error).
 -   **Recurrence count**: 5+
--   **Status**: IN PROGRESS (Workaround is to manually kill processes and restart services).
+-   **Status**: IN PROGRESS (A patch was applied as a workaround, but the root cause may persist).
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **React Native  Rendering & Interaction Lifecycle**: The core of the current bug revolves around knowing when a  is fully rendered and interactive.  fires when the container is drawn, but not necessarily its virtualized items.  is the correct tool to delay actions until after all animations and rendering updates are complete.
--   **Stale-While-Revalidate**: A caching pattern implemented in  using . It shows stale (cached) data immediately while fetching fresh data in the background, providing a fast UI experience.
--   **Pydantic **: A crucial Pydantic feature used in  to create a dictionary of only the fields that were explicitly provided in the request payload, preventing  values from overwriting existing data.
--   **PostgreSQL Subqueries in **: Used in  to calculate the average rating for each SpotYou directly within the main list query, avoiding the N+1 problem and efficiently providing data to the frontend.
+-   **Asynchronous Background Worker ()**: Use of  to run a periodic background job () within the main FastAPI application loop, avoiding the need for external tools like Celery or cron.
+-   **Row-Level Locking ()**: The core mechanism used in  to prevent race conditions. It ensures that only one transaction can acquire a lock on a specific  row for booking, immediately failing any concurrent attempts.
+-   **Atomic & Idempotent Database Operations**: Combining  with unique database constraints to ensure that booking operations are all-or-nothing and that identical repeated requests do not create duplicate records.
+-   **Robust State Machines**: Detailed  definitions (, , ) that drive the application logic and enforce valid state transitions.
+-   **Stripe PaymentIntents (Manual Capture)**: The planned payment architecture. It separates payment authorization from capture, allowing funds to be held when a booking is requested and only captured when it is confirmed.
 
 **key DB schema**
--   No schema changes were made. Queries were modified to include calculated fields (e.g., ).
+-   ****: Added  and .
+-   ****: Added  and .  is now a  enum.
+-   ****: Added .
+-   ****: Added .  is now a  enum.
 
 **All files of reference**
--   : Location of the current P0 bug.
--   : Contains the rating fix.
--   : Contains the profile picture bug fix.
--   : Contains the new map/list toggle feature.
--   : New test file for the image deletion fix.
--    & : Files modified for the group chat avatar feature.
-
-**Areas that need refactoring**:
--   The Expo development environment ( /  issues) is very unstable and requires a permanent solution.
--   The old, failing backend test suite () should be fixed or removed to eliminate CI noise and ensure a reliable test baseline.
-
-**key api endpoints**
--   : Modified to include a  field.
--   : Logic modified to prevent accidental data deletion.
--   : Modified to include  for group chats.
+-   : Contains the new, robust booking logic.
+-   : The background job for automatic booking expiration.
+-   : Tests for the concurrency logic.
+-   : Tests for the expiration worker.
+-    & : Definitions for new DB columns and status enums.
+-   The latest migration file in  for adding Stripe columns.
 
 **Critical Info for New Agent**
--   **Planning Screen Fix is Top Priority**: The user is blocked by the incorrect initial scroll on . The correct approach is to use  to trigger the scroll *after* the  has finished rendering its items. Do not use  or  as they are unreliable for this purpose.
--   **Dev Environment is Unstable**: Be prepared for the frontend server to crash. If it does, the standard fix is .
--   **User is Technical**: The user provides accurate technical feedback and suggestions. Trust their diagnosis, as seen with the  issue.
+-   **Stripe is Priority #1**: The immediate task is to implement the Stripe  flow as planned. The database migrations are ready. Start by creating .
+-   **Use Stripe SDK Directly**: Do NOT use the  library for payments. The plan is to use the official  Python package to get the required  capture functionality.
+-   **Booking Logic is New and Complex**: The booking and expiration logic in  and  is new, heavily tested, and uses advanced database concepts like row-level locking. Review it carefully before making changes.
+-   **New Tests are Key**: The agent created  and . Run these frequently to ensure no regressions are introduced in the booking system.
+-   **Dev Environment is Fragile**: Be prepared for the Expo server to crash ( or  errors). The standard workaround is .
 
 **documents and test reports created in this job**
+-   
+-   
 -   
 -    (updated)
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **LATEST**: User reports an error when clicking on the Planning tab. **Status: IN PROGRESS** (This is the current P0 bug).
-2.  User proposes a simpler, better solution for the planning screen's initial scroll logic. **Status: IMPLEMENTED** (but led to the current bug).
-3.  User reports the planning screen doesn't show cached data instantly on second visit. **Status: FIXED**.
-4.  User requests caching for the planning screen to avoid re-loading on every visit. **Status: IMPLEMENTED**.
-5.  User reports the planning screen initial scroll is not positioned correctly. **Status: IN PROGRESS**.
-6.  User provides feedback on the new skeleton loader for the planning screen. **Status: ADDRESSED**.
-7.  User suggests a 2-step loading process for the planning screen (Skeleton -> Loaded data). **Status: IMPLEMENTED**.
-8.  User confirms the search map view feature is perfect and requests a result count badge. **Status: COMPLETED**.
-9.  User requests a new feature: a toggle between List and Map view for search results. **Status: COMPLETED**.
-10. User reports that ratings are always '0'. **Status: FIXED**.
+1.  **Request to implement Stripe PaymentIntents**: User provided detailed requirements for the Stripe integration, specifying a manual capture flow. **Status: IN PROGRESS**
+2.  **Request to implement automatic booking expiration**: User requested a background job to expire pending bookings with atomic slot release. **Status: COMPLETED**
+3.  **Request to implement a robust booking workflow**: User provided strict requirements for an atomic, idempotent booking system with row-level locking. **Status: COMPLETED**
+4.  **Confirmation to proceed with P0**: User confirmed to prioritize the Admin Dashboard verification. **Status: ADDRESSED**
+5.  **User providing test Stripe key**: User instructed to use a test key for Stripe. **Status: ADDRESSED**
 
 **Project Health Check:**
 -   **Broken**:
-    -   The initial scroll and calendar synchronization on the  screen is not working on first load.
-    -   The frontend development environment is fragile due to recurring  and  errors.
+    -   Several pre-existing backend tests (, etc.) are failing, creating noise.
+    -   The frontend development environment (Expo) is fragile and prone to crashing.
+-   **Mocked**:
+    -   The entire payment capture/cancellation flow is non-functional pending the  implementation.
 
 **3rd Party Integrations**
+-   **Stripe**: Currently being implemented via the official Python SDK. Requires  and  environment variables.
 -   EAS (Expo Application Services)
 -   Google Places API
--   slowapi (backend rate limiting)
--   expo-secure-store
--   expo-file-system
+-    (backend rate limiting)
+-   
 -   
 
 **Testing status**
--   **Testing agent used after significant changes**: NO
+-   **Testing agent used after significant changes**: YES (for admin dashboard and initial Stripe Checkout)
 -   **Troubleshoot agent used after agent stuck in loop**: NO
 -   **Test files created**:
     -   
--   **Known regressions**: Several pre-existing backend tests are broken and have not been fixed.
+    -   
+    -   
+-   **Known regressions**: Several pre-existing backend tests are broken.
 
 **Credentials to test flow:**
 -   **Admin**:  / 
@@ -182,6 +184,5 @@ None.
 -   **User**:  / 
 
 **What agent forgot to execute**
--   The agent has not yet implemented the final, correct fix for the planning screen scroll bug using .
--   The agent did not fix the pre-existing broken backend tests that were identified in the initial handoff.
--   The agent did not explicitly ask for user verification of the complete Update SpotYou flow after fixing the underlying image deletion bug.</analysis>
+-   The agent did not fix the pre-existing broken backend tests (, etc.).
+-   The agent has not yet prompted the user for verification of the Update SpotYou flow.</analysis>

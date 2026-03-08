@@ -12,7 +12,7 @@ import requests
 import os
 import time
 
-BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://subscription-mgmt-16.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://hyperlocal-connect-1.preview.emergentagent.com").rstrip("/")
 
 USER_CREDS  = {"email": "user@winek.app",  "password": "WinekUser2024!"}
 COACH_CREDS = {"email": "coach@winek.app", "password": "WinekCoach2024!"}
