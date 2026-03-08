@@ -109,9 +109,23 @@ async def startup():
     await connect_to_db()
     from seed import seed_initial_data
     await seed_initial_data()
-    logger.info("SpotU API started successfully")
+
+    # ── Démarrage du worker d'expiration des bookings ─────────────────────────
+    from database import get_pool
+    from expiry_worker import ExpiryWorker
+    ttl_hours       = int(os.environ.get("BOOKING_EXPIRY_HOURS", "48"))
+    interval_secs   = int(os.environ.get("EXPIRY_WORKER_INTERVAL_SECS", "60"))
+    worker = ExpiryWorker(get_pool(), interval_secs=interval_secs)
+    worker.start()
+    app.state.expiry_worker = worker
+    logger.info(
+        "SpotU API started successfully (expiry TTL=%dh, worker_interval=%ds)",
+        ttl_hours, interval_secs,
+    )
 
 
 @app.on_event("shutdown")
 async def shutdown():
+    if hasattr(app.state, "expiry_worker"):
+        await app.state.expiry_worker.stop()
     await close_db()

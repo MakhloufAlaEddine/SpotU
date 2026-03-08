@@ -449,6 +449,9 @@ async def connect_to_db():
             ALTER TABLE bookings
                 ADD COLUMN IF NOT EXISTS idempotency_key TEXT;
 
+            ALTER TABLE bookings
+                ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;
+
             CREATE UNIQUE INDEX IF NOT EXISTS idx_bookings_idempotency_key
                 ON bookings(idempotency_key)
                 WHERE idempotency_key IS NOT NULL;
@@ -457,6 +460,10 @@ async def connect_to_db():
                 ON bookings(slot_id, user_id)
                 WHERE slot_id IS NOT NULL
                   AND status NOT IN ('refused', 'cancelled', 'expired');
+
+            CREATE INDEX IF NOT EXISTS idx_bookings_expiry_worker
+                ON bookings(expires_at)
+                WHERE status = 'requested';
         """)
 
         # [PERF-01] Index de performance — migration idempotente

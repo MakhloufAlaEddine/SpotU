@@ -37,9 +37,15 @@ import asyncio
 import asyncpg
 import json
 import logging
+import os
+from datetime import timezone, datetime
 
 log = logging.getLogger("routes.bookings")
 router = APIRouter()
+
+# TTL configuré dans .env — utilisé pour calculer expires_at à l'INSERT
+# et comme garde côté endpoint /accept (avant que le worker ait tourné)
+BOOKING_EXPIRY_HOURS = int(os.environ.get("BOOKING_EXPIRY_HOURS", "48"))
 
 # ── Projection commune ─────────────────────────────────────────────────────────
 BOOKING_FIELDS = """
@@ -47,7 +53,7 @@ BOOKING_FIELDS = """
     b.scheduled_at, b.slot_id, b.location_id, b.notes, b.amount,
     b.payment_status, b.payer_user_id, b.receiver_user_id,
     b.pricing_snapshot, b.idempotency_key, b.currency,
-    b.created_at, b.updated_at
+    b.created_at, b.updated_at, b.expires_at
 """
 
 
@@ -201,22 +207,25 @@ async def _do_booking_request(data: BookingRequest, request: Request):
             pd["status"] = "requires_authorization"
 
             # ── 6. INSERT booking ─────────────────────────────────────────────
+            # expires_at = NOW() + TTL_HOURS — calculé une seule fois ici
             await conn.execute(
                 """INSERT INTO bookings
                    (booking_id, service_id, user_id, coach_id, status,
                     scheduled_at, slot_id, location_id, notes, amount,
                     payer_user_id, receiver_user_id, pricing_snapshot,
-                    payment_status, currency, idempotency_key)
+                    payment_status, currency, idempotency_key, expires_at)
                    VALUES ($1,$2,$3,$4,'requested',
                            $5,$6,$7,$8,$9,
                            $10,$11,$12,
-                           'pending','EUR',$13)""",
+                           'pending','EUR',$13,
+                           NOW() + ($14 || ' hours')::INTERVAL)""",
                 bid, data.service_id, payer_user_id, receiver_user_id,
                 data.scheduled_at, data.slot_id, data.location_id, data.notes,
                 pricing.payer_total_amount,
                 payer_user_id, receiver_user_id,
                 json.dumps(pricing.to_snapshot()),
                 data.idempotency_key,
+                str(BOOKING_EXPIRY_HOURS),
             )
 
             # ── 7. INSERT payment ─────────────────────────────────────────────
@@ -308,7 +317,7 @@ async def accept_booking(booking_id: str, request: Request):
 
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            "SELECT booking_id, status, receiver_user_id, slot_id FROM bookings WHERE booking_id = $1",
+            "SELECT booking_id, status, receiver_user_id, slot_id, expires_at FROM bookings WHERE booking_id = $1",
             booking_id,
         )
         if not row:
@@ -321,6 +330,20 @@ async def accept_booking(booking_id: str, request: Request):
             return {"success": True, "status": "accepted", "idempotent": True}
         if bk["status"] != "requested":
             raise HTTPException(409, f"Impossible d'accepter une réservation en état '{bk['status']}'")
+
+        # ── TTL guard : refuser si expiré même avant le prochain tick du worker ──
+        expires_at = bk.get("expires_at")
+        if expires_at is not None:
+            # asyncpg retourne un datetime aware (UTC)
+            now_utc = datetime.now(timezone.utc)
+            if hasattr(expires_at, "tzinfo") and expires_at.tzinfo is None:
+                from datetime import timezone as _tz
+                expires_at = expires_at.replace(tzinfo=_tz.utc)
+            if expires_at < now_utc:
+                raise HTTPException(
+                    410,
+                    "Cette réservation a expiré et ne peut plus être acceptée — le créneau a été libéré",
+                )
 
         async with conn.transaction():
             await conn.execute(
