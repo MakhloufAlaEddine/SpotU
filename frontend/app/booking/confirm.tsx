@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
-  ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform, Image, Linking,
+  ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform, Image, Linking, AppState,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -35,10 +35,29 @@ export default function BookingConfirmScreen() {
   const [bookingId, setBookingId] = useState<string | null>(null);
   const [pricing, setPricing] = useState<{ payer_total_amount: number; base_amount: number } | null>(null);
   const [paymentLoading, setPaymentLoading] = useState(false);
+  const pendingSessionId = useRef<string | null>(null);
 
   useEffect(() => {
     loadData();
   }, [serviceId]);
+
+  // Détecte le retour dans l'app après Stripe Checkout
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', async (nextState) => {
+      if (nextState === 'active' && pendingSessionId.current) {
+        const sid = pendingSessionId.current;
+        try {
+          const status = await api.get<any>(`/payments/checkout/status/${sid}`);
+          if (status?.payment_status === 'authorized' || status?.payment_status === 'captured' ||
+              status?.payment_status === 'paid' || status?.booking_status === 'accepted') {
+            pendingSessionId.current = null;
+            router.replace((`/payment-success?session_id=${sid}`) as any);
+          }
+        } catch { /* ignore — paiement peut être encore en traitement */ }
+      }
+    });
+    return () => subscription.remove();
+  }, []);
 
   const loadData = async () => {
     try {
@@ -92,10 +111,14 @@ export default function BookingConfirmScreen() {
         booking_id: bookingId,
         origin_url: originUrl,
       });
+      // Mémoriser le session_id pour détecter le retour depuis Stripe
+      if (res.session_id) pendingSessionId.current = res.session_id;
       // Cross-platform : Linking gère web (même onglet) et natif (browser externe)
       await Linking.openURL(res.url);
     } catch (err: any) {
       alert(err.message || 'Impossible de lancer le paiement');
+    } finally {
+      // Toujours réinitialiser le spinner — l'utilisateur peut revenir dans l'app
       setPaymentLoading(false);
     }
   };
