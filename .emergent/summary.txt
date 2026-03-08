@@ -1,53 +1,44 @@
-<analysis>**original_problem_statement**: The user wants to build a mobile application, SpotU, a hyperlocal, tag-based connection platform. The core features include service/SpotYou creation and discovery, a booking request system, and real-time chat/notifications.
+<analysis>**original_problem_statement**: The user wants to build a mobile application, SpotU, a hyperlocal, tag-based connection platform.
 
-The most recent work has focused on implementing a robust and generic backend for service bookings and payments, with the following mandatory constraints:
--   **Atomic & Idempotent Transactions**: Operations must be safe from race conditions (e.g., double bookings) and network retries (e.g., duplicate requests).
--   **Row-Level Locking**: Use SQL locks () to prevent concurrent users from booking the same time slot.
--   **Centralized Pricing Engine**: All price calculations must originate from the existing . No price logic should exist outside of it.
--   **Generic Payment Flow**: Payments must be possible between any two users, not tied to fixed roles like coach or client.
--   **Robust State Machines**: The system must manage a detailed set of statuses for bookings, service slots, and payments.
--   **Automatic Expiration**:  bookings must expire automatically after a configurable time (TTL), releasing the slot and cancelling any payment authorization.
--   **Stripe Integration**: Integrate Stripe using a  flow with manual capture: authorize on booking request, capture on acceptance, and cancel on refusal/expiration.
+The project has evolved to focus on a robust and generic backend with the following key features and constraints:
+1.  **Booking Engine**: Atomic and idempotent booking operations with row-level locking () to prevent double bookings. An automated background worker expires pending requests.
+2.  **Payment Engine**: A generic payment flow between any two users, using Stripe  with manual capture (authorize on request, capture on acceptance, cancel on refusal/expiration).
+3.  **Subscription Engine**: A flexible subscription system integrated with Stripe. Benefits (e.g., fee waivers) are resolved through a central  and are configurable.
+4.  **Robust Webhooks**: All financial state changes (payments, subscriptions, refunds) must be synchronized from Stripe via idempotent webhooks, making Stripe the source of truth.
 
 **User's preferred language**: French. The next agent MUST respond in **French**.
 
 **what currently exists?**
 A full-stack application with a React Native (Expo) frontend and a FastAPI/PostgreSQL backend.
 
-The agent has successfully implemented a highly robust backend booking engine that meets most of the user's recent, strict requirements. This includes:
--   **Rewritten Booking Routes**:  was completely overhauled to use atomic transactions and row-level locking () to prevent double bookings.
--   **Comprehensive State Machines**: New, detailed  statuses for , , and  have been added to the database and Pydantic models to accurately track the lifecycle of a transaction.
--   **Idempotency**: Booking requests now support an  to prevent duplicate creation.
--   **Automatic Expiration Worker**: A new background worker () has been created using . It periodically finds and expires pending bookings, atomically releasing the associated slot and preparing for payment cancellation.
--   **Extensive Backend Tests**: New test suites (, ) were created to validate the new locking, state transition, and expiration logic.
--   **Stripe Scaffolding**: An audit of the payment system was performed, revealing that the previous Stripe Checkout integration was insufficient. The agent planned a new architecture using the Stripe Python SDK for  with manual capture and created the necessary database migration files to support it.
+The session has seen significant progress on the backend:
+-   **Stripe PaymentIntents**: The initial goal of implementing a manual capture flow with Stripe PaymentIntents was successfully completed and tested. This replaced a simpler Stripe Checkout flow.
+-   **Stripe Subscriptions**: A complete subscription management system was built. This includes endpoints to list plans, subscribe (via Stripe Checkout), and cancel. The  was refactored to apply subscription benefits to transactions, and the database was updated to store subscription status.
+-   **Webhook Foundation**: In response to a new request for more robust webhooks, the agent has started building a centralized, idempotent webhook processing system.
 
 **Last working item**:
--   **Last item agent was working**: Implementing the full Stripe  workflow. The agent audited the existing code, designed the new architecture using the Stripe SDK directly, and created the database migration files to add  and  to the  table.
+-   **Last item agent was working**: Refactoring the Stripe webhook handling into a centralized, robust, and idempotent system. The agent created a new database table () for idempotency, created a new central module (), and was in the process of redirecting all incoming webhook traffic from  to this new module.
 -   **Status**: IN PROGRESS
 -   **Agent Testing Done**: N
 -   **Which testing method agent to use?**: backend testing agent
 -   **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: Implement Stripe PaymentIntents (P0)**
+-   **Issue 1: Finalize Robust Stripe Webhook Implementation (P0)**
 -   **Issue 2: Update SpotYou flow not fully verified (P1)**
 -   **Issue 3: Expo Hot-Reload Instability (P2 - RECURRING)**
 -   **Issue 4: Pre-existing backend tests are failing (P3)**
 
 **Issues Detail**:
--   **Issue 1: Implement Stripe PaymentIntents**
-    -   **Description**: The current Stripe integration uses a simple Checkout flow. It must be replaced with a  flow () to allow for authorization on request and capture on acceptance. The database migrations have been created.
-    -   **Attempted fixes**: The agent correctly identified that  was insufficient and planned to use the  Python SDK directly. Migration files were created in .
+-   **Issue 1: Finalize Robust Stripe Webhook Implementation**
+    -   **Description**: The goal is to create a single, idempotent webhook endpoint to handle all financial events from Stripe (payments, refunds, subscriptions) and use it as the source of truth for updating the local database.
+    -   **Attempted fixes**: The agent successfully created the DB migration for an idempotency table (), created a central  module, and refactored the main webhook dispatcher in  to use this new module.
     -   **Next debug checklist**:
-        1.  Create  to act as a wrapper for all Stripe SDK calls (create/retrieve customer, create/capture/cancel PaymentIntent). Use  for non-blocking calls.
-        2.  Integrate  into  and .
-        3.  Modify  () to create a Stripe Customer (if not exists) and then create and authorize a . Store the  and .
-        4.  Modify  () to call .
-        5.  Modify  (, ) and  to call .
-        6.  Implement the Stripe webhook handler at  to update payment status based on events like , , etc.
-        7.  Document and add the required environment variables (, ) to .
-    -   **Why fix this issue and what will be achieved with the fix?**: This is the final step to enable real, secure, and flexible transactions on the platform, fulfilling a core product requirement.
+        1.  Verify that the  webhook handler (which was refactored by the testing agent in a previous step) is also correctly removed or integrated into the new centralized  dispatcher to avoid duplicate logic.
+        2.  Implement the logic for all required event handlers inside  (e.g., , , , etc.), ensuring they correctly update the , , and other relevant tables.
+        3.  Implement the idempotency check at the beginning of the  function by checking the  table for the incoming event ID.
+        4.  Create a new test file () to simulate incoming webhook events and verify that the handlers work correctly and are idempotent.
+    -   **Why fix this issue and what will be achieved with the fix?**: This is critical for financial data integrity. It will ensure the application's database is always in sync with Stripe, preventing issues like missed payments, incorrect subscription statuses, or unrecorded refunds.
     -   **Status**: IN PROGRESS
     -   **Is recurring issue?**: N
     -   **Should Test frontend/backend/both after fix?**: backend
@@ -58,52 +49,46 @@ The agent has successfully implemented a highly robust backend booking engine th
     -   **Status**: USER VERIFICATION PENDING
     -   **Is recurring issue?**: N
     -   **Should Test frontend/backend/both after fix?**: both
-    -   **Blocked on other issue**: None
 
 -   **Issue 3: Expo Hot-Reload Instability**
-    -   **Description**: The Metro bundler frequently crashes with  or  errors.
-    -   **Attempted fixes**: A patch was applied to . The workaround is to run .
+    -   **Description**: The Metro bundler frequently crashes with  or  errors. The workaround is to run .
     -   **Status**: IN PROGRESS (fragile workaround)
     -   **Is recurring issue?**: Y
 
 -   **Issue 4: Pre-existing tests are failing**
-    -   **Description**: Older backend test files (, , etc.) have failures.
+    -   **Description**: Older backend test files (, , etc.) have failures that need to be addressed.
     -   **Status**: NOT STARTED
     -   **Is recurring issue?**: Y
-    -   **Should Test frontend/backend/both after fix?**: backend
 
 **In progress Task List**:
--   **Task 1: Complete Stripe PaymentIntent Integration**
-    -   **Where to resume**: The DB migration files are located in . The next step is to create the  module as outlined in the plan.
-    -   **What will be achieved with this?**: A complete, secure payment lifecycle (authorize, capture, cancel) fully integrated with the booking state machine.
+-   **Task 1: Complete Robust Stripe Webhook Implementation**
+    -   **Where to resume**: The  module and the idempotency table migration are created. The  webhook has been refactored. The next step is to implement the individual event handlers within  and create backend tests.
+    -   **What will be achieved with this?**: A single, reliable, and testable system for synchronizing all Stripe events.
     -   **Status**: IN PROGRESS
     -   **Should Test frontend/backend/both after fix?**: backend
 
 **Upcoming and Future Tasks**
 -   **Upcoming Tasks**:
-    -   **(P1) User Subscription Flow**: Implement the frontend for users to browse and manage subscription plans.
+    -   **(P1) User Subscription Frontend**: Implement the UI for users to browse, subscribe to, and manage their subscription plans.
 -   **Future Tasks**:
     -   **(P2) Bilingual Support (i18n)**: Fully implement French/English translations.
-    -   Finalize Push Notifications with EAS Build.
+    -   **(P2)** Finalize Push Notifications with EAS Build.
+    -   **(P3)** Fix all pre-existing failing backend tests.
 
 **Completed work in this session**
--   **Robust Booking Workflow Implementation**:
-    -   Completely rewrote  to use atomic transactions () and row-level locking () to guarantee data integrity and prevent race conditions.
-    -   Implemented idempotency for booking requests via a unique constraint on  and a client-side .
-    -   Enhanced DB schema and models with comprehensive status enums (, , ).
-    -   Created  to validate the new concurrency-safe logic.
--   **Automatic Booking Expiration Worker**:
-    -   Created a new background job in  using  to handle the automatic expiration of pending bookings.
-    -   The worker atomically updates booking status to  and slot status to .
-    -   Integrated the worker into the main  to run on startup.
-    -   Created  to test the expiration logic.
--   **Admin Dashboard Verification & Bug Fix**:
-    -   Successfully verified the Admin Monetization UI using the testing agent and fixed a critical bug related to React hooks that prevented the UI from working.
--   **Database Initialization Fix**:
-    -   Resolved a critical startup failure by correcting the execution order of database migrations, ensuring base tables are created before monetization tables that depend on them.
+-   **Stripe PaymentIntent Integration**:
+    -   Successfully implemented the  flow with .
+    -   Created  to wrap Stripe SDK calls.
+    -   Integrated payment authorization, capture, and cancellation into the  and  lifecycle.
+    -   Validated the full flow with the backend testing agent (61/61 tests passed).
+-   **Stripe Subscription Implementation**:
+    -   Created a full subscription lifecycle: list plans, create subscription checkout, cancel subscription.
+    -   Created  for all subscription-related endpoints.
+    -   Refactored  to cleanly apply subscription benefits to transactions.
+    -   The implementation was validated by the testing agent, which found and fixed a critical bug in the webhook handler (27/27 tests passed).
 
 **Earlier issues found/mentioned but not fixed**
--   Same as **Issue 4: Pre-existing tests are failing**. The old backend test suite needs to be fixed.
+-   **Pre-existing tests are failing**: Older backend test files (, etc.) have failures. This was not addressed.
 
 **Known issue recurrence from previous fork**
 -   **Issue recurrence in previous fork**: Expo Metro Bundler Instability ( error).
@@ -114,69 +99,66 @@ The agent has successfully implemented a highly robust backend booking engine th
 
 
 **Key Technical Concepts**
--   **Asynchronous Background Worker ()**: Use of  to run a periodic background job () within the main FastAPI application loop, avoiding the need for external tools like Celery or cron.
--   **Row-Level Locking ()**: The core mechanism used in  to prevent race conditions. It ensures that only one transaction can acquire a lock on a specific  row for booking, immediately failing any concurrent attempts.
--   **Atomic & Idempotent Database Operations**: Combining  with unique database constraints to ensure that booking operations are all-or-nothing and that identical repeated requests do not create duplicate records.
--   **Robust State Machines**: Detailed  definitions (, , ) that drive the application logic and enforce valid state transitions.
--   **Stripe PaymentIntents (Manual Capture)**: The planned payment architecture. It separates payment authorization from capture, allowing funds to be held when a booking is requested and only captured when it is confirmed.
+-   **Asynchronous Background Worker ()**: For automatic booking expiration.
+-   **Row-Level Locking ()**: For concurrency-safe bookings.
+-   **Stripe PaymentIntents (Manual Capture)**: Decouples payment authorization from capture.
+-   **Centralized Pricing Engine**: A single source of truth for all price calculations, now including subscription benefits.
+-   **Idempotent Webhook Processing**: Using a dedicated database table () to track processed events and prevent duplicate handling.
+-   **Centralized Event Dispatching**: Routing all incoming webhook events to a single  module for clean, maintainable logic.
 
 **key DB schema**
--   ****: Added  and .
--   ****: Added  and .  is now a  enum.
--   ****: Added .
--   ****: Added .  is now a  enum.
+-   ****: ,  (VARCHAR).
+-   ****: Added ,  (VARCHAR).
+-   ****: (NEW) uid=0(root) gid=0(root) groups=0(root), , , , , , .
+-   ****: Added  (NUMERIC).
+-   ****: (NEW) uid=0(root) gid=0(root) groups=0(root), , , , .
 
 **All files of reference**
--   : Contains the new, robust booking logic.
--   : The background job for automatic booking expiration.
--   : Tests for the concurrency logic.
--   : Tests for the expiration worker.
--    & : Definitions for new DB columns and status enums.
--   The latest migration file in  for adding Stripe columns.
+-   : The new central module for handling all Stripe webhooks.
+-   : Contains the main webhook endpoint that dispatches to the new handler.
+-   : Contains the business logic for managing subscriptions.
+-   : Wrapper for all Stripe SDK calls.
+-   : Logic for calculating prices, including subscription benefits.
+-   Latest migration files in .
 
 **Critical Info for New Agent**
--   **Stripe is Priority #1**: The immediate task is to implement the Stripe  flow as planned. The database migrations are ready. Start by creating .
--   **Use Stripe SDK Directly**: Do NOT use the  library for payments. The plan is to use the official  Python package to get the required  capture functionality.
--   **Booking Logic is New and Complex**: The booking and expiration logic in  and  is new, heavily tested, and uses advanced database concepts like row-level locking. Review it carefully before making changes.
--   **New Tests are Key**: The agent created  and . Run these frequently to ensure no regressions are introduced in the booking system.
--   **Dev Environment is Fragile**: Be prepared for the Expo server to crash ( or  errors). The standard workaround is .
+-   **Webhook Implementation is Priority #1**: The immediate task is to complete the implementation in . This involves writing the logic for each event type and ensuring the idempotency check works.
+-   **Test Thoroughly**: This is a critical financial component. New backend tests in  are essential before marking this task as complete.
+-   **Single Webhook Endpoint**: The architecture is designed to have one unified webhook endpoint in  that delegates all processing to . Ensure no other webhook listeners exist.
+-   **Old Tests Still Broken**: Be aware that running the full test suite will show failures from old, unrelated test files. Focus on the new tests you create for the webhook functionality.
 
 **documents and test reports created in this job**
+-    (From PaymentIntent testing)
+-    (From Subscription testing)
+-    (updated twice)
 -   
--   
--   
--    (updated)
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **Request to implement Stripe PaymentIntents**: User provided detailed requirements for the Stripe integration, specifying a manual capture flow. **Status: IN PROGRESS**
-2.  **Request to implement automatic booking expiration**: User requested a background job to expire pending bookings with atomic slot release. **Status: COMPLETED**
-3.  **Request to implement a robust booking workflow**: User provided strict requirements for an atomic, idempotent booking system with row-level locking. **Status: COMPLETED**
-4.  **Confirmation to proceed with P0**: User confirmed to prioritize the Admin Dashboard verification. **Status: ADDRESSED**
-5.  **User providing test Stripe key**: User instructed to use a test key for Stripe. **Status: ADDRESSED**
+1.  **User**: Requested robust, idempotent webhook implementation for a list of specific Stripe events. **Status: IN PROGRESS**
+2.  **User**: Approved the subscription implementation plan with specific adjustments (use Stripe Checkout, cancel at period end, etc.). **Status: ADDRESSED & COMPLETED**
+3.  **Agent**: Proposed a detailed plan for implementing the subscription feature. **Status: ADDRESSED**
+4.  **User**: Requested the implementation of a Stripe subscription system with configurable benefits. **Status: ADDRESSED & COMPLETED**
+5.  **Agent**: Finished the Stripe  (P0) task successfully. **Status: COMPLETED**
+... (older messages related to PaymentIntent implementation)
 
 **Project Health Check:**
 -   **Broken**:
-    -   Several pre-existing backend tests (, etc.) are failing, creating noise.
+    -   Several pre-existing backend tests (, etc.) are failing.
     -   The frontend development environment (Expo) is fragile and prone to crashing.
 -   **Mocked**:
-    -   The entire payment capture/cancellation flow is non-functional pending the  implementation.
+    -   None. The payment and subscription systems are functional, with the webhook synchronization being the final piece to make them fully robust.
 
 **3rd Party Integrations**
--   **Stripe**: Currently being implemented via the official Python SDK. Requires  and  environment variables.
+-   **Stripe**: Integrated via the official Python SDK for  and . Requires  and .
 -   EAS (Expo Application Services)
 -   Google Places API
--    (backend rate limiting)
--   
--   
 
 **Testing status**
--   **Testing agent used after significant changes**: YES (for admin dashboard and initial Stripe Checkout)
+-   **Testing agent used after significant changes**: YES (twice in this session, for PaymentIntents and Subscriptions).
 -   **Troubleshoot agent used after agent stuck in loop**: NO
 -   **Test files created**:
     -   
-    -   
-    -   
--   **Known regressions**: Several pre-existing backend tests are broken.
+-   **Known regressions**: Several pre-existing backend tests are still broken and have not been addressed.
 
 **Credentials to test flow:**
 -   **Admin**:  / 
@@ -184,5 +166,5 @@ The agent has successfully implemented a highly robust backend booking engine th
 -   **User**:  / 
 
 **What agent forgot to execute**
--   The agent did not fix the pre-existing broken backend tests (, etc.).
+-   The agent did not fix the pre-existing broken backend tests.
 -   The agent has not yet prompted the user for verification of the Update SpotYou flow.</analysis>

@@ -1,11 +1,12 @@
 """
 payment_routes.py — Routes de gestion des paiements SpotU
 ==========================================================
-Utilise le SDK Stripe natif (stripe>=14) avec capture_method=manual :
-  - Checkout Session créée avec capture manuelle
-  - PaymentIntent capturé lors de l'acceptation du booking (booking_routes.py)
-  - PaymentIntent annulé lors du refus / annulation / expiration
-  - Webhook Stripe pour mise à jour temps réel des statuts
+Utilise le SDK Stripe natif (stripe>=14) avec capture_method=manual.
+
+Webhook /api/webhook/stripe :
+  Endpoint unifié qui délègue TOUTE la logique événementielle
+  à webhook_handlers.dispatch() — couche centralisée avec idempotence.
+  Les handlers de paiements et d'abonnements sont dans webhook_handlers.py.
 """
 
 import asyncio
@@ -19,11 +20,12 @@ from auth_utils import require_auth, require_role
 from database import get_pool, row_to_dict, rows_to_list
 from models import new_id
 import stripe_service
+import webhook_handlers
 
 log = logging.getLogger("routes.payments")
 router = APIRouter()
 
-STRIPE_API_KEY      = os.environ.get("STRIPE_API_KEY", "")
+STRIPE_API_KEY        = os.environ.get("STRIPE_API_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 
 

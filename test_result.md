@@ -325,7 +325,7 @@ agent_communication:
       - Coach: coach@winek.app / WinekCoach2024!
       - User: user@winek.app / WinekUser2024!
       
-      FRONTEND URL: https://hyperlocal-connect-1.preview.emergentagent.com
-      BACKEND URL: https://hyperlocal-connect-1.preview.emergentagent.com/api
+      FRONTEND URL: https://spotu-backend.preview.emergentagent.com
+      BACKEND URL: https://spotu-backend.preview.emergentagent.com/api
       
       Test all high priority features. Note: Stripe payment test not critical for MVP verification.

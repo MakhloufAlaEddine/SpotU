@@ -500,6 +500,31 @@ async def connect_to_db():
                 WHERE stripe_product_id IS NOT NULL;
         """)
 
+        # [WEBHOOKS-V1] Idempotence + traçabilité webhooks Stripe
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS stripe_webhook_events (
+                event_id        TEXT PRIMARY KEY,
+                event_type      TEXT NOT NULL,
+                status          TEXT NOT NULL DEFAULT 'processing',
+                related_id      TEXT,
+                error_message   TEXT,
+                processed_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS idx_webhook_events_type
+                ON stripe_webhook_events(event_type);
+            CREATE INDEX IF NOT EXISTS idx_webhook_events_related
+                ON stripe_webhook_events(related_id)
+                WHERE related_id IS NOT NULL;
+            CREATE INDEX IF NOT EXISTS idx_webhook_events_status
+                ON stripe_webhook_events(status);
+
+            ALTER TABLE payments
+                ADD COLUMN IF NOT EXISTS stripe_charge_id      TEXT,
+                ADD COLUMN IF NOT EXISTS refund_amount         DECIMAL(10,2) DEFAULT 0,
+                ADD COLUMN IF NOT EXISTS refund_status         TEXT;
+        """)
+
         # [PERF-01] Index de performance — migration idempotente
         await conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_bookings_user_id
