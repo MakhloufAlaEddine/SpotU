@@ -34,30 +34,65 @@ export default function BookingConfirmScreen() {
   const [bookingDone, setBookingDone] = useState(false);
   const [bookingId, setBookingId] = useState<string | null>(null);
   const [pricing, setPricing] = useState<{ payer_total_amount: number; base_amount: number } | null>(null);
-  const [paymentLoading, setPaymentLoading] = useState(false);
-  const pendingSessionId = useRef<string | null>(null);
+
+  // ── Machine d'état paiement ──────────────────────────────────────────────────
+  // 'idle'      → bouton normal
+  // 'opening'   → spinner "Ouverture Stripe..."
+  // 'verifying' → spinner "Vérification en cours..." + polling actif
+  // 'timeout'   → délai dépassé, lien vers "Mes réservations"
+  const [payState, setPayState] = useState<'idle' | 'opening' | 'verifying' | 'timeout'>('idle');
+  const pendingSessionId    = useRef<string | null>(null);
+  const pollingInterval     = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollingTimeout      = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const stopPolling = () => {
+    if (pollingInterval.current) { clearInterval(pollingInterval.current); pollingInterval.current = null; }
+    if (pollingTimeout.current)  { clearTimeout(pollingTimeout.current);   pollingTimeout.current  = null; }
+  };
+
+  // Cleanup sur unmount
+  useEffect(() => () => stopPolling(), []);
+
+  const startPolling = (sessionId: string) => {
+    stopPolling();
+    setPayState('verifying');
+
+    const check = async () => {
+      try {
+        const res = await api.get<any>(`/payments/checkout/status/${sessionId}`);
+        const ps = res?.payment_status;   // champ DB normalisé (authorized/captured/…)
+        if (ps === 'authorized' || ps === 'captured' || ps === 'paid') {
+          stopPolling();
+          pendingSessionId.current = null;
+          router.replace(`/payment-success?session_id=${sessionId}&booking_id=${bookingId}` as any);
+        }
+      } catch { /* retry au prochain tick */ }
+    };
+
+    check(); // vérification immédiate au retour dans l'app
+    pollingInterval.current = setInterval(check, 3000);
+
+    // Timeout 3 min
+    pollingTimeout.current = setTimeout(() => {
+      stopPolling();
+      setPayState('timeout');
+      pendingSessionId.current = null;
+    }, 180_000);
+  };
+
+  // AppState : démarre le polling dès que l'utilisateur revient de Stripe
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && pendingSessionId.current) {
+        startPolling(pendingSessionId.current);
+      }
+    });
+    return () => sub.remove();
+  }, [bookingId]);
 
   useEffect(() => {
     loadData();
   }, [serviceId]);
-
-  // Détecte le retour dans l'app après Stripe Checkout
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', async (nextState) => {
-      if (nextState === 'active' && pendingSessionId.current) {
-        const sid = pendingSessionId.current;
-        try {
-          const status = await api.get<any>(`/payments/checkout/status/${sid}`);
-          if (status?.payment_status === 'authorized' || status?.payment_status === 'captured' ||
-              status?.payment_status === 'paid' || status?.booking_status === 'accepted') {
-            pendingSessionId.current = null;
-            router.replace((`/payment-success?session_id=${sid}`) as any);
-          }
-        } catch { /* ignore — paiement peut être encore en traitement */ }
-      }
-    });
-    return () => subscription.remove();
-  }, []);
 
   const loadData = async () => {
     try {
@@ -102,7 +137,7 @@ export default function BookingConfirmScreen() {
 
   const handlePay = async () => {
     if (!bookingId) return;
-    setPaymentLoading(true);
+    setPayState('opening');
     try {
       const originUrl = typeof window !== 'undefined'
         ? window.location.origin
@@ -111,16 +146,15 @@ export default function BookingConfirmScreen() {
         booking_id: bookingId,
         origin_url: originUrl,
       });
-      // Mémoriser le session_id pour détecter le retour depuis Stripe
       if (res.session_id) pendingSessionId.current = res.session_id;
-      // Cross-platform : Linking gère web (même onglet) et natif (browser externe)
       await Linking.openURL(res.url);
+      // Après ouverture : spinner "Vérification" + polling immédiat
+      startPolling(res.session_id);
     } catch (err: any) {
       alert(err.message || 'Impossible de lancer le paiement');
-    } finally {
-      // Toujours réinitialiser le spinner — l'utilisateur peut revenir dans l'app
-      setPaymentLoading(false);
+      setPayState('idle');
     }
+    // Pas de finally — le spinner persiste jusqu'à confirmation ou timeout
   };
 
   const getSlotLabel = () => {
@@ -270,24 +304,49 @@ export default function BookingConfirmScreen() {
                   <Text style={s.pricingTotal}>{pricing.payer_total_amount.toFixed(2)} €</Text>
                 </View>
               )}
-              <TouchableOpacity
-                style={[s.payBtn, paymentLoading && s.confirmBtnDisabled]}
-                onPress={handlePay}
-                disabled={paymentLoading}
-                testID="pay-now-btn"
-              >
-                {paymentLoading ? (
+              {/* ── Machine d'état du bouton de paiement ────────────────────── */}
+              {payState === 'idle' && (
+                <TouchableOpacity style={s.payBtn} onPress={handlePay} testID="pay-now-btn">
+                  <Ionicons name="card" size={20} color={Colors.background} />
+                  <Text style={s.confirmBtnText}>Payer maintenant</Text>
+                </TouchableOpacity>
+              )}
+              {payState === 'opening' && (
+                <View style={[s.payBtn, s.payBtnSpinner]}>
                   <ActivityIndicator color={Colors.background} />
-                ) : (
-                  <>
-                    <Ionicons name="card" size={20} color={Colors.background} />
-                    <Text style={s.confirmBtnText}>Payer maintenant</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity style={s.skipPayBtn} onPress={() => router.replace('/(tabs)/map' as any)} testID="skip-pay-btn">
-                <Text style={s.skipPayText}>Payer plus tard</Text>
-              </TouchableOpacity>
+                  <Text style={s.confirmBtnText}>Ouverture du paiement...</Text>
+                </View>
+              )}
+              {payState === 'verifying' && (
+                <>
+                  <View style={[s.payBtn, s.payBtnSpinner]}>
+                    <ActivityIndicator color={Colors.background} />
+                    <Text style={s.confirmBtnText}>Vérification en cours...</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={s.skipPayBtn}
+                    onPress={() => { stopPolling(); setPayState('idle'); }}
+                    testID="cancel-verify-btn"
+                  >
+                    <Text style={s.skipPayText}>Annuler la vérification</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+              {payState === 'timeout' && (
+                <TouchableOpacity
+                  style={[s.payBtn, { backgroundColor: Colors.muted }]}
+                  onPress={() => router.push('/bookings' as any)}
+                  testID="see-bookings-btn"
+                >
+                  <Ionicons name="list-outline" size={20} color={Colors.background} />
+                  <Text style={s.confirmBtnText}>Voir mes réservations</Text>
+                </TouchableOpacity>
+              )}
+              {payState === 'idle' && (
+                <TouchableOpacity style={s.skipPayBtn} onPress={() => router.replace('/(tabs)/map' as any)} testID="skip-pay-btn">
+                  <Text style={s.skipPayText}>Payer plus tard</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
         </SafeAreaView>
@@ -334,6 +393,7 @@ const s = StyleSheet.create({
   pricingLabel: { fontSize: 14, color: Colors.muted },
   pricingTotal: { fontSize: 22, fontWeight: '800', color: ORANGE },
   payBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#635BFF', borderRadius: Radius.full, paddingVertical: 16 },
+  payBtnSpinner: { opacity: 0.8 },
   skipPayBtn: { alignItems: 'center', paddingVertical: 8 },
   skipPayText: { fontSize: 14, color: Colors.muted },
 });

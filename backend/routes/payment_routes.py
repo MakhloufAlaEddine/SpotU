@@ -162,18 +162,32 @@ async def create_checkout_session(request: Request):
     pi_id = session.payment_intent if isinstance(session.payment_intent, str) else None
 
     async with pool.acquire() as conn:
-        await conn.execute(
-            """UPDATE payments
-               SET stripe_checkout_session_id = $1,
-                   stripe_payment_intent_id   = $2,
-                   status = CASE
-                       WHEN status NOT IN ('authorized','captured') THEN 'authorized'
-                       ELSE status
+        async with conn.transaction():
+            await conn.execute(
+                """UPDATE payments
+                   SET stripe_checkout_session_id = $1,
+                       stripe_payment_intent_id   = $2,
+                       status = CASE
+                           WHEN status NOT IN ('requires_authorization','authorized','captured')
+                           THEN 'requires_authorization'
+                           ELSE status
+                       END,
+                       updated_at = NOW()
+                   WHERE payment_id = $3""",
+                session.id, pi_id, payment_id,
+            )
+            # Sync colonne dénormalisée bookings.payment_status
+            await conn.execute(
+                """UPDATE bookings
+                   SET payment_status = CASE
+                       WHEN payment_status NOT IN ('requires_authorization','authorized','captured','paid')
+                       THEN 'requires_authorization'
+                       ELSE payment_status
                    END,
                    updated_at = NOW()
-               WHERE payment_id = $3""",
-            session.id, pi_id, payment_id,
-        )
+                   WHERE booking_id = $1""",
+                booking_id,
+            )
 
     return {"url": session.url, "session_id": session.id}
 
@@ -226,12 +240,18 @@ async def get_checkout_status(session_id: str, request: Request):
 
     async with pool.acquire() as conn:
         if s_status == "complete" and stripe_ps == "unpaid":
-            # capture_method=manual : autorisé, pas encore capturé
+            # capture_method=manual : paiement autorisé, pas encore capturé
             if db_status not in ("authorized", "captured"):
-                await conn.execute(
-                    "UPDATE payments SET status='authorized', updated_at=NOW() WHERE payment_id=$1",
-                    payment["payment_id"],
-                )
+                async with conn.transaction():
+                    await conn.execute(
+                        "UPDATE payments SET status='authorized', updated_at=NOW() WHERE payment_id=$1",
+                        payment["payment_id"],
+                    )
+                    if payment.get("booking_id"):
+                        await conn.execute(
+                            "UPDATE bookings SET payment_status='authorized', updated_at=NOW() WHERE booking_id=$1",
+                            payment["booking_id"],
+                        )
                 db_status = "authorized"
 
         elif stripe_ps == "paid" and db_status not in ("captured",):
@@ -255,12 +275,12 @@ async def get_checkout_status(session_id: str, request: Request):
             db_status = "cancelled"
 
     return {
-        "payment_id":     payment["payment_id"],
-        "booking_id":     payment.get("booking_id"),
-        "session_id":     session_id,
-        "status":         s_status,
-        "payment_status": stripe_ps,
-        "db_payment_status": db_status,
+        "payment_id":        payment["payment_id"],
+        "booking_id":        payment.get("booking_id"),
+        "session_id":        session_id,
+        "status":            s_status,
+        "payment_status":    db_status,          # statut interne DB (authorized/captured/…)
+        "stripe_status":     stripe_ps,          # statut Stripe brut (paid/unpaid)
         "amount": (
             session.amount_total / 100
             if session.amount_total
