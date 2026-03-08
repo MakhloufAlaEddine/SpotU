@@ -188,7 +188,38 @@ cd /app/backend && pytest tests/test_stripe_payment_iter50.py -v
 - [x] Workflow de réservation flexible v2 (4 flux) — COMPLÉTÉ 2026-03-08
 - [x] UI configuration booking service (section étape 3 wizard) — COMPLÉTÉ 2026-03-08
 
-### Phase 5b - UI Configuration Booking Service (2026-03-08) ✅ TERMINÉ
+### Phase 5c - Frontend Booking UX (2026-03-08) ✅ TERMINÉ
+
+**booking/confirm.tsx — Refonte complète :**
+- `useCountdown` hook (mise à jour chaque seconde)
+- Sélecteur "Payer maintenant" / "Payer plus tard" (visible si `allow_pay_later=true`)
+- Note dynamique expliquant le comportement selon les 4 combinaisons mode×paiement
+- Bouton adapté : "Réserver maintenant" (instant) vs "Envoyer la demande" (manual)
+- 3 états post-booking : `awaiting_payment+pay_now`, `awaiting_payment+pay_later`, `requested`
+- Countdown expiry sur le booking `awaiting_payment`
+- `handlePay` → `POST /bookings/{id}/pay` (nouveau endpoint)
+- Badge mode réservation + machine à états du paiement (idle/opening/verifying/timeout)
+
+**bookings/index.tsx :**
+- Status `awaiting_payment` + `confirmed` ajoutés au BOOKING_STATUS map
+- Countdown live pour les bookings `awaiting_payment`
+- CTA "Payer maintenant" pour `awaiting_payment` (plus seulement `accepted`)
+- `handlePay` → `POST /bookings/{id}/pay`
+- Filtre `active` inclut `awaiting_payment` et `confirmed`
+
+**bookings/received.tsx :**
+- Filtre "Paiement" (onglet `awaiting_payment`) avec badge bleu
+- `useCountdown` hook → "⏱ Paiement attendu dans : Xm Ys"
+- `handleAccept` met à jour le statut en `awaiting_payment` (pas `accepted`)
+- Badge bleu sur le filtre si bookings `awaiting_payment` existent
+
+**service/[id].tsx :**
+- Badge "Réservation directe" (vert flash) / "Validation manuelle" (orange) dans la barre du bas
+- Badge "Paiement différé possible" (bleu) si `allow_pay_later=true`
+
+**Tests : 17/17 frontend passent**
+
+
 
 **create-service.tsx — Section "Configuration des réservations" (Étape 3) :**
 - Option cards pour `booking_approval_mode`: Réservation directe / Validation manuelle

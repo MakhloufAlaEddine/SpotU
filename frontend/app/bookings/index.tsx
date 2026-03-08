@@ -162,7 +162,8 @@ function BookingCard({ booking, onPay, paying }: { booking: any; onPay: () => vo
             <Ionicons name={bStatus.icon as any} size={11} color={bStatus.color} />
             <Text style={[c.badgeText, { color: bStatus.color }]}>{bStatus.label}</Text>
           </View>
-          {booking.payment_status && (
+          {/* Afficher le badge paiement seulement si le statut booking n'est pas déjà awaiting_payment */}
+          {booking.payment_status && booking.status !== 'awaiting_payment' && (
             <View style={[c.badge, { backgroundColor: (pStatus?.color ?? Colors.muted) + '22' }]}>
               <Ionicons name="card-outline" size={11} color={pStatus?.color ?? Colors.muted} />
               <Text style={[c.badgeText, { color: pStatus?.color ?? Colors.muted }]}>
