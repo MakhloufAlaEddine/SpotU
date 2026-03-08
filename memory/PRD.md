@@ -180,14 +180,27 @@ cd /app/backend && pytest tests/test_stripe_payment_iter50.py -v
 
 ## Prioritized Backlog
 
-### P0 - Critique
+### P0 - Critique (TOUS COMPLÉTÉS)
 - [x] Upload web (blob URI fix)
 - [x] Suite E2E Playwright
 - [x] Admin Dashboard monetisation
-- [x] Intégration Stripe PaymentIntent + manual capture (COMPLÉTÉ 2026-03-08)
+- [x] Intégration Stripe PaymentIntent + manual capture
 - [x] Workflow de réservation flexible v2 (4 flux) — COMPLÉTÉ 2026-03-08
+- [x] UI configuration booking service (section étape 3 wizard) — COMPLÉTÉ 2026-03-08
 
-### Phase 5 - Workflow de Réservation Flexible (2026-03-08) ✅ TERMINÉ
+### Phase 5b - UI Configuration Booking Service (2026-03-08) ✅ TERMINÉ
+
+**create-service.tsx — Section "Configuration des réservations" (Étape 3) :**
+- Option cards pour `booking_approval_mode`: Réservation directe / Validation manuelle
+- Option cards pour `allow_pay_later`: Paiement immédiat / Payer plus tard  
+- Chips délai d'expiration: 30 min, 1h, 2h, 4h, 1 jour (visibles seulement si pay_later=true)
+- Warning amber si pay_later activé
+- Bloc impact dynamique (4 combinaisons, 4 couleurs: vert/bleu/orange/amber)
+- Badge résumé dans l'étape 4 (Résumé & Publication)
+- Chargement automatique des valeurs en mode édition
+- Payload envoyé correctement à l'API: `booking_approval_mode`, `allow_pay_later`, `pay_later_expiration_minutes`
+
+**Tests: 16/16 tests frontend passent**
 
 **Backend v2 - 4 flux de réservation configurables :**
 
