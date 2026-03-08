@@ -37,12 +37,13 @@ async def create_booking(data: BookingCreate, request: Request):
             raise HTTPException(status_code=400, detail="Cannot book your own service")
 
         # Calcul centralisé des frais via le pricing engine
-        pricing = await pricing_engine.calculate(
+        pricing = await pricing_engine.compute_pricing(
             conn=conn,
-            base_amount=float(svc["price"]),
             payer_user_id=payer_user_id,
             receiver_user_id=receiver_user_id,
             product_type="service_booking",
+            base_amount=float(svc["price"]),
+            currency="EUR",
         )
 
         bid = new_id("bkg")

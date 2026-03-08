@@ -1,46 +1,62 @@
 """
 pricing_engine.py — Moteur de pricing centralisé SpotU
 =======================================================
-Toute logique de frais/commission passe UNIQUEMENT par ce module.
-Aucune route ne doit hardcoder un taux ou un montant de frais.
+Point d'entrée unique pour tout calcul de frais/commission.
+Aucune route ne doit hardcoder un taux ou calculer des montants de frais.
 
-Concepts :
-  base_amount         — montant brut du produit/service
-  payer_fixed_fee     — frais fixe ajouté côté payeur
-  payer_percent_fee   — frais % ajouté côté payeur (calculé sur base_amount)
-  receiver_fixed_fee  — frais fixe déduit côté bénéficiaire
-  receiver_percent_fee— frais % déduit côté bénéficiaire (calculé sur base_amount)
-  payer_total_amount  — ce que paie réellement le payeur
-  receiver_net_amount — ce que reçoit réellement le bénéficiaire
-  platform_total_fee  — somme de tous les frais encaissés par la plateforme
+API publique :
+    result = await pricing_engine.compute_pricing(
+        conn, payer_user_id, receiver_user_id,
+        product_type, base_amount, currency="EUR", **context
+    )
 
-Les abonnements actifs peuvent exempter certains frais partiellement ou totalement.
-Chaque calcul retourne un PricingResult qui doit être stocké en snapshot JSONB
-sur la transaction — il est la source de vérité immuable des conditions appliquées.
+Champs retournés (PricingResult) :
+    currency                   — devise de la transaction
+    product_type               — type produit scopé
+    base_amount                — montant brut avant frais
+    payer_fixed_fee            — frais fixe ajouté côté payeur
+    payer_percent_fee_amount   — frais % calculé côté payeur (montant, pas taux)
+    receiver_fixed_fee         — frais fixe déduit côté bénéficiaire
+    receiver_percent_fee_amount— frais % calculé côté bénéficiaire (montant, pas taux)
+    platform_total_fee         — total encaissé par la plateforme
+    receiver_net_amount        — ce que reçoit réellement le bénéficiaire
+    payer_total_amount         — ce que paie réellement le payeur
+    applied_rules              — règles tarifaires appliquées (taux d'origine + effectifs)
+    applied_subscription_benefits — exemptions appliquées par abonnement actif
 """
 
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional
 
 
+# ── Dataclass résultat ─────────────────────────────────────────────────────────
+
 @dataclass
 class PricingResult:
+    # Identification
+    currency: str
+    product_type: str
+
+    # Montants
     base_amount: float
     payer_fixed_fee: float
-    payer_percent_fee: float
+    payer_percent_fee_amount: float       # montant calculé (pas le taux)
     receiver_fixed_fee: float
-    receiver_percent_fee: float
+    receiver_percent_fee_amount: float    # montant calculé (pas le taux)
     platform_total_fee: float
     receiver_net_amount: float
     payer_total_amount: float
-    rule_id: Optional[str]
-    rule_name: Optional[str]
-    product_type: str
-    subscription_exemptions: list  # liste des exemptions appliquées
+
+    # Audit — source de vérité des conditions appliquées
+    applied_rules: list = field(default_factory=list)
+    applied_subscription_benefits: list = field(default_factory=list)
 
     def to_snapshot(self) -> dict:
-        """Sérialise le résultat pour stockage JSONB immuable sur la transaction."""
+        """
+        Sérialise le résultat complet pour stockage JSONB immuable.
+        Le snapshot est la source de vérité de la transaction — ne pas recalculer.
+        """
         return asdict(self)
 
     def to_payment_dict(
@@ -49,13 +65,13 @@ class PricingResult:
         payer_user_id: str,
         receiver_user_id: str,
         product_type: str,
-        product_id: str | None = None,
-        booking_id: str | None = None,
-        currency: str = "EUR",
+        product_id: Optional[str] = None,
+        booking_id: Optional[str] = None,
     ) -> dict:
         """
         Retourne un dict prêt à être inséré dans la table `payments`.
-        Toutes les colonnes plates sont pré-calculées ; le snapshot JSONB est inclus.
+        Les colonnes plates correspondent exactement au schéma DB.
+        Le snapshot JSONB (pricing_rule_snapshot) est inclus.
         """
         return {
             "payment_id":                  payment_id,
@@ -68,12 +84,12 @@ class PricingResult:
             "stripe_charge_id":            None,
             "stripe_transfer_id":          None,
             "status":                      "pending",
-            "currency":                    currency,
+            "currency":                    self.currency,
             "base_amount":                 self.base_amount,
             "payer_fixed_fee":             self.payer_fixed_fee,
-            "payer_percent_fee_amount":    self.payer_percent_fee,
+            "payer_percent_fee_amount":    self.payer_percent_fee_amount,
             "receiver_fixed_fee":          self.receiver_fixed_fee,
-            "receiver_percent_fee_amount": self.receiver_percent_fee,
+            "receiver_percent_fee_amount": self.receiver_percent_fee_amount,
             "platform_total_fee":          self.platform_total_fee,
             "receiver_net_amount":         self.receiver_net_amount,
             "payer_total_amount":          self.payer_total_amount,
@@ -81,34 +97,44 @@ class PricingResult:
         }
 
 
+# ── Moteur ─────────────────────────────────────────────────────────────────────
+
 class PricingEngine:
     """
-    Moteur de calcul de frais.
-    Usage : await pricing_engine.calculate(conn, base_amount, payer_id, receiver_id, product_type)
+    Moteur de calcul de frais. Instancié en singleton (`pricing_engine`).
+
+    Toute la logique de frais est ici — les routes ne calculent rien.
+    Compatible avec n'importe quelle paire (payeur, bénéficiaire) sans dépendance
+    aux rôles métier (coach/client/etc.).
     """
 
-    async def calculate(
+    async def compute_pricing(
         self,
         conn,
-        base_amount: float,
         payer_user_id: str,
         receiver_user_id: str,
         product_type: str,
+        base_amount: float,
+        currency: str = "EUR",
+        **context,
     ) -> PricingResult:
         """
         Calcule les frais applicables à une transaction.
 
         Args:
-            conn          : connexion asyncpg (dans une transaction existante ou non)
-            base_amount   : montant brut du produit
-            payer_user_id : ID de l'utilisateur qui paie
-            receiver_user_id : ID de l'utilisateur qui reçoit
-            product_type  : type de produit ('service_booking', 'subscription', ...)
+            conn             : connexion asyncpg (dans une transaction ou non)
+            payer_user_id    : ID générique de l'utilisateur qui paie
+            receiver_user_id : ID générique de l'utilisateur qui reçoit
+            product_type     : scope tarifaire ('service_booking', 'subscription', ...)
+            base_amount      : montant brut du produit, avant tout frais
+            currency         : devise ISO 4217 (défaut: EUR)
+            **context        : contexte extensible (discount_code, is_first_transaction...)
 
         Returns:
-            PricingResult avec tous les montants détaillés
+            PricingResult avec tous les montants détaillés + audit complet
         """
-        # 1. Charger la règle active pour ce product_type
+
+        # ── 1. Règle tarifaire active ──────────────────────────────────────────
         rule = await conn.fetchrow(
             """
             SELECT rule_id, name, payer_fixed_fee, payer_percent_fee,
@@ -121,34 +147,44 @@ class PricingEngine:
             product_type,
         )
 
+        # Cas : aucune règle → transaction sans frais
         if not rule:
-            # Pas de règle = transaction gratuite pour la plateforme
             return PricingResult(
-                base_amount=float(base_amount),
-                payer_fixed_fee=0.0,
-                payer_percent_fee=0.0,
-                receiver_fixed_fee=0.0,
-                receiver_percent_fee=0.0,
-                platform_total_fee=0.0,
-                receiver_net_amount=float(base_amount),
-                payer_total_amount=float(base_amount),
-                rule_id=None,
-                rule_name=None,
+                currency=currency,
                 product_type=product_type,
-                subscription_exemptions=[],
+                base_amount=round(float(base_amount), 2),
+                payer_fixed_fee=0.0,
+                payer_percent_fee_amount=0.0,
+                receiver_fixed_fee=0.0,
+                receiver_percent_fee_amount=0.0,
+                platform_total_fee=0.0,
+                receiver_net_amount=round(float(base_amount), 2),
+                payer_total_amount=round(float(base_amount), 2),
+                applied_rules=[],
+                applied_subscription_benefits=[],
             )
 
         r = dict(rule)
-        payer_fixed = Decimal(str(r["payer_fixed_fee"]))
-        payer_pct = Decimal(str(r["payer_percent_fee"]))
-        receiver_fixed = Decimal(str(r["receiver_fixed_fee"]))
-        receiver_pct = Decimal(str(r["receiver_percent_fee"]))
-        exemptions = []
+        # Taux originaux (avant exemptions) — conservés pour l'audit
+        orig_payer_fixed   = Decimal(str(r["payer_fixed_fee"]))
+        orig_payer_pct     = Decimal(str(r["payer_percent_fee"]))
+        orig_receiver_fixed = Decimal(str(r["receiver_fixed_fee"]))
+        orig_receiver_pct  = Decimal(str(r["receiver_percent_fee"]))
 
-        # 2. Exemptions côté payeur via abonnement actif
+        # Taux effectifs — modifiables par les exemptions d'abonnement
+        eff_payer_fixed    = orig_payer_fixed
+        eff_payer_pct      = orig_payer_pct
+        eff_receiver_fixed = orig_receiver_fixed
+        eff_receiver_pct   = orig_receiver_pct
+
+        subscription_benefits = []
+
+        # ── 2. Exemptions côté payeur ──────────────────────────────────────────
         payer_sub = await conn.fetchrow(
             """
-            SELECT sp.exempt_payer_fixed, sp.exempt_payer_percent
+            SELECT sp.plan_id, sp.name AS plan_name,
+                   sp.exempt_payer_fixed, sp.exempt_payer_percent,
+                   sp.exempt_receiver_fixed, sp.exempt_receiver_percent
             FROM user_subscriptions us
             JOIN subscription_plans sp ON sp.plan_id = us.plan_id
             WHERE us.user_id = $1
@@ -161,17 +197,28 @@ class PricingEngine:
         )
         if payer_sub:
             ps = dict(payer_sub)
-            if ps["exempt_payer_fixed"]:
-                payer_fixed = Decimal("0")
-                exemptions.append("payer_fixed_fee_exempted")
-            if ps["exempt_payer_percent"]:
-                payer_pct = Decimal("0")
-                exemptions.append("payer_percent_fee_exempted")
+            exempted = []
+            if ps["exempt_payer_fixed"] and eff_payer_fixed > 0:
+                eff_payer_fixed = Decimal("0")
+                exempted.append("payer_fixed_fee")
+            if ps["exempt_payer_percent"] and eff_payer_pct > 0:
+                eff_payer_pct = Decimal("0")
+                exempted.append("payer_percent_fee")
+            if exempted:
+                subscription_benefits.append({
+                    "side": "payer",
+                    "user_id": payer_user_id,
+                    "plan_id": ps["plan_id"],
+                    "plan_name": ps.get("plan_name"),
+                    "exempted_fields": exempted,
+                })
 
-        # 3. Exemptions côté bénéficiaire via abonnement actif
+        # ── 3. Exemptions côté bénéficiaire ───────────────────────────────────
         receiver_sub = await conn.fetchrow(
             """
-            SELECT sp.exempt_receiver_fixed, sp.exempt_receiver_percent
+            SELECT sp.plan_id, sp.name AS plan_name,
+                   sp.exempt_payer_fixed, sp.exempt_payer_percent,
+                   sp.exempt_receiver_fixed, sp.exempt_receiver_percent
             FROM user_subscriptions us
             JOIN subscription_plans sp ON sp.plan_id = us.plan_id
             WHERE us.user_id = $1
@@ -184,39 +231,86 @@ class PricingEngine:
         )
         if receiver_sub:
             rs = dict(receiver_sub)
-            if rs["exempt_receiver_fixed"]:
-                receiver_fixed = Decimal("0")
-                exemptions.append("receiver_fixed_fee_exempted")
-            if rs["exempt_receiver_percent"]:
-                receiver_pct = Decimal("0")
-                exemptions.append("receiver_percent_fee_exempted")
+            exempted = []
+            if rs["exempt_receiver_fixed"] and eff_receiver_fixed > 0:
+                eff_receiver_fixed = Decimal("0")
+                exempted.append("receiver_fixed_fee")
+            if rs["exempt_receiver_percent"] and eff_receiver_pct > 0:
+                eff_receiver_pct = Decimal("0")
+                exempted.append("receiver_percent_fee")
+            if exempted:
+                subscription_benefits.append({
+                    "side": "receiver",
+                    "user_id": receiver_user_id,
+                    "plan_id": rs["plan_id"],
+                    "plan_name": rs.get("plan_name"),
+                    "exempted_fields": exempted,
+                })
 
-        # 4. Calcul avec Decimal pour éviter les erreurs d'arrondi flottant
-        b = Decimal(str(base_amount)).quantize(Decimal("0.01"), ROUND_HALF_UP)
+        # ── 4. Calcul Decimal (précision financière) ───────────────────────────
+        b   = Decimal(str(base_amount)).quantize(Decimal("0.01"), ROUND_HALF_UP)
+        pf  = eff_payer_fixed.quantize(Decimal("0.01"), ROUND_HALF_UP)
+        pp  = (b * eff_payer_pct / 100).quantize(Decimal("0.01"), ROUND_HALF_UP)
+        rf  = eff_receiver_fixed.quantize(Decimal("0.01"), ROUND_HALF_UP)
+        rp  = (b * eff_receiver_pct / 100).quantize(Decimal("0.01"), ROUND_HALF_UP)
 
-        pf = payer_fixed.quantize(Decimal("0.01"), ROUND_HALF_UP)
-        pp = (b * payer_pct / 100).quantize(Decimal("0.01"), ROUND_HALF_UP)
-
-        rf = receiver_fixed.quantize(Decimal("0.01"), ROUND_HALF_UP)
-        rp = (b * receiver_pct / 100).quantize(Decimal("0.01"), ROUND_HALF_UP)
-
-        payer_total = (b + pf + pp).quantize(Decimal("0.01"), ROUND_HALF_UP)
-        receiver_net = (b - rf - rp).quantize(Decimal("0.01"), ROUND_HALF_UP)
+        payer_total    = (b + pf + pp).quantize(Decimal("0.01"), ROUND_HALF_UP)
+        receiver_net   = (b - rf - rp).quantize(Decimal("0.01"), ROUND_HALF_UP)
         platform_total = (pf + pp + rf + rp).quantize(Decimal("0.01"), ROUND_HALF_UP)
 
+        # ── 5. Règle appliquée (taux d'origine + effectifs pour audit) ─────────
+        applied_rule = {
+            "rule_id":   r["rule_id"],
+            "rule_name": r["name"],
+            "product_type": product_type,
+            # Taux originaux configurés en DB
+            "payer_fixed_fee_rate":        float(orig_payer_fixed),
+            "payer_percent_fee_rate":      float(orig_payer_pct),
+            "receiver_fixed_fee_rate":     float(orig_receiver_fixed),
+            "receiver_percent_fee_rate":   float(orig_receiver_pct),
+            # Taux effectivement appliqués (après exemptions)
+            "effective_payer_fixed_fee":       float(pf),
+            "effective_payer_percent_fee_rate": float(eff_payer_pct),
+            "effective_receiver_fixed_fee":     float(rf),
+            "effective_receiver_percent_fee_rate": float(eff_receiver_pct),
+        }
+
         return PricingResult(
+            currency=currency,
+            product_type=product_type,
             base_amount=float(b),
             payer_fixed_fee=float(pf),
-            payer_percent_fee=float(pp),
+            payer_percent_fee_amount=float(pp),
             receiver_fixed_fee=float(rf),
-            receiver_percent_fee=float(rp),
+            receiver_percent_fee_amount=float(rp),
             platform_total_fee=float(platform_total),
             receiver_net_amount=float(receiver_net),
             payer_total_amount=float(payer_total),
-            rule_id=r["rule_id"],
-            rule_name=r["name"],
+            applied_rules=[applied_rule],
+            applied_subscription_benefits=subscription_benefits,
+        )
+
+    # ── Alias rétro-compatible ─────────────────────────────────────────────────
+    async def calculate(
+        self,
+        conn,
+        base_amount: float,
+        payer_user_id: str,
+        receiver_user_id: str,
+        product_type: str,
+        currency: str = "EUR",
+    ) -> PricingResult:
+        """
+        Alias rétro-compatible → délègue à compute_pricing().
+        Préférer compute_pricing() pour tout nouveau code.
+        """
+        return await self.compute_pricing(
+            conn=conn,
+            payer_user_id=payer_user_id,
+            receiver_user_id=receiver_user_id,
             product_type=product_type,
-            subscription_exemptions=exemptions,
+            base_amount=base_amount,
+            currency=currency,
         )
 
 
