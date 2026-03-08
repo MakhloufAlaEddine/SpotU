@@ -170,6 +170,15 @@ cd /app/backend && pytest tests/test_stripe_payment_iter50.py -v
 - `POST /api/auth/login` (rate: 30/min)
 - `GET /api/users/me/notifications`
 
+## What's Been Implemented (suite)
+
+### Phase 8 - Navigation Monétisation (2026-03-08)
+| Date | Fonctionnalité | Fichiers modifiés |
+|------|---------------|-------------------|
+| 2026-03-08 | **profile.tsx** : Nouvelle section "Réservations & Services" avec 3 boutons de navigation (Mes réservations, Demandes reçues [coach only], Abonnements). testID: my-bookings-btn, received-bookings-btn, subscriptions-btn | frontend/app/(tabs)/profile.tsx |
+| 2026-03-08 | **Bugfix icon** : inbox-outline → mail-open-outline (Ionicons v5 compat) dans profile.tsx et bookings/received.tsx | frontend/app/(tabs)/profile.tsx, frontend/app/bookings/received.tsx |
+| 2026-03-08 | **Tests navigation** : 22 tests backend (100% pass) — test_navigation_endpoints_iter54.py | backend/tests/test_navigation_endpoints_iter54.py |
+
 ## Prioritized Backlog
 
 ### P0 - Critique
