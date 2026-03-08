@@ -52,7 +52,7 @@ import pytest
 
 API_BASE = os.environ.get(
     "EXPO_PUBLIC_BACKEND_URL",
-    "https://spotu-backend.preview.emergentagent.com",
+    "https://request-management-4.preview.emergentagent.com",
 ).rstrip("/")
 
 DB_URL = os.environ.get(
