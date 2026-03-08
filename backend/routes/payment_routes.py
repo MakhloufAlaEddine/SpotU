@@ -134,9 +134,14 @@ async def create_checkout_session(request: Request):
     )
 
     # Sauvegarder le session_id Stripe dans la table payments
+    # et passer le statut à 'authorized' (session ouverte, paiement en attente)
     async with pool.acquire() as conn:
         await conn.execute(
-            "UPDATE payments SET stripe_payment_intent_id = $1, updated_at = NOW() WHERE payment_id = $2",
+            """UPDATE payments
+               SET stripe_payment_intent_id = $1,
+                   status = 'authorized',
+                   updated_at = NOW()
+               WHERE payment_id = $2""",
             session.session_id, payment_id
         )
 

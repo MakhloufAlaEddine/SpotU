@@ -56,6 +56,9 @@ Fonctionnalités : création/découverte de services et SpotYous, système de r�
 | 2026-03-08 | Admin Dashboard monetization: CRUD règles tarifaires + plans | frontend/app/admin/index.tsx |
 | 2026-03-08 | Bug corrigé: ordre init DB (tables base avant migrations) | backend/database.py |
 | 2026-03-08 | Bug corrigé: React hooks violation dans AdminScreen | frontend/app/admin/index.tsx |
+| 2026-03-08 | **Workflow booking v2 complet** | backend/routes/booking_routes.py |
+| 2026-03-08 | DB: slot_status + idempotency_key + 2 index UNIQUE | backend/database.py |
+| 2026-03-08 | Enums: BookingStatus (6), SlotStatus (6), PaymentStatus (7) | backend/models.py |
 | 2026-03-08 | **Intégration Stripe Checkout** (emergentintegrations) | backend/routes/payment_routes.py |
 | 2026-03-08 | **UI paiement post-réservation** (Payer maintenant / Payer plus tard) | frontend/app/booking/confirm.tsx |
 | 2026-03-08 | **Page retour Stripe** avec polling statut | frontend/app/payment-success.tsx |

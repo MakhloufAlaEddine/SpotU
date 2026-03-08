@@ -441,6 +441,24 @@ async def connect_to_db():
             CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, created_at DESC);
         """)
 
+        # [BOOKING-V2] Workflow robuste — idempotence, statuts étendus, slot_status
+        await conn.execute("""
+            ALTER TABLE service_slots
+                ADD COLUMN IF NOT EXISTS slot_status TEXT NOT NULL DEFAULT 'available';
+
+            ALTER TABLE bookings
+                ADD COLUMN IF NOT EXISTS idempotency_key TEXT;
+
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_bookings_idempotency_key
+                ON bookings(idempotency_key)
+                WHERE idempotency_key IS NOT NULL;
+
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_bookings_slot_user_active
+                ON bookings(slot_id, user_id)
+                WHERE slot_id IS NOT NULL
+                  AND status NOT IN ('refused', 'cancelled', 'expired');
+        """)
+
         # [PERF-01] Index de performance — migration idempotente
         await conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_bookings_user_id

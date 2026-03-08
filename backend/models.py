@@ -28,12 +28,31 @@ class Precision(str, Enum):
 
 
 class BookingStatus(str, Enum):
-    pending = "pending"
-    accepted = "accepted"
-    refused = "refused"
-    confirmed = "confirmed"
-    completed = "completed"
-    cancelled = "cancelled"
+    requested  = "requested"   # demande initiale (remplace pending)
+    accepted   = "accepted"    # acceptée par le bénéficiaire
+    refused    = "refused"     # refusée par le bénéficiaire
+    expired    = "expired"     # expirée sans réponse
+    cancelled  = "cancelled"   # annulée par le payeur ou l'admin
+    completed  = "completed"   # prestation effectuée
+
+
+class SlotStatus(str, Enum):
+    available  = "available"   # créneau libre
+    pending    = "pending"     # réservation en attente d'acceptation
+    booked     = "booked"      # réservé et accepté
+    expired    = "expired"     # passé sans réservation
+    cancelled  = "cancelled"   # annulé
+    completed  = "completed"   # prestation terminée
+
+
+class PaymentStatus(str, Enum):
+    requires_authorization = "requires_authorization"  # en attente de paiement utilisateur
+    authorized             = "authorized"              # session Stripe ouverte
+    capture_pending        = "capture_pending"         # autorisation en attente de capture
+    captured               = "captured"                # paiement capturé
+    cancelled              = "cancelled"               # annulé avant capture
+    refunded               = "refunded"                # remboursé après capture
+    failed                 = "failed"                  # échec Stripe
 
 
 # --- AUTH ---
@@ -218,12 +237,18 @@ class SubscriptionPlanCreate(BaseModel):
 
 
 # --- BOOKING ---
-class BookingCreate(BaseModel):
+class BookingRequest(BaseModel):
+    """Corps de POST /bookings/request (et alias POST /bookings)."""
     service_id: str
     scheduled_at: Optional[datetime] = None
     slot_id: Optional[str] = None
     location_id: Optional[str] = None
     notes: Optional[str] = None
+    idempotency_key: Optional[str] = None   # clé d'idempotence fournie par le client
+
+
+# Alias rétrocompatibilité (ancien champ BookingCreate toujours importé)
+BookingCreate = BookingRequest
 
 
 # --- REVIEW ---
