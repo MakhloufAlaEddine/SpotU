@@ -192,6 +192,31 @@ class ServiceUpdate(BaseModel):
     slots: Optional[List[ServiceSlotItem]] = None
 
 
+# --- PRICING ADMIN ---
+class PricingRuleCreate(BaseModel):
+    product_type: str
+    name: str
+    payer_fixed_fee: float = 0.0
+    payer_percent_fee: float = 0.0
+    receiver_fixed_fee: float = 0.0
+    receiver_percent_fee: float = 0.0
+    active: bool = True
+    priority: int = 0
+
+
+class SubscriptionPlanCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    price: float = 0.0
+    duration_days: Optional[int] = None
+    exempt_payer_fixed: bool = False
+    exempt_payer_percent: bool = False
+    exempt_receiver_fixed: bool = False
+    exempt_receiver_percent: bool = False
+    active: bool = True
+    priority: int = 0
+
+
 # --- BOOKING ---
 class BookingCreate(BaseModel):
     service_id: str

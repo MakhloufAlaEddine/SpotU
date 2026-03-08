@@ -267,6 +267,61 @@ async def connect_to_db():
 
     # 1. Tables + migrations
     async with pool.acquire() as conn:
+        # [PRICING] Tables de monétisation générique
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS pricing_rules (
+                rule_id TEXT PRIMARY KEY,
+                product_type TEXT NOT NULL,
+                name TEXT NOT NULL,
+                payer_fixed_fee NUMERIC(10,2) DEFAULT 0,
+                payer_percent_fee NUMERIC(5,2) DEFAULT 0,
+                receiver_fixed_fee NUMERIC(10,2) DEFAULT 0,
+                receiver_percent_fee NUMERIC(5,2) DEFAULT 0,
+                active BOOLEAN DEFAULT TRUE,
+                priority INTEGER DEFAULT 0,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW()
+            );
+
+            CREATE TABLE IF NOT EXISTS subscription_plans (
+                plan_id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                description TEXT,
+                price NUMERIC(10,2) NOT NULL DEFAULT 0,
+                duration_days INTEGER,
+                exempt_payer_fixed BOOLEAN DEFAULT FALSE,
+                exempt_payer_percent BOOLEAN DEFAULT FALSE,
+                exempt_receiver_fixed BOOLEAN DEFAULT FALSE,
+                exempt_receiver_percent BOOLEAN DEFAULT FALSE,
+                active BOOLEAN DEFAULT TRUE,
+                priority INTEGER DEFAULT 0,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW()
+            );
+
+            CREATE TABLE IF NOT EXISTS user_subscriptions (
+                subscription_id TEXT PRIMARY KEY,
+                user_id TEXT REFERENCES users(user_id) ON DELETE CASCADE,
+                plan_id TEXT REFERENCES subscription_plans(plan_id),
+                status TEXT DEFAULT 'active',
+                started_at TIMESTAMPTZ DEFAULT NOW(),
+                expires_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_pricing_rules_product_type
+                ON pricing_rules(product_type, active);
+            CREATE INDEX IF NOT EXISTS idx_user_subscriptions_user
+                ON user_subscriptions(user_id, status);
+
+            ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payer_user_id TEXT;
+            ALTER TABLE bookings ADD COLUMN IF NOT EXISTS receiver_user_id TEXT;
+            ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_status TEXT DEFAULT 'pending';
+            ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_provider TEXT;
+            ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_intent_id TEXT;
+            ALTER TABLE bookings ADD COLUMN IF NOT EXISTS pricing_snapshot JSONB DEFAULT NULL;
+        """)
+
         await conn.execute(CREATE_TABLES_SQL)
         await conn.execute("""
             ALTER TABLE tag_points ADD COLUMN IF NOT EXISTS image_url TEXT;
