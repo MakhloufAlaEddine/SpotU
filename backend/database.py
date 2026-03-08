@@ -267,6 +267,9 @@ async def connect_to_db():
 
     # 1. Tables + migrations
     async with pool.acquire() as conn:
+        # Base tables MUST be created first before any migrations/FKs
+        await conn.execute(CREATE_TABLES_SQL)
+
         # [PRICING] Tables de monétisation générique
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS pricing_rules (
@@ -390,7 +393,6 @@ async def connect_to_db():
                 ADD COLUMN IF NOT EXISTS currency TEXT DEFAULT 'EUR';
         """)
 
-        await conn.execute(CREATE_TABLES_SQL)
         await conn.execute("""
             ALTER TABLE tag_points ADD COLUMN IF NOT EXISTS image_url TEXT;
             ALTER TABLE tag_points ADD COLUMN IF NOT EXISTS images JSONB DEFAULT '[]'::jsonb;

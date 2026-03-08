@@ -6,7 +6,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://spotme-stage.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://subscription-mgmt-16.preview.emergentagent.com').rstrip('/')
 
 TEST_USER_EMAIL = "user@winek.app"
 TEST_USER_PASSWORD = "WinekUser2024!"

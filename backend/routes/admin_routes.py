@@ -274,6 +274,17 @@ async def update_subscription_plan(plan_id: str, request: Request):
     return {"success": True}
 
 
+@router.delete("/subscription-plans/{plan_id}")
+async def delete_subscription_plan(plan_id: str, request: Request):
+    pool = get_pool()
+    await require_role(request, pool, "admin")
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM subscription_plans WHERE plan_id = $1", plan_id)
+    return {"success": True}
+
+
+@router.get("/domains")
+async def admin_domains(request: Request):
     pool = get_pool()
     await require_role(request, pool, "admin")
     async with pool.acquire() as conn:
