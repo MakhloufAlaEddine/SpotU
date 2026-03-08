@@ -43,6 +43,43 @@ class PricingResult:
         """Sérialise le résultat pour stockage JSONB immuable sur la transaction."""
         return asdict(self)
 
+    def to_payment_dict(
+        self,
+        payment_id: str,
+        payer_user_id: str,
+        receiver_user_id: str,
+        product_type: str,
+        product_id: str | None = None,
+        booking_id: str | None = None,
+        currency: str = "EUR",
+    ) -> dict:
+        """
+        Retourne un dict prêt à être inséré dans la table `payments`.
+        Toutes les colonnes plates sont pré-calculées ; le snapshot JSONB est inclus.
+        """
+        return {
+            "payment_id":                  payment_id,
+            "payer_user_id":               payer_user_id,
+            "receiver_user_id":            receiver_user_id,
+            "product_type":                product_type,
+            "product_id":                  product_id,
+            "booking_id":                  booking_id,
+            "stripe_payment_intent_id":    None,
+            "stripe_charge_id":            None,
+            "stripe_transfer_id":          None,
+            "status":                      "pending",
+            "currency":                    currency,
+            "base_amount":                 self.base_amount,
+            "payer_fixed_fee":             self.payer_fixed_fee,
+            "payer_percent_fee_amount":    self.payer_percent_fee,
+            "receiver_fixed_fee":          self.receiver_fixed_fee,
+            "receiver_percent_fee_amount": self.receiver_percent_fee,
+            "platform_total_fee":          self.platform_total_fee,
+            "receiver_net_amount":         self.receiver_net_amount,
+            "payer_total_amount":          self.payer_total_amount,
+            "pricing_rule_snapshot":       self.to_snapshot(),
+        }
+
 
 class PricingEngine:
     """

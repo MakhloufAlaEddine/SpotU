@@ -46,19 +46,55 @@ async def create_booking(data: BookingCreate, request: Request):
         )
 
         bid = new_id("bkg")
-        await conn.execute(
-            """INSERT INTO bookings
-               (booking_id, service_id, user_id, coach_id, status, scheduled_at,
-                slot_id, location_id, notes, amount,
-                payer_user_id, receiver_user_id, pricing_snapshot, payment_status)
-               VALUES ($1, $2, $3, $4, 'pending', $5, $6, $7, $8, $9,
-                       $10, $11, $12, 'pending')""",
-            bid, data.service_id, payer_user_id, receiver_user_id,
-            data.scheduled_at, data.slot_id, data.location_id, data.notes,
-            pricing.payer_total_amount,
-            payer_user_id, receiver_user_id,
-            json.dumps(pricing.to_snapshot()),
+        pid = new_id("pay")
+        pd = pricing.to_payment_dict(
+            payment_id=pid,
+            payer_user_id=payer_user_id,
+            receiver_user_id=receiver_user_id,
+            product_type="service_booking",
+            product_id=data.service_id,
+            booking_id=bid,
         )
+
+        # Insertion atomique : booking + payment dans la même transaction
+        async with conn.transaction():
+            await conn.execute(
+                """INSERT INTO bookings
+                   (booking_id, service_id, user_id, coach_id, status, scheduled_at,
+                    slot_id, location_id, notes, amount,
+                    payer_user_id, receiver_user_id, pricing_snapshot, payment_status, currency)
+                   VALUES ($1, $2, $3, $4, 'pending', $5, $6, $7, $8, $9,
+                           $10, $11, $12, 'pending', 'EUR')""",
+                bid, data.service_id, payer_user_id, receiver_user_id,
+                data.scheduled_at, data.slot_id, data.location_id, data.notes,
+                pricing.payer_total_amount,
+                payer_user_id, receiver_user_id,
+                json.dumps(pricing.to_snapshot()),
+            )
+            await conn.execute(
+                """INSERT INTO payments (
+                    payment_id, payer_user_id, receiver_user_id,
+                    product_type, product_id, booking_id,
+                    stripe_payment_intent_id, stripe_charge_id, stripe_transfer_id,
+                    status, currency,
+                    base_amount, payer_fixed_fee, payer_percent_fee_amount,
+                    receiver_fixed_fee, receiver_percent_fee_amount,
+                    platform_total_fee, receiver_net_amount, payer_total_amount,
+                    pricing_rule_snapshot
+                ) VALUES (
+                    $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,
+                    $12,$13,$14,$15,$16,$17,$18,$19,$20
+                )""",
+                pd["payment_id"], pd["payer_user_id"], pd["receiver_user_id"],
+                pd["product_type"], pd["product_id"], pd["booking_id"],
+                pd["stripe_payment_intent_id"], pd["stripe_charge_id"], pd["stripe_transfer_id"],
+                pd["status"], pd["currency"],
+                pd["base_amount"], pd["payer_fixed_fee"], pd["payer_percent_fee_amount"],
+                pd["receiver_fixed_fee"], pd["receiver_percent_fee_amount"],
+                pd["platform_total_fee"], pd["receiver_net_amount"], pd["payer_total_amount"],
+                json.dumps(pd["pricing_rule_snapshot"]),
+            )
+
         row = await conn.fetchrow(
             f"SELECT {BOOKING_FIELDS} FROM bookings WHERE booking_id = $1", bid
         )

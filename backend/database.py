@@ -320,6 +320,74 @@ async def connect_to_db():
             ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_provider TEXT;
             ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_intent_id TEXT;
             ALTER TABLE bookings ADD COLUMN IF NOT EXISTS pricing_snapshot JSONB DEFAULT NULL;
+            ALTER TABLE bookings ADD COLUMN IF NOT EXISTS currency TEXT DEFAULT 'EUR';
+        """)
+
+        # [MONETIZATION-V2] Table payments plate + enrichissement subscriptions
+        await conn.execute("""
+            -- Table payments : colonnes plates queryables + snapshot JSONB immuable
+            CREATE TABLE IF NOT EXISTS payments (
+                payment_id                  TEXT PRIMARY KEY,
+                -- Parties génériques (indépendant des rôles)
+                payer_user_id               TEXT NOT NULL REFERENCES users(user_id),
+                receiver_user_id            TEXT REFERENCES users(user_id),
+                -- Contexte produit
+                product_type                TEXT NOT NULL,
+                product_id                  TEXT,
+                booking_id                  TEXT REFERENCES bookings(booking_id) ON DELETE SET NULL,
+                -- Stripe
+                stripe_payment_intent_id    TEXT,
+                stripe_charge_id            TEXT,
+                stripe_transfer_id          TEXT,
+                -- Statut & devise
+                status                      TEXT NOT NULL DEFAULT 'pending',
+                currency                    TEXT NOT NULL DEFAULT 'EUR',
+                -- Montants (colonnes plates — agrégables en SQL)
+                base_amount                 NUMERIC(12,2) NOT NULL,
+                payer_fixed_fee             NUMERIC(12,2) NOT NULL DEFAULT 0,
+                payer_percent_fee_amount    NUMERIC(12,2) NOT NULL DEFAULT 0,
+                receiver_fixed_fee          NUMERIC(12,2) NOT NULL DEFAULT 0,
+                receiver_percent_fee_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+                platform_total_fee          NUMERIC(12,2) NOT NULL DEFAULT 0,
+                receiver_net_amount         NUMERIC(12,2) NOT NULL,
+                payer_total_amount          NUMERIC(12,2) NOT NULL,
+                -- Snapshot immuable de la règle appliquée au moment de la transaction
+                pricing_rule_snapshot       JSONB NOT NULL DEFAULT '{}',
+                -- Timestamps
+                created_at                  TIMESTAMPTZ DEFAULT NOW(),
+                updated_at                  TIMESTAMPTZ DEFAULT NOW()
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_payments_payer
+                ON payments(payer_user_id);
+            CREATE INDEX IF NOT EXISTS idx_payments_receiver
+                ON payments(receiver_user_id);
+            CREATE INDEX IF NOT EXISTS idx_payments_booking
+                ON payments(booking_id) WHERE booking_id IS NOT NULL;
+            CREATE INDEX IF NOT EXISTS idx_payments_status
+                ON payments(status);
+            CREATE INDEX IF NOT EXISTS idx_payments_stripe_intent
+                ON payments(stripe_payment_intent_id) WHERE stripe_payment_intent_id IS NOT NULL;
+            CREATE INDEX IF NOT EXISTS idx_payments_product
+                ON payments(product_type, product_id);
+
+            -- Enrichissement user_subscriptions : champs Stripe + snapshot des avantages
+            ALTER TABLE user_subscriptions
+                ADD COLUMN IF NOT EXISTS plan_code TEXT;
+            ALTER TABLE user_subscriptions
+                ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT;
+            ALTER TABLE user_subscriptions
+                ADD COLUMN IF NOT EXISTS benefits_snapshot JSONB DEFAULT NULL;
+            ALTER TABLE user_subscriptions
+                ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMPTZ;
+            ALTER TABLE user_subscriptions
+                ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+
+            -- Enrichissement pricing_rules : description + devise
+            ALTER TABLE pricing_rules
+                ADD COLUMN IF NOT EXISTS description TEXT;
+            ALTER TABLE pricing_rules
+                ADD COLUMN IF NOT EXISTS currency TEXT DEFAULT 'EUR';
         """)
 
         await conn.execute(CREATE_TABLES_SQL)
