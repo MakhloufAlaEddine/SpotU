@@ -52,14 +52,37 @@ def tok_admin(http):
 
 
 @pytest.fixture(scope="module")
-def service_id(http, tok_user):
-    """Récupère un service_id réservable par user (pas le sien)."""
-    r = http.get("/api/services?lat=48.8566&lng=2.3522&radius=100000",
-                 headers={"Authorization": f"Bearer {tok_user}"})
-    assert r.status_code == 200
+def service_id(http, tok_coach):
+    """Récupère le service du coach (toujours owned by tok_coach pour les accept/refuse)."""
+    r = http.get("/api/services/mine", headers={"Authorization": f"Bearer {tok_coach}"})
+    assert r.status_code == 200, f"GET /services/mine failed: {r.text}"
     svcs = r.json()
-    assert svcs, "Aucun service disponible pour les tests"
+    assert svcs, "Le coach n'a aucun service enregistré"
     return svcs[0]["service_id"]
+
+
+@pytest.fixture(scope="module", autouse=True)
+def ensure_manual_approval_mode(http, tok_coach, service_id):
+    """Reset service to manual_approval + allow_pay_later=True before/after all tests in this module."""
+    reset_payload = {
+        "booking_approval_mode": "manual_approval",
+        "allow_pay_later": True,
+        "pay_later_expiration_minutes": 1440,
+    }
+    r = http.patch(
+        f"/api/services/{service_id}",
+        json=reset_payload,
+        headers={"Authorization": f"Bearer {tok_coach}"},
+    )
+    if r.status_code != 200:
+        print(f"WARNING: Could not reset service mode to manual_approval: {r.text}")
+    yield
+    # Restore after all tests
+    http.patch(
+        f"/api/services/{service_id}",
+        json=reset_payload,
+        headers={"Authorization": f"Bearer {tok_coach}"},
+    )
 
 
 @pytest.fixture(scope="module")
@@ -193,25 +216,26 @@ class TestIdempotency:
 class TestBookingTransitions:
 
     def test_accept_flow(self, http, tok_user, tok_coach, service_id):
-        """requested → accepted par le receiver."""
+        """requested → awaiting_payment par le receiver (nouveau workflow v2)."""
         r = req_booking(http, tok_user, service_id)
         assert r.status_code == 200
         bid = r.json()["booking_id"]
 
-        # Le coach accepte
+        # Le coach accepte → booking passe en awaiting_payment (pas accepted)
         r_acc = http.post(f"/api/bookings/{bid}/accept",
                           headers={"Authorization": f"Bearer {tok_coach}"})
         assert r_acc.status_code == 200, r_acc.text
-        assert r_acc.json()["status"] == "accepted"
+        assert r_acc.json()["status"] == "awaiting_payment", \
+            f"Expected 'awaiting_payment', got {r_acc.json()['status']}"
 
-        # Vérifier payment status = authorized
+        # Vérifier payment status = requires_authorization (user doit encore payer)
         r_pay = http.get("/api/payments/me",
                          headers={"Authorization": f"Bearer {tok_user}"})
         payments = r_pay.json()
         matching = [p for p in payments if p.get("booking_id") == bid]
         assert matching
-        assert matching[0]["status"] == "authorized", \
-            f"Expected authorized, got {matching[0]['status']}"
+        assert matching[0]["status"] == "requires_authorization", \
+            f"Expected requires_authorization, got {matching[0]['status']}"
 
     def test_accept_idempotent(self, http, tok_user, tok_coach, service_id):
         """Double accept → idempotent, pas d'erreur."""
@@ -296,7 +320,8 @@ class TestBookingTransitions:
                              json={"status": "accepted"},
                              headers={"Authorization": f"Bearer {tok_coach}"})
         assert r_patch.status_code == 200
-        assert r_patch.json()["status"] == "accepted"
+        # Le nouveau workflow retourne awaiting_payment (pas accepted) lors de l'accept
+        assert r_patch.json()["status"] == "awaiting_payment"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -431,7 +456,7 @@ class TestConcurrency:
             tasks = [make_request(k) for k in keys]
             return await asyncio.gather(*tasks)
 
-        responses = asyncio.get_event_loop().run_until_complete(run())
+        responses = asyncio.run(run())
         for resp in responses:
             assert resp.status_code == 200, f"Requête concurrente échouée : {resp.text}"
 

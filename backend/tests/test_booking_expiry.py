@@ -181,11 +181,37 @@ def tok_coach(http):
 
 
 @pytest.fixture(scope="module")
-def service_id(http, tok_user):
-    r = http.get("/api/services?lat=48.8566&lng=2.3522&radius=100000",
-                 headers={"Authorization": f"Bearer {tok_user}"})
-    assert r.status_code == 200
-    return r.json()[0]["service_id"]
+def service_id(http, tok_coach):
+    """Récupère le service du coach (always owned by tok_coach for accept/refuse tests)."""
+    r = http.get("/api/services/mine", headers={"Authorization": f"Bearer {tok_coach}"})
+    assert r.status_code == 200, f"GET /services/mine failed: {r.text}"
+    svcs = r.json()
+    assert svcs, "Le coach n'a aucun service enregistré"
+    return svcs[0]["service_id"]
+
+
+@pytest.fixture(scope="module", autouse=True)
+def ensure_manual_approval_mode(http, tok_coach, service_id):
+    """Reset service to manual_approval + allow_pay_later=True before/after all tests in this module."""
+    reset_payload = {
+        "booking_approval_mode": "manual_approval",
+        "allow_pay_later": True,
+        "pay_later_expiration_minutes": 1440,
+    }
+    r = http.patch(
+        f"/api/services/{service_id}",
+        json=reset_payload,
+        headers={"Authorization": f"Bearer {tok_coach}"},
+    )
+    if r.status_code != 200:
+        print(f"WARNING: Could not reset service mode to manual_approval: {r.text}")
+    yield
+    # Restore after all tests
+    http.patch(
+        f"/api/services/{service_id}",
+        json=reset_payload,
+        headers={"Authorization": f"Bearer {tok_coach}"},
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -280,18 +306,42 @@ class TestExpiryWorker:
         run_worker()
         assert get_row("bookings", "booking_id", bid)["status"] == "requested"
 
-    def test_worker_skips_already_accepted(self, http, tok_user, tok_coach, service_id):
-        """Un booking 'accepted' dont expires_at est passé ne doit PAS être expiré."""
+    def test_worker_expires_awaiting_payment(self, http, tok_user, tok_coach, service_id):
+        """
+        Un booking 'awaiting_payment' dont expires_at est passé DOIT être expiré.
+        Comportement voulu du nouveau workflow v2.
+        """
         r = http.post("/api/bookings/request",
                       json={"service_id": service_id},
                       headers={"Authorization": f"Bearer {tok_user}"})
         bid = r.json()["booking_id"]
-        http.post(f"/api/bookings/{bid}/accept",
-                  headers={"Authorization": f"Bearer {tok_coach}"})
+        # Accept → awaiting_payment
+        r_acc = http.post(f"/api/bookings/{bid}/accept",
+                          headers={"Authorization": f"Bearer {tok_coach}"})
+        assert r_acc.status_code == 200
+        assert r_acc.json()["status"] == "awaiting_payment"
+
+        # Forcer l'expiration
         force_expires_at(bid)
+        run_worker()
+        # Le worker DOIT expirer ce booking (l'utilisateur n'a pas payé à temps)
+        assert get_row("bookings", "booking_id", bid)["status"] == "expired"
+
+    def test_worker_skips_completed_booking(self, http, tok_user, service_id):
+        """Un booking 'completed' ne doit PAS être expiré par le worker."""
+        # Créer un booking et le marquer directement 'completed' en DB
+        r = http.post("/api/bookings/request",
+                      json={"service_id": service_id},
+                      headers={"Authorization": f"Bearer {tok_user}"})
+        bid = r.json()["booking_id"]
+        conn = db()
+        cur  = conn.cursor()
+        cur.execute("UPDATE bookings SET status='completed', expires_at=NOW()-INTERVAL '1 hour' WHERE booking_id=%s", (bid,))
+        conn.commit()
+        cur.close(); conn.close()
 
         run_worker()
-        assert get_row("bookings", "booking_id", bid)["status"] == "accepted"
+        assert get_row("bookings", "booking_id", bid)["status"] == "completed"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -316,7 +366,7 @@ class TestAcceptExpiredGuard:
         assert "expiré" in r_acc.json()["detail"].lower()
 
     def test_accept_valid_booking_succeeds(self, http, tok_user, tok_coach, service_id):
-        """Accepter un booking non expiré → 200."""
+        """Accepter un booking non expiré → 200, status=awaiting_payment."""
         r = http.post("/api/bookings/request",
                       json={"service_id": service_id},
                       headers={"Authorization": f"Bearer {tok_user}"})
@@ -325,7 +375,7 @@ class TestAcceptExpiredGuard:
         r_acc = http.post(f"/api/bookings/{bid}/accept",
                           headers={"Authorization": f"Bearer {tok_coach}"})
         assert r_acc.status_code == 200
-        assert r_acc.json()["status"] == "accepted"
+        assert r_acc.json()["status"] == "awaiting_payment"
 
 
 # ══════════════════════════════════════════════════════════════════════════════

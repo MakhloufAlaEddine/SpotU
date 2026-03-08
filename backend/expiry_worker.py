@@ -3,11 +3,11 @@ expiry_worker.py — Worker d'expiration automatique des bookings SpotU
 ======================================================================
 
 Responsabilités :
-  1. Trouver les bookings 'requested' dont expires_at < NOW()
+  1. Trouver les bookings 'requested' OU 'awaiting_payment' dont expires_at < NOW()
   2. Pour chaque booking expiré (en transaction atomique + SKIP LOCKED) :
-     a. booking  : requested → expired
-     b. slot     : pending   → available  (single/specific uniquement)
-     c. payment  : requires_authorization|authorized → cancelled
+     a. booking  : requested|awaiting_payment → expired
+     b. slot     : pending|reserved → available  (single/specific uniquement)
+     c. payment  : requires_authorization|authorized|capture_pending → cancelled
      d. notifs   : payer + receiver
   3. Tourner en boucle, s'arrêter proprement sur shutdown signal
 
@@ -60,16 +60,18 @@ async def _expire_batch(pool, batch_size: int) -> int:
             """
             SELECT
                 b.booking_id,
+                b.status   AS booking_status,
                 b.slot_id,
                 b.payer_user_id,
                 b.receiver_user_id,
                 b.service_id,
                 p.payment_id,
                 p.status  AS pay_status,
-                p.stripe_payment_intent_id
+                p.stripe_payment_intent_id,
+                p.stripe_checkout_session_id
             FROM bookings b
             LEFT JOIN payments p ON p.booking_id = b.booking_id
-            WHERE b.status = 'requested'
+            WHERE b.status IN ('requested', 'awaiting_payment')
               AND b.expires_at IS NOT NULL
               AND b.expires_at < NOW()
             ORDER BY b.expires_at ASC
@@ -84,37 +86,37 @@ async def _expire_batch(pool, batch_size: int) -> int:
 
         for row in rows:
             bk = dict(row)
-            bid         = bk["booking_id"]
-            slot_id     = bk["slot_id"]
-            payer_id    = bk["payer_user_id"]
-            receiver_id = bk["receiver_user_id"]
-            service_id  = bk["service_id"]
-            payment_id  = bk.get("payment_id")
-            pay_status  = bk.get("pay_status", "")
-            pi_id       = bk.get("stripe_payment_intent_id")
+            bid             = bk["booking_id"]
+            booking_status  = bk["booking_status"]
+            slot_id         = bk["slot_id"]
+            payer_id        = bk["payer_user_id"]
+            receiver_id     = bk["receiver_user_id"]
+            service_id      = bk["service_id"]
+            payment_id      = bk.get("payment_id")
+            pay_status      = bk.get("pay_status", "")
+            pi_id           = bk.get("stripe_payment_intent_id")
+            cs_id           = bk.get("stripe_checkout_session_id")
 
             try:
                 async with conn.transaction():
-                    # a. Booking → expired
+                    # a. Booking → expired (guard contre race condition)
                     updated = await conn.fetchval(
                         """UPDATE bookings
                            SET status = 'expired', updated_at = NOW()
-                           WHERE booking_id = $1 AND status = 'requested'
+                           WHERE booking_id = $1 AND status IN ('requested', 'awaiting_payment')
                            RETURNING booking_id""",
                         bid,
                     )
                     if not updated:
-                        # Déjà traité par un autre worker (race impossible avec SKIP LOCKED,
-                        # mais protection défensive)
                         continue
 
-                    # b. Slot → available  (single/specific uniquement)
+                    # b. Slot → available  (pending/reserved → available)
                     if slot_id:
                         await conn.execute(
                             """UPDATE service_slots
                                SET slot_status = 'available'
                                WHERE slot_id = $1
-                                 AND slot_status = 'pending'
+                                 AND slot_status IN ('pending', 'reserved')
                                  AND slot_type IN ('single', 'specific')""",
                             slot_id,
                         )
@@ -130,7 +132,7 @@ async def _expire_batch(pool, batch_size: int) -> int:
                             payment_id,
                         )
 
-                    # d. Notifications (payer + receiver) dans la même transaction
+                    # d. Notifications (payer + receiver)
                     svc_row = await conn.fetchrow(
                         "SELECT title FROM services WHERE service_id = $1", service_id
                     )
@@ -148,15 +150,23 @@ async def _expire_batch(pool, batch_size: int) -> int:
                         conn, payer_id,
                         notif_type="booking_expired",
                         title="Demande expirée",
-                        body=f"Votre demande pour « {svc_title} » n'a pas reçu de réponse et a expiré.",
+                        body=(
+                            f"Votre réservation pour « {svc_title} » a expiré (délai de paiement dépassé)."
+                            if booking_status == "awaiting_payment"
+                            else f"Votre demande pour « {svc_title} » n'a pas reçu de réponse et a expiré."
+                        ),
                         data=notif_data,
                     )
                     # Notif receiver
                     await _insert_notif(
                         conn, receiver_id,
                         notif_type="booking_expired",
-                        title="Demande non traitée",
-                        body=f"Une demande de réservation pour « {svc_title} » a expiré sans avoir été traitée.",
+                        title="Réservation non payée" if booking_status == "awaiting_payment" else "Demande non traitée",
+                        body=(
+                            f"Le client n'a pas payé dans les délais pour « {svc_title} » — créneau libéré."
+                            if booking_status == "awaiting_payment"
+                            else f"Une demande de réservation pour « {svc_title} » a expiré sans avoir été traitée."
+                        ),
                         data={**notif_data, "payer_id": payer_id},
                     )
 
@@ -169,7 +179,10 @@ async def _expire_batch(pool, batch_size: int) -> int:
                         log.error("Erreur Stripe annulation pi=%s : %s", pi_id, stripe_exc)
 
                 processed += 1
-                log.info("Booking expiré : %s (slot=%s, pay=%s→cancelled)", bid, slot_id, pay_status)
+                log.info(
+                    "Booking expiré : %s (prev_status=%s, slot=%s, pay=%s→cancelled)",
+                    bid, booking_status, slot_id, pay_status,
+                )
 
             except Exception as exc:
                 log.exception("Erreur lors de l'expiration du booking %s : %s", bid, exc)

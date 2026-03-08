@@ -532,6 +532,24 @@ async def connect_to_db():
                 ADD COLUMN IF NOT EXISTS cancellation_reason   TEXT;
         """)
 
+        # [BOOKING-WORKFLOW-V2] Configuration service + statuts étendus
+        await conn.execute("""
+            -- Configuration workflow par service
+            ALTER TABLE services
+                ADD COLUMN IF NOT EXISTS booking_approval_mode TEXT NOT NULL DEFAULT 'manual_approval',
+                ADD COLUMN IF NOT EXISTS allow_pay_later BOOLEAN NOT NULL DEFAULT TRUE,
+                ADD COLUMN IF NOT EXISTS pay_later_expiration_minutes INTEGER DEFAULT 1440;
+
+            -- Mode de paiement choisi par le payeur
+            ALTER TABLE bookings
+                ADD COLUMN IF NOT EXISTS payment_mode TEXT DEFAULT 'pay_now';
+
+            -- Index pour l'expiry worker étendu (awaiting_payment + requested)
+            CREATE INDEX IF NOT EXISTS idx_bookings_expiry_worker_v2
+                ON bookings(expires_at)
+                WHERE status IN ('requested', 'awaiting_payment');
+        """)
+
         # [PERF-01] Index de performance — migration idempotente
         await conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_bookings_user_id

@@ -1,50 +1,54 @@
-<analysis>**original_problem_statement**: The user initially requested a hyperlocal, tag-based connection platform called SpotU. This has since evolved into building a robust and generic backend with several core engines, followed by aligning the frontend with these new capabilities.
+<analysis>**original_problem_statement**: The user wants to implement a highly flexible and configurable service booking workflow within the SpotU application. This includes allowing service owners to choose between manual approval and instant booking, offering a pay later option with an configurable expiration time, and ensuring the system can handle concurrent bookings safely. The goal is to build this on top of the existing generic payment and user system, with clear UI/UX for both the service owner configuring the service and the user booking it.
 
 PRODUCT REQUIREMENTS:
-1.  **Booking Engine**: Atomic and idempotent booking operations.
-2.  **Payment Engine**: Generic payment flow using Stripe  with manual capture.
-3.  **Subscription Engine**: Flexible subscription system integrated with Stripe.
-4.  **Robust Webhooks**: All financial state changes synchronized from Stripe via idempotent webhooks.
-5.  **Notification System**: A comprehensive notification system tied to all major events in the booking, payment, and subscription lifecycle.
-6.  **Frontend Alignment**: A mobile frontend that allows users to interact with all the backend features (view bookings, manage requests, manage subscriptions).
+1.  **Service Configuration**: Service owners can set  (manual/instant) and  (true/false) with a .
+2.  **Booking Flows**: Support all four combinations of the above settings, including temporarily blocking slots for  options.
+3.  **Concurrency & Idempotence**: Use database transactions and row-level locks to prevent double bookings.
+4.  **Automatic Expiration**: A backend worker must expire unpaid bookings and release the slot.
+5.  **API Updates**: Adapt booking and service endpoints (, , ) to handle the new logic.
+6.  **Frontend Updates**: Implement UI for service configuration (with explanatory text) and for the user booking flow (showing Pay Now vs Pay Later options).
+7.  **Testing**: Create comprehensive backend tests for all new workflows and edge cases.
 
 **User's preferred language**: French. The next agent MUST respond in **French**.
 
 **what currently exists?**
-A full-stack application with a React Native (Expo) frontend and a FastAPI/PostgreSQL backend. The backend is now considered robust and stable, featuring fully implemented and tested systems for bookings, payments (Stripe PaymentIntents), subscriptions, idempotent webhooks, and event-driven notifications. All pre-existing and newly created backend tests are passing.
-
-The frontend is currently out of sync with the backend. The agent has started the process of aligning them by auditing the existing UI and creating placeholder files for the required new screens.
+A full-stack application with a React Native (Expo) frontend and a FastAPI/PostgreSQL backend. The agent was in the middle of a major backend implementation for a new flexible booking workflow. Database migrations have been created and run, Pydantic models have been updated, and the core booking logic in  and  has been significantly refactored to support the new flows. The implementation is mid-flight and not yet complete or tested.
 
 **Last working item**:
--   **Last item agent was working**: Aligning the mobile frontend with the new backend features. The agent audited the existing frontend, identified the missing screens, and created the necessary placeholder files (, , ). It also updated the  and  to include links to these new screens.
+-   **Last item agent was working**: Implementing the flexible booking workflow. The agent had just finished a significant refactoring of the backend, including DB migrations, updating , , and the main booking creation logic in  within . The last action was to start refactoring the  endpoint, noting that the  pattern was fragile and needed to be rewritten to call the Stripe logic directly.
 -   **Status**: IN PROGRESS
 -   **Agent Testing Done**: N
--   **Which testing method agent to use?**: frontend testing agent
+-   **Which testing method agent to use?**: backend testing agent
 -   **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
--   Issue 1: Align Frontend with Backend Monetization Features (P0)
+-   Issue 1: Implement Flexible Booking Workflow (P0)
 -   Issue 2: Update SpotYou flow not fully verified (P2)
 -   Issue 3: Expo Hot-Reload Instability (P3 - RECURRING)
 
 **Issues Detail**:
--   **Issue 1: Align Frontend with Backend Monetization Features**
-    -   **Description**: The frontend needs screens to display user bookings, manage incoming booking requests, and manage subscriptions. This is the current main task requested by the user.
-    -   **Attempted fixes**: An audit was performed, and placeholder files for the new screens have been created: , , .
+-   **Issue 1: Implement Flexible Booking Workflow**
+    -   **Description**: This is the main task from the user's last message, requiring a complete overhaul of the booking logic to support configurable workflows (instant/manual approval, pay now/later).
+    -   **Attempted fixes**:
+        -   **DB Schema**: Created and applied a migration to add , ,  to  and update  status/payment_mode enums.
+        -   **Backend Models**: Updated  with new  types and Pydantic model fields.
+        -   **Booking Logic**: Rewrote  in  to handle the 4 new booking flows.
+        -   **Service Logic**: Updated  to filter out slots that are reserved for  bookings.
+        -   **Accept Logic**: Rewrote  to handle the  flow.
     -   **Next debug checklist**:
-        1.  Implement the UI for the My Bookings screen, fetching and displaying a user's booking history with correct statuses.
-        2.  Implement the UI for the Booking Requests screen, allowing users to accept or refuse pending requests.
-        3.  Implement the UI for the Subscriptions screen, allowing users to view subscription plans, subscribe, and see their current subscription status.
-        4.  Connect these screens to the relevant backend API endpoints.
-    -   **Why fix this issue and what will be achieved with the fix?**: This will make the powerful backend features accessible to users through the mobile application, completing the monetization and booking loop.
+        1.  Finalize the refactoring of the  endpoint to properly create a Stripe checkout session without using the  hack.
+        2.  Update  to handle the expiration of bookings with  status.
+        3.  Create a new test file () with comprehensive tests for all 4 booking flows, concurrency, and expiration logic.
+        4.  Once the backend is complete and tested, implement the frontend changes for service configuration and the user booking flow.
+    -   **Why fix this issue and what will be achieved with the fix?**: This will deliver a core business feature requested by the user, making the booking system much more powerful and flexible. It will also resolve underlying payment flow issues.
     -   **Status**: IN PROGRESS
     -   **Is recurring issue?**: N
-    -   **Should Test frontend/backend/both after fix?**: frontend
+    -   **Should Test frontend/backend/both after fix?**: both
     -   **Blocked on other issue**: None
 
 -   **Issue 2: Update SpotYou flow not fully verified**
-    -   **Description**: A user flow from a previous session that was never fully re-verified after an underlying bug fix.
-    -   **Status**: USER VERIFICATION PENDING
+    -   **Description**: A user flow from a previous session that was never fully re-verified.
+    -   **Status**: NOT STARTED
     -   **Is recurring issue?**: N
     -   **Should Test frontend/backend/both after fix?**: both
 
@@ -56,32 +60,30 @@ frontend: ERROR (no such process).
     -   **Is recurring issue?**: Y
 
 **In progress Task List**:
--   **Task 1: Implement Frontend Screens for Monetization**
-    -   **Where to resume**: The placeholder files and navigation links are in place. The next step is to build out the UI and data-fetching logic within , , and .
-    -   **What will be achieved with this?**: A functional user interface for managing bookings, requests, and subscriptions.
+-   **Task 1: Complete Backend for Flexible Booking Workflow**
+    -   **Where to resume**: The agent was refactoring the  endpoint in . The next steps are to complete that, update , and then write a full test suite.
+    -   **What will be achieved with this?**: A complete, robust, and tested backend for the new booking features.
     -   **Status**: IN PROGRESS
-    -   **Should Test frontend/backend/both after fix?**: frontend
+    -   **Should Test frontend/backend/both after fix?**: backend
 
 **Upcoming and Future Tasks**
 -   **Upcoming Tasks**:
-    -   (P1) Bilingual Support (i18n): Fully implement French/English translations across the application.
+    -   (P1) Frontend for Flexible Booking Workflow: Implement the UI for service configuration and the user-facing booking process.
+    -   (P1) Bilingual Support (i18n): Fully implement French/English translations.
 -   **Future Tasks**:
     -   (P2) Finalize Push Notifications with EAS Build for production deployment.
 
 **Completed work in this session**
--   **Robust Stripe Webhook Implementation (DONE)**:
-    -   Refactored all webhook logic into a single, idempotent  dispatcher.
-    -   Implemented handlers for all critical payment, refund, and subscription events.
-    -   Created a comprehensive test suite () to validate the logic.
--   **Comprehensive Notification System (DONE)**:
-    -   Integrated push notifications for 12+ key events across the booking, payment, and subscription lifecycles.
-    -   Added logic to , , and .
-    -   Created a new test suite () to ensure coverage.
--   **Full Backend Test Suite Repair (DONE)**:
-    -   Fixed all pre-existing and newly discovered test failures in older test files (, ).
-    -   The entire backend test suite (133 tests) is now passing with 100% success.
--   **Database Seeding for Subscriptions (DONE)**:
-    -   Updated  to include default subscription plans.
+-   **Cancellation & Refund Policy (DONE)**:
+    -   Implemented a new  endpoint supporting payer/beneficiary cancellations, reasons, and Stripe refunds.
+    -   Added  and  to the  table.
+    -   Created a new test suite  (24/24 tests passing).
+-   **Payment Flow Bug Fixes (PARTIALLY DONE)**:
+    -   Fixed a mobile-specific crash by replacing  with  in , , and .
+    -   Implemented a frontend state machine with polling in  to improve UX around Stripe redirects. Note: These fixes were superseded by the new P0 flexible booking task, which re-architects the entire flow.
+-   **Frontend Navigation for Monetization (DONE)**:
+    -   Added navigation links on  for My Bookings, Booking Requests, and Subscriptions.
+    -   Verified with the frontend testing agent.
 
 **Earlier issues found/mentioned but not fixed**
 -   The Update SpotYou flow verification remains pending.
@@ -95,54 +97,58 @@ frontend: ERROR (no such process).
 
 
 **Key Technical Concepts**
--   **Asynchronous Background Worker ()**
--   **Row-Level Locking ()**
--   **Stripe PaymentIntents (Manual Capture)**
--   **Centralized Pricing Engine**
--   **Idempotent Webhook Processing**: Fully implemented and tested.
--   **Centralized Event Dispatching**: All Stripe webhooks are routed to .
--   **Comprehensive Notification System**: Backend notifications are triggered for all key business events.
+-   **Configurable Business Logic**: Building workflows based on stored service settings.
+-   **Asynchronous Background Worker ()**: Used for .
+-   **Row-Level Locking ()**: Essential for concurrency control.
+-   **Database Migrations (Alembic)**
+-   **Frontend State Machine**: Implemented in React (, ) to manage complex UI states during payment.
 
 **key DB schema**
--   ****: uid=0(root) gid=0(root) groups=0(root), , , , . (No schema changes in this session, but this table is now fully utilized).
--   ****: (No schema changes, but now fully managed via webhooks).
+-   ****: Added  (Enum),  (bool),  (int).
+-   ****: Added  (Enum). Updated  (Enum) to include  and . Added  (datetime),  (FK),  (str).
 
 **All files of reference**
--   Files created for the current task: , , .
--   Files modified for the current task: , .
--   Recently completed backend work: , , , , .
+-   **Backend (Modified/Created)**:
+    -   
+    -   
+    -   
+    -   
+    -   
+    -   
+-   **Frontend (Modified)**:
+    -   
+    -   
+    -   
+    -   
 
 **Critical Info for New Agent**
--   The immediate and only priority is to implement the frontend UI for the monetization features, as requested by the user. The backend is stable, fully tested, and ready.
--   Start by populating the placeholder files: , , and .
--   All backend tests (133/133) are passing. The agent successfully fixed all pre-existing test failures.
--   The Expo frontend environment remains unstable. Be prepared to use the workaround: .
+-   The absolute priority is to complete the backend implementation for the Flexible Booking Workflow as detailed in the user's last major request (message #249).
+-   Resume work in  to fix the  endpoint, then update , and then create a comprehensive test suite in a new file ().
+-   Do not start frontend work until the backend is fully implemented and tested.
+-   The previous fixes to the payment flow UI in  were a temporary solution. The new backend architecture will solve the root cause, but the frontend will need to be adapted to it later.
 
 **documents and test reports created in this job**
 -    (updated)
--   Multiple test reports were generated, culminating in a full suite pass. Key new test files include:
-    -   
-    -   
+-   
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User**: Requested frontend alignment with the new backend features (bookings, payments, subscriptions). **Status: IN PROGRESS**
-2.  **Agent**: Confirmed start of frontend audit.
-3.  **User**: Requested to connect notifications to the entire booking/payment/subscription workflow. **Status: COMPLETED**
-4.  **Agent**: Confirmed start of notification system audit.
-5.  **Agent**: Reported completion of webhook implementation and all tests passing (116/116).
-6.  **User**: Requested robust, idempotent Stripe webhooks for a list of specific events. **Status: COMPLETED**
-7.  **Agent**: Confirmed start of webhook implementation.
-8.  **Agent**: Proposed a plan to refactor webhooks, remove duplicates, and create tests.
-9.  **Agent**: Analyzed the code to begin webhook implementation.
-10. **Agent**: Acknowledged the user request and started analysis.
+10. **User**: Start backend. **Status: COMPLETED**
+9.  **User**: Start backend. **Status: COMPLETED**
+8.  **User**: Start backend. **Status: COMPLETED**
+7.  **Agent**: Explains the new state machine logic for the payment button. **Status: N/A**
+6.  **Agent**: Fixes a linting error by moving a type definition. **Status: N/A**
+5.  **User**: Problem 1: Spinner disappears early. Problem 2: No redirection after payment. Problem 3: Payments stay pending. **Status: IN PROGRESS (being addressed by new P0 task)**
+4.  **User**: Error: After payment, I stay on the same screen with a spinner. **Status: IN PROGRESS (being addressed by new P0 task)**
+3.  **User**: Error paying now. **Status: COMPLETED (mobile redirect bug fixed)**
+2.  **User**: Asks to implement the full flexible booking workflow (manual/instant approval, pay later, expiration, etc.). This is the current P0 task. **Status: IN PROGRESS**
+1.  **Agent**: Acknowledges user request and begins analyzing existing code. **Status: N/A**
 
 **Project Health Check:**
 -   **Broken**:
+    -   The booking and payment flow is partially broken pending the completion of the new flexible workflow feature.
     -   The frontend development environment (Expo) is fragile and prone to crashing.
 -   **Mocked**:
     -   None.
--   **Fixed/Improved**:
-    -   All pre-existing and new backend tests are now passing (133/133), resolving a long-standing issue.
 
 **3rd Party Integrations**
 -   **Stripe**: Used via Python SDK for  and .
@@ -150,12 +156,11 @@ frontend: ERROR (no such process).
 -   **Google Places API**
 
 **Testing status**
--   **Testing agent used after significant changes**: YES (The agent self-tested the backend extensively, fixing all failures).
+-   **Testing agent used after significant changes**: YES (for frontend navigation).
 -   **Troubleshoot agent used after agent stuck in loop**: NO
 -   **Test files created**:
     -   
-    -   
--   **Known regressions**: None. Previously known regressions in the backend test suite have been fixed.
+-   **Known regressions**: Older test suites (, etc.) are failing due to signature changes in core functions. These tests need to be updated or removed. The agent correctly identified this but did not fix them yet.
 
 **Credentials to test flow:**
 -   **Admin**:  / 
@@ -163,4 +168,5 @@ frontend: ERROR (no such process).
 -   **User**:  / 
 
 **What agent forgot to execute**
--   The verification of the Update SpotYou flow has not been addressed yet. It has been deprioritized in favor of the current frontend work.</analysis>
+-   The agent has correctly prioritized the user's latest and most critical requests. The Update SpotYou flow remains a low-priority backlog item.
+-   The agent identified that old test suites are failing due to recent refactoring but has not yet fixed them. This should be addressed after the current P0 task is complete to ensure no regressions have been introduced.</analysis>

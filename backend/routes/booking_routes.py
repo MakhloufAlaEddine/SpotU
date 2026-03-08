@@ -46,8 +46,11 @@ log = logging.getLogger("routes.bookings")
 router = APIRouter()
 
 # TTL configuré dans .env — utilisé pour calculer expires_at à l'INSERT
-# et comme garde côté endpoint /accept (avant que le worker ait tourné)
 BOOKING_EXPIRY_HOURS = int(os.environ.get("BOOKING_EXPIRY_HOURS", "48"))
+# Délai pour payer immédiatement (pay_now) : 30 minutes
+PAY_NOW_CHECKOUT_MINUTES = 30
+# Délai minimum pour pay_later si non configuré par le service
+DEFAULT_PAY_LATER_MINUTES = 1440  # 24h
 
 # ── Projection commune ─────────────────────────────────────────────────────────
 BOOKING_FIELDS = """
@@ -56,7 +59,8 @@ BOOKING_FIELDS = """
     b.payment_status, b.payer_user_id, b.receiver_user_id,
     b.pricing_snapshot, b.idempotency_key, b.currency,
     b.created_at, b.updated_at, b.expires_at,
-    b.cancelled_by_user_id, b.cancellation_reason
+    b.cancelled_by_user_id, b.cancellation_reason,
+    b.payment_mode
 """
 
 
@@ -97,33 +101,45 @@ def _push(pool, user_id, title, body, data, notif_type):
 
 async def _do_booking_request(data: BookingRequest, request: Request):
     """
-    Logique commune à POST /bookings/request et POST /bookings.
-    1. Idempotence : si idempotency_key déjà vu → retourner booking existant
-    2. Idempotence slot  : si (slot_id, user_id) déjà actif → retourner booking existant
-    3. Lock slot (single) via SELECT … FOR UPDATE NOWAIT
-    4. Calcul tarifaire via pricing_engine (aucun calcul ici)
-    5. INSERT atomique booking + payment dans une transaction
-    6. Mise à jour slot_status = 'pending' (single) dans la même transaction
+    POST /bookings — Workflow flexible (4 flux selon config service)
+
+    A. instant_booking + pay_now    → awaiting_payment, slot réservé, expiry=30min
+    B. instant_booking + pay_later  → awaiting_payment, slot réservé, expiry=pay_later_expiration_minutes
+    C. manual_approval + pay_now    → requested, slot pending, accept → awaiting_payment(30min)
+    D. manual_approval + pay_later  → requested, slot pending, accept → awaiting_payment(expiry configuré)
+
+    Garanties : idempotence (clé + slot×user), row-level lock NOWAIT, pricing centralisé, atomicité.
     """
     pool = get_pool()
     user = await require_auth(request, pool)
     payer_user_id = user["user_id"]
 
+    payment_mode = (data.payment_mode or "pay_now").strip()
+    if payment_mode not in ("pay_now", "pay_later"):
+        raise HTTPException(400, "payment_mode doit être 'pay_now' ou 'pay_later'")
+
     async with pool.acquire() as conn:
 
-        # ── 0. Résolution du service ───────────────────────────────────────────
+        # ── 0. Service + config workflow ──────────────────────────────────────
         svc_row = await conn.fetchrow(
-            "SELECT service_id, coach_id, price FROM services WHERE service_id = $1 AND active = TRUE",
+            """SELECT service_id, coach_id, price,
+                      booking_approval_mode, allow_pay_later, pay_later_expiration_minutes
+               FROM services WHERE service_id = $1 AND active = TRUE""",
             data.service_id,
         )
         if not svc_row:
             raise HTTPException(404, "Service introuvable ou inactif")
 
-        svc = dict(svc_row)
+        svc              = dict(svc_row)
         receiver_user_id = svc["coach_id"]
+        approval_mode    = svc["booking_approval_mode"] or "manual_approval"
+        allow_pay_later  = bool(svc["allow_pay_later"])
+        expiry_minutes   = int(svc["pay_later_expiration_minutes"] or DEFAULT_PAY_LATER_MINUTES)
 
         if receiver_user_id == payer_user_id:
             raise HTTPException(400, "Impossible de réserver son propre service")
+        if payment_mode == "pay_later" and not allow_pay_later:
+            raise HTTPException(400, "Ce service ne permet pas le paiement différé")
 
         # ── 1. Idempotence par clé explicite ──────────────────────────────────
         if data.idempotency_key:
@@ -132,60 +148,44 @@ async def _do_booking_request(data: BookingRequest, request: Request):
                 data.idempotency_key,
             )
             if existing:
-                log.info("Idempotency hit (key=%s) → booking=%s", data.idempotency_key, existing["booking_id"])
                 return await _fetch_booking(conn, existing["booking_id"])
 
-        # ── 2. Idempotence par (slot_id, user_id) pour un même créneau ────────
+        # ── 2. Idempotence (slot_id, user_id) ─────────────────────────────────
         if data.slot_id:
-            existing_slot_booking = await conn.fetchrow(
+            dup = await conn.fetchrow(
                 """SELECT booking_id FROM bookings
-                   WHERE slot_id = $1 AND user_id = $2
-                     AND status NOT IN ('refused', 'cancelled', 'expired')
-                   LIMIT 1""",
+                   WHERE slot_id=$1 AND user_id=$2
+                     AND status NOT IN ('refused','cancelled','expired') LIMIT 1""",
                 data.slot_id, payer_user_id,
             )
-            if existing_slot_booking:
-                log.info("Slot idempotency hit (slot=%s, user=%s) → booking=%s",
-                         data.slot_id, payer_user_id, existing_slot_booking["booking_id"])
-                return await _fetch_booking(conn, existing_slot_booking["booking_id"])
+            if dup:
+                return await _fetch_booking(conn, dup["booking_id"])
 
-        # ── 3. Calcul tarifaire centralisé (pricing_engine) ───────────────────
-        # Base amount : prix du service (ou du package slot si connu)
         base_amount = float(svc["price"])
 
         async with conn.transaction():
 
-            # ── 4. Vérification et lock du slot (single uniquement) ───────────
+            # ── 3. Row-level lock NOWAIT ───────────────────────────────────────
             slot_type = None
             if data.slot_id:
                 try:
                     slot_row = await conn.fetchrow(
-                        """SELECT slot_id, slot_type, slot_status
-                           FROM service_slots
-                           WHERE slot_id = $1
-                           FOR UPDATE NOWAIT""",
+                        "SELECT slot_id, slot_type, slot_status FROM service_slots WHERE slot_id=$1 FOR UPDATE NOWAIT",
                         data.slot_id,
                     )
                 except asyncpg.LockNotAvailableError:
-                    raise HTTPException(
-                        409,
-                        "Ce créneau est en cours de réservation — réessayez dans quelques secondes",
-                    )
+                    raise HTTPException(409, "Ce créneau est en cours de réservation — réessayez")
 
                 if not slot_row:
                     raise HTTPException(404, "Créneau introuvable")
 
-                slot = dict(slot_row)
+                slot      = dict(slot_row)
                 slot_type = slot["slot_type"]
 
-                # Pour les créneaux spécifiques (single/specific) : vérifier la disponibilité
                 if slot_type in ("single", "specific") and slot["slot_status"] != "available":
-                    raise HTTPException(
-                        409,
-                        f"Ce créneau n'est plus disponible (état actuel : {slot['slot_status']})",
-                    )
+                    raise HTTPException(409, f"Créneau indisponible (état : {slot['slot_status']})")
 
-            # ── 5. Calcul de pricing (dans la transaction pour cohérence) ─────
+            # ── 4. Pricing engine ─────────────────────────────────────────────
             pricing = await pricing_engine.compute_pricing(
                 conn=conn,
                 payer_user_id=payer_user_id,
@@ -197,38 +197,45 @@ async def _do_booking_request(data: BookingRequest, request: Request):
 
             bid = new_id("bkg")
             pid = new_id("pay")
-
-            pd = pricing.to_payment_dict(
-                payment_id=pid,
-                payer_user_id=payer_user_id,
+            pd  = pricing.to_payment_dict(
+                payment_id=pid, payer_user_id=payer_user_id,
                 receiver_user_id=receiver_user_id,
-                product_type="service_booking",
-                product_id=data.service_id,
-                booking_id=bid,
+                product_type="service_booking", product_id=data.service_id, booking_id=bid,
             )
-            # Statut initial payment : requires_authorization
             pd["status"] = "requires_authorization"
 
+            # ── 5. Statut initial + délai d'expiration selon flux ─────────────
+            from datetime import timedelta
+            if approval_mode == "instant_booking":
+                initial_status      = "awaiting_payment"
+                initial_slot_status = "reserved"
+                mins = PAY_NOW_CHECKOUT_MINUTES if payment_mode == "pay_now" else expiry_minutes
+                expires_at_dt = datetime.now(timezone.utc) + timedelta(minutes=mins)
+                expires_interval = f"{mins} minutes"  # pour les logs seulement
+            else:
+                initial_status      = "requested"
+                initial_slot_status = "pending"
+                expires_at_dt = datetime.now(timezone.utc) + timedelta(hours=BOOKING_EXPIRY_HOURS)
+                expires_interval = f"{BOOKING_EXPIRY_HOURS} hours"
+
             # ── 6. INSERT booking ─────────────────────────────────────────────
-            # expires_at = NOW() + TTL_HOURS — calculé une seule fois ici
             await conn.execute(
                 """INSERT INTO bookings
                    (booking_id, service_id, user_id, coach_id, status,
                     scheduled_at, slot_id, location_id, notes, amount,
                     payer_user_id, receiver_user_id, pricing_snapshot,
-                    payment_status, currency, idempotency_key, expires_at)
-                   VALUES ($1,$2,$3,$4,'requested',
-                           $5,$6,$7,$8,$9,
-                           $10,$11,$12,
-                           'pending','EUR',$13,
-                           NOW() + ($14 || ' hours')::INTERVAL)""",
-                bid, data.service_id, payer_user_id, receiver_user_id,
+                    payment_status, currency, idempotency_key,
+                    payment_mode, expires_at)
+                   VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,
+                           'pending','EUR',$14,$15,$16)""",
+                bid, data.service_id, payer_user_id, receiver_user_id, initial_status,
                 data.scheduled_at, data.slot_id, data.location_id, data.notes,
                 pricing.payer_total_amount,
                 payer_user_id, receiver_user_id,
                 json.dumps(pricing.to_snapshot()),
                 data.idempotency_key,
-                str(BOOKING_EXPIRY_HOURS),
+                payment_mode,
+                expires_at_dt,
             )
 
             # ── 7. INSERT payment ─────────────────────────────────────────────
@@ -254,40 +261,38 @@ async def _do_booking_request(data: BookingRequest, request: Request):
                 json.dumps(pd["pricing_rule_snapshot"]),
             )
 
-            # ── 8. Verrouillage du slot (specific/single) ────────────────────
+            # ── 8. Verrouillage du créneau ─────────────────────────────────────
             if data.slot_id and slot_type in ("single", "specific"):
                 await conn.execute(
-                    "UPDATE service_slots SET slot_status = 'pending' WHERE slot_id = $1",
-                    data.slot_id,
+                    "UPDATE service_slots SET slot_status=$1 WHERE slot_id=$2",
+                    initial_slot_status, data.slot_id,
                 )
 
         result = await _fetch_booking(conn, bid)
 
-    # ── Notification push (hors transaction) ──────────────────────────────────
-    async with pool.acquire() as conn2:
-        user_info = await conn2.fetchrow("SELECT name FROM users WHERE user_id = $1", payer_user_id)
-        svc_title = await conn2.fetchrow("SELECT title FROM services WHERE service_id = $1", data.service_id)
+    # ── Notifications push ────────────────────────────────────────────────────
+    async with pool.acquire() as nc:
+        user_info = await nc.fetchrow("SELECT name FROM users WHERE user_id=$1", payer_user_id)
+        svc_info  = await nc.fetchrow("SELECT title FROM services WHERE service_id=$1", data.service_id)
 
     user_name = user_info["name"] if user_info else "Un utilisateur"
-    svc_name  = svc_title["title"] if svc_title else "votre service"
+    svc_name  = svc_info["title"] if svc_info else "votre service"
 
-    _push(
-        pool, receiver_user_id,
-        title="Nouvelle demande de réservation",
-        body=f"{user_name} souhaite réserver : {svc_name}",
-        data={
-            "type": "new_booking",
-            "bookingId": bid,
-            "service_id": data.service_id,
-            "sender_id": payer_user_id,
-            "sender_name": user.get("name", ""),
-            "sender_picture": user.get("picture") or "",
-            "action_text": "souhaite réserver",
-            "content_title": svc_name,
-        },
-        notif_type="new_booking",
-    )
+    notif_type_key = "booking_awaiting_payment" if initial_status == "awaiting_payment" else "new_booking"
+    notif_title    = ("Créneau réservé (paiement en attente)" if initial_status == "awaiting_payment"
+                      else "Nouvelle demande de réservation")
+    notif_body     = (f"{user_name} a réservé un créneau : {svc_name}"
+                      if initial_status == "awaiting_payment"
+                      else f"{user_name} souhaite réserver : {svc_name}")
 
+    _push(pool, receiver_user_id,
+          title=notif_title, body=notif_body,
+          data={"type": notif_type_key, "bookingId": bid, "service_id": data.service_id,
+                "sender_id": payer_user_id, "sender_name": user.get("name","")},
+          notif_type="new_booking")
+
+    log.info("Booking créé : bk=%s | approval=%s | payment=%s | status=%s | expiry=%s",
+             bid, approval_mode, payment_mode, initial_status, expires_interval)
     return result
 
 
@@ -310,104 +315,199 @@ async def create_booking(data: BookingCreate, request: Request):
 @router.post("/bookings/{booking_id}/accept")
 async def accept_booking(booking_id: str, request: Request):
     """
-    Le bénéficiaire (receiver) accepte la demande.
-    - booking : requested → accepted
-    - slot    : pending   → booked      (single uniquement)
-    - payment : requires_authorization → authorized
+    Bénéficiaire accepte (uniquement pour manual_approval).
+
+    Transitions :
+      requested → awaiting_payment  (slot: pending → reserved)
+      payment_mode=pay_now  → expires_at = NOW() + 30min
+      payment_mode=pay_later → expires_at = NOW() + service.pay_later_expiration_minutes
+
+    Garde TTL : refus si expires_at déjà passé.
     """
     pool = get_pool()
     user = await require_auth(request, pool)
 
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            """SELECT booking_id, status, receiver_user_id, slot_id, expires_at,
-                      user_id AS payer_user_id, service_id
-               FROM bookings WHERE booking_id = $1""",
+            """SELECT b.booking_id, b.status, b.receiver_user_id, b.slot_id, b.expires_at,
+                      b.user_id AS payer_user_id, b.service_id, b.payment_mode,
+                      s.pay_later_expiration_minutes, s.booking_approval_mode
+               FROM bookings b
+               JOIN services s ON s.service_id = b.service_id
+               WHERE b.booking_id = $1""",
             booking_id,
         )
         if not row:
             raise HTTPException(404, "Réservation introuvable")
 
         bk = dict(row)
-        if bk["receiver_user_id"] != user["user_id"]:
+        if bk["receiver_user_id"] != user["user_id"] and user.get("role") != "admin":
             raise HTTPException(403, "Seul le bénéficiaire peut accepter cette réservation")
+
+        # Idempotence
+        if bk["status"] == "awaiting_payment":
+            return {"success": True, "status": "awaiting_payment", "booking_id": booking_id, "idempotent": True}
         if bk["status"] == "accepted":
-            return {"success": True, "status": "accepted", "idempotent": True}
+            return {"success": True, "status": "accepted", "booking_id": booking_id, "idempotent": True}
+
         if bk["status"] != "requested":
             raise HTTPException(409, f"Impossible d'accepter une réservation en état '{bk['status']}'")
 
-        # ── TTL guard : refuser si expiré même avant le prochain tick du worker ──
+        # Garde TTL
         expires_at = bk.get("expires_at")
-        if expires_at is not None:
-            # asyncpg retourne un datetime aware (UTC)
+        if expires_at:
             now_utc = datetime.now(timezone.utc)
-            if hasattr(expires_at, "tzinfo") and expires_at.tzinfo is None:
-                from datetime import timezone as _tz
-                expires_at = expires_at.replace(tzinfo=_tz.utc)
+            if getattr(expires_at, 'tzinfo', None) is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
             if expires_at < now_utc:
-                raise HTTPException(
-                    410,
-                    "Cette réservation a expiré et ne peut plus être acceptée — le créneau a été libéré",
-                )
+                raise HTTPException(410, "Cette réservation a expiré — le créneau a été libéré")
 
-        # Récupérer le PI ID avant la transaction
-        pi_row = await conn.fetchrow(
-            "SELECT stripe_payment_intent_id, status AS pay_status FROM payments WHERE booking_id=$1 LIMIT 1",
-            booking_id,
-        )
+        # Calculer le nouveau expires_at pour le paiement
+        payment_mode = bk.get("payment_mode") or "pay_now"
+        exp_min = int(bk.get("pay_later_expiration_minutes") or DEFAULT_PAY_LATER_MINUTES)
+        pay_expiry_minutes = PAY_NOW_CHECKOUT_MINUTES if payment_mode == "pay_now" else exp_min
+        pay_expiry_interval = f"{pay_expiry_minutes} minutes"
+        from datetime import timedelta
+        new_expires_at = datetime.now(timezone.utc) + timedelta(minutes=pay_expiry_minutes)
 
         async with conn.transaction():
             await conn.execute(
-                "UPDATE bookings SET status='accepted', updated_at=NOW() WHERE booking_id=$1",
-                booking_id,
-            )
-            await conn.execute(
-                """UPDATE payments SET status='authorized', updated_at=NOW()
-                   WHERE booking_id=$1 AND status IN ('requires_authorization', 'authorized')""",
-                booking_id,
+                """UPDATE bookings
+                   SET status='awaiting_payment',
+                       expires_at = $2,
+                       updated_at = NOW()
+                   WHERE booking_id=$1""",
+                booking_id, new_expires_at,
             )
             if bk["slot_id"]:
                 await conn.execute(
-                    """UPDATE service_slots SET slot_status='booked'
-                       WHERE slot_id=$1 AND slot_status='pending'""",
+                    "UPDATE service_slots SET slot_status='reserved' WHERE slot_id=$1 AND slot_status IN ('pending','available')",
                     bk["slot_id"],
                 )
 
-    # ── Capture Stripe hors transaction ───────────────────────────────────────
-    if pi_row and pi_row["stripe_payment_intent_id"]:
-        pi_id = pi_row["stripe_payment_intent_id"]
-        try:
-            await stripe_service.capture_payment_intent(pi_id)
-            # Mettre à jour le statut payment → captured
-            async with pool.acquire() as conn2:
-                await conn2.execute(
-                    """UPDATE payments SET status='captured', updated_at=NOW()
-                       WHERE booking_id=$1 AND status='authorized'""",
-                    booking_id,
-                )
-            log.info("Capture Stripe réussie : pi=%s | booking=%s", pi_id, booking_id)
-        except Exception as exc:
-            log.error(
-                "Erreur capture Stripe pi=%s | booking=%s : %s",
-                pi_id, booking_id, exc,
-            )
-            # Le webhook payment_intent.succeeded se chargera de la mise à jour
+    _push(pool, bk["payer_user_id"],
+          title="Réservation acceptée — paiement requis",
+          body=f"Votre demande a été acceptée. Vous avez {exp_min if payment_mode=='pay_later' else PAY_NOW_CHECKOUT_MINUTES} min pour payer.",
+          data={"type": "booking_accepted", "bookingId": booking_id,
+                "requires_payment": True, "action_text": "a accepté votre demande"},
+          notif_type="booking_accepted")
 
-    # ── Notification push au payer ─────────────────────────────────────────────
-    _push(
-        pool, bk["payer_user_id"],
-        title="Réservation acceptée !",
-        body="Votre demande de réservation a été acceptée.",
-        data={
-            "type": "booking_accepted",
-            "bookingId": booking_id,
-            "service_id": bk.get("service_id", ""),
-            "action_text": "a accepté votre demande",
-        },
-        notif_type="booking_accepted",
+    return {"success": True, "status": "awaiting_payment", "booking_id": booking_id,
+            "payment_mode": payment_mode, "pay_expiry_interval": pay_expiry_interval}
+
+
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║  POST /bookings/{id}/pay  — Payer une réservation en awaiting_payment       ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+
+@router.post("/bookings/{booking_id}/pay")
+async def pay_booking(booking_id: str, request: Request):
+    """
+    Initie le paiement Stripe pour un booking en état 'awaiting_payment'.
+
+    Conditions :
+      - booking.status = 'awaiting_payment'
+      - expires_at > NOW()
+
+    Retourne : { url, session_id }
+    """
+    pool = get_pool()
+    user = await require_auth(request, pool)
+
+    try:
+        raw = await request.json()
+    except Exception:
+        raw = {}
+    origin_url = raw.get("origin_url", "") if isinstance(raw, dict) else ""
+
+    async with pool.acquire() as conn:
+        bk_row = await conn.fetchrow(
+            "SELECT booking_id, status, payer_user_id, expires_at FROM bookings WHERE booking_id=$1",
+            booking_id,
+        )
+        if not bk_row:
+            raise HTTPException(404, "Réservation introuvable")
+
+        bk = dict(bk_row)
+        if bk["payer_user_id"] != user["user_id"] and user.get("role") != "admin":
+            raise HTTPException(403, "Seul le payeur peut initier le paiement")
+
+        if bk["status"] != "awaiting_payment":
+            raise HTTPException(
+                409,
+                f"Le paiement n'est possible qu'en état 'awaiting_payment' (actuel : '{bk['status']}')",
+            )
+
+        expires_at = bk.get("expires_at")
+        if expires_at:
+            now_utc = datetime.now(timezone.utc)
+            if getattr(expires_at, 'tzinfo', None) is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+            if expires_at < now_utc:
+                raise HTTPException(410, "Le délai de paiement a expiré — réservation annulée")
+
+        # Récupérer le payment lié
+        pay_row = await conn.fetchrow(
+            "SELECT payment_id, payer_total_amount, currency, stripe_checkout_session_id FROM payments WHERE booking_id=$1 LIMIT 1",
+            booking_id,
+        )
+        if not pay_row:
+            raise HTTPException(500, "Enregistrement de paiement manquant pour cette réservation")
+
+        pay = dict(pay_row)
+
+        # Si une session Stripe existe déjà (idempotence)
+        existing_cs_id = pay.get("stripe_checkout_session_id")
+        if existing_cs_id:
+            try:
+                session = await stripe_service.retrieve_checkout_session(existing_cs_id)
+                if session.status == "open":
+                    return {"url": session.url, "session_id": session.id, "reused": True}
+            except Exception:
+                pass  # session expirée → en créer une nouvelle
+
+    # Créer la session Stripe Checkout
+    import stripe as _stripe
+    amount_cents = int(round(float(pay["payer_total_amount"]) * 100))
+    currency     = (pay.get("currency") or "eur").lower()
+
+    success_url = f"{origin_url}/payment-success?session_id={{CHECKOUT_SESSION_ID}}&booking_id={booking_id}"
+    cancel_url  = f"{origin_url}/bookings"
+
+    session = await stripe_service.create_checkout_session(
+        amount_cents    = amount_cents,
+        currency        = currency,
+        success_url     = success_url,
+        cancel_url      = cancel_url,
+        metadata        = {"payment_id": pay["payment_id"], "booking_id": booking_id},
+        idempotency_key = pay["payment_id"],
     )
 
-    return {"success": True, "status": "accepted", "booking_id": booking_id}
+    async with pool.acquire() as conn2:
+        pi_id = session.payment_intent if isinstance(session.payment_intent, str) else None
+        async with conn2.transaction():
+            await conn2.execute(
+                """UPDATE payments
+                   SET stripe_checkout_session_id=$1,
+                       stripe_payment_intent_id=COALESCE($2, stripe_payment_intent_id),
+                       status = CASE
+                           WHEN status NOT IN ('requires_authorization','authorized','captured')
+                           THEN 'requires_authorization' ELSE status
+                       END,
+                       updated_at=NOW()
+                   WHERE payment_id=$3""",
+                session.id, pi_id, pay["payment_id"],
+            )
+            await conn2.execute(
+                """UPDATE bookings SET payment_status='requires_authorization', updated_at=NOW()
+                   WHERE booking_id=$1 AND payment_status NOT IN ('authorized','captured','paid')""",
+                booking_id,
+            )
+
+    return {"url": session.url, "session_id": session.id}
+
+
+
 
 @router.post("/bookings/{booking_id}/refuse")
 async def refuse_booking(booking_id: str, request: Request):
@@ -607,7 +707,7 @@ async def cancel_booking(
             if bk["slot_id"]:
                 await conn.execute(
                     """UPDATE service_slots SET slot_status='available'
-                       WHERE slot_id=$1 AND slot_status IN ('pending','booked')""",
+                       WHERE slot_id=$1 AND slot_status IN ('pending','reserved','booked')""",
                     bk["slot_id"],
                 )
 

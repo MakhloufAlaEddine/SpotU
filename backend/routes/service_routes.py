@@ -9,7 +9,8 @@ router = APIRouter()
 
 SVC_FIELDS = """
     service_id, coach_id, title, description, address, price, duration_min,
-    tag_ids, domain_id, location_description, max_participants, active, images, created_at, updated_at
+    tag_ids, domain_id, location_description, max_participants, active, images, created_at, updated_at,
+    booking_approval_mode, allow_pay_later, pay_later_expiration_minutes
 """
 
 
@@ -43,17 +44,14 @@ async def _get_service_slots(conn, service_id: str) -> list:
            FROM service_slots ss
            WHERE ss.service_id = $1
            AND (
-               -- Créneaux récurrents (sans date fixe) : toujours visibles
                ss.slot_date IS NULL
-               OR
-               -- Créneaux avec date fixe : uniquement dans le futur
-               (ss.slot_date || ' ' || ss.start_time)::timestamp > NOW()::timestamp
+               OR (ss.slot_date || ' ' || ss.start_time)::timestamp > NOW()::timestamp
            )
            AND NOT EXISTS (
-               -- Masquer les créneaux avec une réservation active (en attente ou acceptée)
+               -- Masquer les créneaux avec réservation active (pending, accepted, awaiting_payment, confirmed)
                SELECT 1 FROM bookings b
                WHERE b.slot_id = ss.slot_id
-               AND b.status IN ('pending', 'accepted')
+               AND b.status IN ('pending', 'accepted', 'awaiting_payment', 'confirmed')
            )
            ORDER BY ss.slot_date NULLS LAST, ss.start_time""",
         service_id
@@ -80,7 +78,7 @@ async def _get_service_packages(conn, service_id: str) -> list:
                AND NOT EXISTS (
                    SELECT 1 FROM bookings b
                    WHERE b.slot_id = ss.slot_id
-                   AND b.status IN ('pending', 'accepted')
+                   AND b.status IN ('pending', 'accepted', 'awaiting_payment', 'confirmed')
                )
                ORDER BY ss.slot_date, ss.start_time""",
             pkg["package_id"]
@@ -260,11 +258,15 @@ async def create_service(data: ServiceCreate, request: Request):
         await conn.execute(
             """INSERT INTO services
                (service_id, coach_id, title, description, address, price, duration_min,
-                tag_ids, domain_id, max_participants, images, active)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,TRUE)""",
+                tag_ids, domain_id, max_participants, images, active,
+                booking_approval_mode, allow_pay_later, pay_later_expiration_minutes)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,TRUE,$12,$13,$14)""",
             sid, user["user_id"], data.title, data.description, data.address,
             service_price, data.duration_min, data.tag_ids, data.domain_id,
-            data.max_participants, data.images or []
+            data.max_participants, data.images or [],
+            getattr(data, 'booking_approval_mode', None) or 'manual_approval',
+            getattr(data, 'allow_pay_later', True) if getattr(data, 'allow_pay_later', True) is not None else True,
+            getattr(data, 'pay_later_expiration_minutes', None) or 1440,
         )
 
         # Handle packages (new model)
@@ -326,6 +328,7 @@ async def create_service(data: ServiceCreate, request: Request):
 
 
 @router.put("/services/{service_id}")
+@router.patch("/services/{service_id}")
 async def update_service(service_id: str, data: ServiceUpdate, request: Request):
     pool = get_pool()
     user = await require_auth(request, pool)
@@ -340,7 +343,8 @@ async def update_service(service_id: str, data: ServiceUpdate, request: Request)
 
         # Update scalar fields only
         SCALAR_FIELDS = {'title', 'description', 'price', 'duration_min', 'active',
-                         'location_description', 'max_participants', 'domain_id'}
+                         'location_description', 'max_participants', 'domain_id',
+                         'booking_approval_mode', 'allow_pay_later', 'pay_later_expiration_minutes'}
         raw = data.model_dump()
         update_dict = {k: raw[k] for k in SCALAR_FIELDS if raw.get(k) is not None}
 

@@ -1,0 +1,77 @@
+{
+  "summary": "Iteration 55 — Backend testing of 4 flexible booking workflows (SpotU v2). All 55 tests pass (3 expected skips). Fixed 1 backend bug (payment_mode missing from API response) + 3 test infrastructure issues (service fixture determinism, service state contamination, asyncio deprecation).",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /bookings/request, /bookings/{id}/accept (all booking endpoints using _fetch_booking)",
+        "issue": "payment_mode column was missing from BOOKING_FIELDS SELECT projection — API response never returned payment_mode even though it was stored in DB. FIXED by adding b.payment_mode to BOOKING_FIELDS.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_booking_workflows_v2.py",
+    "/app/backend/tests/test_booking_workflow.py",
+    "/app/backend/tests/test_booking_expiry.py",
+    "/app/test_reports/pytest/iter55_booking_workflows.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "FIXED: payment_mode missing from BOOKING_FIELDS in booking_routes.py — this affected all booking API responses. The field was saved to DB but never returned in any GET/POST response.",
+    "MINOR: GET /api/services has no ORDER BY clause — service order is non-deterministic across queries. This caused test_booking_workflow.py and test_booking_expiry.py to get a random service (svc_demo003 instead of svc_demo001). Not a production bug but could cause inconsistent behavior.",
+    "CODE: service_routes.py _get_service_slots — status filter for hiding active slots includes ('pending', 'accepted', 'awaiting_payment', 'confirmed') but NOT 'requested'. So slots with pending bookings (manual_approval flow) are still visible in /api/services/{id} until the booking is accepted. This is likely intentional design but worth noting.",
+    "CODE: expiry_worker.py — FOR UPDATE OF b SKIP LOCKED works correctly for multi-worker safety. The LEFT JOIN on payments means a booking without a payment row would still be processed (payment_id=None, no payment update). This is acceptable since all bookings should have a payment row.",
+    "CODE: accept_booking endpoint — idempotence check fires BEFORE the TTL guard. If a booking is already in awaiting_payment (from instant_booking), calling accept returns 200 idempotent even if it's expired. The TTL guard only applies to requested→awaiting_payment transitions. This is correct but worth documenting."
+  ],
+  "updated_files": [
+    "/app/backend/routes/booking_routes.py (added b.payment_mode to BOOKING_FIELDS)",
+    "/app/backend/tests/test_booking_workflow.py (service_id fixture → /api/services/mine, added ensure_manual_approval_mode autouse fixture, fixed asyncio.get_event_loop() → asyncio.run())",
+    "/app/backend/tests/test_booking_expiry.py (service_id fixture → /api/services/mine, added ensure_manual_approval_mode autouse fixture)"
+  ],
+  "success_rate": {
+    "backend": "100% (55/55 pass, 3 skipped — no available single slots in DB)",
+    "frontend": "N/A (backend-only testing)"
+  },
+  "test_credentials": {
+    "admin": "admin@winek.app / WinekAdmin2024!",
+    "coach": "coach@winek.app / WinekCoach2024! (user_coach001, svc_demo001)",
+    "user": "user@winek.app / WinekUser2024! (user_demo001, role=coach in DB)"
+  },
+  "seed_data_creation": "No new seed data created. Tests create bookings dynamically and clean up via cancellation or worker expiry.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All 55 booking workflow tests pass. Key facts: (1) svc_demo001 is owned by coach@winek.app (user_coach001) — always use /api/services/mine with tok_coach to get it deterministically; (2) payment_mode is now included in all booking API responses; (3) service state is reset to manual_approval+allow_pay_later=True before/after test_booking_workflow.py and test_booking_expiry.py via autouse fixture; (4) 3 tests are expected skips when no available single slots exist in DB; (5) test_booking_workflows_v2.py leaves service in manual_approval+allow_pay_later=True after its restore_manual_no_pay_later() calls; (6) Stripe checkout sessions work via emergent proxy (sk_test_emergent); (7) all 4 booking flows A/B/C/D verified working.",
+  "rca_of_issues": [
+    {
+      "bug": "KeyError: 'payment_mode' in TestFluxA, TestFluxB tests",
+      "root_cause": "BOOKING_FIELDS constant in booking_routes.py did not include b.payment_mode in its SELECT projection. The column exists in the bookings table and is written on INSERT, but was never read back via _fetch_booking().",
+      "fix_applied": "Added b.payment_mode to BOOKING_FIELDS — now returned in all booking API responses.",
+      "files_modified": ["/app/backend/routes/booking_routes.py"]
+    },
+    {
+      "bug": "Service state contamination: test_booking_workflow.py and test_booking_expiry.py see instant_booking mode from prior test file",
+      "root_cause": "test_booking_workflows_v2.py modifies the service mode (instant_booking/manual_approval) during tests and leaves it in instant_booking after TestPayEndpoint tests. When test_booking_workflow.py and test_booking_expiry.py run next, they inherit this state. Tests that expect status='requested' (manual_approval) get status='awaiting_payment' instead.",
+      "fix_applied": "Added module-level autouse fixture 'ensure_manual_approval_mode' to both test files that resets service to manual_approval+allow_pay_later=True before/after all module tests.",
+      "files_modified": ["/app/backend/tests/test_booking_workflow.py", "/app/backend/tests/test_booking_expiry.py"]
+    },
+    {
+      "bug": "Non-deterministic service_id fixture returned svc_demo003 (owned by different coach)",
+      "root_cause": "service_id fixtures used GET /api/services?lat=... which has no ORDER BY — returns services in random order. The first service was sometimes svc_demo003 (not owned by tok_coach=coach@winek.app), causing 403 on accept/refuse operations.",
+      "fix_applied": "Changed service_id fixtures to use GET /api/services/mine with tok_coach — always returns coach's own service (svc_demo001).",
+      "files_modified": ["/app/backend/tests/test_booking_workflow.py", "/app/backend/tests/test_booking_expiry.py"]
+    },
+    {
+      "bug": "RuntimeError: no current event loop in TestConcurrency.test_concurrent_requests_same_service",
+      "root_cause": "asyncio.get_event_loop() is deprecated in Python 3.10+ and raises RuntimeError when no event loop exists in the current thread.",
+      "fix_applied": "Replaced asyncio.get_event_loop().run_until_complete(run()) with asyncio.run(run()).",
+      "files_modified": ["/app/backend/tests/test_booking_workflow.py"]
+    }
+  ]
+}

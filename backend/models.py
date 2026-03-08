@@ -28,12 +28,14 @@ class Precision(str, Enum):
 
 
 class BookingStatus(str, Enum):
-    requested  = "requested"   # demande initiale (remplace pending)
-    accepted   = "accepted"    # acceptée par le bénéficiaire
-    refused    = "refused"     # refusée par le bénéficiaire
-    expired    = "expired"     # expirée sans réponse
-    cancelled  = "cancelled"   # annulée par le payeur ou l'admin
-    completed  = "completed"   # prestation effectuée
+    requested        = "requested"        # demande initiale, en attente d'acceptation
+    awaiting_payment = "awaiting_payment" # slot bloqué, en attente de paiement
+    confirmed        = "confirmed"        # paiement effectué, réservation confirmée
+    accepted         = "accepted"         # (legacy) acceptée avant paiement
+    refused          = "refused"          # refusée par le bénéficiaire
+    expired          = "expired"          # expirée (délai de paiement/acceptation dépassé)
+    cancelled        = "cancelled"        # annulée
+    completed        = "completed"        # prestation effectuée
 
 
 class SlotStatus(str, Enum):
@@ -209,6 +211,10 @@ class ServiceUpdate(BaseModel):
     images: Optional[List[str]] = None
     locations: Optional[List[ServiceLocationItem]] = None
     slots: Optional[List[ServiceSlotItem]] = None
+    # Workflow de réservation
+    booking_approval_mode: Optional[str] = None       # "manual_approval" | "instant_booking"
+    allow_pay_later: Optional[bool] = None
+    pay_later_expiration_minutes: Optional[int] = None
 
 
 # --- PRICING ADMIN ---
@@ -244,7 +250,8 @@ class BookingRequest(BaseModel):
     slot_id: Optional[str] = None
     location_id: Optional[str] = None
     notes: Optional[str] = None
-    idempotency_key: Optional[str] = None   # clé d'idempotence fournie par le client
+    idempotency_key: Optional[str] = None
+    payment_mode: Optional[str] = "pay_now"   # "pay_now" | "pay_later"
 
 
 class CancelRequest(BaseModel):
