@@ -23,9 +23,55 @@ const ORANGE = '#FF9500';
 const ORANGE_LIGHT = 'rgba(255,149,0,0.12)';
 const ORANGE_BORDER = 'rgba(255,149,0,0.3)';
 const GREEN = '#1DBF73';
+const BLUE = '#0A84FF';
+const BLUE_LIGHT = 'rgba(10,132,255,0.10)';
+const AMBER = '#FF9F0A';
+const AMBER_LIGHT = 'rgba(255,159,10,0.12)';
 
 const STEP_LABELS = ['Infos', 'Domaine', 'Config', 'Résumé'];
 const DURATIONS = [30, 45, 60, 90, 120];
+const EXPIRY_OPTIONS = [
+  { label: '30 min', value: 30 },
+  { label: '1h', value: 60 },
+  { label: '2h', value: 120 },
+  { label: '4h', value: 240 },
+  { label: '1 jour', value: 1440 },
+];
+
+// ── Impact text selon le combo booking_mode × pay_later ──────────────────────
+function getImpactInfo(mode: string, payLater: boolean, expiryMin: number) {
+  const expiryLabel = EXPIRY_OPTIONS.find(o => o.value === expiryMin)?.label ?? `${expiryMin} min`;
+  if (mode === 'instant_booking' && !payLater) {
+    return {
+      badge: 'Réservation directe · Paiement immédiat',
+      icon: 'flash' as const,
+      color: GREEN,
+      text: "Les utilisateurs réservent immédiatement un créneau disponible.\nLe paiement est effectué au moment de la réservation.\nLe créneau est confirmé et n'est plus disponible pour les autres.",
+    };
+  }
+  if (mode === 'instant_booking' && payLater) {
+    return {
+      badge: `Réservation directe · Paiement différé · Créneau bloqué ${expiryLabel}`,
+      icon: 'timer-outline' as const,
+      color: BLUE,
+      text: `Le créneau est réservé immédiatement, le paiement peut être effectué plus tard.\n\nPendant le délai de ${expiryLabel} :\n· Le créneau est bloqué pour les autres\n· Aucun autre utilisateur ne peut le réserver\n\nSi le paiement n'est pas reçu, le créneau redevient disponible.`,
+    };
+  }
+  if (mode === 'manual_approval' && !payLater) {
+    return {
+      badge: 'Validation manuelle · Paiement immédiat',
+      icon: 'hand-left-outline' as const,
+      color: ORANGE,
+      text: "Les utilisateurs envoient une demande de réservation.\nVous pouvez accepter ou refuser avant toute confirmation.\nLe paiement est demandé après votre accord.",
+    };
+  }
+  return {
+    badge: `Validation manuelle · Paiement différé · Créneau bloqué ${expiryLabel}`,
+    icon: 'shield-checkmark-outline' as const,
+    color: AMBER,
+    text: `Les utilisateurs envoient une demande de réservation.\nSi vous acceptez, le créneau est temporairement bloqué.\n\nPendant le délai de ${expiryLabel} après votre acceptation :\n· Le créneau est réservé et bloqué\n· Il n'est plus visible pour les autres\n\nSi le paiement n'est pas reçu dans ce délai, la réservation expire et le créneau redevient disponible.`,
+  };
+}
 
 const CATEGORY_COLORS: Record<string, string> = {
   cat_running: '#00BFA5', cat_football: '#4CAF50', cat_basketball: '#FF9800',
@@ -155,6 +201,11 @@ export default function CreateServiceScreen() {
   const [maxParticipants, setMaxParticipants] = useState(1);
   const [slots, setSlots] = useState<DaySlot[]>([]);
 
+  // Booking workflow configuration
+  const [bookingApprovalMode, setBookingApprovalMode] = useState<'manual_approval' | 'instant_booking'>('manual_approval');
+  const [allowPayLater, setAllowPayLater] = useState(true);
+  const [payLaterExpirationMinutes, setPayLaterExpirationMinutes] = useState(60);
+
   const allTags = categories.flatMap(c => c.tags || []);
   const selectedTags = allTags.filter(t => selectedTagIds.includes(t.tag_id));
 
@@ -236,6 +287,10 @@ export default function CreateServiceScreen() {
           endTime: s.end_time || null,
         }));
       setSlots(daySlots);
+      // Booking workflow config
+      if (data.booking_approval_mode) setBookingApprovalMode(data.booking_approval_mode);
+      if (typeof data.allow_pay_later === 'boolean') setAllowPayLater(data.allow_pay_later);
+      if (data.pay_later_expiration_minutes) setPayLaterExpirationMinutes(data.pay_later_expiration_minutes);
     } catch (err: any) {
       Alert.alert('Erreur', 'Impossible de charger le service');
       router.back();
@@ -299,6 +354,9 @@ export default function CreateServiceScreen() {
         domain_id: domainId,
         tag_ids: selectedTagIds,
         images,
+        booking_approval_mode: bookingApprovalMode,
+        allow_pay_later: allowPayLater,
+        pay_later_expiration_minutes: allowPayLater ? payLaterExpirationMinutes : null,
         packages: [{
           type_id: 'main',
           type_label: 'Service principal',
@@ -536,7 +594,10 @@ export default function CreateServiceScreen() {
   );
 
   // ─── Step 3: Configuration ────────────────────────────────────────────────────
-  const renderStep3 = () => (
+  const renderStep3 = () => {
+    const impact = getImpactInfo(bookingApprovalMode, allowPayLater, payLaterExpirationMinutes);
+
+    return (
     <View style={s.stepContent}>
       <Text style={s.stepTitle}>Configuration</Text>
       <Text style={s.stepHint}>Définissez les modalités pratiques de votre service</Text>
@@ -610,8 +671,149 @@ export default function CreateServiceScreen() {
           />
         </View>
       </View>
+
+      {/* ── SECTION : Configuration des réservations ───────────────────── */}
+      <View style={s.bookingSection}>
+        <View style={s.bookingSectionHeader}>
+          <Ionicons name="settings-outline" size={18} color={Colors.foreground} />
+          <Text style={s.bookingSectionTitle}>Configuration des réservations</Text>
+        </View>
+
+        {/* 1. Mode de réservation */}
+        <View style={s.field}>
+          <Text style={s.fieldLabel}>Mode de réservation</Text>
+          <View style={s.bookingOptionRow}>
+            <TouchableOpacity
+              style={[s.bookingOptionCard, bookingApprovalMode === 'instant_booking' && s.bookingOptionCardActive]}
+              onPress={() => setBookingApprovalMode('instant_booking')}
+              testID="booking-mode-instant"
+            >
+              <View style={s.bookingOptionTop}>
+                <View style={[s.bookingRadio, bookingApprovalMode === 'instant_booking' && s.bookingRadioActive]}>
+                  {bookingApprovalMode === 'instant_booking' && <View style={s.bookingRadioDot} />}
+                </View>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={[s.bookingOptionLabel, bookingApprovalMode === 'instant_booking' && s.bookingOptionLabelActive]}>
+                    Réservation directe
+                  </Text>
+                  <Text style={s.bookingOptionDesc}>
+                    Le créneau est bloqué dès la réservation
+                  </Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[s.bookingOptionCard, bookingApprovalMode === 'manual_approval' && s.bookingOptionCardActive]}
+              onPress={() => setBookingApprovalMode('manual_approval')}
+              testID="booking-mode-manual"
+            >
+              <View style={s.bookingOptionTop}>
+                <View style={[s.bookingRadio, bookingApprovalMode === 'manual_approval' && s.bookingRadioActive]}>
+                  {bookingApprovalMode === 'manual_approval' && <View style={s.bookingRadioDot} />}
+                </View>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={[s.bookingOptionLabel, bookingApprovalMode === 'manual_approval' && s.bookingOptionLabelActive]}>
+                    Validation manuelle
+                  </Text>
+                  <Text style={s.bookingOptionDesc}>
+                    Vous acceptez ou refusez chaque demande
+                  </Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* 2. Paiement */}
+        <View style={s.field}>
+          <Text style={s.fieldLabel}>Paiement</Text>
+          <View style={s.bookingOptionRow}>
+            <TouchableOpacity
+              style={[s.bookingOptionCard, !allowPayLater && s.bookingOptionCardActive]}
+              onPress={() => setAllowPayLater(false)}
+              testID="pay-mode-now"
+            >
+              <View style={s.bookingOptionTop}>
+                <View style={[s.bookingRadio, !allowPayLater && s.bookingRadioActive]}>
+                  {!allowPayLater && <View style={s.bookingRadioDot} />}
+                </View>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={[s.bookingOptionLabel, !allowPayLater && s.bookingOptionLabelActive]}>
+                    Paiement immédiat
+                  </Text>
+                  <Text style={s.bookingOptionDesc}>
+                    L'utilisateur paie pour confirmer
+                  </Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[s.bookingOptionCard, allowPayLater && s.bookingOptionCardActive]}
+              onPress={() => setAllowPayLater(true)}
+              testID="pay-mode-later"
+            >
+              <View style={s.bookingOptionTop}>
+                <View style={[s.bookingRadio, allowPayLater && s.bookingRadioActive]}>
+                  {allowPayLater && <View style={s.bookingRadioDot} />}
+                </View>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={[s.bookingOptionLabel, allowPayLater && s.bookingOptionLabelActive]}>
+                    Payer plus tard autorisé
+                  </Text>
+                  <Text style={s.bookingOptionDesc}>
+                    Le créneau est bloqué sans paiement immédiat
+                  </Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* 3. Délai d'expiration (si pay_later activé) */}
+        {allowPayLater && (
+          <View style={s.field}>
+            <Text style={s.fieldLabel}>Délai de paiement</Text>
+            <View style={s.chips}>
+              {EXPIRY_OPTIONS.map(opt => (
+                <TouchableOpacity
+                  key={opt.value}
+                  style={[s.chip, payLaterExpirationMinutes === opt.value && s.chipActive]}
+                  onPress={() => setPayLaterExpirationMinutes(opt.value)}
+                  testID={`expiry-${opt.value}`}
+                >
+                  <Text style={[s.chipText, payLaterExpirationMinutes === opt.value && s.chipTextActive]}>
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {/* Warning */}
+            <View style={s.warningBox}>
+              <Ionicons name="warning-outline" size={15} color={AMBER} style={{ marginTop: 1 }} />
+              <Text style={s.warningText}>
+                Pendant ce délai, le créneau sera indisponible pour les autres utilisateurs jusqu'au paiement ou à l'expiration.
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* 4. Impact dynamique */}
+        <View style={[s.impactBox, { borderColor: impact.color + '40', backgroundColor: impact.color + '0D' }]}>
+          <View style={s.impactHeader}>
+            <Ionicons name={impact.icon} size={16} color={impact.color} />
+            <Text style={[s.impactTitle, { color: impact.color }]}>Impact de votre configuration</Text>
+          </View>
+          <View style={[s.impactBadge, { backgroundColor: impact.color + '18', borderColor: impact.color + '50' }]}>
+            <Text style={[s.impactBadgeText, { color: impact.color }]}>{impact.badge}</Text>
+          </View>
+          <Text style={s.impactText}>{impact.text}</Text>
+        </View>
+      </View>
     </View>
   );
+  };
 
   // ─── Step 4: Résumé & Score ───────────────────────────────────────────────────
   const { score, criteria } = useMemo(
@@ -673,6 +875,19 @@ export default function CreateServiceScreen() {
           <View style={s.statChip}><Text style={s.statChipText}>{maxParticipants} pers. max</Text></View>
           <View style={s.statChip}><Text style={s.statChipText}>{slots.length} créneau{slots.length !== 1 ? 'x' : ''}</Text></View>
         </View>
+
+        {/* Workflow résumé */}
+        {(() => {
+          const info = getImpactInfo(bookingApprovalMode, allowPayLater, payLaterExpirationMinutes);
+          return (
+            <View style={[s.summaryWorkflow, { borderColor: info.color + '40', backgroundColor: info.color + '0D' }]}>
+              <View style={s.summaryWorkflowRow}>
+                <Ionicons name={info.icon} size={14} color={info.color} />
+                <Text style={[s.summaryWorkflowText, { color: info.color }]}>{info.badge}</Text>
+              </View>
+            </View>
+          );
+        })()}
       </View>
     </View>
   );
@@ -1021,4 +1236,61 @@ const s = StyleSheet.create({
     backgroundColor: Colors.card, borderWidth: 1.5, borderColor: Colors.border,
   },
   tagChipText: { fontSize: 13, fontWeight: '500', color: Colors.muted },
+  // ── Booking workflow config ──────────────────────────────────────────────────
+  bookingSection: {
+    backgroundColor: Colors.card, borderRadius: Radius.xl, padding: Spacing.md,
+    borderWidth: 1, borderColor: Colors.border, gap: 18,
+  },
+  bookingSectionHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: Colors.border,
+  },
+  bookingSectionTitle: {
+    fontSize: 15, fontWeight: '800', color: Colors.foreground,
+  },
+  bookingOptionRow: { flexDirection: 'row', gap: 10 },
+  bookingOptionCard: {
+    flex: 1, borderRadius: Radius.lg, borderWidth: 1.5,
+    borderColor: Colors.border, backgroundColor: Colors.background, padding: 12,
+  },
+  bookingOptionCardActive: {
+    borderColor: ORANGE, backgroundColor: ORANGE_LIGHT,
+  },
+  bookingOptionTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  bookingRadio: {
+    width: 20, height: 20, borderRadius: 10, borderWidth: 2,
+    borderColor: Colors.border, alignItems: 'center', justifyContent: 'center',
+    marginTop: 1, flexShrink: 0,
+  },
+  bookingRadioActive: { borderColor: ORANGE },
+  bookingRadioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: ORANGE },
+  bookingOptionLabel: { fontSize: 13, fontWeight: '700', color: Colors.foreground, lineHeight: 18 },
+  bookingOptionLabelActive: { color: ORANGE },
+  bookingOptionDesc: { fontSize: 11, color: Colors.muted, lineHeight: 16 },
+  // Warning box
+  warningBox: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+    backgroundColor: AMBER_LIGHT, borderRadius: Radius.md,
+    borderWidth: 1, borderColor: AMBER + '50',
+    padding: 10, marginTop: 6,
+  },
+  warningText: { flex: 1, fontSize: 12, color: Colors.foreground, lineHeight: 17 },
+  // Impact box
+  impactBox: {
+    borderRadius: Radius.lg, borderWidth: 1, padding: 14, gap: 10,
+  },
+  impactHeader: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  impactTitle: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
+  impactBadge: {
+    alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 5,
+    borderRadius: Radius.full, borderWidth: 1,
+  },
+  impactBadgeText: { fontSize: 12, fontWeight: '700', letterSpacing: 0.1 },
+  impactText: { fontSize: 13, color: Colors.foreground, lineHeight: 20 },
+  // Summary workflow
+  summaryWorkflow: {
+    borderRadius: Radius.md, borderWidth: 1, padding: 10, marginTop: 2,
+  },
+  summaryWorkflowRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  summaryWorkflowText: { fontSize: 12, fontWeight: '700', flex: 1, lineHeight: 17 },
 });
