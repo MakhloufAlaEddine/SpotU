@@ -8,7 +8,7 @@ Fonctionnalités : création/découverte de services et SpotYous, système de r�
 - **Frontend**: Expo (React Native Web) - port 3000
 - **Backend**: FastAPI - port 8001 (routes préfixées `/api`)
 - **DB**: PostgreSQL (DATABASE_URL depuis .env)
-- **Paiements**: Stripe via emergentintegrations (StripeCheckout)
+- **Paiements**: Stripe via SDK natif + proxy Emergent (sk_test_emergent)
 - **Tests E2E**: Playwright Python + pytest
 
 ## User Personas
@@ -19,12 +19,12 @@ Fonctionnalités : création/découverte de services et SpotYous, système de r�
 ## Core Requirements
 1. SpotYou & Service CRUD (création, découverte, mise à jour, suppression)
 2. Découverte sur carte + recherche par tags
-3. Système de réservation (bookings)
+3. Système de réservation (bookings) — atomique, idempotent, row-level locking
 4. Chat temps réel + notifications
 5. Upload sécurisé d'images (profil, service, SpotYou)
 6. Tests E2E complets
 7. Moteur de monétisation générique (pricing_engine.py)
-8. Paiements Stripe Checkout + webhooks
+8. Paiements Stripe PaymentIntent (capture_method=manual) + webhooks
 
 ## What's Been Implemented
 
@@ -59,35 +59,52 @@ Fonctionnalités : création/découverte de services et SpotYous, système de r�
 | 2026-03-08 | Expiration auto bookings : expiry_worker.py + TTL guard accept + expires_at | backend/expiry_worker.py, booking_routes.py |
 | 2026-03-08 | DB: slot_status + idempotency_key + 2 index UNIQUE | backend/database.py |
 | 2026-03-08 | Enums: BookingStatus (6), SlotStatus (6), PaymentStatus (7) | backend/models.py |
-| 2026-03-08 | **Intégration Stripe Checkout** (emergentintegrations) | backend/routes/payment_routes.py |
-| 2026-03-08 | **UI paiement post-réservation** (Payer maintenant / Payer plus tard) | frontend/app/booking/confirm.tsx |
-| 2026-03-08 | **Page retour Stripe** avec polling statut | frontend/app/payment-success.tsx |
-| 2026-03-08 | Bug corrigé: AuthContext OAuth callback trop large | frontend/context/AuthContext.tsx |
 
-## Test Suite (E2E Playwright)
+### Phase 4 - Stripe PaymentIntent + Manual Capture (2026-03-08)
+| Date | Fonctionnalité | Fichiers modifiés |
+|------|---------------|-------------------|
+| 2026-03-08 | **stripe_service.py créé** : wrapper SDK natif, create_checkout_session (capture_method=manual), capture_payment_intent, cancel_payment_intent, parse_webhook_event, Stripe Connect | backend/stripe_service.py |
+| 2026-03-08 | **payment_routes.py réécrit** : SDK Stripe natif (pas emergentintegrations), checkout session avec capture manuelle, status polling, webhook complet (checkout.session.completed, payment_intent.succeeded, payment_intent.canceled, etc.) | backend/routes/payment_routes.py |
+| 2026-03-08 | **booking_routes.py étendu** : capture Stripe après accept, annulation Stripe après refuse/cancel (hors transaction) | backend/routes/booking_routes.py |
+| 2026-03-08 | **expiry_worker.py étendu** : annulation Stripe PaymentIntent lors de l'expiration + sélection stripe_payment_intent_id | backend/expiry_worker.py |
+| 2026-03-08 | DB migration: stripe_checkout_session_id colonne dans payments | backend/database.py |
+| 2026-03-08 | Test suite: 61 tests backend Stripe (100% pass) | backend/tests/test_stripe_payment_iter50.py |
+
+## Test Suite
 ```bash
+# E2E Playwright
 cd /app/frontend/e2e && python3 -m pytest --browser chromium --tb=short -v
+
+# Backend Stripe tests
+cd /app/backend && pytest tests/test_stripe_payment_iter50.py -v
 ```
 - test_01_auth.py ~ test_10_image_deletion.py: 45 tests ✅
 - test_admin_iter48.py: 27 tests admin dashboard ✅
-- test_stripe_iter49.py: 22 tests Stripe ✅
-**Total: 94 tests passent**
+- test_stripe_iter49.py: 22 tests (3 assertions à corriger pour nouveau flow) ⚠️
+- test_stripe_payment_iter50.py: 61 tests Stripe PaymentIntent ✅
+- test_booking_workflow.py: concurrency tests ✅
+- test_booking_expiry.py: expiration worker tests ✅
 
 ## Code Architecture
 ```
 /app
 ├── backend/
+│   ├── stripe_service.py           # Wrapper Stripe SDK (PaymentIntent, Checkout, Connect)
 │   ├── pricing_engine.py           # Moteur de pricing centralisé
+│   ├── expiry_worker.py            # Worker expiration bookings + annulation Stripe
 │   ├── database.py                 # Schema PostgreSQL + migrations
 │   ├── routes/
 │   │   ├── admin_routes.py         # CRUD pricing rules, subscription plans
-│   │   ├── booking_routes.py       # Création atomique booking+payment
-│   │   └── payment_routes.py       # Stripe checkout session/status/webhook
+│   │   ├── booking_routes.py       # Booking atomique + Stripe capture/cancel
+│   │   └── payment_routes.py       # Stripe checkout session/status/webhook (SDK natif)
 │   └── tests/
 │       ├── test_pricing.py
 │       ├── test_pricing_engine.py
+│       ├── test_booking_workflow.py
+│       ├── test_booking_expiry.py
 │       ├── test_admin_iter48.py
-│       └── test_stripe_iter49.py
+│       ├── test_stripe_iter49.py (3 assertions obsolètes à corriger)
+│       └── test_stripe_payment_iter50.py
 └── frontend/
     └── app/
         ├── (tabs)/
@@ -98,17 +115,25 @@ cd /app/frontend/e2e && python3 -m pytest --browser chromium --tb=short -v
 ```
 
 ## Key API Endpoints
-### Paiements Stripe
-- `POST /api/payments/checkout/session` — Créer session Stripe (body: {booking_id, origin_url})
+### Paiements Stripe (SDK natif, capture_method=manual)
+- `POST /api/payments/checkout/session` — Créer session Checkout Stripe (capture manuelle)
 - `GET /api/payments/checkout/status/{session_id}` — Vérifier statut paiement
-- `POST /api/webhook/stripe` — Webhook Stripe (payment_intent.succeeded etc.)
+- `POST /api/webhook/stripe` — Webhook Stripe (checkout.session.completed, payment_intent.succeeded, etc.)
 - `GET /api/payments/me` — Historique paiements utilisateur
+
+### Bookings (avec Stripe intégré)
+- `POST /api/bookings/request` — Créer réservation (booking + payment record)
+- `POST /api/bookings/{id}/accept` — Accepter + capturer PaymentIntent Stripe
+- `POST /api/bookings/{id}/refuse` — Refuser + annuler PaymentIntent Stripe
+- `POST /api/bookings/{id}/cancel` — Annuler + annuler PaymentIntent Stripe
+- `PATCH /api/bookings/{id}/status` — Endpoint legacy (redirige vers verbes dédiés)
 
 ### Admin Monetisation
 - `GET/POST/PUT/DELETE /api/admin/pricing-rules`
 - `GET/POST/PUT/DELETE /api/admin/subscription-plans`
 - `GET /api/admin/stats`
 - `GET /api/admin/payments`
+- `GET /api/admin/payments/stats`
 
 ### Autres
 - `POST /api/upload-image`
@@ -122,40 +147,58 @@ cd /app/frontend/e2e && python3 -m pytest --browser chromium --tb=short -v
 - [x] Upload web (blob URI fix)
 - [x] Suite E2E Playwright
 - [x] Admin Dashboard monetisation
-- [x] Intégration Stripe Checkout
+- [x] Intégration Stripe PaymentIntent + manual capture (COMPLÉTÉ 2026-03-08)
 
 ### P1 - Important
 - [ ] Flow abonnement utilisateur (souscrire/gérer un plan Stripe Subscription)
 - [ ] Update SpotYou flow (à valider post-upload fix)
+- [ ] Fix test_stripe_iter49.py (3 assertions obsolètes pour nouveau webhook behavior)
 - [ ] Fix pre-existing backend tests (test_notifications_iter47.py, etc.)
 
 ### P2 - Souhaité
+- [ ] Implémenter stripe.Refund.create() pour annulation post-capture
 - [ ] Support bilingue FR/EN (i18n)
 - [ ] Push Notifications EAS Build
 - [ ] Badge Admin dans profil (cosmétique)
 
+### P3 - Production
+- [ ] Configurer STRIPE_WEBHOOK_SECRET avec la vraie clé webhook Stripe
+- [ ] Tester avec une vraie clé Stripe (pas le proxy Emergent) pour valider capture_method=manual
+
 ### Futur / Backlog
 - [ ] Admin Dashboard amélioré
 - [ ] Optimisation performance (lazy loading)
-- [ ] Stripe Connect pour les coaches (payouts automatiques)
+- [ ] Stripe Connect pour les coaches (payouts automatiques) — scaffold déjà dans stripe_service.py
 - [ ] Tests backend étendus
 
 ## Key DB Schema
-- **payments**: `{payment_id, payer_user_id, receiver_user_id, product_type, base_amount, payer_total_amount, receiver_net_amount, platform_total_fee, status, currency, stripe_payment_intent_id (stocke aussi session_id Stripe), pricing_rule_snapshot (JSONB)}`
+- **payments**: `{payment_id, payer_user_id, receiver_user_id, product_type, base_amount, payer_total_amount, receiver_net_amount, platform_total_fee, status, currency, stripe_payment_intent_id, stripe_checkout_session_id, stripe_charge_id, stripe_transfer_id, pricing_rule_snapshot (JSONB)}`
+- **bookings**: `{booking_id, service_id, user_id, coach_id, status, slot_id, slot_status, expires_at, idempotency_key, ...}`
 - **pricing_rules**: `{rule_id, product_type, payer_fixed_fee, payer_percent_fee, receiver_fixed_fee, receiver_percent_fee, active, priority, description, currency}`
-- **subscription_plans**: `{plan_id, name, price, duration_days, exempt_payer_fixed, exempt_payer_percent, exempt_receiver_fixed, exempt_receiver_percent, active}`
+- **subscription_plans**: `{plan_id, name, price, duration_days, exempt_*, active}`
 - **user_subscriptions**: `{subscription_id, user_id, plan_id, stripe_subscription_id, status, starts_at, expires_at}`
+- **users**: `{..., stripe_customer_id, stripe_account_id}`
+
+## Stripe Flow (avec capture manuelle)
+1. User se connecte → navigue vers un service → clique "Réserver"
+2. Confirmation → notes → "Envoyer la demande au coach"
+3. Booking créé → pricing calculé → payment record avec status='requires_authorization'
+4. Bouton "Payer maintenant (X.XX €)" → `POST /api/payments/checkout/session`
+5. Checkout Session créée avec `payment_intent_data.capture_method=manual` → URL Stripe
+6. User paie via Stripe Checkout → PaymentIntent en `requires_capture`
+7. Webhook `checkout.session.completed` → payment status='authorized' en DB
+8. Coach voit la demande → accepte → `POST /api/bookings/{id}/accept`
+9. Backend: DB booking='accepted', puis `stripe.PaymentIntent.capture(pi_id)` → payment status='captured'
+10. Coach refuse → `POST /api/bookings/{id}/refuse` → `stripe.PaymentIntent.cancel(pi_id)` → remboursement auto
+11. Expiration (48h sans réponse) → expiry_worker → `stripe.PaymentIntent.cancel(pi_id)` → remboursement auto
 
 ## Credentials de test
 - Admin: admin@winek.app / WinekAdmin2024!
 - Coach: coach@winek.app / WinekCoach2024!
 - User: user@winek.app / WinekUser2024!
 
-## Stripe Test Flow
-1. User se connecte → navigue vers un service → clique "Réserver"
-2. Confirmation → notes → "Envoyer la demande au coach"  
-3. Booking créé → pricing calculé → bouton "Payer maintenant (X.XX €)" affiché
-4. Click → `POST /api/payments/checkout/session` → URL Stripe checkout créée
-5. Redirect vers checkout.stripe.com → paiement avec carte test (4242 4242 4242 4242)
-6. Stripe redirect vers `/payment-success?session_id=cs_test_...`
-7. Polling `GET /api/payments/checkout/status/{session_id}` → status "succeeded" → affiche succès
+## Notes Techniques - Proxy Emergent Stripe
+Le proxy Emergent (`sk_test_emergent` → `https://integrations.emergentagent.com/stripe`) est utilisé pour les tests. Comportement connu :
+- `session.payment_intent = None` (le proxy ne retourne pas l'ID du PI)
+- Les appels `capture_payment_intent` / `cancel_payment_intent` sont silencieusement skippés (null check)
+- En production avec une vraie clé Stripe, `session.payment_intent` est peuplé et la capture manuelle fonctionne
