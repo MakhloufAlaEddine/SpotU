@@ -33,6 +33,7 @@ from auth_utils import require_auth
 from database import get_pool, row_to_dict, rows_to_list
 from push_service import send_push_to_user
 from pricing_engine import pricing_engine
+import stripe_service
 import asyncio
 import asyncpg
 import json
@@ -345,6 +346,12 @@ async def accept_booking(booking_id: str, request: Request):
                     "Cette réservation a expiré et ne peut plus être acceptée — le créneau a été libéré",
                 )
 
+        # Récupérer le PI ID avant la transaction
+        pi_row = await conn.fetchrow(
+            "SELECT stripe_payment_intent_id, status AS pay_status FROM payments WHERE booking_id=$1 LIMIT 1",
+            booking_id,
+        )
+
         async with conn.transaction():
             await conn.execute(
                 "UPDATE bookings SET status='accepted', updated_at=NOW() WHERE booking_id=$1",
@@ -352,7 +359,7 @@ async def accept_booking(booking_id: str, request: Request):
             )
             await conn.execute(
                 """UPDATE payments SET status='authorized', updated_at=NOW()
-                   WHERE booking_id=$1 AND status='requires_authorization'""",
+                   WHERE booking_id=$1 AND status IN ('requires_authorization', 'authorized')""",
                 booking_id,
             )
             if bk["slot_id"]:
@@ -361,6 +368,26 @@ async def accept_booking(booking_id: str, request: Request):
                        WHERE slot_id=$1 AND slot_status='pending'""",
                     bk["slot_id"],
                 )
+
+    # ── Capture Stripe hors transaction ───────────────────────────────────────
+    if pi_row and pi_row["stripe_payment_intent_id"]:
+        pi_id = pi_row["stripe_payment_intent_id"]
+        try:
+            await stripe_service.capture_payment_intent(pi_id)
+            # Mettre à jour le statut payment → captured
+            async with pool.acquire() as conn2:
+                await conn2.execute(
+                    """UPDATE payments SET status='captured', updated_at=NOW()
+                       WHERE booking_id=$1 AND status='authorized'""",
+                    booking_id,
+                )
+            log.info("Capture Stripe réussie : pi=%s | booking=%s", pi_id, booking_id)
+        except Exception as exc:
+            log.error(
+                "Erreur capture Stripe pi=%s | booking=%s : %s",
+                pi_id, booking_id, exc,
+            )
+            # Le webhook payment_intent.succeeded se chargera de la mise à jour
 
     return {"success": True, "status": "accepted", "booking_id": booking_id}
 
@@ -396,6 +423,12 @@ async def refuse_booking(booking_id: str, request: Request):
         if bk["status"] not in ("requested",):
             raise HTTPException(409, f"Impossible de refuser une réservation en état '{bk['status']}'")
 
+        # Récupérer le PI ID avant la transaction
+        pi_row = await conn.fetchrow(
+            "SELECT stripe_payment_intent_id, status AS pay_status FROM payments WHERE booking_id=$1 LIMIT 1",
+            booking_id,
+        )
+
         async with conn.transaction():
             await conn.execute(
                 "UPDATE bookings SET status='refused', updated_at=NOW() WHERE booking_id=$1",
@@ -412,6 +445,15 @@ async def refuse_booking(booking_id: str, request: Request):
                        WHERE slot_id=$1 AND slot_status='pending'""",
                     bk["slot_id"],
                 )
+
+    # ── Annulation Stripe hors transaction ───────────────────────────────────
+    if pi_row and pi_row["stripe_payment_intent_id"]:
+        pi_id = pi_row["stripe_payment_intent_id"]
+        try:
+            await stripe_service.cancel_payment_intent(pi_id, reason="refused")
+            log.info("Annulation Stripe réussie : pi=%s | booking=%s", pi_id, booking_id)
+        except Exception as exc:
+            log.error("Erreur annulation Stripe pi=%s : %s", pi_id, exc)
 
     return {"success": True, "status": "refused", "booking_id": booking_id}
 
@@ -477,6 +519,28 @@ async def cancel_booking(booking_id: str, request: Request):
                        WHERE slot_id=$1 AND slot_status IN ('pending','booked')""",
                     bk["slot_id"],
                 )
+
+    # ── Annulation / Remboursement Stripe hors transaction ────────────────────
+    # Récupérer le PI ID (pas dans la requête initiale — on le charge séparément)
+    if bk.get("payment_id") and new_pay_status in ("cancelled", "refunded"):
+        async with pool.acquire() as conn2:
+            pi_row = await conn2.fetchrow(
+                "SELECT stripe_payment_intent_id FROM payments WHERE payment_id=$1",
+                bk["payment_id"],
+            )
+        if pi_row and pi_row["stripe_payment_intent_id"]:
+            pi_id = pi_row["stripe_payment_intent_id"]
+            try:
+                if new_pay_status == "cancelled":
+                    await stripe_service.cancel_payment_intent(pi_id, reason="cancelled")
+                # Note : le remboursement réel (refunded) nécessite stripe.Refund.create
+                # — non implémenté ici (cas rare d'annulation post-capture)
+                log.info(
+                    "Stripe annulation : pi=%s | new_pay_status=%s | booking=%s",
+                    pi_id, new_pay_status, booking_id,
+                )
+            except Exception as exc:
+                log.error("Erreur Stripe annulation pi=%s : %s", pi_id, exc)
 
     return {
         "success": True,

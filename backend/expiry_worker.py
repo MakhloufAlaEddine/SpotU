@@ -23,6 +23,8 @@ import logging
 import os
 from datetime import timezone, datetime
 
+import stripe_service
+
 log = logging.getLogger("expiry_worker")
 
 EXPIRY_BATCH_SIZE = 50          # max bookings traités par tick
@@ -63,7 +65,8 @@ async def _expire_batch(pool, batch_size: int) -> int:
                 b.receiver_user_id,
                 b.service_id,
                 p.payment_id,
-                p.status  AS pay_status
+                p.status  AS pay_status,
+                p.stripe_payment_intent_id
             FROM bookings b
             LEFT JOIN payments p ON p.booking_id = b.booking_id
             WHERE b.status = 'requested'
@@ -88,6 +91,7 @@ async def _expire_batch(pool, batch_size: int) -> int:
             service_id  = bk["service_id"]
             payment_id  = bk.get("payment_id")
             pay_status  = bk.get("pay_status", "")
+            pi_id       = bk.get("stripe_payment_intent_id")
 
             try:
                 async with conn.transaction():
@@ -155,6 +159,14 @@ async def _expire_batch(pool, batch_size: int) -> int:
                         body=f"Une demande de réservation pour « {svc_title} » a expiré sans avoir été traitée.",
                         data={**notif_data, "payer_id": payer_id},
                     )
+
+                # ── Annulation Stripe hors transaction ───────────────────────
+                if pi_id and pay_status in ("requires_authorization", "authorized", "capture_pending"):
+                    try:
+                        await stripe_service.cancel_payment_intent(pi_id, reason="expired")
+                        log.info("Stripe annulation expiration : pi=%s | booking=%s", pi_id, bid)
+                    except Exception as stripe_exc:
+                        log.error("Erreur Stripe annulation pi=%s : %s", pi_id, stripe_exc)
 
                 processed += 1
                 log.info("Booking expiré : %s (slot=%s, pay=%s→cancelled)", bid, slot_id, pay_status)

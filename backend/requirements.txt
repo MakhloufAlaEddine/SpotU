@@ -28,3 +28,4 @@ emergentintegrations==0.1.0
 httpx==0.28.1
 limits==5.8.0
 slowapi==0.1.9
+stripe==14.3.0

@@ -36,6 +36,10 @@ def _init_stripe():
     stripe.api_key = _STRIPE_KEY
     if not _STRIPE_KEY:
         log.warning("STRIPE_API_KEY non configurée — les appels Stripe échoueront")
+    elif "sk_test_emergent" in _STRIPE_KEY:
+        # Clé de test Emergent → proxy géré par Emergent
+        stripe.api_base = "https://integrations.emergentagent.com/stripe"
+        log.info("Stripe configuré via proxy Emergent")
 
 
 _init_stripe()
@@ -236,3 +240,67 @@ async def create_account_link(account_id: str, return_url: str, refresh_url: str
         type="account_onboarding",
     )
     return link.url
+
+
+# ── Checkout Session (capture manuelle) ──────────────────────────────────────
+
+async def create_checkout_session(
+    *,
+    amount_cents: int,
+    currency: str,
+    success_url: str,
+    cancel_url: str,
+    metadata: dict,
+    customer_id: str | None = None,
+    idempotency_key: str | None = None,
+) -> stripe.checkout.Session:
+    """
+    Crée une Stripe Checkout Session avec capture_method=manual.
+
+    - Le PaymentIntent est créé automatiquement par Stripe (mode='payment').
+    - session.payment_intent contient l'ID du PI (pi_...) disponible immédiatement.
+    - Après le checkout, le PI passe en requires_capture (non encore débité).
+    - La capture est déclenchée manuellement via capture_payment_intent.
+
+    Retourne l'objet Session Stripe complet.
+    """
+    if amount_cents <= 0:
+        raise ValueError(f"amount_cents invalide : {amount_cents}")
+
+    params: dict = {
+        "line_items": [{
+            "price_data": {
+                "currency": currency.lower(),
+                "product_data": {"name": "Réservation de service SpotU"},
+                "unit_amount": amount_cents,
+            },
+            "quantity": 1,
+        }],
+        "mode": "payment",
+        "payment_intent_data": {
+            "capture_method": "manual",
+            "metadata": metadata,
+        },
+        "success_url": success_url,
+        "cancel_url": cancel_url,
+        "metadata": metadata,
+    }
+
+    if customer_id:
+        params["customer"] = customer_id
+
+    kwargs = {}
+    if idempotency_key:
+        kwargs["idempotency_key"] = f"cs_{idempotency_key}"
+
+    session = await _run_sync(stripe.checkout.Session.create, **params, **kwargs)
+    log.info(
+        "Checkout Session créée : cs=%s | pi=%s | amount=%d %s",
+        session.id, session.payment_intent, amount_cents, currency,
+    )
+    return session
+
+
+async def retrieve_checkout_session(session_id: str) -> stripe.checkout.Session:
+    """Récupère une Checkout Session par son ID."""
+    return await _run_sync(stripe.checkout.Session.retrieve, session_id)
