@@ -185,6 +185,28 @@ cd /app/backend && pytest tests/test_stripe_payment_iter50.py -v
 - [x] Suite E2E Playwright
 - [x] Admin Dashboard monetisation
 - [x] Intégration Stripe PaymentIntent + manual capture (COMPLÉTÉ 2026-03-08)
+- [x] Workflow de réservation flexible v2 (4 flux) — COMPLÉTÉ 2026-03-08
+
+### Phase 5 - Workflow de Réservation Flexible (2026-03-08) ✅ TERMINÉ
+
+**Backend v2 - 4 flux de réservation configurables :**
+
+| Flux | Mode approbation | Paiement | Statut initial | Après accept |
+|------|-----------------|----------|----------------|--------------|
+| A | instant_booking | pay_now | awaiting_payment (30min) | N/A |
+| B | instant_booking | pay_later | awaiting_payment (configurable) | N/A |
+| C | manual_approval | pay_now | requested (48h) | awaiting_payment (30min) |
+| D | manual_approval | pay_later | requested (48h) | awaiting_payment (configurable) |
+
+**Endpoints ajoutés/modifiés :**
+- `POST /bookings/request` — Crée une réservation selon le workflow configuré
+- `POST /bookings/{id}/accept` — requested → awaiting_payment (avec timedelta Python)
+- `POST /bookings/{id}/pay` — Crée une Stripe Checkout Session (metadata dict corrigé)
+- `POST /bookings/{id}/cancel` — Libère les slots reserved/pending/booked
+- `PATCH /services/{id}` — Alias PATCH pour configurer booking_approval_mode, allow_pay_later
+- Worker d'expiration : gère awaiting_payment + requested
+
+**Tests : 55/55 tests backend passent (3 skips attendus — pas de slots single disponibles)**
 
 ### P1 - Important
 - [ ] Flow abonnement utilisateur (souscrire/gérer un plan Stripe Subscription)
