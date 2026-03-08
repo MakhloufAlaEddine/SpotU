@@ -1,0 +1,64 @@
+{
+  "summary": "Iteration 52 — Stripe Webhook Handlers Testing (Backend Only). 28/28 tests PASS (100%) after one test-infrastructure fix. All webhook events verified: payment transitions (authorized/captured/failed/cancelled), charge refunds (full/partial), refund.updated, subscription lifecycle (created/updated/deleted), invoice.paid/payment_failed, idempotence, anti-regression guards, DB event tracking, and 2 full e2e cycles.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "test_webhooks_iter52.py fixture user_ids",
+        "issue": "TEST INFRASTRUCTURE FIX: subscription_plans table is empty in current DB state. user_ids fixture fell back to hardcoded 'plan_basic' which doesn't exist → ForeignKeyViolationError on all insert_test_subscription() calls. Fixed by auto-creating a temporary test plan 'plan_test_iter52_webhook' in fixture setup + cleanup on teardown.",
+        "priority": "LOW (test infra, not production bug)"
+      },
+      {
+        "endpoint": "POST /api/webhook/stripe",
+        "issue": "STRIPE_WEBHOOK_SECRET is empty ('') → no HMAC signature verification. Expected in test env, must be set in production.",
+        "priority": "LOW (expected in test env)"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_webhooks_iter52.py",
+    "/app/test_reports/pytest/iter52_webhooks.xml"
+  ],
+  "action_items": [
+    "PROD: Set STRIPE_WEBHOOK_SECRET to a real value before going to production",
+    "PROD: Populate subscription_plans table with real plans before production launch (table currently empty)"
+  ],
+  "critical_code_review_comments": [
+    "webhook_handlers.py: Architecture clean and complete. dispatch() properly implements idempotence (INSERT ON CONFLICT DO NOTHING), routes all 13+ event types, logs errors without re-raising (Stripe gets 200 always). Anti-regression guards (WHERE status NOT IN (...)) work correctly for all state transitions.",
+    "webhook_handlers.py: _resolve_payment_id() fallback chain works correctly: metadata.payment_id → stripe_payment_intent_id → stripe_checkout_session_id → stripe_charge_id. All 4 lookup strategies tested and passing.",
+    "payment_routes.py: Webhook endpoint correctly refactored to ~15 lines, fully delegates to webhook_handlers.dispatch(). Clean separation of concerns.",
+    "subscription_plans table: Table is empty in current DB. Tests now auto-create a temporary plan. Main agent should populate this table with real plans for the app to function."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_webhooks_iter52.py"
+  ],
+  "success_rate": {
+    "backend": "100% (28/28 tests pass)",
+    "frontend": "not tested (backend only)"
+  },
+  "test_credentials": {
+    "admin": "admin@winek.app / WinekAdmin2024!",
+    "coach": "coach@winek.app / WinekCoach2024!",
+    "user": "user@winek.app / WinekUser2024!"
+  },
+  "mocked_apis": {
+    "stripe_signature_verification": "MOCKED — STRIPE_WEBHOOK_SECRET is empty, no HMAC verification in test env",
+    "stripe_retrieve_subscription": "MOCKED/PARTIAL — Emergent proxy may return partial data; test_16 (checkout.session subscription mode) only verifies HTTP 200 + event tracked, not subscription creation (due to potential proxy failure)"
+  },
+  "seed_data_creation": "Auto-created temporary plan 'plan_test_iter52_webhook' in subscription_plans table during test run. Cleaned up after test module completes.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 52 complete. All 28 webhook tests pass. Key facts: (1) webhook_handlers.py is the new centralized webhook dispatcher — fully tested; (2) payment_routes.py /api/webhook/stripe endpoint now delegates entirely to webhook_handlers.dispatch(); (3) subscription_plans table is EMPTY in current DB — future tests that use subscription fixtures need to create a plan first (pattern: INSERT ON CONFLICT DO NOTHING + cleanup); (4) pytest.ini in /app/backend has asyncio_mode=auto, asyncio_default_fixture_loop_scope=module; (5) stripe_webhook_events table exists with correct schema: event_id, event_type, status, related_id, error_message, processed_at, updated_at.",
+  "rca_of_issue": {
+    "bug": "Test fixture user_ids returned hardcoded 'plan_basic' when subscription_plans table is empty",
+    "root_cause": "subscription_plans table has no rows. The fixture query 'SELECT plan_id FROM subscription_plans WHERE active=TRUE LIMIT 1' returned None, triggering the 'plan_basic' fallback. Since 'plan_basic' doesn't exist as a FK, all insert_test_subscription() calls raised ForeignKeyViolationError.",
+    "fix_applied": "Modified user_ids fixture to INSERT a temporary test plan ('plan_test_iter52_webhook') when no active plan is found, use it for tests, and DELETE it during module teardown.",
+    "files_modified": ["/app/backend/tests/test_webhooks_iter52.py"]
+  }
+}

@@ -275,154 +275,53 @@ async def get_checkout_status(session_id: str, request: Request):
 @router.post("/webhook/stripe")
 async def stripe_webhook(request: Request):
     """
-    Webhook Stripe — met à jour les paiements et bookings en temps réel.
-    Gère les événements :
-      - checkout.session.completed (paiement autorisé en mode manual)
-      - payment_intent.amount_capturable_updated (PI prêt à capturer)
-      - payment_intent.succeeded (après capture)
-      - payment_intent.payment_failed
-      - payment_intent.canceled
+    Webhook Stripe — point d'entrée unique.
+
+    Délègue TOUTE la logique à webhook_handlers.dispatch() qui assure :
+      - Vérification d'idempotence (table stripe_webhook_events)
+      - Transitions de statut : payments, bookings, user_subscriptions
+      - Gestion de toutes les erreurs (log sans reraise → 200 forcé pour Stripe)
+
+    Événements supportés (voir webhook_handlers.py pour la liste complète) :
+      Paiements    : checkout.session.completed, payment_intent.*
+      Remboursements : charge.refunded, refund.updated
+      Abonnements  : customer.subscription.*, invoice.paid, invoice.payment_failed
     """
-    pool = get_pool()
+    pool       = get_pool()
     body_bytes = await request.body()
     sig        = request.headers.get("Stripe-Signature", "")
 
-    # Vérification de signature (si STRIPE_WEBHOOK_SECRET configuré)
+    # ── 1. Vérification signature Stripe ──────────────────────────────────────
     if STRIPE_WEBHOOK_SECRET:
         try:
             event = stripe_service.parse_webhook_event(body_bytes, sig)
         except stripe.error.SignatureVerificationError as exc:
+            log.warning("Signature webhook invalide : %s", exc)
             raise HTTPException(status_code=400, detail=f"Signature invalide : {exc}")
     else:
-        # Dev/test sans webhook secret : parser directement
+        # Mode dev/test sans secret : parse JSON brut
         try:
             event = json.loads(body_bytes)
         except Exception:
-            raise HTTPException(status_code=400, detail="Body invalide")
+            raise HTTPException(status_code=400, detail="Body JSON invalide")
 
-    # Extraire type et objet selon que c'est un dict ou un objet Stripe
+    # ── 2. Extraction event_id / event_type / objet ───────────────────────────
     if isinstance(event, dict):
+        event_id   = event.get("id", "")
         event_type = event.get("type", "")
         obj        = event.get("data", {}).get("object", {})
     else:
+        event_id   = event.id
         event_type = event.type
         obj        = event.data.object
 
-    # Récupérer metadata + payment_intent_id selon le type d'événement
-    def _get(o, key, default=None):
-        return o.get(key, default) if isinstance(o, dict) else getattr(o, key, default)
+    if not event_id or not event_type:
+        raise HTTPException(status_code=400, detail="event id/type manquant")
 
-    metadata          = _get(obj, "metadata", {}) or {}
-    payment_id        = _get(metadata, "payment_id")
-    booking_id_meta   = _get(metadata, "booking_id")
-    event_pi_id       = _get(obj, "id") if "payment_intent" in event_type else _get(obj, "payment_intent")
+    log.info("Webhook reçu : type=%s | id=%s", event_type, event_id)
 
-    # Fallback : chercher par stripe_payment_intent_id si pas de metadata
-    if not payment_id and event_pi_id:
-        async with pool.acquire() as conn:
-            row = await conn.fetchrow(
-                "SELECT payment_id, booking_id FROM payments WHERE stripe_payment_intent_id = $1",
-                event_pi_id,
-            )
-            if row:
-                payment_id      = row["payment_id"]
-                booking_id_meta = row["booking_id"]
-
-    # Fallback par checkout session_id
-    if not payment_id and "checkout.session" in event_type:
-        cs_id = _get(obj, "id")
-        if cs_id:
-            async with pool.acquire() as conn:
-                row = await conn.fetchrow(
-                    "SELECT payment_id, booking_id FROM payments WHERE stripe_checkout_session_id = $1",
-                    cs_id,
-                )
-                if row:
-                    payment_id      = row["payment_id"]
-                    booking_id_meta = row["booking_id"]
-
-    # ── Dispatch vers le handler abonnements (AVANT le check payment_id) ────
-    # Les events abonnement n'ont pas de payment_id — ils doivent être traités
-    # indépendamment du flux paiement.
-    _SUBSCRIPTION_EVENTS = {
-        "checkout.session.completed",           # mode=subscription seulement
-        "customer.subscription.created",
-        "customer.subscription.updated",
-        "customer.subscription.deleted",
-        "invoice.paid",
-        "invoice.payment_failed",
-    }
-    if event_type in _SUBSCRIPTION_EVENTS:
-        from routes.subscription_routes import handle_subscription_event
-        try:
-            await handle_subscription_event(pool, event_type, obj)
-        except Exception as exc:
-            log.error("Erreur handler abonnement (event=%s) : %s", event_type, exc)
-
-    if not payment_id:
-        log.debug("Webhook ignoré — pas de payment_id trouvé (type=%s)", event_type)
-        return {"received": True}
-
-    async with pool.acquire() as conn:
-        async with conn.transaction():
-
-            if event_type == "checkout.session.completed":
-                ps = _get(obj, "payment_status", "")
-                mode = _get(obj, "mode", "")
-
-                if mode == "subscription":
-                    # Déléguer aux handlers abonnement (hors transaction courante)
-                    pass  # traité ci-dessous, hors bloc
-                elif ps == "unpaid":
-                    # capture_method=manual — autorisé, pas encore capturé
-                    await conn.execute(
-                        """UPDATE payments SET status='authorized', updated_at=NOW()
-                           WHERE payment_id=$1 AND status='requires_authorization'""",
-                        payment_id,
-                    )
-                elif ps == "paid":
-                    await conn.execute(
-                        "UPDATE payments SET status='captured', updated_at=NOW() WHERE payment_id=$1",
-                        payment_id,
-                    )
-                    if booking_id_meta:
-                        await conn.execute(
-                            "UPDATE bookings SET payment_status='paid', updated_at=NOW() WHERE booking_id=$1",
-                            booking_id_meta,
-                        )
-
-            elif event_type == "payment_intent.amount_capturable_updated":
-                await conn.execute(
-                    """UPDATE payments SET status='authorized', updated_at=NOW()
-                       WHERE payment_id=$1 AND status='requires_authorization'""",
-                    payment_id,
-                )
-
-            elif event_type == "payment_intent.succeeded":
-                await conn.execute(
-                    "UPDATE payments SET status='captured', updated_at=NOW() WHERE payment_id=$1",
-                    payment_id,
-                )
-                if booking_id_meta:
-                    await conn.execute(
-                        "UPDATE bookings SET payment_status='paid', updated_at=NOW() WHERE booking_id=$1",
-                        booking_id_meta,
-                    )
-
-            elif event_type == "payment_intent.payment_failed":
-                await conn.execute(
-                    "UPDATE payments SET status='failed', updated_at=NOW() WHERE payment_id=$1",
-                    payment_id,
-                )
-
-            elif event_type == "payment_intent.canceled":
-                await conn.execute(
-                    "UPDATE payments SET status='cancelled', updated_at=NOW() WHERE payment_id=$1",
-                    payment_id,
-                )
-
-    log.info("Webhook traité : type=%s | payment=%s", event_type, payment_id)
-    return {"received": True}
+    # ── 3. Dispatch centralisé ────────────────────────────────────────────────
+    return await webhook_handlers.dispatch(pool, event_id, event_type, obj)
 
 
 # ── Mise à jour champs Stripe (usage interne) ─────────────────────────────────
