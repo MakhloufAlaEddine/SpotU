@@ -8,9 +8,9 @@ Architecture :
   dispatch(pool, raw_event_id, event_type, obj)
     ├── _claim_event()          → idempotence (table stripe_webhook_events)
     ├── _resolve_payment_id()   → retrouver le payment local depuis l'event
-    ├── _handle_payment_event() → transitions paiements (payment_intent.*, checkout.*)
-    ├── _handle_charge_event()  → remboursements (charge.refunded, refund.updated)
-    └── _handle_subscription_event() → transitions abonnements
+    ├── _handle_payment_event() → transitions paiements + notifications
+    ├── _handle_charge_event()  → remboursements + notifications
+    └── _handle_subscription_event() → transitions abonnements + notifications
 
 Idempotence :
   Chaque event_id Stripe est inséré en PRIMARY KEY avant traitement.
@@ -23,25 +23,34 @@ Source de vérité :
   Exception : l'endpoint /bookings/{id}/accept capture via l'API Stripe ET
   le webhook payment_intent.succeeded confirme ensuite (double mise à jour idempotente).
 
-Événements supportés :
+Notifications :
+  Chaque transition significative génère une notification stockée en DB
+  (via push_service.store_notification) et diffusée via WebSocket.
+  Protection anti-doublon : la notification n'est émise que si le nombre
+  de lignes mises à jour (rows_updated > 0) confirme une vraie transition.
+
+Événements supportés + notifications associées :
   Payment :
-    checkout.session.completed          (mode=payment, unpaid/paid)
-    payment_intent.amount_capturable_updated
-    payment_intent.succeeded            (capture charge_id)
-    payment_intent.payment_failed
-    payment_intent.canceled
+    checkout.session.completed (unpaid)  → authorized   → notif receiver
+    checkout.session.completed (paid)    → captured     → notif payer
+    payment_intent.amount_capturable_updated → authorized → notif receiver
+    payment_intent.succeeded             → captured     → notif payer
+    payment_intent.payment_failed        → failed       → notif payer
+    payment_intent.canceled              → cancelled    (pas de notif — booking déjà notifié)
 
   Charge / Remboursement :
-    charge.refunded                     (full/partial refund)
-    refund.updated                      (suivi statut remboursement)
+    charge.refunded (full)               → refunded             → notif payer
+    charge.refunded (partial)            → partially_refunded   → notif payer
+    refund.updated                       → sync statut          (pas de notif — charge.refunded suffit)
 
   Abonnement :
-    checkout.session.completed          (mode=subscription)
-    customer.subscription.created
-    customer.subscription.updated
-    customer.subscription.deleted
-    invoice.paid                        (renouvellement)
-    invoice.payment_failed
+    checkout.session.completed (subscription) → active → notif user
+    customer.subscription.created             → active → notif user
+    customer.subscription.updated (cancelling)→ cancelling → notif user
+    customer.subscription.updated (cancelled) → cancelled → notif user
+    customer.subscription.deleted             → cancelled → notif user
+    invoice.paid                              → active (renouvellement) → notif user
+    invoice.payment_failed                    → past_due → notif user
 """
 
 import json
@@ -56,6 +65,14 @@ log = logging.getLogger("webhook_handlers")
 def _get(obj, key, default=None):
     """Accède à une clé sur un dict ou un objet Stripe indifféremment."""
     return obj.get(key, default) if isinstance(obj, dict) else getattr(obj, key, default)
+
+
+def _rows(result: str) -> int:
+    """Extrait le nombre de lignes depuis un command tag asyncpg ex. 'UPDATE 1'."""
+    try:
+        return int(result.strip().split()[-1])
+    except (ValueError, IndexError):
+        return 0
 
 
 # ── Idempotence ────────────────────────────────────────────────────────────────
@@ -166,13 +183,16 @@ async def _resolve_payment_id(conn, event_type: str, obj) -> tuple[str | None, s
 # ── Handler : événements payment_intent + checkout ─────────────────────────────
 
 async def _handle_payment_event(
-    conn, event_type: str, obj, payment_id: str, booking_id: str | None
+    conn, event_type: str, obj, payment_id: str, booking_id: str | None,
+    pending_notifs: list,
 ) -> None:
     """
     Transitions de statut pour les paiements transactionnels.
 
     Idempotentes : chaque UPDATE utilise des guards sur le statut actuel
-    (WHERE status IN (...)) pour éviter les régressions d'état.
+    (WHERE status NOT IN (...)) pour éviter les régressions d'état.
+
+    Notification émise uniquement si rows_updated > 0 (vraie transition).
 
     Mapping :
       checkout.session.completed (unpaid) → authorized   (capture_method=manual)
@@ -189,45 +209,87 @@ async def _handle_payment_event(
         ps = _get(obj, "payment_status", "")
         if ps == "unpaid":
             # capture_method=manual : autorisé, capture différée
-            await conn.execute(
+            res = await conn.execute(
                 """UPDATE payments SET status='authorized', updated_at=NOW()
                    WHERE payment_id=$1
                      AND status NOT IN ('authorized','captured','refunded','cancelled')""",
                 payment_id,
             )
+            if _rows(res) > 0:
+                row = await conn.fetchrow(
+                    "SELECT receiver_user_id FROM payments WHERE payment_id=$1", payment_id
+                )
+                if row:
+                    pending_notifs.append({
+                        "user_id": row["receiver_user_id"],
+                        "type": "payment_authorized",
+                        "title": "Paiement autorisé",
+                        "body": "Le paiement pour votre prestation a été autorisé.",
+                        "data": {"type": "payment_authorized", "payment_id": payment_id,
+                                 "booking_id": booking_id},
+                    })
         elif ps == "paid":
             async with conn.transaction():
-                await conn.execute(
+                res = await conn.execute(
                     """UPDATE payments SET status='captured', updated_at=NOW()
                        WHERE payment_id=$1 AND status NOT IN ('captured','refunded')""",
                     payment_id,
                 )
+                rows_captured = _rows(res)
                 if booking_id:
                     await conn.execute(
                         """UPDATE bookings SET payment_status='paid', updated_at=NOW()
                            WHERE booking_id=$1 AND payment_status != 'paid'""",
                         booking_id,
                     )
+            if rows_captured > 0:
+                row = await conn.fetchrow(
+                    "SELECT payer_user_id FROM payments WHERE payment_id=$1", payment_id
+                )
+                if row:
+                    pending_notifs.append({
+                        "user_id": row["payer_user_id"],
+                        "type": "payment_captured",
+                        "title": "Paiement confirmé",
+                        "body": "Votre paiement a été confirmé avec succès.",
+                        "data": {"type": "payment_captured", "payment_id": payment_id,
+                                 "booking_id": booking_id},
+                    })
 
     elif event_type == "payment_intent.amount_capturable_updated":
-        await conn.execute(
+        res = await conn.execute(
             """UPDATE payments SET status='authorized', updated_at=NOW()
                WHERE payment_id=$1
                  AND status NOT IN ('authorized','captured','refunded','cancelled')""",
             payment_id,
         )
+        if _rows(res) > 0:
+            row = await conn.fetchrow(
+                "SELECT receiver_user_id FROM payments WHERE payment_id=$1", payment_id
+            )
+            if row:
+                pending_notifs.append({
+                    "user_id": row["receiver_user_id"],
+                    "type": "payment_authorized",
+                    "title": "Paiement autorisé",
+                    "body": "Le paiement pour votre prestation est confirmé — vous pouvez procéder.",
+                    "data": {"type": "payment_authorized", "payment_id": payment_id,
+                             "booking_id": booking_id},
+                })
 
     elif event_type == "payment_intent.succeeded":
         # Récupérer le charge_id pour traçabilité
         charge_id = _get(obj, "latest_charge")
+        rows_captured = 0
         if isinstance(charge_id, str) and charge_id.startswith("ch_"):
             async with conn.transaction():
-                await conn.execute(
+                res = await conn.execute(
                     """UPDATE payments
                        SET status='captured', stripe_charge_id=$1, updated_at=NOW()
                        WHERE payment_id=$2 AND status NOT IN ('captured','refunded')""",
                     charge_id, payment_id,
                 )
+                rows_captured = _rows(res)
                 if booking_id:
                     await conn.execute(
                         """UPDATE bookings SET payment_status='paid', updated_at=NOW()
@@ -236,26 +298,54 @@ async def _handle_payment_event(
                     )
         else:
             async with conn.transaction():
-                await conn.execute(
+                res = await conn.execute(
                     """UPDATE payments SET status='captured', updated_at=NOW()
                        WHERE payment_id=$1 AND status NOT IN ('captured','refunded')""",
                     payment_id,
                 )
+                rows_captured = _rows(res)
                 if booking_id:
                     await conn.execute(
                         """UPDATE bookings SET payment_status='paid', updated_at=NOW()
                            WHERE booking_id=$1 AND payment_status != 'paid'""",
                         booking_id,
                     )
+        if rows_captured > 0:
+            row = await conn.fetchrow(
+                "SELECT payer_user_id FROM payments WHERE payment_id=$1", payment_id
+            )
+            if row:
+                pending_notifs.append({
+                    "user_id": row["payer_user_id"],
+                    "type": "payment_captured",
+                    "title": "Paiement confirmé",
+                    "body": "Votre paiement a été capturé avec succès.",
+                    "data": {"type": "payment_captured", "payment_id": payment_id,
+                             "booking_id": booking_id},
+                })
 
     elif event_type == "payment_intent.payment_failed":
-        await conn.execute(
+        res = await conn.execute(
             """UPDATE payments SET status='failed', updated_at=NOW()
                WHERE payment_id=$1 AND status NOT IN ('captured','refunded','failed')""",
             payment_id,
         )
+        if _rows(res) > 0:
+            row = await conn.fetchrow(
+                "SELECT payer_user_id FROM payments WHERE payment_id=$1", payment_id
+            )
+            if row:
+                pending_notifs.append({
+                    "user_id": row["payer_user_id"],
+                    "type": "payment_failed",
+                    "title": "Paiement échoué",
+                    "body": "Votre paiement n'a pas pu être traité. Veuillez vérifier votre moyen de paiement.",
+                    "data": {"type": "payment_failed", "payment_id": payment_id,
+                             "booking_id": booking_id},
+                })
 
     elif event_type == "payment_intent.canceled":
+        # Pas de notification : la réservation a déjà notifié via refuse/cancel
         await conn.execute(
             """UPDATE payments SET status='cancelled', updated_at=NOW()
                WHERE payment_id=$1 AND status NOT IN ('captured','refunded','cancelled')""",
@@ -271,7 +361,8 @@ async def _handle_payment_event(
 # ── Handler : charge + remboursements ─────────────────────────────────────────
 
 async def _handle_charge_event(
-    conn, event_type: str, obj, payment_id: str | None
+    conn, event_type: str, obj, payment_id: str | None,
+    pending_notifs: list,
 ) -> None:
     """
     Traite les événements de remboursement.
@@ -280,10 +371,11 @@ async def _handle_charge_event(
       - Montant remboursé → refund_amount (centimes → euros)
       - Remboursement complet (charge.refunded=True) → status='refunded'
       - Remboursement partiel → status='partially_refunded'
+      - Notification → payer
 
     refund.updated :
       - Mise à jour du statut de remboursement (succeeded/failed/canceled)
-      - Si succeeded + full amount → confirmer 'refunded'
+      - Pas de notification supplémentaire (charge.refunded l'a déjà envoyée)
     """
     if event_type == "charge.refunded":
         if not payment_id:
@@ -308,7 +400,7 @@ async def _handle_charge_event(
         new_status    = "refunded" if fully_refunded else "partially_refunded"
         refund_status = "succeeded"
 
-        await conn.execute(
+        res = await conn.execute(
             """UPDATE payments
                SET status=$1,
                    refund_amount=$2,
@@ -324,6 +416,29 @@ async def _handle_charge_event(
             "Remboursement : payment=%s | amount=%.2f€ | full=%s → status=%s",
             payment_id, amount_refunded, fully_refunded, new_status,
         )
+        if _rows(res) > 0:
+            row = await conn.fetchrow(
+                "SELECT payer_user_id FROM payments WHERE payment_id=$1", payment_id
+            )
+            if row:
+                if fully_refunded:
+                    title = "Remboursement effectué"
+                    body  = f"Vous avez été remboursé de {amount_refunded:.2f} €."
+                else:
+                    title = "Remboursement partiel"
+                    body  = f"Un remboursement partiel de {amount_refunded:.2f} € a été initié."
+                pending_notifs.append({
+                    "user_id": row["payer_user_id"],
+                    "type": "payment_refunded",
+                    "title": title,
+                    "body": body,
+                    "data": {
+                        "type": "payment_refunded",
+                        "payment_id": payment_id,
+                        "refund_amount": amount_refunded,
+                        "fully_refunded": fully_refunded,
+                    },
+                })
 
     elif event_type == "refund.updated":
         refund_id     = _get(obj, "id")
@@ -373,22 +488,23 @@ async def _handle_charge_event(
 
 # ── Handler : abonnements ──────────────────────────────────────────────────────
 
-async def _handle_subscription_event(conn, event_type: str, obj) -> None:
+async def _handle_subscription_event(
+    conn, event_type: str, obj,
+    pending_notifs: list,
+) -> None:
     """
     Transitions de statut pour les abonnements Stripe.
 
     Source de vérité unique pour TOUTES les transitions d'abonnement.
-    Appelée depuis :
-      - dispatch() ci-dessous (via webhook unifié)
-      - subscription_routes.handle_subscription_event() (wrapper pool → conn)
 
-    Mapping :
-      checkout.session.completed (subscription) → créer user_subscription active
-      customer.subscription.created             → créer si non existant
-      customer.subscription.updated             → sync statut (cancelling/active/etc.)
-      customer.subscription.deleted             → cancelled + cancelled_at
-      invoice.paid                              → renouvellement (expires_at)
-      invoice.payment_failed                    → past_due
+    Mapping + notifications :
+      checkout.session.completed (subscription) → active    → notif user
+      customer.subscription.created             → active    → notif user
+      customer.subscription.updated (cancelling)→ cancelling → notif user
+      customer.subscription.updated (cancelled) → cancelled → notif user
+      customer.subscription.deleted             → cancelled → notif user
+      invoice.paid                              → active + expires_at → notif user
+      invoice.payment_failed                    → past_due → notif user
     """
     from models import new_id
 
@@ -399,6 +515,25 @@ async def _handle_subscription_event(conn, event_type: str, obj) -> None:
             except Exception:
                 pass
         return None
+
+    # ── Helper : récupérer user_id depuis user_subscriptions (pour updated/deleted/invoice) ──
+    async def _get_user_id_for_sub(stripe_sub_id: str) -> str | None:
+        if not stripe_sub_id:
+            return None
+        row = await conn.fetchrow(
+            "SELECT user_id FROM user_subscriptions WHERE stripe_subscription_id=$1 LIMIT 1",
+            stripe_sub_id,
+        )
+        return row["user_id"] if row else None
+
+    # ── Helper : récupérer le nom du plan ──────────────────────────────────────
+    async def _get_plan_name(plan_id: str) -> str:
+        if not plan_id:
+            return "votre abonnement"
+        row = await conn.fetchrow(
+            "SELECT name FROM subscription_plans WHERE plan_id=$1", plan_id
+        )
+        return row["name"] if row else plan_id
 
     # ── checkout.session.completed (mode=subscription) ─────────────────────────
     if event_type == "checkout.session.completed":
@@ -459,10 +594,23 @@ async def _handle_subscription_event(conn, event_type: str, obj) -> None:
             expires_at, stripe_sub_id,
             json.dumps(benefits),
         )
+        plan_name = plan.get("name", "votre abonnement")
         log.info(
             "Abonnement activé (checkout) : sub=%s | user=%s | plan=%s",
             sub_id, user_id, plan_id,
         )
+        pending_notifs.append({
+            "user_id": user_id,
+            "type": "subscription_activated",
+            "title": "Abonnement activé !",
+            "body": f"Votre abonnement {plan_name} est maintenant actif.",
+            "data": {
+                "type": "subscription_activated",
+                "subscription_id": sub_id,
+                "plan_id": plan_id,
+                "plan_name": plan_name,
+            },
+        })
 
     # ── customer.subscription.created ──────────────────────────────────────────
     elif event_type == "customer.subscription.created":
@@ -502,7 +650,20 @@ async def _handle_subscription_event(conn, event_type: str, obj) -> None:
             expires_at, stripe_sub_id,
             json.dumps(benefits),
         )
+        plan_name = plan.get("name", "votre abonnement")
         log.info("Abonnement créé (sub.created) : sub=%s | user=%s | plan=%s", sub_id, user_id, plan_id)
+        pending_notifs.append({
+            "user_id": user_id,
+            "type": "subscription_activated",
+            "title": "Abonnement activé !",
+            "body": f"Votre abonnement {plan_name} est maintenant actif.",
+            "data": {
+                "type": "subscription_activated",
+                "subscription_id": sub_id,
+                "plan_id": plan_id,
+                "plan_name": plan_name,
+            },
+        })
 
     # ── customer.subscription.updated ──────────────────────────────────────────
     elif event_type == "customer.subscription.updated":
@@ -527,7 +688,7 @@ async def _handle_subscription_event(conn, event_type: str, obj) -> None:
             new_status = stripe_status
 
         if expires_at:
-            await conn.execute(
+            res = await conn.execute(
                 """UPDATE user_subscriptions
                    SET status=$1, expires_at=$2, updated_at=NOW()
                    WHERE stripe_subscription_id=$3
@@ -535,7 +696,7 @@ async def _handle_subscription_event(conn, event_type: str, obj) -> None:
                 new_status, expires_at, stripe_sub_id,
             )
         else:
-            await conn.execute(
+            res = await conn.execute(
                 """UPDATE user_subscriptions
                    SET status=$1, updated_at=NOW()
                    WHERE stripe_subscription_id=$2
@@ -547,17 +708,55 @@ async def _handle_subscription_event(conn, event_type: str, obj) -> None:
             "Abonnement mis à jour : stripe=%s | status=%s | cancel_at_period_end=%s",
             stripe_sub_id, new_status, cancel_at_period_end,
         )
+        if _rows(res) > 0:
+            user_id = await _get_user_id_for_sub(stripe_sub_id)
+            if user_id:
+                if new_status == "cancelling":
+                    pending_notifs.append({
+                        "user_id": user_id,
+                        "type": "subscription_cancelling",
+                        "title": "Annulation d'abonnement programmée",
+                        "body": "Votre abonnement sera annulé à la fin de la période en cours.",
+                        "data": {
+                            "type": "subscription_cancelling",
+                            "stripe_subscription_id": stripe_sub_id,
+                        },
+                    })
+                elif new_status == "cancelled":
+                    pending_notifs.append({
+                        "user_id": user_id,
+                        "type": "subscription_cancelled",
+                        "title": "Abonnement annulé",
+                        "body": "Votre abonnement a été annulé.",
+                        "data": {
+                            "type": "subscription_cancelled",
+                            "stripe_subscription_id": stripe_sub_id,
+                        },
+                    })
 
     # ── customer.subscription.deleted ──────────────────────────────────────────
     elif event_type == "customer.subscription.deleted":
         stripe_sub_id = _get(obj, "id")
-        await conn.execute(
+        # Obtenir user_id avant la mise à jour
+        user_id = await _get_user_id_for_sub(stripe_sub_id)
+        res = await conn.execute(
             """UPDATE user_subscriptions
                SET status='cancelled', cancelled_at=NOW(), updated_at=NOW()
                WHERE stripe_subscription_id=$1""",
             stripe_sub_id,
         )
         log.info("Abonnement désactivé (sub.deleted) : stripe=%s", stripe_sub_id)
+        if _rows(res) > 0 and user_id:
+            pending_notifs.append({
+                "user_id": user_id,
+                "type": "subscription_cancelled",
+                "title": "Abonnement résilié",
+                "body": "Votre abonnement a été résilié.",
+                "data": {
+                    "type": "subscription_cancelled",
+                    "stripe_subscription_id": stripe_sub_id,
+                },
+            })
 
     # ── invoice.paid → renouvellement ──────────────────────────────────────────
     elif event_type == "invoice.paid":
@@ -584,7 +783,7 @@ async def _handle_subscription_event(conn, event_type: str, obj) -> None:
 
         expires_at = _ts_to_dt(period_end)
         if expires_at:
-            await conn.execute(
+            res = await conn.execute(
                 """UPDATE user_subscriptions
                    SET expires_at=$1, status='active', updated_at=NOW()
                    WHERE stripe_subscription_id=$2
@@ -595,6 +794,20 @@ async def _handle_subscription_event(conn, event_type: str, obj) -> None:
                 "Renouvellement abonnement : stripe=%s | expires_at=%s",
                 stripe_sub_id, expires_at,
             )
+            if _rows(res) > 0:
+                user_id = await _get_user_id_for_sub(stripe_sub_id)
+                if user_id:
+                    pending_notifs.append({
+                        "user_id": user_id,
+                        "type": "subscription_renewed",
+                        "title": "Abonnement renouvelé",
+                        "body": "Votre abonnement a été renouvelé avec succès.",
+                        "data": {
+                            "type": "subscription_renewed",
+                            "stripe_subscription_id": stripe_sub_id,
+                            "expires_at": expires_at.isoformat(),
+                        },
+                    })
         else:
             log.warning(
                 "invoice.paid : pas de period_end trouvé (stripe_sub=%s)", stripe_sub_id
@@ -604,7 +817,7 @@ async def _handle_subscription_event(conn, event_type: str, obj) -> None:
     elif event_type == "invoice.payment_failed":
         stripe_sub_id = _get(obj, "subscription")
         if stripe_sub_id:
-            await conn.execute(
+            res = await conn.execute(
                 """UPDATE user_subscriptions
                    SET status='past_due', updated_at=NOW()
                    WHERE stripe_subscription_id=$1
@@ -612,6 +825,19 @@ async def _handle_subscription_event(conn, event_type: str, obj) -> None:
                 stripe_sub_id,
             )
             log.warning("Paiement abonnement échoué : stripe_sub=%s", stripe_sub_id)
+            if _rows(res) > 0:
+                user_id = await _get_user_id_for_sub(stripe_sub_id)
+                if user_id:
+                    pending_notifs.append({
+                        "user_id": user_id,
+                        "type": "subscription_payment_failed",
+                        "title": "Paiement abonnement échoué",
+                        "body": "Le renouvellement de votre abonnement a échoué. Veuillez mettre à jour votre moyen de paiement.",
+                        "data": {
+                            "type": "subscription_payment_failed",
+                            "stripe_subscription_id": stripe_sub_id,
+                        },
+                    })
 
 
 def _build_benefits_snapshot(plan: dict) -> dict:
@@ -667,11 +893,14 @@ async def dispatch(
     1. Réserve l'event (idempotence via stripe_webhook_events)
     2. Résout le payment_id si applicable
     3. Route vers le/les bon(s) handler(s)
-    4. Marque l'event 'success' ou 'error'
+    4. Collecte les notifications à envoyer (pending_notifs)
+    5. Marque l'event 'success' ou 'error'
+    6. Envoie les notifications APRÈS libération de la connexion
 
     Retourne un dict {"received": True} dans tous les cas (200 OK pour Stripe).
     """
-    related_id = None
+    related_id     = None
+    pending_notifs = []   # Notifications collectées pendant le traitement
 
     async with pool.acquire() as conn:
         # ── 1. Idempotence ────────────────────────────────────────────────────
@@ -687,12 +916,14 @@ async def dispatch(
         # ── 3. Dispatch ───────────────────────────────────────────────────────
         try:
             if event_type in _CHARGE_EVENTS:
-                await _handle_charge_event(conn, event_type, obj, payment_id)
+                await _handle_charge_event(conn, event_type, obj, payment_id, pending_notifs)
                 related_id = payment_id
 
             if event_type in _PAYMENT_EVENTS:
                 if payment_id:
-                    await _handle_payment_event(conn, event_type, obj, payment_id, booking_id)
+                    await _handle_payment_event(
+                        conn, event_type, obj, payment_id, booking_id, pending_notifs
+                    )
                 elif event_type != "checkout.session.completed":
                     # checkout.session peut être subscription → OK sans payment_id
                     log.debug(
@@ -700,7 +931,7 @@ async def dispatch(
                     )
 
             if event_type in _SUBSCRIPTION_EVENTS:
-                sub_related = await _dispatch_subscription(conn, event_type, obj)
+                sub_related = await _dispatch_subscription(conn, event_type, obj, pending_notifs)
                 related_id = related_id or sub_related
 
             # ── 4. Marquer succès ─────────────────────────────────────────────
@@ -718,10 +949,34 @@ async def dispatch(
             # On ne relève PAS l'exception : Stripe doit recevoir 200
             # (sinon il réessaie indéfiniment)
 
+    # ── 5. Envoi des notifications APRÈS libération de la connexion ───────────
+    # Utilise pool.acquire() indépendamment pour ne pas bloquer le webhook.
+    if pending_notifs:
+        from push_service import store_notification
+        for notif in pending_notifs:
+            try:
+                await store_notification(
+                    pool,
+                    notif["user_id"],
+                    notif["type"],
+                    notif["title"],
+                    notif["body"],
+                    notif.get("data"),
+                )
+                log.info(
+                    "Notification envoyée : type=%s | user=%s",
+                    notif["type"], notif["user_id"],
+                )
+            except Exception as exc:
+                log.warning(
+                    "Erreur envoi notification type=%s user=%s : %s",
+                    notif["type"], notif.get("user_id"), exc,
+                )
+
     return {"received": True}
 
 
-async def _dispatch_subscription(conn, event_type: str, obj) -> str | None:
+async def _dispatch_subscription(conn, event_type: str, obj, pending_notifs: list) -> str | None:
     """
     Sous-dispatcher pour les événements abonnement.
     Retourne l'ID de l'objet local créé/modifié (pour related_id), ou None.
@@ -732,7 +987,7 @@ async def _dispatch_subscription(conn, event_type: str, obj) -> str | None:
         if mode != "subscription":
             return None  # Pas un event abonnement
 
-    await _handle_subscription_event(conn, event_type, obj)
+    await _handle_subscription_event(conn, event_type, obj, pending_notifs)
 
     # Récupérer l'ID Stripe de l'objet pour le related_id
     stripe_sub_id = None

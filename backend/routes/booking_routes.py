@@ -318,7 +318,9 @@ async def accept_booking(booking_id: str, request: Request):
 
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            "SELECT booking_id, status, receiver_user_id, slot_id, expires_at FROM bookings WHERE booking_id = $1",
+            """SELECT booking_id, status, receiver_user_id, slot_id, expires_at,
+                      user_id AS payer_user_id, service_id
+               FROM bookings WHERE booking_id = $1""",
             booking_id,
         )
         if not row:
@@ -389,12 +391,21 @@ async def accept_booking(booking_id: str, request: Request):
             )
             # Le webhook payment_intent.succeeded se chargera de la mise à jour
 
+    # ── Notification push au payer ─────────────────────────────────────────────
+    _push(
+        pool, bk["payer_user_id"],
+        title="Réservation acceptée !",
+        body="Votre demande de réservation a été acceptée.",
+        data={
+            "type": "booking_accepted",
+            "bookingId": booking_id,
+            "service_id": bk.get("service_id", ""),
+            "action_text": "a accepté votre demande",
+        },
+        notif_type="booking_accepted",
+    )
+
     return {"success": True, "status": "accepted", "booking_id": booking_id}
-
-
-# ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║  POST /bookings/{id}/refuse                                                ║
-# ╚══════════════════════════════════════════════════════════════════════════════╝
 
 @router.post("/bookings/{booking_id}/refuse")
 async def refuse_booking(booking_id: str, request: Request):
@@ -409,7 +420,7 @@ async def refuse_booking(booking_id: str, request: Request):
 
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            "SELECT booking_id, status, receiver_user_id, slot_id FROM bookings WHERE booking_id=$1",
+            "SELECT booking_id, status, receiver_user_id, slot_id, user_id AS payer_user_id FROM bookings WHERE booking_id=$1",
             booking_id,
         )
         if not row:
@@ -455,6 +466,19 @@ async def refuse_booking(booking_id: str, request: Request):
         except Exception as exc:
             log.error("Erreur annulation Stripe pi=%s : %s", pi_id, exc)
 
+    # ── Notification push au payer ─────────────────────────────────────────────
+    _push(
+        pool, bk["payer_user_id"],
+        title="Réservation refusée",
+        body="Votre demande de réservation n'a pas pu être acceptée.",
+        data={
+            "type": "booking_refused",
+            "bookingId": booking_id,
+            "action_text": "a refusé votre demande",
+        },
+        notif_type="booking_refused",
+    )
+
     return {"success": True, "status": "refused", "booking_id": booking_id}
 
 
@@ -477,6 +501,7 @@ async def cancel_booking(booking_id: str, request: Request):
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """SELECT b.booking_id, b.status, b.user_id, b.slot_id,
+                      b.receiver_user_id,
                       p.status AS pay_status, p.payment_id
                FROM bookings b
                LEFT JOIN payments p ON p.booking_id = b.booking_id
@@ -541,6 +566,20 @@ async def cancel_booking(booking_id: str, request: Request):
                 )
             except Exception as exc:
                 log.error("Erreur Stripe annulation pi=%s : %s", pi_id, exc)
+
+    # ── Notification push au receiver (coach) ─────────────────────────────────
+    if bk.get("receiver_user_id"):
+        _push(
+            pool, bk["receiver_user_id"],
+            title="Réservation annulée",
+            body="Une demande de réservation a été annulée.",
+            data={
+                "type": "booking_cancelled",
+                "bookingId": booking_id,
+                "action_text": "a annulé sa demande",
+            },
+            notif_type="booking_cancelled",
+        )
 
     return {
         "success": True,
