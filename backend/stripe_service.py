@@ -304,3 +304,186 @@ async def create_checkout_session(
 async def retrieve_checkout_session(session_id: str) -> stripe.checkout.Session:
     """Récupère une Checkout Session par son ID."""
     return await _run_sync(stripe.checkout.Session.retrieve, session_id)
+
+
+# ── Stripe Subscriptions ──────────────────────────────────────────────────────
+
+_DURATION_TO_INTERVAL: dict[int, str] = {30: "month", 365: "year"}
+
+
+def _duration_to_interval(duration_days: int) -> str:
+    """
+    Mappe une durée en jours vers un intervalle Stripe standard.
+    Seuls 30 (mensuel) et 365 (annuel) sont supportés officiellement.
+    Lève ValueError pour toute autre valeur.
+    """
+    interval = _DURATION_TO_INTERVAL.get(duration_days)
+    if not interval:
+        supported = ", ".join(f"{d}j→{i}" for d, i in _DURATION_TO_INTERVAL.items())
+        raise ValueError(
+            f"duration_days={duration_days} non supporté. Valeurs supportées : {supported}"
+        )
+    return interval
+
+
+async def ensure_subscription_price(
+    *,
+    plan_id: str,
+    plan_name: str,
+    description: str | None,
+    amount_cents: int,
+    currency: str,
+    duration_days: int,
+) -> tuple[str, str]:
+    """
+    Crée (ou récupère depuis les métadonnées) le Product + Price Stripe pour un plan.
+
+    Idempotent : si un Product/Price avec les mêmes métadonnées existe déjà,
+    il est réutilisé sans re-création (lookup par metadata.spotu_plan_id).
+
+    Args:
+        plan_id       : identifiant interne du plan (stocké en metadata)
+        plan_name     : libellé du plan (nom du produit Stripe)
+        description   : description facultative
+        amount_cents  : montant en centimes
+        currency      : code devise ISO
+        duration_days : 30 (mensuel) ou 365 (annuel)
+
+    Returns:
+        (stripe_product_id, stripe_price_id)
+    """
+    interval = _duration_to_interval(duration_days)
+
+    # Chercher un Product existant par metadata
+    products = await _run_sync(
+        stripe.Product.search,
+        query=f'metadata["spotu_plan_id"]:"{plan_id}"',
+    )
+
+    if products.data:
+        product = products.data[0]
+        product_id = product.id
+        log.info("Réutilisation Product Stripe existant : %s", product_id)
+    else:
+        product = await _run_sync(
+            stripe.Product.create,
+            name=plan_name,
+            description=description or "",
+            metadata={"spotu_plan_id": plan_id},
+        )
+        product_id = product.id
+        log.info("Nouveau Product Stripe créé : %s | plan=%s", product_id, plan_id)
+
+    # Chercher un Price actif pour ce Product + interval + montant
+    prices = await _run_sync(
+        stripe.Price.list,
+        product=product_id,
+        active=True,
+        limit=10,
+    )
+
+    matching_price = next(
+        (
+            p for p in prices.data
+            if (
+                p.unit_amount == amount_cents
+                and p.currency == currency.lower()
+                and p.recurring
+                and p.recurring.interval == interval
+            )
+        ),
+        None,
+    )
+
+    if matching_price:
+        price_id = matching_price.id
+        log.info("Réutilisation Price Stripe existant : %s", price_id)
+    else:
+        price = await _run_sync(
+            stripe.Price.create,
+            product=product_id,
+            unit_amount=amount_cents,
+            currency=currency.lower(),
+            recurring={"interval": interval},
+            metadata={"spotu_plan_id": plan_id},
+        )
+        price_id = price.id
+        log.info(
+            "Nouveau Price Stripe créé : %s | %d %s / %s",
+            price_id, amount_cents, currency, interval,
+        )
+
+    return product_id, price_id
+
+
+async def create_subscription_checkout_session(
+    *,
+    customer_id: str,
+    price_id: str,
+    success_url: str,
+    cancel_url: str,
+    metadata: dict,
+    idempotency_key: str | None = None,
+) -> stripe.checkout.Session:
+    """
+    Crée une Checkout Session Stripe en mode 'subscription'.
+
+    - Après le checkout, Stripe crée l'abonnement automatiquement.
+    - Le webhook customer.subscription.created + invoice.paid confirme l'activation.
+    - session.subscription contient l'ID de l'abonnement Stripe.
+
+    Retourne l'objet Session Stripe complet.
+    """
+    params: dict = {
+        "customer":    customer_id,
+        "mode":        "subscription",
+        "line_items":  [{"price": price_id, "quantity": 1}],
+        "success_url": success_url,
+        "cancel_url":  cancel_url,
+        "metadata":    metadata,
+        "subscription_data": {"metadata": metadata},
+    }
+    kwargs = {}
+    if idempotency_key:
+        kwargs["idempotency_key"] = f"sub_cs_{idempotency_key}"
+
+    session = await _run_sync(stripe.checkout.Session.create, **params, **kwargs)
+    log.info(
+        "Checkout Session abonnement créée : cs=%s | customer=%s",
+        session.id, customer_id,
+    )
+    return session
+
+
+async def cancel_subscription(
+    subscription_id: str,
+    at_period_end: bool = True,
+) -> stripe.Subscription:
+    """
+    Annule un abonnement Stripe.
+
+    - at_period_end=True  (défaut) : annulation à la fin de la période en cours
+    - at_period_end=False          : annulation immédiate (usage admin)
+
+    Retourne l'objet Subscription Stripe mis à jour.
+    """
+    if at_period_end:
+        result = await _run_sync(
+            stripe.Subscription.modify,
+            subscription_id,
+            cancel_at_period_end=True,
+        )
+    else:
+        result = await _run_sync(stripe.Subscription.cancel, subscription_id)
+
+    log.info(
+        "Abonnement Stripe %s : sub=%s | at_period_end=%s",
+        "marqué pour annulation" if at_period_end else "annulé immédiatement",
+        subscription_id, at_period_end,
+    )
+    return result
+
+
+async def retrieve_subscription(subscription_id: str) -> stripe.Subscription:
+    """Récupère un abonnement Stripe par son ID."""
+    return await _run_sync(stripe.Subscription.retrieve, subscription_id)

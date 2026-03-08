@@ -23,6 +23,7 @@ from routes.upload_routes import router as upload_router
 from routes.chat_routes import router as chat_router
 from routes.push_routes import router as push_router
 from routes.payment_routes import router as payment_router
+from routes.subscription_routes import router as subscription_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -68,6 +69,7 @@ api_router.include_router(chat_router, tags=["chat"])
 api_router.include_router(push_router, prefix="/users", tags=["push"])
 api_router.include_router(upload_router)
 api_router.include_router(payment_router, tags=["payments"])
+api_router.include_router(subscription_router, tags=["subscriptions"])
 
 app.include_router(api_router)
 

@@ -97,6 +97,50 @@ class PricingResult:
         }
 
 
+# ── Résolution des bénéfices d'abonnement ─────────────────────────────────────
+
+async def _load_subscription_benefits(conn, user_id: str) -> dict:
+    """
+    Charge l'abonnement actif d'un utilisateur et retourne ses bénéfices.
+
+    Couche dédiée, indépendante de la logique de calcul de frais.
+    Appelée séparément pour le payeur et le bénéficiaire.
+
+    Règles :
+    - Seul l'abonnement actif (status='active') non expiré est considéré.
+    - Si un plan est désactivé (active=FALSE) mais que l'abonnement est encore
+      valide (expires_at > NOW()), les bénéfices sont conservés.
+    - En cas de plusieurs abonnements actifs, le plus prioritaire est retenu.
+
+    Returns:
+        dict avec les clés :
+            plan_id, plan_name,
+            exempt_payer_fixed, exempt_payer_percent,
+            exempt_receiver_fixed, exempt_receiver_percent
+        ou {} si aucun abonnement actif.
+    """
+    row = await conn.fetchrow(
+        """
+        SELECT
+            sp.plan_id,
+            sp.name                AS plan_name,
+            sp.exempt_payer_fixed,
+            sp.exempt_payer_percent,
+            sp.exempt_receiver_fixed,
+            sp.exempt_receiver_percent
+        FROM user_subscriptions us
+        JOIN subscription_plans sp ON sp.plan_id = us.plan_id
+        WHERE us.user_id = $1
+          AND us.status IN ('active', 'cancelling')
+          AND (us.expires_at IS NULL OR us.expires_at > NOW())
+        ORDER BY sp.priority DESC, us.started_at DESC
+        LIMIT 1
+        """,
+        user_id,
+    )
+    return dict(row) if row else {}
+
+
 # ── Moteur ─────────────────────────────────────────────────────────────────────
 
 class PricingEngine:
@@ -166,10 +210,10 @@ class PricingEngine:
 
         r = dict(rule)
         # Taux originaux (avant exemptions) — conservés pour l'audit
-        orig_payer_fixed   = Decimal(str(r["payer_fixed_fee"]))
-        orig_payer_pct     = Decimal(str(r["payer_percent_fee"]))
+        orig_payer_fixed    = Decimal(str(r["payer_fixed_fee"]))
+        orig_payer_pct      = Decimal(str(r["payer_percent_fee"]))
         orig_receiver_fixed = Decimal(str(r["receiver_fixed_fee"]))
-        orig_receiver_pct  = Decimal(str(r["receiver_percent_fee"]))
+        orig_receiver_pct   = Decimal(str(r["receiver_percent_fee"]))
 
         # Taux effectifs — modifiables par les exemptions d'abonnement
         eff_payer_fixed    = orig_payer_fixed
@@ -179,71 +223,41 @@ class PricingEngine:
 
         subscription_benefits = []
 
-        # ── 2. Exemptions côté payeur ──────────────────────────────────────────
-        payer_sub = await conn.fetchrow(
-            """
-            SELECT sp.plan_id, sp.name AS plan_name,
-                   sp.exempt_payer_fixed, sp.exempt_payer_percent,
-                   sp.exempt_receiver_fixed, sp.exempt_receiver_percent
-            FROM user_subscriptions us
-            JOIN subscription_plans sp ON sp.plan_id = us.plan_id
-            WHERE us.user_id = $1
-              AND us.status = 'active'
-              AND (us.expires_at IS NULL OR us.expires_at > NOW())
-            ORDER BY sp.priority DESC, us.started_at DESC
-            LIMIT 1
-            """,
-            payer_user_id,
-        )
-        if payer_sub:
-            ps = dict(payer_sub)
+        # ── 2. Bénéfices abonnement payeur ────────────────────────────────────
+        payer_benefits = await _load_subscription_benefits(conn, payer_user_id)
+        if payer_benefits:
             exempted = []
-            if ps["exempt_payer_fixed"] and eff_payer_fixed > 0:
+            if payer_benefits.get("exempt_payer_fixed") and eff_payer_fixed > 0:
                 eff_payer_fixed = Decimal("0")
                 exempted.append("payer_fixed_fee")
-            if ps["exempt_payer_percent"] and eff_payer_pct > 0:
+            if payer_benefits.get("exempt_payer_percent") and eff_payer_pct > 0:
                 eff_payer_pct = Decimal("0")
                 exempted.append("payer_percent_fee")
             if exempted:
                 subscription_benefits.append({
-                    "side": "payer",
-                    "user_id": payer_user_id,
-                    "plan_id": ps["plan_id"],
-                    "plan_name": ps.get("plan_name"),
+                    "side":            "payer",
+                    "user_id":         payer_user_id,
+                    "plan_id":         payer_benefits["plan_id"],
+                    "plan_name":       payer_benefits.get("plan_name"),
                     "exempted_fields": exempted,
                 })
 
-        # ── 3. Exemptions côté bénéficiaire ───────────────────────────────────
-        receiver_sub = await conn.fetchrow(
-            """
-            SELECT sp.plan_id, sp.name AS plan_name,
-                   sp.exempt_payer_fixed, sp.exempt_payer_percent,
-                   sp.exempt_receiver_fixed, sp.exempt_receiver_percent
-            FROM user_subscriptions us
-            JOIN subscription_plans sp ON sp.plan_id = us.plan_id
-            WHERE us.user_id = $1
-              AND us.status = 'active'
-              AND (us.expires_at IS NULL OR us.expires_at > NOW())
-            ORDER BY sp.priority DESC, us.started_at DESC
-            LIMIT 1
-            """,
-            receiver_user_id,
-        )
-        if receiver_sub:
-            rs = dict(receiver_sub)
+        # ── 3. Bénéfices abonnement bénéficiaire ──────────────────────────────
+        receiver_benefits = await _load_subscription_benefits(conn, receiver_user_id)
+        if receiver_benefits:
             exempted = []
-            if rs["exempt_receiver_fixed"] and eff_receiver_fixed > 0:
+            if receiver_benefits.get("exempt_receiver_fixed") and eff_receiver_fixed > 0:
                 eff_receiver_fixed = Decimal("0")
                 exempted.append("receiver_fixed_fee")
-            if rs["exempt_receiver_percent"] and eff_receiver_pct > 0:
+            if receiver_benefits.get("exempt_receiver_percent") and eff_receiver_pct > 0:
                 eff_receiver_pct = Decimal("0")
                 exempted.append("receiver_percent_fee")
             if exempted:
                 subscription_benefits.append({
-                    "side": "receiver",
-                    "user_id": receiver_user_id,
-                    "plan_id": rs["plan_id"],
-                    "plan_name": rs.get("plan_name"),
+                    "side":            "receiver",
+                    "user_id":         receiver_user_id,
+                    "plan_id":         receiver_benefits["plan_id"],
+                    "plan_name":       receiver_benefits.get("plan_name"),
                     "exempted_fields": exempted,
                 })
 
@@ -258,7 +272,7 @@ class PricingEngine:
         receiver_net   = (b - rf - rp).quantize(Decimal("0.01"), ROUND_HALF_UP)
         platform_total = (pf + pp + rf + rp).quantize(Decimal("0.01"), ROUND_HALF_UP)
 
-        # ── 5. Règle appliquée (taux d'origine + effectifs pour audit) ─────────
+        # ── 5. Audit complet (taux originaux + effectifs + impact) ────────────
         applied_rule = {
             "rule_id":   r["rule_id"],
             "rule_name": r["name"],
@@ -269,10 +283,17 @@ class PricingEngine:
             "receiver_fixed_fee_rate":     float(orig_receiver_fixed),
             "receiver_percent_fee_rate":   float(orig_receiver_pct),
             # Taux effectivement appliqués (après exemptions)
-            "effective_payer_fixed_fee":       float(pf),
-            "effective_payer_percent_fee_rate": float(eff_payer_pct),
-            "effective_receiver_fixed_fee":     float(rf),
+            "effective_payer_fixed_fee":          float(pf),
+            "effective_payer_percent_fee_rate":   float(eff_payer_pct),
+            "effective_receiver_fixed_fee":       float(rf),
             "effective_receiver_percent_fee_rate": float(eff_receiver_pct),
+            # Impact financier des exemptions
+            "savings_payer":    float(
+                (orig_payer_fixed - pf) + (b * orig_payer_pct / 100 - pp)
+            ),
+            "savings_receiver": float(
+                (orig_receiver_fixed - rf) + (b * orig_receiver_pct / 100 - rp)
+            ),
         }
 
         return PricingResult(
@@ -312,6 +333,81 @@ class PricingEngine:
             base_amount=base_amount,
             currency=currency,
         )
+
+
+# Singleton — importé dans toutes les routes qui en ont besoin
+pricing_engine = PricingEngine()
+
+from dataclasses import dataclass, asdict, field
+from decimal import Decimal, ROUND_HALF_UP
+from typing import Optional
+
+
+# ── Dataclass résultat ─────────────────────────────────────────────────────────
+
+@dataclass
+class PricingResult:
+    # Identification
+    currency: str
+    product_type: str
+
+    # Montants
+    base_amount: float
+    payer_fixed_fee: float
+    payer_percent_fee_amount: float       # montant calculé (pas le taux)
+    receiver_fixed_fee: float
+    receiver_percent_fee_amount: float    # montant calculé (pas le taux)
+    platform_total_fee: float
+    receiver_net_amount: float
+    payer_total_amount: float
+
+    # Audit — source de vérité des conditions appliquées
+    applied_rules: list = field(default_factory=list)
+    applied_subscription_benefits: list = field(default_factory=list)
+
+    def to_snapshot(self) -> dict:
+        """
+        Sérialise le résultat complet pour stockage JSONB immuable.
+        Le snapshot est la source de vérité de la transaction — ne pas recalculer.
+        """
+        return asdict(self)
+
+    def to_payment_dict(
+        self,
+        payment_id: str,
+        payer_user_id: str,
+        receiver_user_id: str,
+        product_type: str,
+        product_id: Optional[str] = None,
+        booking_id: Optional[str] = None,
+    ) -> dict:
+        """
+        Retourne un dict prêt à être inséré dans la table `payments`.
+        Les colonnes plates correspondent exactement au schéma DB.
+        Le snapshot JSONB (pricing_rule_snapshot) est inclus.
+        """
+        return {
+            "payment_id":                  payment_id,
+            "payer_user_id":               payer_user_id,
+            "receiver_user_id":            receiver_user_id,
+            "product_type":                product_type,
+            "product_id":                  product_id,
+            "booking_id":                  booking_id,
+            "stripe_payment_intent_id":    None,
+            "stripe_charge_id":            None,
+            "stripe_transfer_id":          None,
+            "status":                      "pending",
+            "currency":                    self.currency,
+            "base_amount":                 self.base_amount,
+            "payer_fixed_fee":             self.payer_fixed_fee,
+            "payer_percent_fee_amount":    self.payer_percent_fee_amount,
+            "receiver_fixed_fee":          self.receiver_fixed_fee,
+            "receiver_percent_fee_amount": self.receiver_percent_fee_amount,
+            "platform_total_fee":          self.platform_total_fee,
+            "receiver_net_amount":         self.receiver_net_amount,
+            "payer_total_amount":          self.payer_total_amount,
+            "pricing_rule_snapshot":       self.to_snapshot(),
+        }
 
 
 # Singleton — importé dans toutes les routes qui en ont besoin

@@ -1,0 +1,75 @@
+{
+  "summary": "Iteration 51 — Stripe Subscription Integration Testing (Backend Only). 27/27 tests PASS (100%). All subscription flows verified: plan listing, Stripe Checkout Session creation (mode=subscription), double-subscription guard (409), cancellation (at_period_end + immediate admin), webhook processing (created/updated/deleted/invoice.paid/invoice.payment_failed), pricing engine exemptions, plan deactivation with benefit preservation. One critical production bug fixed in payment_routes.py (webhook early-return blocker).",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/webhook/stripe",
+        "issue": "CRITICAL BUG FIXED: Subscription webhook events (customer.subscription.created/updated/deleted, invoice.paid, invoice.payment_failed) were silently ignored. Root cause: the early return `if not payment_id: return` in payment_routes.py (line ~342) was placed BEFORE the dispatch to handle_subscription_event(). Since subscription events never have payment_id in metadata, they always triggered the early return and handle_subscription_event() was NEVER called. Fix: moved subscription event dispatch before the early return check.",
+        "priority": "CRITICAL (now fixed)"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "pricing_engine.py",
+        "issue": "CODE QUALITY: The entire module content (all dataclasses + singleton instantiation) is duplicated starting at line 341 (lines 341-415 duplicate lines 28-339). Python overwrites class definitions at module level so runtime behavior is correct (second definition wins), but this is a significant maintenance hazard. Should be deduplicated.",
+        "priority": "MEDIUM"
+      },
+      {
+        "endpoint": "POST /api/webhook/stripe",
+        "issue": "STRIPE_WEBHOOK_SECRET is empty ('') → no signature verification. All valid JSON accepted without Stripe-Signature header. Expected in test env, must be set in production.",
+        "priority": "LOW (expected in test env)"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_subscriptions_iter51.py",
+    "/app/test_reports/pytest/iter51_subscriptions.xml"
+  ],
+  "action_items": [
+    "DONE (auto-fixed): Critical webhook dispatcher bug in payment_routes.py — subscription events now dispatched BEFORE early return for missing payment_id",
+    "CODE QUALITY: Remove duplicate content in pricing_engine.py (lines 341-415 are a copy of lines 28-339)",
+    "PROD: Set STRIPE_WEBHOOK_SECRET to a real value before going to production"
+  ],
+  "critical_code_review_comments": [
+    "payment_routes.py CRITICAL BUG (FIXED): Webhook early-return at line ~342 (`if not payment_id: return`) was preventing ALL subscription events from being processed. Subscription events (customer.subscription.*,  invoice.*) do not carry payment_id in metadata — they were silently discarded. Fix applied: dispatch to handle_subscription_event() moved before the early-return.",
+    "pricing_engine.py: Entire module is duplicated (lines 341-415 = lines 28-339). Python silently overwrites the first PricingResult class and pricing_engine singleton with the second definition. No runtime error but highly confusing. Must be deduplicated.",
+    "subscription_routes.py: Architecture is clean. handle_subscription_event() is properly exported and handles all 6 event types. The checkout.session.completed guard (mode != 'subscription' → skip) is correct.",
+    "stripe_service.py: ensure_subscription_price() implements proper idempotency (Product/Price search before create). cancel_subscription() correctly uses modify (at_period_end=True) vs cancel (immediate). Well-structured.",
+    "test_subscriptions_iter51.py: Used asyncpg module-scoped connection + httpx async — required pytest-asyncio with asyncio_default_fixture_loop_scope=module and asyncio_default_test_loop_scope=module. Fixed one SQL syntax error in test_26 (7 columns but 8 VALUES placeholders)."
+  ],
+  "updated_files": [
+    "/app/backend/routes/payment_routes.py",
+    "/app/backend/tests/test_subscriptions_iter51.py",
+    "/app/backend/pytest.ini"
+  ],
+  "success_rate": {
+    "backend": "100% (27/27 tests pass)",
+    "frontend": "not tested (backend only)"
+  },
+  "test_credentials": {
+    "admin": "admin@winek.app / WinekAdmin2024!",
+    "coach": "coach@winek.app / WinekCoach2024!",
+    "user": "user@winek.app / WinekUser2024!"
+  },
+  "mocked_apis": {
+    "stripe_subscription_id_in_session": "MOCKED — Emergent proxy returns session.subscription=None after checkout. Webhook activation tested via direct DB injection in tests.",
+    "stripe_cancel_subscription": "MOCKED/SKIPPED — called but silently skipped when stripe_subscription_id=None (guarded by 'if sub.get(stripe_subscription_id)')"
+  },
+  "seed_data_creation": "Plans plan_basic, plan_premium, plan_pro_annual already existed in DB. Test created temporary pricing rules (rule_test_sub01, rule_test_nosub) and ephemeral user_subscriptions rows (all cleaned up after each test).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Stripe subscription integration fully tested (27/27 pass). Key facts: (1) CRITICAL BUG FIXED in payment_routes.py: subscription webhook events now dispatched before early-return check; (2) pytest.ini added to /app/backend with asyncio_mode=auto, asyncio_default_fixture_loop_scope=module, asyncio_default_test_loop_scope=module — required for asyncpg module-scoped fixtures; (3) pricing_engine.py has duplicate class definitions (lines 341-415) — does not break runtime but should be cleaned up; (4) test file test_subscriptions_iter51.py had SQL bug in test_26 (8 VALUES for 7 columns) — fixed; (5) Emergent proxy behavior: session.subscription=None (expected), handled by direct DB injection in webhook tests.",
+  "rca_of_issue": {
+    "bug": "Webhook dispatcher in payment_routes.py had subscription event dispatch AFTER early-return guard",
+    "root_cause": "Lines ~342-344 checked `if not payment_id: return` before reaching the subscription event dispatch block (~lines 413-418). Since subscription events (customer.subscription.*, invoice.*) never include payment_id in metadata (they have plan_id/user_id/product_type), they always triggered the early return. handle_subscription_event() was never called for any subscription webhook, making the entire webhook-based subscription lifecycle non-functional.",
+    "reproduction": "POST /api/webhook/stripe with body {type: 'customer.subscription.created', data: {object: {..., metadata: {plan_id: 'plan_basic', user_id: 'xxx', product_type: 'subscription'}}}} → returns {received: true} but nothing written to user_subscriptions table",
+    "fix_applied": "Moved the subscription event dispatch block (import + await handle_subscription_event()) to BEFORE the early-return check. Removed the now-redundant duplicate dispatch block that was at the end of the function.",
+    "files_modified": ["/app/backend/routes/payment_routes.py"]
+  }
+}

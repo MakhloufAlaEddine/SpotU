@@ -484,6 +484,22 @@ async def connect_to_db():
                 WHERE stripe_account_id IS NOT NULL;
         """)
 
+        # [SUBSCRIPTIONS-V1] Liaison plans ↔ Stripe Products/Prices
+        await conn.execute("""
+            ALTER TABLE subscription_plans
+                ADD COLUMN IF NOT EXISTS stripe_product_id TEXT;
+            ALTER TABLE subscription_plans
+                ADD COLUMN IF NOT EXISTS stripe_price_id TEXT;
+
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_subscription_plans_stripe_price
+                ON subscription_plans(stripe_price_id)
+                WHERE stripe_price_id IS NOT NULL;
+
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_subscription_plans_stripe_product
+                ON subscription_plans(stripe_product_id)
+                WHERE stripe_product_id IS NOT NULL;
+        """)
+
         # [PERF-01] Index de performance — migration idempotente
         await conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_bookings_user_id

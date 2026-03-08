@@ -339,6 +339,24 @@ async def stripe_webhook(request: Request):
                     payment_id      = row["payment_id"]
                     booking_id_meta = row["booking_id"]
 
+    # ── Dispatch vers le handler abonnements (AVANT le check payment_id) ────
+    # Les events abonnement n'ont pas de payment_id — ils doivent être traités
+    # indépendamment du flux paiement.
+    _SUBSCRIPTION_EVENTS = {
+        "checkout.session.completed",           # mode=subscription seulement
+        "customer.subscription.created",
+        "customer.subscription.updated",
+        "customer.subscription.deleted",
+        "invoice.paid",
+        "invoice.payment_failed",
+    }
+    if event_type in _SUBSCRIPTION_EVENTS:
+        from routes.subscription_routes import handle_subscription_event
+        try:
+            await handle_subscription_event(pool, event_type, obj)
+        except Exception as exc:
+            log.error("Erreur handler abonnement (event=%s) : %s", event_type, exc)
+
     if not payment_id:
         log.debug("Webhook ignoré — pas de payment_id trouvé (type=%s)", event_type)
         return {"received": True}
@@ -348,7 +366,12 @@ async def stripe_webhook(request: Request):
 
             if event_type == "checkout.session.completed":
                 ps = _get(obj, "payment_status", "")
-                if ps == "unpaid":
+                mode = _get(obj, "mode", "")
+
+                if mode == "subscription":
+                    # Déléguer aux handlers abonnement (hors transaction courante)
+                    pass  # traité ci-dessous, hors bloc
+                elif ps == "unpaid":
                     # capture_method=manual — autorisé, pas encore capturé
                     await conn.execute(
                         """UPDATE payments SET status='authorized', updated_at=NOW()
