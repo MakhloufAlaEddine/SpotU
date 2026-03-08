@@ -257,7 +257,7 @@ export default function SubscriptionsScreen() {
         origin_url: originUrl,
       });
       if (typeof window !== 'undefined') {
-        window.location.href = res.url;
+        window.location.assign(res.url);
       } else {
         await Linking.openURL(res.url);
       }

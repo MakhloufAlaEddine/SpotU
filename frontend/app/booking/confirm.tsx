@@ -92,12 +92,8 @@ export default function BookingConfirmScreen() {
         booking_id: bookingId,
         origin_url: originUrl,
       });
-      // Ouvrir Stripe Checkout dans le navigateur
-      if (typeof window !== 'undefined') {
-        window.location.href = res.url;
-      } else {
-        await Linking.openURL(res.url);
-      }
+      // Cross-platform : Linking gère web (même onglet) et natif (browser externe)
+      await Linking.openURL(res.url);
     } catch (err: any) {
       alert(err.message || 'Impossible de lancer le paiement');
       setPaymentLoading(false);

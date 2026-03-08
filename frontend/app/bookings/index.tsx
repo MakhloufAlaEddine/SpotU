@@ -9,7 +9,7 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  ActivityIndicator, RefreshControl,
+  ActivityIndicator, RefreshControl, Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -189,9 +189,7 @@ export default function MyBookingsScreen() {
         booking_id: booking.booking_id,
         origin_url: originUrl,
       });
-      if (typeof window !== 'undefined') {
-        window.location.href = res.url;
-      }
+      await Linking.openURL(res.url);
     } catch (err: any) {
       alert(err.message || 'Impossible de lancer le paiement');
     } finally {
