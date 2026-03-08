@@ -28,7 +28,7 @@ const BLUE_LIGHT = 'rgba(10,132,255,0.10)';
 const AMBER = '#FF9F0A';
 const AMBER_LIGHT = 'rgba(255,159,10,0.12)';
 
-const STEP_LABELS = ['Infos', 'Domaine', 'Config', 'Résumé'];
+const STEP_LABELS = ['Infos', 'Domaine', 'Config', 'Réservations', 'Résumé'];
 const DURATIONS = [30, 45, 60, 90, 120];
 const EXPIRY_OPTIONS = [
   { label: '30 min', value: 30 },
@@ -333,7 +333,7 @@ export default function CreateServiceScreen() {
       const p = parseFloat(price);
       if (!price || isNaN(p) || p <= 0) { Alert.alert('Prix manquant', 'Renseignez le prix par séance'); return; }
     }
-    setStep(s => Math.min(s + 1, 4));
+    setStep(s => Math.min(s + 1, 5));
     scrollTop();
   };
 
@@ -594,10 +594,7 @@ export default function CreateServiceScreen() {
   );
 
   // ─── Step 3: Configuration ────────────────────────────────────────────────────
-  const renderStep3 = () => {
-    const impact = getImpactInfo(bookingApprovalMode, allowPayLater, payLaterExpirationMinutes);
-
-    return (
+  const renderStep3 = () => (
     <View style={s.stepContent}>
       <Text style={s.stepTitle}>Configuration</Text>
       <Text style={s.stepHint}>Définissez les modalités pratiques de votre service</Text>
@@ -671,151 +668,159 @@ export default function CreateServiceScreen() {
           />
         </View>
       </View>
-
-      {/* ── SECTION : Configuration des réservations ───────────────────── */}
-      <View style={s.bookingSection}>
-        <View style={s.bookingSectionHeader}>
-          <Ionicons name="settings-outline" size={18} color={Colors.foreground} />
-          <Text style={s.bookingSectionTitle}>Configuration des réservations</Text>
-        </View>
-
-        {/* 1. Mode de réservation */}
-        <View style={s.field}>
-          <Text style={s.fieldLabel}>Mode de réservation</Text>
-          <View style={s.bookingOptionRow}>
-            <TouchableOpacity
-              style={[s.bookingOptionCard, bookingApprovalMode === 'instant_booking' && s.bookingOptionCardActive]}
-              onPress={() => setBookingApprovalMode('instant_booking')}
-              testID="booking-mode-instant"
-            >
-              <View style={s.bookingOptionTop}>
-                <View style={[s.bookingRadio, bookingApprovalMode === 'instant_booking' && s.bookingRadioActive]}>
-                  {bookingApprovalMode === 'instant_booking' && <View style={s.bookingRadioDot} />}
-                </View>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={[s.bookingOptionLabel, bookingApprovalMode === 'instant_booking' && s.bookingOptionLabelActive]}>
-                    Réservation directe
-                  </Text>
-                  <Text style={s.bookingOptionDesc}>
-                    Le créneau est bloqué dès la réservation
-                  </Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[s.bookingOptionCard, bookingApprovalMode === 'manual_approval' && s.bookingOptionCardActive]}
-              onPress={() => setBookingApprovalMode('manual_approval')}
-              testID="booking-mode-manual"
-            >
-              <View style={s.bookingOptionTop}>
-                <View style={[s.bookingRadio, bookingApprovalMode === 'manual_approval' && s.bookingRadioActive]}>
-                  {bookingApprovalMode === 'manual_approval' && <View style={s.bookingRadioDot} />}
-                </View>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={[s.bookingOptionLabel, bookingApprovalMode === 'manual_approval' && s.bookingOptionLabelActive]}>
-                    Validation manuelle
-                  </Text>
-                  <Text style={s.bookingOptionDesc}>
-                    Vous acceptez ou refusez chaque demande
-                  </Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* 2. Paiement */}
-        <View style={s.field}>
-          <Text style={s.fieldLabel}>Paiement</Text>
-          <View style={s.bookingOptionRow}>
-            <TouchableOpacity
-              style={[s.bookingOptionCard, !allowPayLater && s.bookingOptionCardActive]}
-              onPress={() => setAllowPayLater(false)}
-              testID="pay-mode-now"
-            >
-              <View style={s.bookingOptionTop}>
-                <View style={[s.bookingRadio, !allowPayLater && s.bookingRadioActive]}>
-                  {!allowPayLater && <View style={s.bookingRadioDot} />}
-                </View>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={[s.bookingOptionLabel, !allowPayLater && s.bookingOptionLabelActive]}>
-                    Paiement immédiat
-                  </Text>
-                  <Text style={s.bookingOptionDesc}>
-                    L'utilisateur paie pour confirmer
-                  </Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[s.bookingOptionCard, allowPayLater && s.bookingOptionCardActive]}
-              onPress={() => setAllowPayLater(true)}
-              testID="pay-mode-later"
-            >
-              <View style={s.bookingOptionTop}>
-                <View style={[s.bookingRadio, allowPayLater && s.bookingRadioActive]}>
-                  {allowPayLater && <View style={s.bookingRadioDot} />}
-                </View>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={[s.bookingOptionLabel, allowPayLater && s.bookingOptionLabelActive]}>
-                    Payer plus tard autorisé
-                  </Text>
-                  <Text style={s.bookingOptionDesc}>
-                    Le créneau est bloqué sans paiement immédiat
-                  </Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* 3. Délai d'expiration (si pay_later activé) */}
-        {allowPayLater && (
-          <View style={s.field}>
-            <Text style={s.fieldLabel}>Délai de paiement</Text>
-            <View style={s.chips}>
-              {EXPIRY_OPTIONS.map(opt => (
-                <TouchableOpacity
-                  key={opt.value}
-                  style={[s.chip, payLaterExpirationMinutes === opt.value && s.chipActive]}
-                  onPress={() => setPayLaterExpirationMinutes(opt.value)}
-                  testID={`expiry-${opt.value}`}
-                >
-                  <Text style={[s.chipText, payLaterExpirationMinutes === opt.value && s.chipTextActive]}>
-                    {opt.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            {/* Warning */}
-            <View style={s.warningBox}>
-              <Ionicons name="warning-outline" size={15} color={AMBER} style={{ marginTop: 1 }} />
-              <Text style={s.warningText}>
-                Pendant ce délai, le créneau sera indisponible pour les autres utilisateurs jusqu'au paiement ou à l'expiration.
-              </Text>
-            </View>
-          </View>
-        )}
-
-        {/* 4. Impact dynamique */}
-        <View style={[s.impactBox, { borderColor: impact.color + '40', backgroundColor: impact.color + '0D' }]}>
-          <View style={s.impactHeader}>
-            <Ionicons name={impact.icon} size={16} color={impact.color} />
-            <Text style={[s.impactTitle, { color: impact.color }]}>Impact de votre configuration</Text>
-          </View>
-          <View style={[s.impactBadge, { backgroundColor: impact.color + '18', borderColor: impact.color + '50' }]}>
-            <Text style={[s.impactBadgeText, { color: impact.color }]}>{impact.badge}</Text>
-          </View>
-          <Text style={s.impactText}>{impact.text}</Text>
-        </View>
-      </View>
     </View>
   );
+
+  // ─── Step 4: Réservations ─────────────────────────────────────────────────────
+  const renderStep4 = () => {
+    const impact = getImpactInfo(bookingApprovalMode, allowPayLater, payLaterExpirationMinutes);
+    return (
+      <View style={s.stepContent}>
+        <Text style={s.stepTitle}>Réservations</Text>
+        <Text style={s.stepHint}>Configurez le comportement des réservations de votre service</Text>
+
+        <View style={s.bookingSection}>
+          <View style={s.bookingSectionHeader}>
+            <Ionicons name="settings-outline" size={18} color={Colors.foreground} />
+            <Text style={s.bookingSectionTitle}>Configuration des réservations</Text>
+          </View>
+
+          {/* 1. Mode de réservation */}
+          <View style={s.field}>
+            <Text style={s.fieldLabel}>Mode de réservation</Text>
+            <View style={s.bookingOptionRow}>
+              <TouchableOpacity
+                style={[s.bookingOptionCard, bookingApprovalMode === 'instant_booking' && s.bookingOptionCardActive]}
+                onPress={() => setBookingApprovalMode('instant_booking')}
+                testID="booking-mode-instant"
+              >
+                <View style={s.bookingOptionTop}>
+                  <View style={[s.bookingRadio, bookingApprovalMode === 'instant_booking' && s.bookingRadioActive]}>
+                    {bookingApprovalMode === 'instant_booking' && <View style={s.bookingRadioDot} />}
+                  </View>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={[s.bookingOptionLabel, bookingApprovalMode === 'instant_booking' && s.bookingOptionLabelActive]}>
+                      Réservation directe
+                    </Text>
+                    <Text style={s.bookingOptionDesc}>
+                      Le créneau est bloqué dès la réservation
+                    </Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[s.bookingOptionCard, bookingApprovalMode === 'manual_approval' && s.bookingOptionCardActive]}
+                onPress={() => setBookingApprovalMode('manual_approval')}
+                testID="booking-mode-manual"
+              >
+                <View style={s.bookingOptionTop}>
+                  <View style={[s.bookingRadio, bookingApprovalMode === 'manual_approval' && s.bookingRadioActive]}>
+                    {bookingApprovalMode === 'manual_approval' && <View style={s.bookingRadioDot} />}
+                  </View>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={[s.bookingOptionLabel, bookingApprovalMode === 'manual_approval' && s.bookingOptionLabelActive]}>
+                      Validation manuelle
+                    </Text>
+                    <Text style={s.bookingOptionDesc}>
+                      Vous acceptez ou refusez chaque demande
+                    </Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* 2. Paiement */}
+          <View style={s.field}>
+            <Text style={s.fieldLabel}>Paiement</Text>
+            <View style={s.bookingOptionRow}>
+              <TouchableOpacity
+                style={[s.bookingOptionCard, !allowPayLater && s.bookingOptionCardActive]}
+                onPress={() => setAllowPayLater(false)}
+                testID="pay-mode-now"
+              >
+                <View style={s.bookingOptionTop}>
+                  <View style={[s.bookingRadio, !allowPayLater && s.bookingRadioActive]}>
+                    {!allowPayLater && <View style={s.bookingRadioDot} />}
+                  </View>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={[s.bookingOptionLabel, !allowPayLater && s.bookingOptionLabelActive]}>
+                      Paiement immédiat
+                    </Text>
+                    <Text style={s.bookingOptionDesc}>
+                      L'utilisateur paie pour confirmer
+                    </Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[s.bookingOptionCard, allowPayLater && s.bookingOptionCardActive]}
+                onPress={() => setAllowPayLater(true)}
+                testID="pay-mode-later"
+              >
+                <View style={s.bookingOptionTop}>
+                  <View style={[s.bookingRadio, allowPayLater && s.bookingRadioActive]}>
+                    {allowPayLater && <View style={s.bookingRadioDot} />}
+                  </View>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={[s.bookingOptionLabel, allowPayLater && s.bookingOptionLabelActive]}>
+                      Payer plus tard autorisé
+                    </Text>
+                    <Text style={s.bookingOptionDesc}>
+                      Le créneau est bloqué sans paiement immédiat
+                    </Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* 3. Délai d'expiration */}
+          {allowPayLater && (
+            <View style={s.field}>
+              <Text style={s.fieldLabel}>Délai de paiement</Text>
+              <View style={s.chips}>
+                {EXPIRY_OPTIONS.map(opt => (
+                  <TouchableOpacity
+                    key={opt.value}
+                    style={[s.chip, payLaterExpirationMinutes === opt.value && s.chipActive]}
+                    onPress={() => setPayLaterExpirationMinutes(opt.value)}
+                    testID={`expiry-${opt.value}`}
+                  >
+                    <Text style={[s.chipText, payLaterExpirationMinutes === opt.value && s.chipTextActive]}>
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <View style={s.warningBox}>
+                <Ionicons name="warning-outline" size={15} color={AMBER} style={{ marginTop: 1 }} />
+                <Text style={s.warningText}>
+                  Pendant ce délai, le créneau sera indisponible pour les autres utilisateurs jusqu'au paiement ou à l'expiration.
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* 4. Impact dynamique */}
+          <View style={[s.impactBox, { borderColor: impact.color + '40', backgroundColor: impact.color + '0D' }]}>
+            <View style={s.impactHeader}>
+              <Ionicons name={impact.icon} size={16} color={impact.color} />
+              <Text style={[s.impactTitle, { color: impact.color }]}>Impact de votre configuration</Text>
+            </View>
+            <View style={[s.impactBadge, { backgroundColor: impact.color + '18', borderColor: impact.color + '50' }]}>
+              <Text style={[s.impactBadgeText, { color: impact.color }]}>{impact.badge}</Text>
+            </View>
+            <Text style={s.impactText}>{impact.text}</Text>
+          </View>
+        </View>
+      </View>
+    );
   };
 
-  // ─── Step 4: Résumé & Score ───────────────────────────────────────────────────
+  // ─── Step 5: Résumé & Score ───────────────────────────────────────────────────
   const { score, criteria } = useMemo(
     () => computeScore(title, coachDesc, address, selectedTagIds, price, slots),
     [title, coachDesc, address, selectedTagIds, price, slots]
@@ -823,7 +828,7 @@ export default function CreateServiceScreen() {
   const scoreColor = score >= 80 ? GREEN : score >= 50 ? ORANGE : Colors.destructive;
   const selectedDomain = domains.find(d => d.domain_id === domainId);
 
-  const renderStep4 = () => (
+  const renderStep5 = () => (
     <View style={s.stepContent}>
       <Text style={s.stepTitle}>Résumé & Publication</Text>
 
@@ -991,6 +996,7 @@ export default function CreateServiceScreen() {
           {step === 2 && renderStep2()}
           {step === 3 && renderStep3()}
           {step === 4 && renderStep4()}
+          {step === 5 && renderStep5()}
         </ScrollView>
 
         {/* Bottom navigation */}
@@ -1002,9 +1008,9 @@ export default function CreateServiceScreen() {
             </TouchableOpacity>
           ) : <View style={{ flex: 1 }} />}
 
-          {step < 4 ? (
+          {step < 5 ? (
             <TouchableOpacity style={s.nextBtn} onPress={goNext} testID="next-step-btn">
-              <Text style={s.nextBtnText}>{step === 3 ? 'Voir le résumé' : 'Suivant'}</Text>
+              <Text style={s.nextBtnText}>{step === 4 ? 'Voir le résumé' : 'Suivant'}</Text>
               <Ionicons name="chevron-forward" size={18} color={Colors.background} />
             </TouchableOpacity>
           ) : (

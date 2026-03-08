@@ -1,0 +1,40 @@
+{
+  "summary": "Iteration 58 — Frontend testing of 5-step create-service wizard migration. All 10 requested features verified and passing. The wizard now correctly has 5 steps (Infos, Domaine, Config, Réservations, Résumé), step 3 has config only (no booking section), step 4 has the full booking configuration, and step 5 shows the workflow badge.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A (frontend-only testing)",
+    "frontend": "100% (10/10 features verified)"
+  },
+  "test_credentials": {
+    "coach": "coach@winek.app / WinekCoach2024!"
+  },
+  "seed_data_creation": "None (no service was published; test stopped before final submit)",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "5-step wizard fully functional at /create-service. STEP_LABELS=['Infos','Domaine','Config','Réservations','Résumé']. Step 3 = Config (prix/durée/participants/créneaux). Step 4 = Réservations (booking-mode-instant/manual, pay-mode-now/later, expiry chips 30/60/120/240/1440, impact bloc). Step 5 = Résumé with workflow badge. 'Voir le résumé' button correctly shown on step 4 only.",
+  "test_results_detail": {
+    "test1_5_steps_header": "PASS - All 5 labels visible: INFOS, DOMAINE, CONFIG, RÉSERVATIONS, RÉSUMÉ",
+    "test2_step3_config_only": "PASS - Step 3 has prix/durée/participants/créneaux; NO booking section present",
+    "test3_step4_booking_section": "PASS - Step 4 shows 'Configuration des réservations' full section",
+    "test4_booking_mode_options": "PASS - booking-mode-instant and booking-mode-manual testids found",
+    "test5_pay_mode_options": "PASS - pay-mode-now and pay-mode-later testids found",
+    "test6_expiry_chips": "PASS - expiry-30/60/120/240/1440 visible when pay_later=true; hidden when pay_later=false",
+    "test7_impact_dynamic": "PASS - Impact bloc updates dynamically for all 4 combos (manual+later=AMBER, instant+later=BLUE, instant+now=GREEN verified)",
+    "test8_voir_resume_button": "PASS - 'Voir le résumé' on step 4; 'Suivant' on step 3",
+    "test9_navigation_1_to_5": "PASS - Full 1→2→3→4→5 navigation works correctly",
+    "test10_step5_workflow_badge": "PASS - Step 5 shows colored workflow badge (e.g. 'Réservation directe · Paiement différé · Créneau bloqué 1h' in BLUE)"
+  }
+}
