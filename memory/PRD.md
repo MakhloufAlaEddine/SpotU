@@ -70,7 +70,15 @@ Fonctionnalités : création/découverte de services et SpotYous, système de r�
 | 2026-03-08 | DB migration: stripe_checkout_session_id colonne dans payments | backend/database.py |
 | 2026-03-08 | Test suite: 61 tests backend Stripe (100% pass) | backend/tests/test_stripe_payment_iter50.py |
 
-### Phase 6 - Webhooks Stripe Robustes (2026-03-08)
+### Phase 7 - Notifications branchées sur workflow booking/payment/subscription (2026-03-08)
+| Date | Fonctionnalité | Fichiers modifiés |
+|------|---------------|-------------------|
+| 2026-03-08 | **booking_routes.py** : 3 nouvelles notifications — `booking_accepted` (payer), `booking_refused` (payer), `booking_cancelled` (receiver). Queries enrichies avec payer_user_id/receiver_user_id | backend/routes/booking_routes.py |
+| 2026-03-08 | **webhook_handlers.py réécriture** : 12 événements → 12 notifications. Architecture pending_notifs (liste mutable passée aux handlers). Guard rows_updated > 0 (anti-doublon sur transitions déjà faites). Notifications envoyées APRÈS libération de la connexion DB (pas de deadlock). push_service.store_notification() + WebSocket broadcast | backend/webhook_handlers.py |
+| 2026-03-08 | **test_notifications_iter53.py créé** : 17 tests (notifications booking + payment + subscription + anti-doublon) — 100% pass | backend/tests/test_notifications_iter53.py |
+| 2026-03-08 | **pytest.ini amélioré** : pythonpath=. pour que les modules backend soient importables depuis tests/ | backend/pytest.ini |
+
+
 | Date | Fonctionnalité | Fichiers modifiés |
 |------|---------------|-------------------|
 | 2026-03-08 | **payment_routes.py webhook refactorisé** : ~80 lignes de logique inline → ~15 lignes qui délèguent à `webhook_handlers.dispatch()`. Endpoint unifié, signature vérifiée, event_id requis | backend/routes/payment_routes.py |
