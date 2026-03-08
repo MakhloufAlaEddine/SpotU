@@ -382,7 +382,8 @@ async def test_15_admin_cancel_subscription(tokens, user_id, db_conn, base_plan)
 # ── 7-11. Webhooks ─────────────────────────────────────────────────────────────
 
 def make_webhook_body(event_type: str, obj: dict) -> dict:
-    return {"type": event_type, "data": {"object": obj}}
+    import uuid as _uuid
+    return {"id": f"evt_iter51_{_uuid.uuid4().hex[:16]}", "type": event_type, "data": {"object": obj}}
 
 
 @pytest.mark.asyncio

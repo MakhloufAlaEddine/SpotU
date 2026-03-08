@@ -953,7 +953,9 @@ class TestStripeWebhook:
         STRIPE_WEBHOOK_SECRET est vide → pas de vérification signature.
         JSON valide sans Stripe-Signature → 200 {"received": True}.
         """
+        import uuid as _uuid
         payload = {
+            "id": f"evt_iter50_smoke_{_uuid.uuid4().hex[:12]}",   # requis pour idempotence
             "type": "checkout.session.completed",
             "data": {
                 "object": {
@@ -970,12 +972,14 @@ class TestStripeWebhook:
         )
         assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
         data = resp.json()
-        assert data == {"received": True}, f"Expected {{'received': True}}, got {data}"
-        print("PASS: Webhook valid JSON (no signature) → 200 {'received': True} ✓")
+        assert data.get("received") is True, f"Expected received=True, got {data}"
+        print("PASS: Webhook valid JSON (no signature) → 200 {received: True} ✓")
 
     def test_webhook_payment_intent_succeeded_returns_200(self):
         """Événement payment_intent.succeeded → 200 {"received": True}."""
+        import uuid as _uuid
         payload = {
+            "id": f"evt_iter50_pi_succ_{_uuid.uuid4().hex[:12]}",
             "type": "payment_intent.succeeded",
             "data": {
                 "object": {
@@ -990,12 +994,14 @@ class TestStripeWebhook:
             timeout=15,
         )
         assert resp.status_code == 200, f"Expected 200, got {resp.status_code}"
-        assert resp.json() == {"received": True}
-        print("PASS: Webhook payment_intent.succeeded → 200 {'received': True} ✓")
+        assert resp.json().get("received") is True
+        print("PASS: Webhook payment_intent.succeeded → 200 {received: True} ✓")
 
     def test_webhook_payment_intent_canceled_returns_200(self):
         """Événement payment_intent.canceled → 200 {"received": True}."""
+        import uuid as _uuid
         payload = {
+            "id": f"evt_iter50_pi_cancel_{_uuid.uuid4().hex[:12]}",
             "type": "payment_intent.canceled",
             "data": {
                 "object": {
@@ -1010,13 +1016,14 @@ class TestStripeWebhook:
             timeout=15,
         )
         assert resp.status_code == 200, f"Expected 200, got {resp.status_code}"
-        assert resp.json() == {"received": True}
-        print("PASS: Webhook payment_intent.canceled → 200 {'received': True} ✓")
+        assert resp.json().get("received") is True
+        print("PASS: Webhook payment_intent.canceled → 200 {received: True} ✓")
 
     def test_webhook_updates_payment_status_on_succeeded(self, user_headers):
         """
         Webhook payment_intent.succeeded avec payment_id réel → payment status mis à jour.
         """
+        import uuid as _uuid
         # Create a booking to get a real payment_id
         booking = create_test_booking(user_headers, notes="TEST_webhook_update_iter50")
         booking_id = booking["booking_id"]
@@ -1028,8 +1035,9 @@ class TestStripeWebhook:
         assert payment is not None
         payment_id = payment["payment_id"]
 
-        # Send webhook event
+        # Send webhook event with unique event_id (requis pour idempotence)
         payload = {
+            "id": f"evt_iter50_real_{_uuid.uuid4().hex[:12]}",
             "type": "payment_intent.succeeded",
             "data": {
                 "object": {
@@ -1047,7 +1055,7 @@ class TestStripeWebhook:
             timeout=15,
         )
         assert resp.status_code == 200, f"Expected 200, got {resp.status_code}"
-        assert resp.json() == {"received": True}
+        assert resp.json().get("received") is True
 
         # Verify DB update
         payments_resp2 = requests.get(f"{BASE_URL}/api/payments/me", headers=user_headers, timeout=15)

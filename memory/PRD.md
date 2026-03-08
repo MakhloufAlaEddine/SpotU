@@ -70,7 +70,17 @@ Fonctionnalités : création/découverte de services et SpotYous, système de r�
 | 2026-03-08 | DB migration: stripe_checkout_session_id colonne dans payments | backend/database.py |
 | 2026-03-08 | Test suite: 61 tests backend Stripe (100% pass) | backend/tests/test_stripe_payment_iter50.py |
 
-### Phase 5 - Abonnements Stripe (2026-03-08)
+### Phase 6 - Webhooks Stripe Robustes (2026-03-08)
+| Date | Fonctionnalité | Fichiers modifiés |
+|------|---------------|-------------------|
+| 2026-03-08 | **payment_routes.py webhook refactorisé** : ~80 lignes de logique inline → ~15 lignes qui délèguent à `webhook_handlers.dispatch()`. Endpoint unifié, signature vérifiée, event_id requis | backend/routes/payment_routes.py |
+| 2026-03-08 | **webhook_handlers.py** : dispatcher centralisé idempotent. Couvre payment_intent.*, checkout.session.completed, charge.refunded, refund.updated, customer.subscription.*, invoice.paid, invoice.payment_failed. Source de vérité = Stripe. Guards anti-régression (WHERE status NOT IN (...)). Table stripe_webhook_events pour traçabilité | backend/webhook_handlers.py |
+| 2026-03-08 | **seed.py** : plans d'abonnement ajoutés au seed (plan_basic 9.99€/mois, plan_premium 19.99€/mois, plan_pro_annual 149.99€/an) | backend/seed.py |
+| 2026-03-08 | **test_webhooks_iter52.py créé** : 28 tests (paiements, remboursements, abonnements, idempotence, anti-régression, cycles complets) — 100% pass | backend/tests/test_webhooks_iter52.py |
+| 2026-03-08 | **test_stripe_payment_iter50.py corrigé** : 4 tests webhook mis à jour (event_id requis, assertion .get()) | backend/tests/test_stripe_payment_iter50.py |
+| 2026-03-08 | **test_subscriptions_iter51.py corrigé** : make_webhook_body() génère maintenant un event_id unique | backend/tests/test_subscriptions_iter51.py |
+
+
 | Date | Fonctionnalité | Fichiers modifiés |
 |------|---------------|-------------------|
 | 2026-03-08 | **stripe_service.py** : ensure_subscription_price (Product+Price idempotent), create_subscription_checkout_session (mode='subscription'), cancel_subscription (at_period_end), retrieve_subscription | backend/stripe_service.py |

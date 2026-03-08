@@ -681,3 +681,23 @@ async def seed_initial_data():
                 )
 
             logger.info("Seeded demo chat conversations and messages")
+
+        # ── Plans d'abonnement ─────────────────────────────────────────────────
+        count = await conn.fetchval("SELECT COUNT(*) FROM subscription_plans")
+        if count == 0:
+            await conn.execute("""
+                INSERT INTO subscription_plans
+                    (plan_id, name, description, price, duration_days,
+                     exempt_payer_fixed, exempt_payer_percent,
+                     exempt_receiver_fixed, exempt_receiver_percent,
+                     active, priority, created_at, updated_at)
+                VALUES
+                    ('plan_basic', 'Basic', 'Accès essentiel — frais fixes payeur offerts', 9.99, 30,
+                     TRUE, FALSE, FALSE, FALSE, TRUE, 1, NOW(), NOW()),
+                    ('plan_premium', 'Premium', 'Tout inclus — frais fixes ET variables offerts', 19.99, 30,
+                     TRUE, TRUE, FALSE, FALSE, TRUE, 2, NOW(), NOW()),
+                    ('plan_pro_annual', 'Pro Annuel', 'Offre Pro annuelle — tous frais offerts pour payeur et receveur', 149.99, 365,
+                     TRUE, TRUE, TRUE, TRUE, TRUE, 3, NOW(), NOW())
+                ON CONFLICT DO NOTHING
+            """)
+            logger.info("Seeded 3 subscription plans: plan_basic, plan_premium, plan_pro_annual")
