@@ -247,6 +247,11 @@ class BookingRequest(BaseModel):
     idempotency_key: Optional[str] = None   # clé d'idempotence fournie par le client
 
 
+class CancelRequest(BaseModel):
+    """Corps optionnel de POST /bookings/{id}/cancel."""
+    reason: Optional[str] = None            # Raison libre (non obligatoire)
+
+
 # Alias rétrocompatibilité (ancien champ BookingCreate toujours importé)
 BookingCreate = BookingRequest
 

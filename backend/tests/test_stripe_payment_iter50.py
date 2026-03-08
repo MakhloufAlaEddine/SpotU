@@ -732,7 +732,11 @@ class TestBookingCancel:
         print("PASS: Non-existent booking → 404")
 
     def test_cancel_by_non_payer_rejected(self, coach_headers, user_headers):
-        """Le receiver (coach) ne peut pas annuler la réservation d'un autre → 403."""
+        """
+        Le receiver (coach) tente d'annuler un booking 'requested' → 409.
+        (Mise à jour iter55 : le receiver est désormais reconnu mais ne peut annuler
+        qu'un booking 'accepted'. Pour un booking 'requested' il reçoit 409, non 403.)
+        """
         booking = create_test_booking(user_headers, notes="TEST_cancel_forbidden_iter50")
         booking_id = booking["booking_id"]
 
@@ -741,8 +745,11 @@ class TestBookingCancel:
             headers=coach_headers,  # coach is receiver, not payer
             timeout=15,
         )
-        assert resp.status_code == 403, f"Expected 403 for non-payer cancel, got {resp.status_code}"
-        print("PASS: Non-payer cannot cancel → 403")
+        # Nouvelle politique : receiver → 409 pour état 'requested' (non 403)
+        assert resp.status_code == 409, (
+            f"Expected 409 for receiver cancelling 'requested' booking, got {resp.status_code}"
+        )
+        print("PASS: Receiver cannot cancel 'requested' booking → 409")
 
     def test_cancel_requested_booking_success(self, user_headers):
         """

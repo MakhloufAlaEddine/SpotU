@@ -192,6 +192,51 @@ async def retrieve_payment_intent(intent_id: str) -> stripe.PaymentIntent:
     return await _run_sync(stripe.PaymentIntent.retrieve, intent_id)
 
 
+# ── Remboursement ──────────────────────────────────────────────────────────────
+
+_REFUND_REASONS = {"requested_by_customer", "fraudulent", "duplicate"}
+
+async def create_refund(
+    charge_id: str,
+    amount_cents: int | None = None,
+    reason: str = "requested_by_customer",
+    idempotency_key: str | None = None,
+) -> stripe.Refund:
+    """
+    Crée un remboursement Stripe pour une charge déjà capturée.
+
+    - charge_id    : ch_... (stripe_charge_id stocké dans payments)
+    - amount_cents : si None → remboursement complet (full refund)
+                     si défini → remboursement partiel
+    - reason       : 'requested_by_customer' | 'fraudulent' | 'duplicate'
+    - idempotency_key : prévient les remboursements en double (recommandé = booking_id)
+
+    Retourne l'objet Refund Stripe.
+    Lève stripe.error.StripeError en cas d'échec (charge déjà remboursée, etc.).
+    """
+    safe_reason = reason if reason in _REFUND_REASONS else "requested_by_customer"
+
+    params: dict = {
+        "charge": charge_id,
+        "reason": safe_reason,
+    }
+    if amount_cents is not None and amount_cents > 0:
+        params["amount"] = amount_cents
+
+    kwargs = {}
+    if idempotency_key:
+        kwargs["idempotency_key"] = f"rf_{idempotency_key}"
+
+    refund = await _run_sync(stripe.Refund.create, **params, **kwargs)
+    log.info(
+        "Remboursement créé : refund=%s | charge=%s | amount=%s | reason=%s",
+        refund.id, charge_id,
+        f"{amount_cents}c" if amount_cents else "full",
+        safe_reason,
+    )
+    return refund
+
+
 # ── Webhook ───────────────────────────────────────────────────────────────────
 
 def parse_webhook_event(body: bytes, sig: str) -> stripe.Event:

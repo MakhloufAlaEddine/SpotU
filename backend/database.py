@@ -525,6 +525,13 @@ async def connect_to_db():
                 ADD COLUMN IF NOT EXISTS refund_status         TEXT;
         """)
 
+        # [CANCEL-POLICY] Colonnes annulation — migration idempotente
+        await conn.execute("""
+            ALTER TABLE bookings
+                ADD COLUMN IF NOT EXISTS cancelled_by_user_id TEXT,
+                ADD COLUMN IF NOT EXISTS cancellation_reason   TEXT;
+        """)
+
         # [PERF-01] Index de performance — migration idempotente
         await conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_bookings_user_id

@@ -27,8 +27,9 @@ Garanties :
   - Aucun calcul de prix en dehors du pricing_engine
 """
 
-from fastapi import APIRouter, Request, HTTPException
-from models import BookingRequest, BookingCreate, new_id   # BookingCreate = alias rétrocompat
+from fastapi import APIRouter, Request, HTTPException, Body
+from typing import Optional
+from models import BookingRequest, BookingCreate, CancelRequest, new_id   # BookingCreate = alias rétrocompat
 from auth_utils import require_auth
 from database import get_pool, row_to_dict, rows_to_list
 from push_service import send_push_to_user
@@ -54,7 +55,8 @@ BOOKING_FIELDS = """
     b.scheduled_at, b.slot_id, b.location_id, b.notes, b.amount,
     b.payment_status, b.payer_user_id, b.receiver_user_id,
     b.pricing_snapshot, b.idempotency_key, b.currency,
-    b.created_at, b.updated_at, b.expires_at
+    b.created_at, b.updated_at, b.expires_at,
+    b.cancelled_by_user_id, b.cancellation_reason
 """
 
 
@@ -487,22 +489,55 @@ async def refuse_booking(booking_id: str, request: Request):
 # ╚══════════════════════════════════════════════════════════════════════════════╝
 
 @router.post("/bookings/{booking_id}/cancel")
-async def cancel_booking(booking_id: str, request: Request):
+async def cancel_booking(
+    booking_id: str,
+    request: Request,
+    body: Optional[CancelRequest] = Body(default=None),
+):
     """
-    Le payeur (ou admin) annule.
-    - booking : requested|accepted → cancelled
-    - slot    : pending|booked → available (libération)
-    - payment : requires_authorization|authorized → cancelled
-                captured → refunded (paiement déjà capturé)
+    POLITIQUE D'ANNULATION SpotU
+    ==============================
+
+    Qui peut annuler :
+      • Le payeur  (payer_user_id / user_id)  : états requested et accepted
+      • Le bénéficiaire (receiver_user_id)     : uniquement état accepted
+      • L'admin                                : tous les états annulables
+
+    Traitement financier selon le statut du paiement :
+    ┌──────────────────────────────┬──────────────────────────────────────────────┐
+    │ pay_status avant annulation  │ Action Stripe                                │
+    ├──────────────────────────────┼──────────────────────────────────────────────┤
+    │ requires_authorization       │ PaymentIntent.cancel (aucun débit)           │
+    │ authorized / capture_pending │ PaymentIntent.cancel (aucun débit)           │
+    │ captured                     │ Refund.create (remboursement complet)         │
+    │ pending / failed / other     │ Aucune action Stripe                          │
+    └──────────────────────────────┴──────────────────────────────────────────────┘
+
+    Machine d'états booking :
+      requested + payeur/admin    → cancelled
+      accepted  + payeur          → cancelled
+      accepted  + bénéficiaire    → cancelled
+      completed / refused/expired → 409 impossible
+
+    Notifications :
+      • Payeur annule   → notification au bénéficiaire
+      • Bénéficiaire annule → notification au payeur (+ info remboursement si applicable)
+      • Admin annule    → notification aux deux parties
+
+    Colonnes tracées en DB :
+      bookings.cancelled_by_user_id — qui a annulé
+      bookings.cancellation_reason  — raison fournie (optionnel)
     """
     pool = get_pool()
     user = await require_auth(request, pool)
+    cancel_reason = body.reason if body else None
 
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """SELECT b.booking_id, b.status, b.user_id, b.slot_id,
-                      b.receiver_user_id,
-                      p.status AS pay_status, p.payment_id
+                      b.payer_user_id, b.receiver_user_id, b.service_id,
+                      p.status AS pay_status, p.payment_id,
+                      p.stripe_payment_intent_id, p.stripe_charge_id
                FROM bookings b
                LEFT JOIN payments p ON p.booking_id = b.booking_id
                WHERE b.booking_id = $1
@@ -513,27 +548,58 @@ async def cancel_booking(booking_id: str, request: Request):
             raise HTTPException(404, "Réservation introuvable")
 
         bk = dict(row)
-        is_admin = user.get("role") == "admin"
-        if bk["user_id"] != user["user_id"] and not is_admin:
-            raise HTTPException(403, "Seul le payeur ou un admin peut annuler")
+        uid = user["user_id"]
+        is_admin    = user.get("role") == "admin"
+        is_payer    = uid in filter(None, [bk["user_id"], bk["payer_user_id"]])
+        is_receiver = uid == bk["receiver_user_id"]
+
+        # ── Vérification des droits ────────────────────────────────────────────
+        if not (is_payer or is_receiver or is_admin):
+            raise HTTPException(403, "Vous n'êtes pas autorisé à annuler cette réservation")
+
+        # Le bénéficiaire ne peut annuler que si accepted
+        if is_receiver and not is_payer and not is_admin:
+            if bk["status"] != "accepted":
+                raise HTTPException(
+                    409,
+                    f"Le bénéficiaire peut annuler uniquement une réservation acceptée "
+                    f"(état actuel : '{bk['status']}'). "
+                    "Pour refuser une demande en attente, utilisez /refuse.",
+                )
+
+        # ── Idempotence ────────────────────────────────────────────────────────
         if bk["status"] == "cancelled":
             return {"success": True, "status": "cancelled", "idempotent": True}
+
+        # ── États non annulables ───────────────────────────────────────────────
         if bk["status"] in ("completed", "refused", "expired"):
-            raise HTTPException(409, f"Impossible d'annuler une réservation en état '{bk['status']}'")
+            raise HTTPException(
+                409,
+                f"Impossible d'annuler une réservation en état '{bk['status']}'",
+            )
 
-        pay_status = bk.get("pay_status", "")
-        new_pay_status = (
-            "refunded"  if pay_status == "captured" else
-            "cancelled" if pay_status in ("requires_authorization", "authorized", "capture_pending") else
-            pay_status
-        )
+        pay_status = bk.get("pay_status") or ""
 
+        # ── Déterminer la transition payment ──────────────────────────────────
+        if pay_status in ("requires_authorization", "authorized", "capture_pending"):
+            new_pay_status = "cancelled"
+        elif pay_status == "captured":
+            new_pay_status = "refunded"
+        else:
+            new_pay_status = pay_status  # pending / failed / None → pas de changement
+
+        # ── Transaction DB atomique ────────────────────────────────────────────
         async with conn.transaction():
             await conn.execute(
-                "UPDATE bookings SET status='cancelled', updated_at=NOW() WHERE booking_id=$1",
-                booking_id,
+                """UPDATE bookings
+                   SET status='cancelled',
+                       cancelled_by_user_id=$2,
+                       cancellation_reason=$3,
+                       updated_at=NOW()
+                   WHERE booking_id=$1""",
+                booking_id, uid, cancel_reason,
             )
-            if bk.get("payment_id") and new_pay_status:
+            if bk.get("payment_id") and new_pay_status != pay_status:
                 await conn.execute(
                     "UPDATE payments SET status=$1, updated_at=NOW() WHERE payment_id=$2",
                     new_pay_status, bk["payment_id"],
@@ -545,47 +611,106 @@ async def cancel_booking(booking_id: str, request: Request):
                     bk["slot_id"],
                 )
 
-    # ── Annulation / Remboursement Stripe hors transaction ────────────────────
-    # Récupérer le PI ID (pas dans la requête initiale — on le charge séparément)
-    if bk.get("payment_id") and new_pay_status in ("cancelled", "refunded"):
-        async with pool.acquire() as conn2:
-            pi_row = await conn2.fetchrow(
-                "SELECT stripe_payment_intent_id FROM payments WHERE payment_id=$1",
-                bk["payment_id"],
-            )
-        if pi_row and pi_row["stripe_payment_intent_id"]:
-            pi_id = pi_row["stripe_payment_intent_id"]
+    # ── Stripe hors transaction ────────────────────────────────────────────────
+    stripe_action: str | None = None
+    pi_id     = bk.get("stripe_payment_intent_id")
+    charge_id = bk.get("stripe_charge_id")
+
+    if new_pay_status == "cancelled" and pi_id:
+        try:
+            await stripe_service.cancel_payment_intent(pi_id, reason="cancelled")
+            stripe_action = "pi_cancelled"
+            log.info("PI annulé : pi=%s | booking=%s", pi_id, booking_id)
+        except Exception as exc:
+            log.error("Erreur annulation PI pi=%s booking=%s : %s", pi_id, booking_id, exc)
+
+    elif new_pay_status == "refunded":
+        if charge_id:
             try:
-                if new_pay_status == "cancelled":
-                    await stripe_service.cancel_payment_intent(pi_id, reason="cancelled")
-                # Note : le remboursement réel (refunded) nécessite stripe.Refund.create
-                # — non implémenté ici (cas rare d'annulation post-capture)
+                await stripe_service.create_refund(
+                    charge_id=charge_id,
+                    reason="requested_by_customer",
+                    idempotency_key=booking_id,
+                )
+                stripe_action = "refund_created"
                 log.info(
-                    "Stripe annulation : pi=%s | new_pay_status=%s | booking=%s",
-                    pi_id, new_pay_status, booking_id,
+                    "Remboursement Stripe : charge=%s | booking=%s", charge_id, booking_id
                 )
             except Exception as exc:
-                log.error("Erreur Stripe annulation pi=%s : %s", pi_id, exc)
+                log.error(
+                    "Erreur remboursement Stripe charge=%s booking=%s : %s",
+                    charge_id, booking_id, exc,
+                )
+        else:
+            # charge_id absent (proxy Emergent / PI sans capture) — pas de refund possible
+            log.warning(
+                "Paiement capturé sans stripe_charge_id — remboursement manuel requis (booking=%s)",
+                booking_id,
+            )
 
-    # ── Notification push au receiver (coach) ─────────────────────────────────
-    if bk.get("receiver_user_id"):
-        _push(
-            pool, bk["receiver_user_id"],
-            title="Réservation annulée",
-            body="Une demande de réservation a été annulée.",
-            data={
-                "type": "booking_cancelled",
-                "bookingId": booking_id,
-                "action_text": "a annulé sa demande",
-            },
-            notif_type="booking_cancelled",
-        )
+    # ── Notifications ──────────────────────────────────────────────────────────
+    refund_suffix = " Un remboursement a été initié." if new_pay_status == "refunded" else ""
+    payer_uid    = bk.get("payer_user_id") or bk.get("user_id")
+    receiver_uid = bk.get("receiver_user_id")
+
+    if is_admin:
+        # Admin → notifie les deux parties
+        if payer_uid:
+            _push(
+                pool, payer_uid,
+                title="Réservation annulée",
+                body=f"Votre réservation a été annulée par un administrateur.{refund_suffix}",
+                data={"type": "booking_cancelled", "bookingId": booking_id,
+                      "cancelled_by": "admin"},
+                notif_type="booking_cancelled",
+            )
+        if receiver_uid:
+            _push(
+                pool, receiver_uid,
+                title="Réservation annulée",
+                body="Une réservation a été annulée par un administrateur.",
+                data={"type": "booking_cancelled", "bookingId": booking_id,
+                      "cancelled_by": "admin"},
+                notif_type="booking_cancelled",
+            )
+    elif is_payer:
+        # Payeur annule → notification au bénéficiaire
+        if receiver_uid:
+            _push(
+                pool, receiver_uid,
+                title="Réservation annulée par le client",
+                body="Le client a annulé sa réservation.",
+                data={"type": "booking_cancelled_by_payer", "bookingId": booking_id,
+                      "action_text": "a annulé sa réservation"},
+                notif_type="booking_cancelled",
+            )
+    elif is_receiver:
+        # Bénéficiaire annule → notification au payeur
+        if payer_uid:
+            _push(
+                pool, payer_uid,
+                title="Réservation annulée par le prestataire",
+                body=f"Votre réservation a été annulée par le prestataire.{refund_suffix}",
+                data={"type": "booking_cancelled_by_receiver", "bookingId": booking_id,
+                      "refund": new_pay_status == "refunded",
+                      "action_text": "a annulé la réservation"},
+                notif_type="booking_cancelled",
+            )
+
+    log.info(
+        "Booking annulé : booking=%s | par=%s (payer=%s, receiver=%s, admin=%s) "
+        "| pay=%s→%s | stripe=%s | reason=%s",
+        booking_id, uid, is_payer, is_receiver, is_admin,
+        pay_status, new_pay_status, stripe_action, cancel_reason,
+    )
 
     return {
-        "success": True,
-        "status": "cancelled",
-        "booking_id": booking_id,
+        "success":        True,
+        "status":         "cancelled",
+        "booking_id":     booking_id,
         "payment_status": new_pay_status,
+        "cancelled_by":   uid,
+        "stripe_action":  stripe_action,
     }
 
 
@@ -607,7 +732,7 @@ async def update_booking_status(booking_id: str, request: Request):
     elif new_status == "refused":
         return await refuse_booking(booking_id, request)
     elif new_status == "cancelled":
-        return await cancel_booking(booking_id, request)
+        return await cancel_booking(booking_id, request=request, body=CancelRequest())
     elif new_status == "completed":
         pool = get_pool()
         user = await require_auth(request, pool)
