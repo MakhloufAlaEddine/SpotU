@@ -20,12 +20,14 @@ import { Colors, Spacing, Radius } from '../../constants/Colors';
 // ── Statuts booking ────────────────────────────────────────────────────────────
 
 const BOOKING_STATUS: Record<string, { label: string; color: string; icon: string }> = {
-  requested:  { label: 'En attente',  color: '#FF9500', icon: 'time-outline' },
-  accepted:   { label: 'Acceptée',   color: '#34C759', icon: 'checkmark-circle-outline' },
-  refused:    { label: 'Refusée',    color: '#FF3B30', icon: 'close-circle-outline' },
-  expired:    { label: 'Expirée',    color: '#636366', icon: 'timer-outline' },
-  cancelled:  { label: 'Annulée',   color: '#636366', icon: 'ban-outline' },
-  completed:  { label: 'Terminée',  color: '#00BFA5', icon: 'ribbon-outline' },
+  requested:        { label: 'En attente',          color: '#FF9500', icon: 'time-outline' },
+  awaiting_payment: { label: 'Paiement en attente', color: '#0A84FF', icon: 'card-outline' },
+  accepted:         { label: 'Acceptée',             color: '#34C759', icon: 'checkmark-circle-outline' },
+  confirmed:        { label: 'Confirmée',            color: '#1DBF73', icon: 'checkmark-circle' },
+  refused:          { label: 'Refusée',              color: '#FF3B30', icon: 'close-circle-outline' },
+  expired:          { label: 'Expirée',              color: '#636366', icon: 'timer-outline' },
+  cancelled:        { label: 'Annulée',              color: '#636366', icon: 'ban-outline' },
+  completed:        { label: 'Terminée',             color: '#00BFA5', icon: 'ribbon-outline' },
 };
 
 const PAYMENT_STATUS: Record<string, { label: string; color: string }> = {
@@ -52,7 +54,7 @@ const FILTERS: { key: FilterTab; label: string }[] = [
 
 function filterBookings(bookings: any[], tab: FilterTab): any[] {
   if (tab === 'all') return bookings;
-  if (tab === 'active')    return bookings.filter(b => ['requested', 'accepted'].includes(b.status));
+  if (tab === 'active')    return bookings.filter(b => ['requested', 'accepted', 'awaiting_payment', 'confirmed'].includes(b.status));
   if (tab === 'done')      return bookings.filter(b => ['completed'].includes(b.status));
   if (tab === 'cancelled') return bookings.filter(b => ['refused', 'expired', 'cancelled'].includes(b.status));
   return bookings;
@@ -71,15 +73,43 @@ function getAmount(booking: any): number | null {
   return null;
 }
 
+// ── Countdown hook ─────────────────────────────────────────────────────────────
+function useCountdown(expiresAt: string | null | undefined): string | null {
+  const [label, setLabel] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    if (!expiresAt) return;
+    const update = () => {
+      const diff = new Date(expiresAt).getTime() - Date.now();
+      if (diff <= 0) { setLabel('Expiré'); return; }
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const sec = Math.floor((diff % 60000) / 1000);
+      if (h > 0) setLabel(`${h}h ${m}m`);
+      else if (m > 0) setLabel(`${m}m ${sec}s`);
+      else setLabel(`${sec}s`);
+    };
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [expiresAt]);
+  return label;
+}
+
 // ── Carte de réservation ───────────────────────────────────────────────────────
 
-function BookingCard({ booking, onPay }: { booking: any; onPay: () => void }) {
+function BookingCard({ booking, onPay, paying }: { booking: any; onPay: () => void; paying: boolean }) {
   const bStatus = BOOKING_STATUS[booking.status] ?? { label: booking.status, color: Colors.muted, icon: 'help-circle-outline' };
   const pStatus = PAYMENT_STATUS[booking.payment_status] ?? PAYMENT_STATUS[booking.payment_status ?? 'pending'];
   const amount  = getAmount(booking);
+  const countdown = useCountdown(
+    booking.status === 'awaiting_payment' ? booking.expires_at : null
+  );
 
-  const canPay = booking.status === 'accepted' &&
-    ['pending', 'unpaid', 'requires_authorization'].includes(booking.payment_status ?? '');
+  // Peut payer si awaiting_payment (nouveau workflow) ou accepté avec paiement en attente (ancien)
+  const canPay = booking.status === 'awaiting_payment' ||
+    (booking.status === 'accepted' && ['pending', 'unpaid', 'requires_authorization'].includes(booking.payment_status ?? ''));
+
+  const isExpired = countdown === 'Expiré';
 
   return (
     <View style={c.card} testID={`booking-card-${booking.booking_id}`}>
@@ -114,12 +144,14 @@ function BookingCard({ booking, onPay }: { booking: any; onPay: () => void }) {
           </View>
         )}
 
-        {/* Expiration pour les demandes en attente */}
-        {booking.status === 'requested' && booking.expires_at && (
-          <View style={c.infoRow}>
-            <Ionicons name="timer-outline" size={13} color="#FF9500" />
-            <Text style={[c.infoText, { color: '#FF9500' }]}>
-              Expire le {formatDate(booking.expires_at)}
+        {/* Countdown pour awaiting_payment */}
+        {booking.status === 'awaiting_payment' && countdown && (
+          <View style={[c.countdownRow, isExpired && c.countdownRowExpired]}>
+            <Ionicons name="timer-outline" size={13} color={isExpired ? '#FF3B30' : '#0A84FF'} />
+            <Text style={[c.countdownText, isExpired && c.countdownTextExpired]}>
+              {isExpired
+                ? 'Délai expiré — créneau libéré'
+                : `Délai de paiement : ${countdown}`}
             </Text>
           </View>
         )}
@@ -141,14 +173,20 @@ function BookingCard({ booking, onPay }: { booking: any; onPay: () => void }) {
         </View>
 
         {/* CTA Payer */}
-        {canPay && (
+        {canPay && !isExpired && (
           <TouchableOpacity
-            style={c.payBtn}
+            style={[c.payBtn, paying && c.payBtnLoading]}
             onPress={onPay}
+            disabled={paying}
             testID={`pay-btn-${booking.booking_id}`}
           >
-            <Ionicons name="card" size={15} color="#fff" />
-            <Text style={c.payBtnText}>Procéder au paiement</Text>
+            {paying
+              ? <ActivityIndicator size="small" color="#fff" />
+              : <Ionicons name="card" size={15} color="#fff" />
+            }
+            <Text style={c.payBtnText}>
+              {paying ? 'Ouverture...' : 'Payer maintenant'}
+            </Text>
           </TouchableOpacity>
         )}
       </View>
@@ -182,13 +220,11 @@ export default function MyBookingsScreen() {
   const handlePay = async (booking: any) => {
     setPaying(booking.booking_id);
     try {
-      const originUrl = typeof window !== 'undefined'
-        ? window.location.origin
-        : process.env.EXPO_PUBLIC_BACKEND_URL || '';
-      const res = await api.post<{ url: string }>('/payments/checkout/session', {
-        booking_id: booking.booking_id,
-        origin_url: originUrl,
-      });
+      const originUrl = typeof window !== 'undefined' ? window.location.origin : '';
+      const res = await api.post<{ url: string; session_id: string }>(
+        `/bookings/${booking.booking_id}/pay`,
+        { origin_url: originUrl },
+      );
       await Linking.openURL(res.url);
     } catch (err: any) {
       alert(err.message || 'Impossible de lancer le paiement');
@@ -247,6 +283,7 @@ export default function MyBookingsScreen() {
             <BookingCard
               booking={item}
               onPay={() => handlePay(item)}
+              paying={paying === item.booking_id}
             />
           )}
           refreshControl={
@@ -310,5 +347,17 @@ const c = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     backgroundColor: '#635BFF', borderRadius: Radius.full, paddingVertical: 10, marginTop: 4,
   },
+  payBtnLoading: { opacity: 0.7 },
   payBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
+  countdownRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 7,
+    backgroundColor: 'rgba(10,132,255,0.10)', borderRadius: 10,
+    paddingHorizontal: 10, paddingVertical: 7,
+    borderWidth: 1, borderColor: 'rgba(10,132,255,0.25)',
+  },
+  countdownRowExpired: {
+    backgroundColor: 'rgba(255,59,48,0.10)', borderColor: 'rgba(255,59,48,0.25)',
+  },
+  countdownText: { fontSize: 12, fontWeight: '700', color: '#0A84FF', flex: 1 },
+  countdownTextExpired: { color: '#FF3B30' },
 });

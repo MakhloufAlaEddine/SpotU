@@ -20,12 +20,14 @@ import { Colors, Spacing, Radius } from '../../constants/Colors';
 // ── Statuts ────────────────────────────────────────────────────────────────────
 
 const BOOKING_STATUS: Record<string, { label: string; color: string; icon: string }> = {
-  requested:  { label: 'En attente',  color: '#FF9500', icon: 'time-outline' },
-  accepted:   { label: 'Acceptée',   color: '#34C759', icon: 'checkmark-circle-outline' },
-  refused:    { label: 'Refusée',    color: '#FF3B30', icon: 'close-circle-outline' },
-  expired:    { label: 'Expirée',    color: '#636366', icon: 'timer-outline' },
-  cancelled:  { label: 'Annulée',   color: '#636366', icon: 'ban-outline' },
-  completed:  { label: 'Terminée',  color: '#00BFA5', icon: 'ribbon-outline' },
+  requested:        { label: 'En attente',          color: '#FF9500', icon: 'time-outline' },
+  awaiting_payment: { label: 'Paiement en attente', color: '#0A84FF', icon: 'card-outline' },
+  accepted:         { label: 'Acceptée',             color: '#34C759', icon: 'checkmark-circle-outline' },
+  confirmed:        { label: 'Confirmée',            color: '#1DBF73', icon: 'checkmark-circle' },
+  refused:          { label: 'Refusée',              color: '#FF3B30', icon: 'close-circle-outline' },
+  expired:          { label: 'Expirée',              color: '#636366', icon: 'timer-outline' },
+  cancelled:        { label: 'Annulée',              color: '#636366', icon: 'ban-outline' },
+  completed:        { label: 'Terminée',             color: '#00BFA5', icon: 'ribbon-outline' },
 };
 
 const PAYMENT_STATUS: Record<string, { label: string; color: string }> = {
@@ -39,21 +41,45 @@ const PAYMENT_STATUS: Record<string, { label: string; color: string }> = {
   refunded:             { label: 'Remboursé',   color: '#BF5AF2' },
 };
 
-type FilterTab = 'pending' | 'accepted' | 'refused' | 'all';
+type FilterTab = 'pending' | 'awaiting_payment' | 'accepted' | 'refused' | 'all';
 
 const FILTERS: { key: FilterTab; label: string }[] = [
-  { key: 'pending',  label: 'En attente' },
-  { key: 'accepted', label: 'Acceptées' },
-  { key: 'refused',  label: 'Refusées' },
-  { key: 'all',      label: 'Toutes' },
+  { key: 'pending',          label: 'À traiter' },
+  { key: 'awaiting_payment', label: 'Paiement' },
+  { key: 'accepted',         label: 'Acceptées' },
+  { key: 'refused',          label: 'Refusées' },
+  { key: 'all',              label: 'Toutes' },
 ];
 
 function filterBookings(bookings: any[], tab: FilterTab): any[] {
-  if (tab === 'all')      return bookings;
-  if (tab === 'pending')  return bookings.filter(b => b.status === 'requested');
-  if (tab === 'accepted') return bookings.filter(b => b.status === 'accepted');
-  if (tab === 'refused')  return bookings.filter(b => ['refused', 'expired', 'cancelled'].includes(b.status));
+  if (tab === 'all')              return bookings;
+  if (tab === 'pending')          return bookings.filter(b => b.status === 'requested');
+  if (tab === 'awaiting_payment') return bookings.filter(b => b.status === 'awaiting_payment');
+  if (tab === 'accepted')         return bookings.filter(b => ['accepted', 'confirmed', 'completed'].includes(b.status));
+  if (tab === 'refused')          return bookings.filter(b => ['refused', 'expired', 'cancelled'].includes(b.status));
   return bookings;
+}
+
+// ── Countdown hook ─────────────────────────────────────────────────────────────
+function useCountdown(expiresAt: string | null | undefined): string | null {
+  const [label, setLabel] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    if (!expiresAt) return;
+    const update = () => {
+      const diff = new Date(expiresAt).getTime() - Date.now();
+      if (diff <= 0) { setLabel('Expiré'); return; }
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const sec = Math.floor((diff % 60000) / 1000);
+      if (h > 0) setLabel(`${h}h ${m}m`);
+      else if (m > 0) setLabel(`${m}m ${sec}s`);
+      else setLabel(`${sec}s`);
+    };
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [expiresAt]);
+  return label;
 }
 
 function formatDate(dateStr: string | null) {
@@ -83,6 +109,9 @@ function ReceivedCard({
   const pStatus = PAYMENT_STATUS[booking.payment_status ?? 'pending'];
   const amount  = getAmount(booking);
   const isPending = booking.status === 'requested';
+  const isAwaitingPayment = booking.status === 'awaiting_payment';
+  const countdown = useCountdown(isAwaitingPayment ? booking.expires_at : null);
+  const isExpired = countdown === 'Expiré';
 
   return (
     <View style={c.card} testID={`received-card-${booking.booking_id}`}>
@@ -115,12 +144,24 @@ function ReceivedCard({
           </Text>
         </View>
 
-        {/* Expiration */}
+        {/* Expiration — requested */}
         {isPending && booking.expires_at && (
           <View style={c.infoRow}>
             <Ionicons name="timer-outline" size={13} color="#FF9500" />
             <Text style={[c.infoText, { color: '#FF9500' }]}>
               Expire le {formatDate(booking.expires_at)}
+            </Text>
+          </View>
+        )}
+
+        {/* Countdown paiement — awaiting_payment */}
+        {isAwaitingPayment && countdown && (
+          <View style={[c.countdownRow, isExpired && c.countdownRowExpired]}>
+            <Ionicons name="timer-outline" size={14} color={isExpired ? '#FF3B30' : '#0A84FF'} />
+            <Text style={[c.countdownText, isExpired && c.countdownTextExpired]}>
+              {isExpired
+                ? 'Délai expiré — créneau libéré automatiquement'
+                : `⏱ Paiement attendu dans : ${countdown}`}
             </Text>
           </View>
         )}
@@ -213,9 +254,12 @@ export default function ReceivedBookingsScreen() {
   const handleAccept = async (booking: any) => {
     setActioning({ id: booking.booking_id, type: 'accept' });
     try {
-      await api.post(`/bookings/${booking.booking_id}/accept`);
+      const result = await api.post<any>(`/bookings/${booking.booking_id}/accept`);
+      const newStatus = result.status || 'awaiting_payment';
       setBookings(prev => prev.map(b =>
-        b.booking_id === booking.booking_id ? { ...b, status: 'accepted' } : b
+        b.booking_id === booking.booking_id
+          ? { ...b, status: newStatus, expires_at: result.expires_at ?? b.expires_at }
+          : b
       ));
     } catch (err: any) {
       Alert.alert('Erreur', err.message || 'Impossible d\'accepter la demande');
@@ -250,7 +294,8 @@ export default function ReceivedBookingsScreen() {
     );
   };
 
-  const pendingCount = bookings.filter(b => b.status === 'requested').length;
+  const pendingCount    = bookings.filter(b => b.status === 'requested').length;
+  const awaitingPayCount = bookings.filter(b => b.status === 'awaiting_payment').length;
   const filtered = filterBookings(bookings, filter);
 
   return (
@@ -285,6 +330,9 @@ export default function ReceivedBookingsScreen() {
               </Text>
               {f.key === 'pending' && pendingCount > 0 && (
                 <View style={s.filterDot} />
+              )}
+              {f.key === 'awaiting_payment' && awaitingPayCount > 0 && (
+                <View style={[s.filterDot, { backgroundColor: '#0A84FF' }]} />
               )}
             </TouchableOpacity>
           ))}
@@ -379,4 +427,16 @@ const c = StyleSheet.create({
     gap: 6, paddingVertical: 10, borderRadius: 30, backgroundColor: Colors.primary,
   },
   acceptTxt: { fontSize: 14, fontWeight: '700', color: Colors.background },
+  // Countdown
+  countdownRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 7,
+    backgroundColor: 'rgba(10,132,255,0.10)', borderRadius: 10,
+    paddingHorizontal: 10, paddingVertical: 7,
+    borderWidth: 1, borderColor: 'rgba(10,132,255,0.25)',
+  },
+  countdownRowExpired: {
+    backgroundColor: 'rgba(255,59,48,0.10)', borderColor: 'rgba(255,59,48,0.25)',
+  },
+  countdownText: { fontSize: 12, fontWeight: '700', color: '#0A84FF', flex: 1 },
+  countdownTextExpired: { color: '#FF3B30' },
 });

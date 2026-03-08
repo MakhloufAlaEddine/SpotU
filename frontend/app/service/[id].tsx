@@ -592,6 +592,23 @@ export default function ServiceDetailScreen() {
                 : 'Choisir un créneau'
               }
             </Text>
+            {/* Badge mode réservation */}
+            <View style={s.bookingModeRow}>
+              <Ionicons
+                name={service.booking_approval_mode === 'instant_booking' ? 'flash-outline' : 'hand-left-outline'}
+                size={10}
+                color={service.booking_approval_mode === 'instant_booking' ? '#1DBF73' : '#FF9500'}
+              />
+              <Text style={[s.bookingModeLabel, { color: service.booking_approval_mode === 'instant_booking' ? '#1DBF73' : '#FF9500' }]}>
+                {service.booking_approval_mode === 'instant_booking' ? 'Réservation directe' : 'Validation manuelle'}
+              </Text>
+              {service.allow_pay_later && (
+                <>
+                  <Text style={s.bookingModeSep}>·</Text>
+                  <Text style={[s.bookingModeLabel, { color: '#0A84FF' }]}>Paiement différé possible</Text>
+                </>
+              )}
+            </View>
           </View>
           <TouchableOpacity
             style={[s.bookBtn, !selectedSlotId && s.bookBtnDisabled]}
@@ -873,6 +890,9 @@ const s = StyleSheet.create({
   },
   bookBarPrice: { fontSize: 16, fontWeight: '900', color: ORANGE },
   bookBarMeta: { fontSize: 11, color: Colors.muted, marginTop: 1 },
+  bookingModeRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3, flexWrap: 'wrap' },
+  bookingModeLabel: { fontSize: 10, fontWeight: '700' },
+  bookingModeSep: { fontSize: 10, color: Colors.muted },
   bookBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: ORANGE, borderRadius: Radius.full,

@@ -10,6 +10,11 @@ import { api } from '../../lib/api';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 
 const ORANGE = '#FF9500';
+const ORANGE_LIGHT = 'rgba(255,149,0,0.12)';
+const BLUE  = '#0A84FF';
+const BLUE_LIGHT = 'rgba(10,132,255,0.10)';
+const GREEN = '#1DBF73';
+const PURPLE = '#635BFF';
 
 const DAYS_FULL = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
 const MONTHS = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
@@ -17,6 +22,28 @@ const MONTHS = ['janvier','février','mars','avril','mai','juin','juillet','aoû
 function formatSlotDate(dateStr: string) {
   const d = new Date(dateStr + 'T00:00:00');
   return `${DAYS_FULL[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+// ── Countdown hook ─────────────────────────────────────────────────────────────
+function useCountdown(expiresAt: string | null | undefined): string | null {
+  const [label, setLabel] = useState<string | null>(null);
+  useEffect(() => {
+    if (!expiresAt) return;
+    const update = () => {
+      const diff = new Date(expiresAt).getTime() - Date.now();
+      if (diff <= 0) { setLabel('Expiré'); return; }
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const sec = Math.floor((diff % 60000) / 1000);
+      if (h > 0) setLabel(`${h}h ${m}m`);
+      else if (m > 0) setLabel(`${m}m ${sec}s`);
+      else setLabel(`${sec}s`);
+    };
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [expiresAt]);
+  return label;
 }
 
 export default function BookingConfirmScreen() {
@@ -31,73 +58,68 @@ export default function BookingConfirmScreen() {
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [bookingDone, setBookingDone] = useState(false);
-  const [bookingId, setBookingId] = useState<string | null>(null);
-  const [pricing, setPricing] = useState<{ payer_total_amount: number; base_amount: number } | null>(null);
 
-  // ── Machine d'état paiement ──────────────────────────────────────────────────
-  // 'idle'      → bouton normal
-  // 'opening'   → spinner "Ouverture Stripe..."
-  // 'verifying' → spinner "Vérification en cours..." + polling actif
-  // 'timeout'   → délai dépassé, lien vers "Mes réservations"
+  // Résultat booking
+  const [booking, setBooking] = useState<any>(null);
+  const [pricing, setPricing] = useState<{ payer_total_amount: number } | null>(null);
+
+  // Mode paiement choisi par l'user
+  const [paymentMode, setPaymentMode] = useState<'pay_now' | 'pay_later'>('pay_now');
+
+  // Machine d'état du bouton paiement
   const [payState, setPayState] = useState<'idle' | 'opening' | 'verifying' | 'timeout'>('idle');
-  const pendingSessionId    = useRef<string | null>(null);
-  const pollingInterval     = useRef<ReturnType<typeof setInterval> | null>(null);
-  const pollingTimeout      = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingSessionId  = useRef<string | null>(null);
+  const pollingInterval   = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollingTimeout    = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Countdown de l'expiration du booking
+  const countdownLabel = useCountdown(booking?.expires_at);
 
   const stopPolling = () => {
     if (pollingInterval.current) { clearInterval(pollingInterval.current); pollingInterval.current = null; }
     if (pollingTimeout.current)  { clearTimeout(pollingTimeout.current);   pollingTimeout.current  = null; }
   };
-
-  // Cleanup sur unmount
   useEffect(() => () => stopPolling(), []);
 
-  const startPolling = (sessionId: string) => {
+  const startPolling = (sessionId: string, bid: string) => {
     stopPolling();
     setPayState('verifying');
-
     const check = async () => {
       try {
         const res = await api.get<any>(`/payments/checkout/status/${sessionId}`);
-        const ps = res?.payment_status;   // champ DB normalisé (authorized/captured/…)
+        const ps = res?.payment_status;
         if (ps === 'authorized' || ps === 'captured' || ps === 'paid') {
           stopPolling();
           pendingSessionId.current = null;
-          router.replace(`/payment-success?session_id=${sessionId}&booking_id=${bookingId}` as any);
+          router.replace(`/payment-success?session_id=${sessionId}&booking_id=${bid}` as any);
         }
-      } catch { /* retry au prochain tick */ }
+      } catch {}
     };
-
-    check(); // vérification immédiate au retour dans l'app
+    check();
     pollingInterval.current = setInterval(check, 3000);
-
-    // Timeout 3 min
-    pollingTimeout.current = setTimeout(() => {
+    pollingTimeout.current  = setTimeout(() => {
       stopPolling();
       setPayState('timeout');
-      pendingSessionId.current = null;
     }, 180_000);
   };
 
-  // AppState : démarre le polling dès que l'utilisateur revient de Stripe
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active' && pendingSessionId.current) {
-        startPolling(pendingSessionId.current);
+      if (state === 'active' && pendingSessionId.current && booking?.booking_id) {
+        startPolling(pendingSessionId.current, booking.booking_id);
       }
     });
     return () => sub.remove();
-  }, [bookingId]);
+  }, [booking?.booking_id]);
 
-  useEffect(() => {
-    loadData();
-  }, [serviceId]);
+  useEffect(() => { loadData(); }, [serviceId]);
 
   const loadData = async () => {
     try {
       const svc = await api.get(`/services/${serviceId}`);
       setService(svc);
+      // Si le service n'autorise pas le pay_later, forcer pay_now
+      if (!svc.allow_pay_later) setPaymentMode('pay_now');
       const foundSlot = svc.slots?.find((s: any) => s.slot_id === slotId);
       setSlot(foundSlot || null);
       const foundLoc = svc.locations?.find((l: any) => l.location_id === locationId);
@@ -109,25 +131,17 @@ export default function BookingConfirmScreen() {
   const handleConfirm = async () => {
     setSubmitting(true);
     try {
-      const result = await api.post<any>('/bookings', {
-        service_id: serviceId,
-        slot_id: slotId || null,
-        location_id: locationId || null,
+      const result = await api.post<any>('/bookings/request', {
+        service_id:   serviceId,
+        slot_id:      slotId || null,
+        location_id:  locationId || null,
         scheduled_at: scheduledAt || null,
-        notes: notes.trim() || null,
+        notes:        notes.trim() || null,
+        payment_mode: paymentMode,
       });
-      setBookingId(result.booking_id);
-      // Calculer le montant depuis le snapshot de pricing
       const snap = result.pricing_snapshot;
-      if (snap) {
-        setPricing({
-          payer_total_amount: snap.payer_total_amount ?? result.amount,
-          base_amount: snap.base_amount ?? result.amount,
-        });
-      } else {
-        setPricing({ payer_total_amount: result.amount, base_amount: result.amount });
-      }
-      setBookingDone(true);
+      setPricing({ payer_total_amount: snap?.payer_total_amount ?? result.amount });
+      setBooking(result);
     } catch (err: any) {
       alert(err.message || 'Impossible de créer la réservation');
     } finally {
@@ -136,40 +150,38 @@ export default function BookingConfirmScreen() {
   };
 
   const handlePay = async () => {
-    if (!bookingId) return;
+    if (!booking?.booking_id) return;
     setPayState('opening');
     try {
-      const originUrl = typeof window !== 'undefined'
-        ? window.location.origin
-        : process.env.EXPO_PUBLIC_BACKEND_URL || '';
-      const res = await api.post<{ url: string; session_id: string }>('/payments/checkout/session', {
-        booking_id: bookingId,
-        origin_url: originUrl,
-      });
+      const originUrl = typeof window !== 'undefined' ? window.location.origin : '';
+      const res = await api.post<{ url: string; session_id: string }>(
+        `/bookings/${booking.booking_id}/pay`,
+        { origin_url: originUrl },
+      );
       if (res.session_id) pendingSessionId.current = res.session_id;
       await Linking.openURL(res.url);
-      // Après ouverture : spinner "Vérification" + polling immédiat
-      startPolling(res.session_id);
+      startPolling(res.session_id, booking.booking_id);
     } catch (err: any) {
       alert(err.message || 'Impossible de lancer le paiement');
       setPayState('idle');
     }
-    // Pas de finally — le spinner persiste jusqu'à confirmation ou timeout
   };
 
   const getSlotLabel = () => {
     if (!slot) return '';
     const isDate = slot.slot_type === 'single' || slot.slot_type === 'specific';
-    if (isDate && slot.slot_date) {
-      return `${formatSlotDate(slot.slot_date)}`;
-    }
+    if (isDate && slot.slot_date) return formatSlotDate(slot.slot_date);
     return DAYS_FULL[slot.day_of_week] ?? '';
   };
+
+  const bookingStatus = booking?.status;
+  const allowPayLater = service?.allow_pay_later === true;
+  const approvalMode  = service?.booking_approval_mode ?? 'manual_approval';
 
   if (loading) {
     return (
       <View style={{ flex: 1, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+        <ActivityIndicator size="large" color={ORANGE} />
       </View>
     );
   }
@@ -177,12 +189,13 @@ export default function BookingConfirmScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
       <SafeAreaView edges={['top']}>
-        {/* Header */}
         <View style={s.header}>
           <TouchableOpacity style={s.backBtn} onPress={() => router.back()} testID="back-btn">
             <Ionicons name="chevron-back" size={22} color={Colors.foreground} />
           </TouchableOpacity>
-          <Text style={s.headerTitle}>Confirmer la réservation</Text>
+          <Text style={s.headerTitle}>
+            {booking ? 'Réservation créée' : 'Confirmer la réservation'}
+          </Text>
           <View style={{ width: 40 }} />
         </View>
       </SafeAreaView>
@@ -206,14 +219,23 @@ export default function BookingConfirmScreen() {
                   <Ionicons name="person-outline" size={13} color={Colors.muted} />
                   <Text style={s.coachName}>{service.coach?.name || 'Coach'}</Text>
                 </View>
+                {/* Badge mode réservation */}
+                <View style={s.bookingModeBadge}>
+                  <Ionicons
+                    name={approvalMode === 'instant_booking' ? 'flash-outline' : 'hand-left-outline'}
+                    size={11} color={approvalMode === 'instant_booking' ? GREEN : ORANGE}
+                  />
+                  <Text style={[s.bookingModeText, { color: approvalMode === 'instant_booking' ? GREEN : ORANGE }]}>
+                    {approvalMode === 'instant_booking' ? 'Réservation directe' : 'Validation manuelle'}
+                  </Text>
+                </View>
               </View>
             </View>
           )}
 
-          {/* Divider */}
           <View style={s.divider} />
 
-          {/* Créneau sélectionné */}
+          {/* Créneau */}
           <View style={s.section}>
             <Text style={s.sectionLabel}>Créneau sélectionné</Text>
             <View style={s.slotCard} testID="selected-slot-card">
@@ -248,68 +270,195 @@ export default function BookingConfirmScreen() {
 
           <View style={s.divider} />
 
-          {/* Message optionnel */}
-          <View style={s.section}>
-            <Text style={s.sectionLabel}>Message au coach</Text>
-            <Text style={s.sectionHint}>Optionnel — niveau actuel, objectifs, questions…</Text>
-            <TextInput
-              style={s.notesInput}
-              value={notes}
-              onChangeText={setNotes}
-              placeholder="Ex: Je débute, j'aimerais progresser sur mon endurance…"
-              placeholderTextColor={Colors.muted}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-              testID="notes-input"
-            />
-          </View>
+          {/* ── Formulaire (pré-booking) ───────────────────────────────── */}
+          {!booking && (
+            <>
+              {/* Sélecteur mode paiement */}
+              {allowPayLater && (
+                <View style={s.section}>
+                  <Text style={s.sectionLabel}>Mode de paiement</Text>
+                  <View style={s.payModeRow}>
+                    <TouchableOpacity
+                      style={[s.payModeCard, paymentMode === 'pay_now' && s.payModeCardActive]}
+                      onPress={() => setPaymentMode('pay_now')}
+                      testID="choose-pay-now"
+                    >
+                      <View style={s.payModeTop}>
+                        <View style={[s.payModeRadio, paymentMode === 'pay_now' && s.payModeRadioActive]}>
+                          {paymentMode === 'pay_now' && <View style={s.payModeRadioDot} />}
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[s.payModeLabel, paymentMode === 'pay_now' && { color: ORANGE }]}>
+                            Payer maintenant
+                          </Text>
+                          <Text style={s.payModeDesc}>Paiement lors de la réservation</Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
 
-          {/* Paiement info */}
-          <View style={s.paymentNote}>
-            <Ionicons name="information-circle-outline" size={16} color={Colors.muted} />
-            <Text style={s.paymentNoteText}>
-              Le paiement sera demandé uniquement après confirmation du coach.
-            </Text>
-          </View>
+                    <TouchableOpacity
+                      style={[s.payModeCard, paymentMode === 'pay_later' && s.payModeCardActive]}
+                      onPress={() => setPaymentMode('pay_later')}
+                      testID="choose-pay-later"
+                    >
+                      <View style={s.payModeTop}>
+                        <View style={[s.payModeRadio, paymentMode === 'pay_later' && s.payModeRadioActive]}>
+                          {paymentMode === 'pay_later' && <View style={s.payModeRadioDot} />}
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[s.payModeLabel, paymentMode === 'pay_later' && { color: ORANGE }]}>
+                            Payer plus tard
+                          </Text>
+                          <Text style={s.payModeDesc}>
+                            Le créneau est bloqué, paiement différé
+                          </Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
+              {/* Message au coach */}
+              <View style={s.section}>
+                <Text style={s.sectionLabel}>Message au coach</Text>
+                <Text style={s.sectionHint}>Optionnel — niveau actuel, objectifs, questions…</Text>
+                <TextInput
+                  style={s.notesInput}
+                  value={notes}
+                  onChangeText={setNotes}
+                  placeholder="Ex: Je débute, j'aimerais progresser sur mon endurance…"
+                  placeholderTextColor={Colors.muted}
+                  multiline
+                  numberOfLines={4}
+                  textAlignVertical="top"
+                  testID="notes-input"
+                />
+              </View>
+
+              {/* Note dynamique */}
+              <View style={s.paymentNote}>
+                <Ionicons name="information-circle-outline" size={16} color={Colors.muted} />
+                <Text style={s.paymentNoteText}>
+                  {approvalMode === 'instant_booking'
+                    ? paymentMode === 'pay_now'
+                      ? 'Le créneau sera confirmé dès réception du paiement.'
+                      : `Le créneau sera bloqué pour vous. Le paiement sera demandé dans un délai configuré par le coach.`
+                    : paymentMode === 'pay_now'
+                      ? 'Le paiement sera demandé après acceptation par le coach.'
+                      : 'Votre demande sera soumise au coach. Le paiement sera différé après acceptation.'
+                  }
+                </Text>
+              </View>
+            </>
+          )}
+
+          {/* ── Résultat booking ───────────────────────────────────────── */}
+          {booking && (
+            <View style={s.bookingResult}>
+              {/* Statut principal */}
+              {bookingStatus === 'awaiting_payment' ? (
+                <View style={s.resultHeader}>
+                  <View style={[s.resultIcon, { backgroundColor: ORANGE + '15' }]}>
+                    <Ionicons name="card-outline" size={26} color={ORANGE} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.resultTitle}>Créneau réservé !</Text>
+                    <Text style={s.resultSubtitle}>En attente de votre paiement</Text>
+                  </View>
+                </View>
+              ) : bookingStatus === 'requested' ? (
+                <View style={s.resultHeader}>
+                  <View style={[s.resultIcon, { backgroundColor: BLUE + '15' }]}>
+                    <Ionicons name="time-outline" size={26} color={BLUE} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.resultTitle}>Demande envoyée !</Text>
+                    <Text style={s.resultSubtitle}>En attente d'acceptation du coach</Text>
+                  </View>
+                </View>
+              ) : (
+                <View style={s.resultHeader}>
+                  <View style={[s.resultIcon, { backgroundColor: GREEN + '15' }]}>
+                    <Ionicons name="checkmark-circle" size={26} color={GREEN} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.resultTitle}>Réservation confirmée !</Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Montant */}
+              {pricing && (
+                <View style={s.pricingRow}>
+                  <Text style={s.pricingLabel}>Total</Text>
+                  <Text style={s.pricingTotal}>{pricing.payer_total_amount.toFixed(2)} €</Text>
+                </View>
+              )}
+
+              {/* Countdown expiry */}
+              {booking.expires_at && bookingStatus === 'awaiting_payment' && countdownLabel && (
+                <View style={[s.countdownBanner, countdownLabel === 'Expiré' && s.countdownExpired]}>
+                  <Ionicons
+                    name="timer-outline" size={15}
+                    color={countdownLabel === 'Expiré' ? '#FF3B30' : ORANGE}
+                  />
+                  <Text style={[s.countdownText, countdownLabel === 'Expiré' && { color: '#FF3B30' }]}>
+                    {countdownLabel === 'Expiré'
+                      ? 'Ce créneau a expiré — le créneau a été libéré'
+                      : `Délai de paiement : ${countdownLabel}`}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+
         </ScrollView>
 
-        {/* Confirm button */}
+        {/* ── Footer bouton ─────────────────────────────────────────────── */}
         <SafeAreaView edges={['bottom']} style={s.footer}>
-          {!bookingDone ? (
+          {!booking ? (
             <TouchableOpacity
               style={[s.confirmBtn, submitting && s.confirmBtnDisabled]}
               onPress={handleConfirm}
               disabled={submitting}
               testID="confirm-booking-btn"
             >
-              {submitting ? (
-                <ActivityIndicator color={Colors.background} />
-              ) : (
-                <>
-                  <Ionicons name="checkmark-circle" size={20} color={Colors.background} />
-                  <Text style={s.confirmBtnText}>Envoyer la demande au coach</Text>
-                </>
-              )}
+              {submitting
+                ? <ActivityIndicator color={Colors.background} />
+                : <>
+                    <Ionicons name="checkmark-circle" size={20} color={Colors.background} />
+                    <Text style={s.confirmBtnText}>
+                      {approvalMode === 'instant_booking'
+                        ? 'Réserver maintenant'
+                        : 'Envoyer la demande'}
+                    </Text>
+                  </>
+              }
             </TouchableOpacity>
-          ) : (
+          ) : bookingStatus === 'awaiting_payment' ? (
+            /* Paiement pour awaiting_payment */
             <View style={s.paymentStep}>
-              <View style={s.paymentSuccessRow}>
-                <Ionicons name="checkmark-circle" size={20} color={Colors.success} />
-                <Text style={s.paymentSuccessText}>Demande envoyée !</Text>
-              </View>
-              {pricing && (
-                <View style={s.pricingRow}>
-                  <Text style={s.pricingLabel}>Total à payer</Text>
-                  <Text style={s.pricingTotal}>{pricing.payer_total_amount.toFixed(2)} €</Text>
-                </View>
-              )}
-              {/* ── Machine d'état du bouton de paiement ────────────────────── */}
               {payState === 'idle' && (
-                <TouchableOpacity style={s.payBtn} onPress={handlePay} testID="pay-now-btn">
-                  <Ionicons name="card" size={20} color={Colors.background} />
-                  <Text style={s.confirmBtnText}>Payer maintenant</Text>
-                </TouchableOpacity>
+                <>
+                  <TouchableOpacity
+                    style={s.payBtn}
+                    onPress={handlePay}
+                    testID="pay-now-btn"
+                  >
+                    <Ionicons name="card" size={20} color={Colors.background} />
+                    <Text style={s.confirmBtnText}>Payer maintenant</Text>
+                  </TouchableOpacity>
+                  {booking.payment_mode === 'pay_later' && (
+                    <TouchableOpacity
+                      style={s.skipPayBtn}
+                      onPress={() => router.replace('/bookings' as any)}
+                      testID="pay-later-skip-btn"
+                    >
+                      <Text style={s.skipPayText}>Payer plus tard (dans mes réservations)</Text>
+                    </TouchableOpacity>
+                  )}
+                </>
               )}
               {payState === 'opening' && (
                 <View style={[s.payBtn, s.payBtnSpinner]}>
@@ -342,11 +491,26 @@ export default function BookingConfirmScreen() {
                   <Text style={s.confirmBtnText}>Voir mes réservations</Text>
                 </TouchableOpacity>
               )}
-              {payState === 'idle' && (
-                <TouchableOpacity style={s.skipPayBtn} onPress={() => router.replace('/(tabs)/map' as any)} testID="skip-pay-btn">
-                  <Text style={s.skipPayText}>Payer plus tard</Text>
-                </TouchableOpacity>
-              )}
+            </View>
+          ) : (
+            /* Booking requested (manual_approval) */
+            <View style={s.paymentStep}>
+              <View style={s.requestedNote}>
+                <Ionicons name="mail-outline" size={18} color={BLUE} />
+                <Text style={s.requestedNoteText}>
+                  {booking.payment_mode === 'pay_later'
+                    ? "Votre demande a été envoyée. Vous pourrez payer après l'acceptation du coach."
+                    : "Votre demande a été envoyée. Le paiement sera demandé après acceptation."}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[s.payBtn, { backgroundColor: BLUE }]}
+                onPress={() => router.push('/bookings' as any)}
+                testID="goto-bookings-btn"
+              >
+                <Ionicons name="list-outline" size={18} color={Colors.background} />
+                <Text style={s.confirmBtnText}>Suivre ma réservation</Text>
+              </TouchableOpacity>
             </View>
           )}
         </SafeAreaView>
@@ -360,39 +524,71 @@ const s = StyleSheet.create({
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '700', color: Colors.foreground },
   content: { padding: 20, gap: 0 },
-  serviceCard: { flexDirection: 'row', gap: 14, alignItems: 'center', marginBottom: 20 },
+
+  serviceCard: { flexDirection: 'row', gap: 14, alignItems: 'flex-start', marginBottom: 20 },
   serviceImg: { width: 72, height: 64, borderRadius: 12 },
   serviceInfo: { flex: 1, gap: 4 },
   serviceTitle: { fontSize: 16, fontWeight: '700', color: Colors.foreground },
   coachRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   coachName: { fontSize: 13, color: Colors.muted },
+  bookingModeBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
+  bookingModeText: { fontSize: 11, fontWeight: '700' },
+
   divider: { height: 1, backgroundColor: Colors.border, marginVertical: 20 },
   section: { gap: 10, marginBottom: 20 },
   sectionLabel: { fontSize: 13, fontWeight: '700', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.5 },
   sectionHint: { fontSize: 12, color: Colors.muted, marginTop: -4 },
+
   slotCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 14, backgroundColor: Colors.card, borderRadius: 16, padding: 16, borderWidth: 1.5, borderColor: 'rgba(255,149,0,0.35)' },
-  slotIconWrap: { width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(255,149,0,0.12)', alignItems: 'center', justifyContent: 'center' },
+  slotIconWrap: { width: 44, height: 44, borderRadius: 12, backgroundColor: ORANGE_LIGHT, alignItems: 'center', justifyContent: 'center' },
   slotDate: { fontSize: 17, fontWeight: '800', color: Colors.foreground, letterSpacing: -0.3 },
   slotTime: { fontSize: 14, color: ORANGE, fontWeight: '600', marginTop: 4 },
   locRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 8 },
   locText: { fontSize: 12, color: Colors.muted, flex: 1 },
+
   priceCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors.card, borderRadius: 14, padding: 16, marginBottom: 20 },
   priceLbl: { fontSize: 14, color: Colors.muted, fontWeight: '500' },
   priceVal: { fontSize: 22, fontWeight: '800', color: ORANGE },
+
+  // Payment mode selector
+  payModeRow: { flexDirection: 'row', gap: 10 },
+  payModeCard: { flex: 1, borderRadius: 14, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.card, padding: 12 },
+  payModeCardActive: { borderColor: ORANGE, backgroundColor: ORANGE_LIGHT },
+  payModeTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  payModeRadio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center', marginTop: 1, flexShrink: 0 },
+  payModeRadioActive: { borderColor: ORANGE },
+  payModeRadioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: ORANGE },
+  payModeLabel: { fontSize: 13, fontWeight: '700', color: Colors.foreground },
+  payModeDesc: { fontSize: 11, color: Colors.muted, marginTop: 2, lineHeight: 16 },
+
   notesInput: { backgroundColor: Colors.card, borderRadius: 14, padding: 14, fontSize: 14, color: Colors.foreground, minHeight: 100, borderWidth: 1, borderColor: Colors.border },
   paymentNote: { flexDirection: 'row', gap: 8, alignItems: 'flex-start', backgroundColor: 'rgba(139,148,158,0.08)', borderRadius: 12, padding: 14, marginBottom: 8 },
   paymentNoteText: { flex: 1, fontSize: 13, color: Colors.muted, lineHeight: 18 },
-  footer: { paddingHorizontal: 20, paddingBottom: 8, borderTopWidth: 1, borderTopColor: Colors.border, backgroundColor: Colors.background },
-  confirmBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.primary, borderRadius: Radius.full, paddingVertical: 16, marginTop: 12 },
-  confirmBtnDisabled: { opacity: 0.5 },
-  confirmBtnText: { fontSize: 16, fontWeight: '800', color: Colors.background },
-  paymentStep: { gap: 8, paddingTop: 12 },
-  paymentSuccessRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  paymentSuccessText: { fontSize: 15, fontWeight: '700', color: Colors.success },
+
+  // Booking result
+  bookingResult: { gap: 14 },
+  resultHeader: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: Colors.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: Colors.border },
+  resultIcon: { width: 50, height: 50, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  resultTitle: { fontSize: 17, fontWeight: '800', color: Colors.foreground },
+  resultSubtitle: { fontSize: 13, color: Colors.muted, marginTop: 2 },
+
   pricingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors.card, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: Colors.border },
   pricingLabel: { fontSize: 14, color: Colors.muted },
   pricingTotal: { fontSize: 22, fontWeight: '800', color: ORANGE },
-  payBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#635BFF', borderRadius: Radius.full, paddingVertical: 16 },
+
+  countdownBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: ORANGE_LIGHT, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: ORANGE + '40' },
+  countdownExpired: { backgroundColor: 'rgba(255,59,48,0.10)', borderColor: '#FF3B30' + '40' },
+  countdownText: { fontSize: 13, fontWeight: '700', color: ORANGE, flex: 1 },
+
+  requestedNote: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: BLUE_LIGHT, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: BLUE + '30' },
+  requestedNoteText: { flex: 1, fontSize: 13, color: Colors.foreground, lineHeight: 18 },
+
+  footer: { paddingHorizontal: 20, paddingBottom: 8, borderTopWidth: 1, borderTopColor: Colors.border, backgroundColor: Colors.background },
+  confirmBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: ORANGE, borderRadius: Radius.full, paddingVertical: 16, marginTop: 12 },
+  confirmBtnDisabled: { opacity: 0.5 },
+  confirmBtnText: { fontSize: 16, fontWeight: '800', color: Colors.background },
+  paymentStep: { gap: 8, paddingTop: 12 },
+  payBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: PURPLE, borderRadius: Radius.full, paddingVertical: 16 },
   payBtnSpinner: { opacity: 0.8 },
   skipPayBtn: { alignItems: 'center', paddingVertical: 8 },
   skipPayText: { fontSize: 14, color: Colors.muted },
