@@ -1,0 +1,51 @@
+{
+  "summary": "Iteration 61 — Full backend + frontend testing of feature-gating system (manual_approval + pay_later flags). All 25 booking workflow tests pass. All 24 global booking flags tests pass. All 9 requested frontend/backend scenarios verified and passing.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_booking_workflows_v2.py",
+    "/app/backend/tests/test_global_booking_flags_iter60.py",
+    "/app/test_reports/pytest/iter61_booking_workflows_v2.xml",
+    "/app/test_reports/pytest/iter61_global_flags.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100% (25/25 + 24/24 passed)",
+    "frontend": "100% (9/9 scenarios verified)"
+  },
+  "test_credentials": {
+    "user": "user@winek.app / WinekUser2024!",
+    "coach": "coach@winek.app / WinekCoach2024!",
+    "admin": "admin@winek.app / WinekAdmin2024!"
+  },
+  "seed_data_creation": "No seed data created. Flags were temporarily toggled during admin panel testing but restored to MVP defaults (both false) via API call.",
+  "flags_final_state": {
+    "enable_manual_approval_for_services": false,
+    "enable_pay_later_for_services": false,
+    "verified_via": "GET /api/config/booking after all tests"
+  },
+  "retest_needed": false,
+  "main_agent_can_self_test": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All global booking flags features fully verified and passing in iteration 61. Backend: 25/25 workflow tests + 24/24 global flags tests all pass. Frontend: All 9 requested scenarios confirmed. Key: Expo web renders testID as data-testid (not testID). All data-testid attributes confirmed working in admin panel. Flags at MVP defaults (both false). NOTE: test_global_booking_flags_iter60.py requires EXPO_PUBLIC_BACKEND_URL env var (not TEST_BASE_URL) — run with EXPO_PUBLIC_BACKEND_URL=http://localhost:8001.",
+  "test_results_detail": {
+    "backend_1_public_config_mvp_defaults": "PASS — GET /api/config/booking returns {false, false} without auth",
+    "backend_2_admin_toggle_flags": "PASS — PUT /api/admin/app-config correctly updates flags, only admin can access",
+    "backend_3_manual_approval_flag_off_returns_409": "PASS — Service with manual_approval normalized to instant_booking when flag=false; booking with pay_later returns 409",
+    "backend_4_pay_later_blocked": "PASS — POST /api/bookings/request with pay_later when flag=false returns 409",
+    "backend_5_all_25_workflow_tests": "PASS — All 25 tests in test_booking_workflows_v2.py pass",
+    "frontend_6_user_service_detail_no_validation_manuelle": "PASS — Service detail page shows 'Réservation directe · Paiement immédiat', NO 'Validation manuelle' badge",
+    "frontend_7_coach_create_service_no_manual_option": "PASS — Create-service stepper shows 4 steps (INFOS, DOMAINE, CONFIG, RÉSUMÉ), step 4 'Réservations' correctly hidden in MVP mode",
+    "frontend_8_booking_confirm_reservation_directe": "PASS — Booking confirm shows 'Réservation directe' badge, no 'Validation manuelle', no 'Payer plus tard' selector, note says 'Le créneau sera confirmé dès réception du paiement.'",
+    "frontend_9_admin_booking_config_tab": "PASS — Admin panel Réservations tab accessible (data-testid='admin-tab-booking'), both toggles present and showing 'Désactivé', toggle click API call works correctly (verified via screenshot showing 'Activé' state)"
+  }
+}

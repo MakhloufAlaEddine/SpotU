@@ -15,7 +15,7 @@ import os
 import httpx
 import pytest
 
-API_BASE = os.environ.get("API_BASE", "https://booking-engine-24.preview.emergentagent.com")
+API_BASE = os.environ.get("API_BASE", "https://approval-system-32.preview.emergentagent.com")
 
 ADMIN_EMAIL = "admin@winek.app"
 ADMIN_PASS  = "WinekAdmin2024!"

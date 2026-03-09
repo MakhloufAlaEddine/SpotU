@@ -61,8 +61,9 @@ export default function BookingConfirmScreen() {
   const [submitting, setSubmitting] = useState(false);
 
   // Flags globaux MVP
-  const bookingCfg     = useBookingConfig();
-  const enablePayLater = bookingCfg.enable_pay_later_for_services;
+  const bookingCfg             = useBookingConfig();
+  const enablePayLater         = bookingCfg.enable_pay_later_for_services;
+  const enableManualApproval   = bookingCfg.enable_manual_approval_for_services;
 
   // Résultat booking
   const [booking, setBooking] = useState<any>(null);
@@ -142,7 +143,8 @@ export default function BookingConfirmScreen() {
         location_id:  locationId || null,
         scheduled_at: scheduledAt || null,
         notes:        notes.trim() || null,
-        payment_mode: paymentMode,
+        // Feature gating : forcer pay_now si le paiement différé est désactivé globalement
+        payment_mode: enablePayLater ? paymentMode : 'pay_now',
       });
       const snap = result.pricing_snapshot;
       setPricing({ payer_total_amount: snap?.payer_total_amount ?? result.amount });
@@ -181,7 +183,11 @@ export default function BookingConfirmScreen() {
 
   const bookingStatus = booking?.status;
   const allowPayLater = service?.allow_pay_later === true;
+  // Mode réel depuis le service (conservé pour future réactivation)
   const approvalMode  = service?.booking_approval_mode ?? 'manual_approval';
+  // Mode effectif appliqué : respecte le flag global MVP
+  // Si enableManualApproval=false, on traite toujours comme instant_booking (feature gating)
+  const effectiveApprovalMode = enableManualApproval ? approvalMode : 'instant_booking';
 
   if (loading) {
     return (
@@ -224,14 +230,14 @@ export default function BookingConfirmScreen() {
                   <Ionicons name="person-outline" size={13} color={Colors.muted} />
                   <Text style={s.coachName}>{service.coach?.name || 'Coach'}</Text>
                 </View>
-                {/* Badge mode réservation */}
+                {/* Badge mode réservation — respecte le feature flag global */}
                 <View style={s.bookingModeBadge}>
                   <Ionicons
-                    name={approvalMode === 'instant_booking' ? 'flash-outline' : 'hand-left-outline'}
-                    size={11} color={approvalMode === 'instant_booking' ? GREEN : ORANGE}
+                    name={effectiveApprovalMode === 'instant_booking' ? 'flash-outline' : 'hand-left-outline'}
+                    size={11} color={effectiveApprovalMode === 'instant_booking' ? GREEN : ORANGE}
                   />
-                  <Text style={[s.bookingModeText, { color: approvalMode === 'instant_booking' ? GREEN : ORANGE }]}>
-                    {approvalMode === 'instant_booking' ? 'Réservation directe' : 'Validation manuelle'}
+                  <Text style={[s.bookingModeText, { color: effectiveApprovalMode === 'instant_booking' ? GREEN : ORANGE }]}>
+                    {effectiveApprovalMode === 'instant_booking' ? 'Réservation directe' : 'Validation manuelle'}
                   </Text>
                 </View>
               </View>
@@ -346,10 +352,10 @@ export default function BookingConfirmScreen() {
                 <Ionicons name="information-circle-outline" size={16} color={Colors.muted} />
                 <Text style={s.paymentNoteText}>
                   {!enablePayLater
-                    ? (approvalMode === 'instant_booking'
+                    ? (effectiveApprovalMode === 'instant_booking'
                         ? 'Le créneau sera confirmé dès réception du paiement.'
                         : 'Votre moyen de paiement sera confirmé maintenant. Vous ne serez débité définitivement qu\'après acceptation du coach.')
-                    : (approvalMode === 'instant_booking'
+                    : (effectiveApprovalMode === 'instant_booking'
                         ? paymentMode === 'pay_now'
                           ? 'Le créneau sera confirmé dès réception du paiement.'
                           : 'Le créneau sera bloqué pour vous. Le paiement sera demandé dans un délai configuré par le coach.'
@@ -448,7 +454,7 @@ export default function BookingConfirmScreen() {
                 : <>
                     <Ionicons name="checkmark-circle" size={20} color={Colors.background} />
                     <Text style={s.confirmBtnText}>
-                      {approvalMode === 'instant_booking'
+                      {effectiveApprovalMode === 'instant_booking'
                         ? 'Réserver maintenant'
                         : 'Envoyer la demande'}
                     </Text>
