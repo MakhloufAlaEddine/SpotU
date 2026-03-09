@@ -742,6 +742,99 @@ async def get_planning_events(request: Request):
             seen.add(key)
             unique.append(e)
 
+    # ── Réservations de services confirmées ────────────────────────────────────
+    async with pool.acquire() as conn:
+        booking_rows = await conn.fetch(
+            """
+            SELECT b.booking_id, b.status, b.scheduled_at,
+                   COALESCE(b.payer_user_id,   b.user_id)    AS payer_user_id,
+                   COALESCE(b.receiver_user_id, b.coach_id)  AS receiver_user_id,
+                   b.service_id,
+                   s.title AS service_title, s.duration_min,
+                   COALESCE(u_coach.name, '') AS coach_name,
+                   COALESCE(u_payer.name, '') AS payer_name,
+                   ss.end_time AS slot_end,
+                   ss.slot_date, ss.start_time AS slot_start
+            FROM bookings b
+            JOIN services s ON b.service_id = s.service_id
+            LEFT JOIN users u_coach ON s.coach_id = u_coach.user_id
+            LEFT JOIN users u_payer ON COALESCE(b.payer_user_id, b.user_id) = u_payer.user_id
+            LEFT JOIN service_slots ss ON b.slot_id = ss.slot_id
+            WHERE (
+                COALESCE(b.payer_user_id, b.user_id) = $1
+                OR COALESCE(b.receiver_user_id, b.coach_id) = $1
+            )
+              AND b.status IN ('confirmed', 'awaiting_payment', 'accepted')
+              AND (
+                b.scheduled_at IS NOT NULL
+                OR (ss.slot_date IS NOT NULL AND ss.start_time IS NOT NULL)
+              )
+              AND (
+                COALESCE(b.scheduled_at,
+                  (ss.slot_date || ' ' || ss.start_time)::timestamptz
+                ) BETWEEN $2 AND $3
+              )
+            ORDER BY COALESCE(b.scheduled_at, (ss.slot_date || ' ' || ss.start_time)::timestamptz)
+            """,
+            user["user_id"], range_start, range_end
+        )
+
+    from zoneinfo import ZoneInfo as _ZI
+    _paris = _ZI('Europe/Paris')
+    for row in booking_rows:
+        bk = row_to_dict(row)
+        scheduled_at = bk.get("scheduled_at")
+        if not scheduled_at:
+            # Fallback: construire depuis slot_date + slot_start
+            slot_date  = bk.get("slot_date")
+            slot_start = bk.get("slot_start")
+            if slot_date and slot_start:
+                from datetime import datetime as _dt2
+                d = slot_date if hasattr(slot_date, 'year') else _dt2.strptime(str(slot_date), '%Y-%m-%d').date()
+                t = slot_start if hasattr(slot_start, 'hour') else _dt2.strptime(str(slot_start)[:5], '%H:%M').time()
+                scheduled_at = _dt2.combine(d, t).replace(tzinfo=_paris)
+            else:
+                continue
+        if isinstance(scheduled_at, str):
+            from dateutil.parser import parse as _dp
+            scheduled_at = _dp(scheduled_at)
+        try:
+            dt_local = scheduled_at.astimezone(_paris)
+        except Exception:
+            continue
+
+        # end_time depuis slot ou durée service
+        slot_end = bk.get("slot_end")
+        end_time_str = None
+        if slot_end is not None:
+            if hasattr(slot_end, 'strftime'):
+                end_time_str = slot_end.strftime("%H:%M")
+            elif isinstance(slot_end, str):
+                end_time_str = slot_end[:5]
+        elif bk.get("duration_min"):
+            end_mins = dt_local.hour * 60 + dt_local.minute + int(bk["duration_min"])
+            end_time_str = f"{end_mins // 60:02d}:{end_mins % 60:02d}"
+
+        is_payer = bk["payer_user_id"] == user["user_id"]
+        other_name = bk["coach_name"] if is_payer else bk.get("payer_name", "")
+
+        unique.append({
+            "point_id":       f"bkg_{bk['booking_id']}",
+            "booking_id":     bk["booking_id"],
+            "service_id":     bk["service_id"],
+            "title":          bk["service_title"],
+            "owner_name":     other_name,
+            "image_url":      None,
+            "is_own":         not is_payer,
+            "is_cancelled":   False,
+            "date":           dt_local.strftime("%Y-%m-%d"),
+            "time":           dt_local.strftime("%H:%M"),
+            "end_time":       end_time_str,
+            "type":           "booking",
+            "booking_status": bk["status"],
+            "is_payer":       is_payer,
+        })
+
     return sorted(unique, key=lambda x: (x["date"], x["time"]))
 
 

@@ -30,9 +30,11 @@ function formatDuration(start: string, end: string) {
   return mins < 60 ? `${mins}min` : `${Math.floor(mins/60)}h${mins%60 ? (mins%60)+'min' : ''}`;
 }
 
-// Couleur des événements SpotYou / SpotMe
+// Couleur des événements SpotYou / SpotMe / Réservations
 const EVENT_COLOR    = '#8B5CF6'; // violet — SpotYou
 const SPOTME_COLOR   = '#10B981'; // vert emeraude — SpotMe (mes propres événements)
+const BOOKING_COLOR  = '#0A84FF'; // bleu — Réservation (payeur)
+const BOOKING_OWN_COLOR = '#FF9500'; // orange — Réservation reçue (coach)
 const CANCELLED_COLOR = '#EF4444'; // rouge — annulé
 const CONFLICT_COLOR = '#EF4444';
 
@@ -78,7 +80,7 @@ type AgendaItem =
   | { kind: 'empty';  date: string }
   | { kind: 'event';  date: string; event: any };
 
-type FilterType = 'all' | 'events';
+type FilterType = 'all' | 'events' | 'bookings';
 
 // ── Bande de semaine ───────────────────────────────────────────────────────────
 function WeekStrip({ selectedDate, dotDates, eventDates, onSelectDate }: {
@@ -145,11 +147,27 @@ function WeekStrip({ selectedDate, dotDates, eventDates, onSelectDate }: {
 
 // ── Écran principal ────────────────────────────────────────────────────────────
 function EventCard({ event, onPress, isConflict }: { event: any; onPress: () => void; isConflict?: boolean }) {
-  const isOwn      = !!event.is_own;
+  const isBooking   = event.type === 'booking';
+  const isPayer     = event.is_payer !== false;
+  const isOwn       = !!event.is_own;
   const isCancelled = !!event.is_cancelled;
-  const chipColor  = isCancelled ? CANCELLED_COLOR : (isOwn ? SPOTME_COLOR : EVENT_COLOR);
-  const chipLabel  = isCancelled ? 'Annulé' : (isOwn ? 'SpotMe' : 'SpotYou');
-  const chipIcon   = isCancelled ? 'close-circle' : (isOwn ? 'star' : 'location');
+  const isPending   = isBooking && event.booking_status === 'awaiting_payment';
+
+  let chipColor: string;
+  let chipLabel: string;
+  let chipIcon: string;
+
+  if (isCancelled) {
+    chipColor = CANCELLED_COLOR; chipLabel = 'Annulé'; chipIcon = 'close-circle';
+  } else if (isBooking) {
+    chipColor = isPayer ? BOOKING_COLOR : BOOKING_OWN_COLOR;
+    chipLabel = isPending ? 'En attente' : (isPayer ? 'Réservé' : 'Réservation');
+    chipIcon  = isPending ? 'time-outline' : 'calendar';
+  } else if (isOwn) {
+    chipColor = SPOTME_COLOR; chipLabel = 'SpotMe'; chipIcon = 'star';
+  } else {
+    chipColor = EVENT_COLOR; chipLabel = 'SpotYou'; chipIcon = 'location';
+  }
 
   return (
     <TouchableOpacity
@@ -248,11 +266,18 @@ export default function PlanningScreen() {
   }, [fetchAndSync]));
 
   // ── Construire la liste agenda ──────────────────────────────────────────────
+  // ── Filtre des événements selon le type sélectionné ──────────────────────
+  const filteredEvents = useMemo(() => {
+    if (filter === 'bookings') return events.filter(e => e.type === 'booking');
+    if (filter === 'events')   return events.filter(e => e.type !== 'booking');
+    return events;
+  }, [events, filter]);
+
   const { items, dotDates, eventDates, conflictIds } = useMemo(() => {
     const startDate = new Date(); startDate.setDate(startDate.getDate() - 30);
     const endDate = new Date();   endDate.setDate(endDate.getDate() + 90);
 
-    events.forEach(item => {
+    filteredEvents.forEach(item => {
       if (item.date) {
         const d = parseDate(item.date);
         if (d > endDate) endDate.setTime(d.getTime());
@@ -263,7 +288,7 @@ export default function PlanningScreen() {
     const dots = new Set<string>();
     const evtDots = new Set<string>();
 
-    events.forEach(e => {
+    filteredEvents.forEach(e => {
       if (e.date) {
         if (!byDate[e.date]) byDate[e.date] = [];
         byDate[e.date].push(e);
@@ -299,7 +324,7 @@ export default function PlanningScreen() {
 
     dateIndexMap.current = idxMap;
     return { items: result, dotDates: dots, eventDates: evtDots, conflictIds: allConflicts };
-  }, [events, filter]);
+  }, [filteredEvents]);
 
   const handleSelectDate = useCallback((date: string) => {
     setSelectedDate(date);
@@ -359,11 +384,18 @@ export default function PlanningScreen() {
     }
     if (item.kind === 'event') {
       const evtKey = `${item.event.point_id}_${item.date}`;
+      const isBooking = item.event.type === 'booking';
       return (
         <EventCard
           event={item.event}
           isConflict={conflictIds.has(evtKey)}
-          onPress={() => router.push(`/spot-you/${item.event.point_id}` as any)}
+          onPress={() => {
+            if (isBooking) {
+              router.push('/bookings' as any);
+            } else {
+              router.push(`/spot-you/${item.event.point_id}` as any);
+            }
+          }}
         />
       );
     }
@@ -404,7 +436,7 @@ export default function PlanningScreen() {
           <View style={{ width: 40 }} />
         </View>
 
-        {/* Filtre : Tout / Événements */}
+        {/* Filtre : Tout / Événements / Réservations */}
         <View style={s.filterBar}>
           <TouchableOpacity style={filterBtnStyle('all')} onPress={() => setFilter('all')} testID="filter-all">
             <Text style={filterTxtStyle('all')}>Tout</Text>
@@ -412,6 +444,10 @@ export default function PlanningScreen() {
           <TouchableOpacity style={filterBtnStyle('events')} onPress={() => setFilter('events')} testID="filter-events">
             <Ionicons name="location" size={12} color={filter === 'events' ? Colors.background : EVENT_COLOR} />
             <Text style={[filterTxtStyle('events'), filter !== 'events' && { color: EVENT_COLOR }]}>Événements</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={filterBtnStyle('bookings')} onPress={() => setFilter('bookings')} testID="filter-bookings">
+            <Ionicons name="calendar" size={12} color={filter === 'bookings' ? Colors.background : BOOKING_COLOR} />
+            <Text style={[filterTxtStyle('bookings'), filter !== 'bookings' && { color: BOOKING_COLOR }]}>Réservations</Text>
           </TouchableOpacity>
         </View>
 
