@@ -208,6 +208,13 @@ cd /app/backend && pytest tests/test_stripe_payment_iter50.py -v
 | 2026-03-08 | **profile.tsx** : Nouvelle section "Réservations & Services" | frontend/app/(tabs)/profile.tsx |
 | 2026-03-08 | **Politique d'annulation complète** : payeur/bénéficiaire/admin | backend/* |
 
+## Phase 10 - Feature Gating Verification & Fix (2026-02)
+| Date | Fonctionnalité | Fichiers modifiés |
+|------|---------------|-------------------|
+| 2026-02 | **BUGFIX** : `confirm.tsx` masque "Validation manuelle" quand flag global=false via `effectiveApprovalMode` | frontend/app/booking/confirm.tsx |
+| 2026-02 | **VÉRIFIÉ** : 25/25 tests workflow + 24/24 tests flags globaux passent | backend/tests/test_booking_workflows_v2.py |
+| 2026-02 | **VÉRIFIÉ** : 9/9 scénarios frontend validés (badges, sélecteur pay_later, confirm, admin panel) | — |
+
 ## Prioritized Backlog
 
 ### P0 - Critique (TOUS COMPLÉTÉS)
