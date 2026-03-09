@@ -99,7 +99,25 @@ Fonctionnalités : création/découverte de services et SpotYous, système de r�
 | 2026-03-08 | Données test: plan_basic, plan_premium, plan_pro_annual | DB seed |
 | 2026-03-08 | Test suite: 27 tests abonnements (100% pass) | backend/tests/test_subscriptions_iter51.py |
 
-### Phase 8 - Correction Workflow manual_approval + pay_now (2026-03-09)
+### Phase 9 - Flags globaux admin + MVP simplifié (2026-03-09)
+| Date | Fonctionnalité | Fichiers modifiés |
+|------|---------------|-------------------|
+| 2026-03-09 | Table `app_config` en DB (key-value pour les flags globaux) | backend/database.py |
+| 2026-03-09 | API publique `GET /api/config/booking` (no auth) | backend/server.py |
+| 2026-03-09 | API admin `GET/PUT /api/admin/app-config` | backend/routes/admin_routes.py |
+| 2026-03-09 | Normalisation service à la création/mise à jour selon flags | backend/routes/service_routes.py |
+| 2026-03-09 | Normalisation réservation (409 si pay_later désactivé globalement) | backend/routes/booking_routes.py |
+| 2026-03-09 | Hook `useBookingConfig` (cache module-level, /config/booking) | frontend/lib/useBookingConfig.ts |
+| 2026-03-09 | Onglet "Réservations" dans admin panel (toggles + MVP banner) | frontend/app/admin/index.tsx |
+| 2026-03-09 | Service detail : badges "Réservation directe · Paiement immédiat" par défaut | frontend/app/service/[id].tsx |
+| 2026-03-09 | Confirm booking : sélecteur pay_later masqué si flag=false | frontend/app/booking/confirm.tsx |
+| 2026-03-09 | Received bookings : boutons accept/refuse masqués si manual=false | frontend/app/bookings/received.tsx |
+| 2026-03-09 | Create-service : Step 4 sauté si les 2 flags désactivés | frontend/app/create-service.tsx |
+| 2026-03-09 | Tests : fixtures autouse par classe pour activer/désactiver les flags | backend/tests/test_booking_workflows_v2.py |
+
+**Stratégie données existantes :** Maintien des données (services existants non modifiés en DB). Les flags sont appliqués à la création/MAJ de service ET au moment de chaque réservation (défense en profondeur). Les services en mode manual_approval sont traités comme instant_booking si le flag global est false.
+
+
 | Date | Fonctionnalité | Fichiers modifiés |
 |------|---------------|-------------------|
 | 2026-03-09 | **NOUVEAU FLUX** : pay_now → autorisation immédiate à la demande, capture à l'acceptation | backend/routes/booking_routes.py |
