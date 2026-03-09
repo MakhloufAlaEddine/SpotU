@@ -91,8 +91,10 @@ export default function BookingConfirmScreen() {
   const handleReserveAndPay = async () => {
     setSubmitting(true);
     // Web: ouvrir fenêtre AVANT les appels async pour éviter le blocage popup navigateur
+    // NOTE: window.open n'existe pas en React Native, vérification stricte
     let popupWin: Window | null = null;
-    if (typeof window !== 'undefined') {
+    const canUseWindowOpen = typeof window !== 'undefined' && typeof window.open === 'function';
+    if (canUseWindowOpen) {
       popupWin = window.open('', '_blank');
       if (popupWin) {
         popupWin.document.write(
@@ -116,8 +118,8 @@ export default function BookingConfirmScreen() {
       setPricing({ payer_total_amount: snap?.payer_total_amount ?? result.amount });
       setBooking(result);
 
-      // 2. Obtenir l'URL Stripe Checkout
-      const originUrl = typeof window !== 'undefined' ? window.location.origin : '';
+      // 2. Obtenir l'URL Stripe Checkout (sécurisé pour React Native et Web)
+      const originUrl = (typeof window !== 'undefined' && window.location?.origin) ? window.location.origin : '';
       const payRes = await api.post<{ url: string; session_id: string }>(
         `/bookings/${result.booking_id}/pay`,
         { origin_url: originUrl },

@@ -539,7 +539,17 @@ async def get_my_notifications(request: Request, limit: int = Query(50, ge=1, le
         )
     result = []
     for r in rows:
-        data = dict(r["data"]) if r["data"] else {}
+        raw = r["data"]
+        if not raw:
+            data = {}
+        elif isinstance(raw, str):
+            import json as _j
+            try:
+                data = _j.loads(raw)
+            except Exception:
+                data = {}
+        else:
+            data = dict(raw)
         # Toujours utiliser la photo actuelle du sender (pas celle stockée)
         if r["sender_current_picture"] is not None:
             data["sender_picture"] = r["sender_current_picture"]
