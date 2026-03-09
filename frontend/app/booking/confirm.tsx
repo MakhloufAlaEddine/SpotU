@@ -87,6 +87,64 @@ export default function BookingConfirmScreen() {
   };
   useEffect(() => () => stopPolling(), []);
 
+  // ── Flux MVP : Réserver + Payer en une seule action ──────────────────────────
+  const handleReserveAndPay = async () => {
+    setSubmitting(true);
+    // Web: ouvrir fenêtre AVANT les appels async pour éviter le blocage popup navigateur
+    let popupWin: Window | null = null;
+    if (typeof window !== 'undefined') {
+      popupWin = window.open('', '_blank');
+      if (popupWin) {
+        popupWin.document.write(
+          '<html><body style="background:#000;color:#fff;font-family:sans-serif;' +
+          'display:flex;align-items:center;justify-content:center;height:100vh;margin:0">' +
+          '<p style="font-size:18px">Chargement du paiement…</p></body></html>'
+        );
+      }
+    }
+    try {
+      // 1. Créer la réservation
+      const result = await api.post<any>('/bookings/request', {
+        service_id:   serviceId,
+        slot_id:      slotId || null,
+        location_id:  locationId || null,
+        scheduled_at: scheduledAt || null,
+        notes:        notes.trim() || null,
+        payment_mode: 'pay_now',
+      });
+      const snap = result.pricing_snapshot;
+      setPricing({ payer_total_amount: snap?.payer_total_amount ?? result.amount });
+      setBooking(result);
+
+      // 2. Obtenir l'URL Stripe Checkout
+      const originUrl = typeof window !== 'undefined' ? window.location.origin : '';
+      const payRes = await api.post<{ url: string; session_id: string }>(
+        `/bookings/${result.booking_id}/pay`,
+        { origin_url: originUrl },
+      );
+
+      // 3. Rediriger vers Stripe (fenêtre pré-ouverte ou Linking)
+      if (popupWin) {
+        popupWin.location.href = payRes.url;
+      } else {
+        await Linking.openURL(payRes.url);
+      }
+
+      // 4. Démarrer le polling de confirmation
+      if (payRes.session_id) {
+        pendingSessionId.current = payRes.session_id;
+        startPolling(payRes.session_id, result.booking_id);
+      }
+    } catch (err: any) {
+      if (popupWin) popupWin.close();
+      alert(err.message || 'Impossible de créer la réservation');
+      setPayState('idle');
+      setBooking(null);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const startPolling = (sessionId: string, bid: string) => {
     stopPolling();
     setPayState('verifying');
@@ -230,16 +288,13 @@ export default function BookingConfirmScreen() {
                   <Ionicons name="person-outline" size={13} color={Colors.muted} />
                   <Text style={s.coachName}>{service.coach?.name || 'Coach'}</Text>
                 </View>
-                {/* Badge mode réservation — respecte le feature flag global */}
-                <View style={s.bookingModeBadge}>
-                  <Ionicons
-                    name={effectiveApprovalMode === 'instant_booking' ? 'flash-outline' : 'hand-left-outline'}
-                    size={11} color={effectiveApprovalMode === 'instant_booking' ? GREEN : ORANGE}
-                  />
-                  <Text style={[s.bookingModeText, { color: effectiveApprovalMode === 'instant_booking' ? GREEN : ORANGE }]}>
-                    {effectiveApprovalMode === 'instant_booking' ? 'Réservation directe' : 'Validation manuelle'}
-                  </Text>
-                </View>
+                {/* Badge mode réservation — masqué en mode MVP (instant_booking par défaut) */}
+                {effectiveApprovalMode !== 'instant_booking' && (
+                  <View style={s.bookingModeBadge}>
+                    <Ionicons name="hand-left-outline" size={11} color={ORANGE} />
+                    <Text style={[s.bookingModeText, { color: ORANGE }]}>Validation manuelle</Text>
+                  </View>
+                )}
               </View>
             </View>
           )}
@@ -445,24 +500,27 @@ export default function BookingConfirmScreen() {
           {!booking ? (
             <TouchableOpacity
               style={[s.confirmBtn, submitting && s.confirmBtnDisabled]}
-              onPress={handleConfirm}
+              onPress={effectiveApprovalMode === 'instant_booking' ? handleReserveAndPay : handleConfirm}
               disabled={submitting}
               testID="confirm-booking-btn"
             >
               {submitting
                 ? <ActivityIndicator color={Colors.background} />
                 : <>
-                    <Ionicons name="checkmark-circle" size={20} color={Colors.background} />
+                    <Ionicons
+                      name={effectiveApprovalMode === 'instant_booking' ? 'card' : 'checkmark-circle'}
+                      size={20} color={Colors.background}
+                    />
                     <Text style={s.confirmBtnText}>
                       {effectiveApprovalMode === 'instant_booking'
-                        ? 'Réserver maintenant'
+                        ? 'Réserver et payer maintenant'
                         : 'Envoyer la demande'}
                     </Text>
                   </>
               }
             </TouchableOpacity>
           ) : bookingStatus === 'awaiting_payment' ? (
-            /* Paiement pour awaiting_payment */
+            /* Paiement pour awaiting_payment (retry si Stripe fermé sans payer) */
             <View style={s.paymentStep}>
               {payState === 'idle' && (
                 <>
@@ -472,7 +530,7 @@ export default function BookingConfirmScreen() {
                     testID="pay-now-btn"
                   >
                     <Ionicons name="card" size={20} color={Colors.background} />
-                    <Text style={s.confirmBtnText}>Payer maintenant</Text>
+                    <Text style={s.confirmBtnText}>Reprendre le paiement</Text>
                   </TouchableOpacity>
                   {booking.payment_mode === 'pay_later' && (
                     <TouchableOpacity

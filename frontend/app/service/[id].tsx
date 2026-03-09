@@ -596,9 +596,9 @@ export default function ServiceDetailScreen() {
                 : 'Choisir un créneau'
               }
             </Text>
-            {/* Badge mode réservation — adapté selon les flags globaux */}
+            {/* Badge mode réservation — masqué en mode MVP (affiché uniquement si features avancées actives) */}
+            {(showManualBadge || showPayLaterBadge) && (
             <View style={s.bookingModeRow}>
-              {/* MVP défaut : toujours afficher "Réservation directe" */}
               <Ionicons
                 name={showManualBadge && service.booking_approval_mode !== 'instant_booking' ? 'hand-left-outline' : 'flash-outline'}
                 size={10}
@@ -616,14 +616,8 @@ export default function ServiceDetailScreen() {
                   <Text style={[s.bookingModeLabel, { color: '#0A84FF' }]}>Paiement différé possible</Text>
                 </>
               )}
-              {/* MVP : toujours afficher "Paiement immédiat" quand pay_later désactivé */}
-              {!showPayLaterBadge && (
-                <>
-                  <Text style={s.bookingModeSep}>·</Text>
-                  <Text style={[s.bookingModeLabel, { color: '#0A84FF' }]}>Paiement immédiat</Text>
-                </>
-              )}
             </View>
+            )}
           </View>
           <TouchableOpacity
             style={[s.bookBtn, !selectedSlotId && s.bookBtnDisabled]}

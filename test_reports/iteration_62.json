@@ -1,0 +1,55 @@
+{
+  "summary": "Iteration 62 — Full backend + frontend testing of MVP Feature Gating (1-click booking flow). All 7 requested scenarios verified and passing. 30/30 backend tests pass (25 workflow + 5 webhook). All frontend MVP badge hiding and button text verified.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_booking_workflows_v2.py",
+    "/app/backend/tests/test_webhook_instant_booking_iter62.py",
+    "/app/test_reports/pytest/iter62_booking_workflows_v2.xml",
+    "/app/test_reports/pytest/iter62_webhook_tests.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_webhook_instant_booking_iter62.py"
+  ],
+  "success_rate": {
+    "backend": "100% (25/25 workflow tests + 5/5 webhook tests = 30/30)",
+    "frontend": "100% (7/7 scenarios verified)"
+  },
+  "test_credentials": {
+    "user": "user@winek.app / WinekUser2024!",
+    "coach": "coach@winek.app / WinekCoach2024!",
+    "admin": "admin@winek.app / WinekAdmin2024!"
+  },
+  "seed_data_creation": "No seed data created. Test bookings created and auto-cleaned via booking workflow.",
+  "flags_final_state": {
+    "enable_manual_approval_for_services": false,
+    "enable_pay_later_for_services": false,
+    "verified_via": "GET /api/config/booking confirms both false"
+  },
+  "retest_needed": false,
+  "main_agent_can_self_test": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All MVP feature gating verified in iteration 62. Backend: 25/25 workflow + 5/5 webhook tests pass. Frontend: All badges correctly hidden in MVP mode (both flags false). Key changes verified: 1) confirm.tsx button correctly shows 'Réserver et payer maintenant' for BOTH instant_booking AND manual_approval services (since effectiveApprovalMode='instant_booking' when enableManualApproval=false), 2) Badges hidden in service/[id].tsx when showManualBadge && showPayLaterBadge both false, 3) webhook_handlers.py auto-confirms booking+payment when checkout.session.completed with ps='unpaid' AND booking.status='awaiting_payment', with notifications sent to both parties.",
+  "test_results_detail": {
+    "backend_1_config_booking_mvp_defaults": "PASS — GET /api/config/booking returns {false, false} without auth",
+    "backend_2_25_workflow_tests": "PASS — All 25 tests in test_booking_workflows_v2.py pass (8.14s)",
+    "backend_3_webhook_checkout_unpaid_confirms": "PASS — checkout.session.completed + ps='unpaid' + booking='awaiting_payment' → booking.status='confirmed', payment.status='captured'",
+    "backend_4_webhook_notifies_both_parties": "PASS — payer AND receiver (coach) both get booking_confirmed notifications after webhook",
+    "backend_5_webhook_idempotent": "PASS — Same event_id called twice returns 200 without re-processing (idempotence via stripe_webhook_events table)",
+    "backend_6_webhook_paid_status_also_confirms": "PASS — checkout.session.completed + ps='paid' also auto-confirms correctly",
+    "frontend_7_confirm_button_text": "PASS — confirm.tsx footer button shows 'Réserver et payer maintenant' for both instant_booking (svc_demo001) and MVP-mode manual_approval (svc_demo002)",
+    "frontend_8_no_validation_manuelle_badge_in_confirm": "PASS — No 'Validation manuelle' badge in confirm.tsx service card (effectiveApprovalMode='instant_booking' in MVP mode)",
+    "frontend_9_no_badges_in_service_detail": "PASS — No 'Réservation directe', 'Paiement immédiat', or 'Validation manuelle' badges visible on service/[id].tsx when both flags false",
+    "frontend_10_mvp_note_displayed": "PASS — 'Le créneau sera confirmé dès réception du paiement.' note correctly shown for MVP instant_booking mode",
+    "frontend_11_booking_confirm_accessible": "PASS — /booking/confirm?serviceId=svc_demo001 and svc_demo002 both accessible and functional"
+  }
+}

@@ -208,26 +208,83 @@ async def _handle_payment_event(
             return  # géré dans _handle_subscription_event
         ps = _get(obj, "payment_status", "")
         if ps == "unpaid":
-            # capture_method=manual : autorisé, capture différée
-            res = await conn.execute(
-                """UPDATE payments SET status='authorized', updated_at=NOW()
-                   WHERE payment_id=$1
-                     AND status NOT IN ('authorized','captured','refunded','cancelled')""",
-                payment_id,
-            )
-            if _rows(res) > 0:
-                row = await conn.fetchrow(
-                    "SELECT receiver_user_id FROM payments WHERE payment_id=$1", payment_id
+            # Vérifier le statut de la réservation pour distinguer instant_booking vs manual_approval
+            bk_row = None
+            if booking_id:
+                bk_row = await conn.fetchrow(
+                    "SELECT status FROM bookings WHERE booking_id=$1", booking_id
                 )
-                if row:
-                    pending_notifs.append({
-                        "user_id": row["receiver_user_id"],
-                        "type": "payment_authorized",
-                        "title": "Paiement autorisé",
-                        "body": "Le paiement pour votre prestation a été autorisé.",
-                        "data": {"type": "payment_authorized", "payment_id": payment_id,
-                                 "booking_id": booking_id},
-                    })
+
+            if bk_row and bk_row["status"] == "awaiting_payment":
+                # instant_booking + pay_now : auto-confirmer immédiatement (capture virtuelle MVP)
+                async with conn.transaction():
+                    pay_res = await conn.execute(
+                        """UPDATE payments SET status='captured', updated_at=NOW()
+                           WHERE payment_id=$1
+                             AND status NOT IN ('captured','refunded','cancelled')""",
+                        payment_id,
+                    )
+                    rows_updated = _rows(pay_res)
+                    if booking_id:
+                        await conn.execute(
+                            """UPDATE bookings
+                               SET status='confirmed', payment_status='paid', updated_at=NOW()
+                               WHERE booking_id=$1
+                                 AND status NOT IN ('confirmed','refused','cancelled','expired')""",
+                            booking_id,
+                        )
+                if rows_updated > 0 and booking_id:
+                    row = await conn.fetchrow(
+                        "SELECT payer_user_id, receiver_user_id FROM payments WHERE payment_id=$1",
+                        payment_id,
+                    )
+                    title_row = await conn.fetchrow(
+                        """SELECT s.title FROM bookings b
+                           JOIN services s ON b.service_id = s.service_id
+                           WHERE b.booking_id=$1""",
+                        booking_id,
+                    )
+                    title = title_row["title"] if title_row else "votre prestation"
+                    if row:
+                        # Notifier le payeur
+                        pending_notifs.append({
+                            "user_id": row["payer_user_id"],
+                            "type": "booking_confirmed",
+                            "title": "Réservation confirmée !",
+                            "body": f"Votre réservation pour « {title} » est confirmée. À bientôt !",
+                            "data": {"type": "booking_confirmed", "booking_id": booking_id,
+                                     "payment_id": payment_id},
+                        })
+                        # Notifier le coach (receiver)
+                        pending_notifs.append({
+                            "user_id": row["receiver_user_id"],
+                            "type": "booking_confirmed",
+                            "title": "Nouvelle réservation !",
+                            "body": f"Paiement reçu pour « {title} ». Votre planning a été mis à jour.",
+                            "data": {"type": "booking_confirmed", "booking_id": booking_id,
+                                     "payment_id": payment_id},
+                        })
+            else:
+                # manual_approval + pay_now (booking.status = 'requested') : autoriser seulement
+                res = await conn.execute(
+                    """UPDATE payments SET status='authorized', updated_at=NOW()
+                       WHERE payment_id=$1
+                         AND status NOT IN ('authorized','captured','refunded','cancelled')""",
+                    payment_id,
+                )
+                if _rows(res) > 0:
+                    row = await conn.fetchrow(
+                        "SELECT receiver_user_id FROM payments WHERE payment_id=$1", payment_id
+                    )
+                    if row:
+                        pending_notifs.append({
+                            "user_id": row["receiver_user_id"],
+                            "type": "payment_authorized",
+                            "title": "Paiement autorisé",
+                            "body": "Le paiement pour votre prestation a été autorisé.",
+                            "data": {"type": "payment_authorized", "payment_id": payment_id,
+                                     "booking_id": booking_id},
+                        })
         elif ps == "paid":
             async with conn.transaction():
                 res = await conn.execute(
@@ -238,22 +295,40 @@ async def _handle_payment_event(
                 rows_captured = _rows(res)
                 if booking_id:
                     await conn.execute(
-                        """UPDATE bookings SET payment_status='paid', updated_at=NOW()
-                           WHERE booking_id=$1 AND payment_status != 'paid'""",
+                        """UPDATE bookings
+                           SET status='confirmed', payment_status='paid', updated_at=NOW()
+                           WHERE booking_id=$1
+                             AND status NOT IN ('confirmed','refused','cancelled','expired')""",
                         booking_id,
                     )
-            if rows_captured > 0:
+            if rows_captured > 0 and booking_id:
                 row = await conn.fetchrow(
-                    "SELECT payer_user_id FROM payments WHERE payment_id=$1", payment_id
+                    "SELECT payer_user_id, receiver_user_id FROM payments WHERE payment_id=$1",
+                    payment_id,
                 )
+                title_row = await conn.fetchrow(
+                    """SELECT s.title FROM bookings b
+                       JOIN services s ON b.service_id = s.service_id
+                       WHERE b.booking_id=$1""",
+                    booking_id,
+                )
+                title = title_row["title"] if title_row else "votre prestation"
                 if row:
                     pending_notifs.append({
                         "user_id": row["payer_user_id"],
-                        "type": "payment_captured",
-                        "title": "Paiement confirmé",
-                        "body": "Votre paiement a été confirmé avec succès.",
-                        "data": {"type": "payment_captured", "payment_id": payment_id,
-                                 "booking_id": booking_id},
+                        "type": "booking_confirmed",
+                        "title": "Réservation confirmée !",
+                        "body": f"Votre réservation pour « {title} » est confirmée.",
+                        "data": {"type": "booking_confirmed", "booking_id": booking_id,
+                                 "payment_id": payment_id},
+                    })
+                    pending_notifs.append({
+                        "user_id": row["receiver_user_id"],
+                        "type": "booking_confirmed",
+                        "title": "Nouvelle réservation !",
+                        "body": f"Paiement reçu pour « {title} ». Votre planning a été mis à jour.",
+                        "data": {"type": "booking_confirmed", "booking_id": booking_id,
+                                 "payment_id": payment_id},
                     })
 
     elif event_type == "payment_intent.amount_capturable_updated":
@@ -278,7 +353,7 @@ async def _handle_payment_event(
                 })
 
     elif event_type == "payment_intent.succeeded":
-        # Récupérer le charge_id pour traçabilité
+        # PI capturé → réservation confirmée + notification les deux parties
         charge_id = _get(obj, "latest_charge")
         rows_captured = 0
         if isinstance(charge_id, str) and charge_id.startswith("ch_"):
@@ -292,8 +367,10 @@ async def _handle_payment_event(
                 rows_captured = _rows(res)
                 if booking_id:
                     await conn.execute(
-                        """UPDATE bookings SET payment_status='paid', updated_at=NOW()
-                           WHERE booking_id=$1 AND payment_status != 'paid'""",
+                        """UPDATE bookings
+                           SET status='confirmed', payment_status='paid', updated_at=NOW()
+                           WHERE booking_id=$1
+                             AND status NOT IN ('confirmed','refused','cancelled','expired')""",
                         booking_id,
                     )
         else:
@@ -306,22 +383,40 @@ async def _handle_payment_event(
                 rows_captured = _rows(res)
                 if booking_id:
                     await conn.execute(
-                        """UPDATE bookings SET payment_status='paid', updated_at=NOW()
-                           WHERE booking_id=$1 AND payment_status != 'paid'""",
+                        """UPDATE bookings
+                           SET status='confirmed', payment_status='paid', updated_at=NOW()
+                           WHERE booking_id=$1
+                             AND status NOT IN ('confirmed','refused','cancelled','expired')""",
                         booking_id,
                     )
-        if rows_captured > 0:
+        if rows_captured > 0 and booking_id:
             row = await conn.fetchrow(
-                "SELECT payer_user_id FROM payments WHERE payment_id=$1", payment_id
+                "SELECT payer_user_id, receiver_user_id FROM payments WHERE payment_id=$1",
+                payment_id,
             )
+            title_row = await conn.fetchrow(
+                """SELECT s.title FROM bookings b
+                   JOIN services s ON b.service_id = s.service_id
+                   WHERE b.booking_id=$1""",
+                booking_id,
+            )
+            title = title_row["title"] if title_row else "votre prestation"
             if row:
                 pending_notifs.append({
                     "user_id": row["payer_user_id"],
-                    "type": "payment_captured",
-                    "title": "Paiement confirmé",
-                    "body": "Votre paiement a été capturé avec succès.",
-                    "data": {"type": "payment_captured", "payment_id": payment_id,
-                             "booking_id": booking_id},
+                    "type": "booking_confirmed",
+                    "title": "Réservation confirmée !",
+                    "body": f"Votre réservation pour « {title} » est confirmée.",
+                    "data": {"type": "booking_confirmed", "booking_id": booking_id,
+                             "payment_id": payment_id},
+                })
+                pending_notifs.append({
+                    "user_id": row["receiver_user_id"],
+                    "type": "booking_confirmed",
+                    "title": "Nouvelle réservation !",
+                    "body": f"Paiement capturé pour « {title} ». Votre planning a été mis à jour.",
+                    "data": {"type": "booking_confirmed", "booking_id": booking_id,
+                             "payment_id": payment_id},
                 })
 
     elif event_type == "payment_intent.payment_failed":
