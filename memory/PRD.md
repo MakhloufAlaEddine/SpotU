@@ -208,7 +208,14 @@ cd /app/backend && pytest tests/test_stripe_payment_iter50.py -v
 | 2026-03-08 | **profile.tsx** : Nouvelle section "Réservations & Services" | frontend/app/(tabs)/profile.tsx |
 | 2026-03-08 | **Politique d'annulation complète** : payeur/bénéficiaire/admin | backend/* |
 
-## Phase 10 - Feature Gating Verification & Fix (2026-02)
+## Phase 11 - MVP Single-Click Booking Flow (2026-03)
+| Date | Fonctionnalité | Fichiers modifiés |
+|------|---------------|-------------------|
+| 2026-03 | **FEATURE** : Bouton unique "Réserver et payer maintenant" - handleReserveAndPay chain booking+Stripe en 1 action | frontend/app/booking/confirm.tsx |
+| 2026-03 | **FEATURE** : Badges "Réservation directe" + "Paiement immédiat" masqués en mode MVP | frontend/app/booking/confirm.tsx, frontend/app/service/[id].tsx |
+| 2026-03 | **FEATURE** : Auto-confirmation réservation + notification DEUX parties (payeur + coach) sur checkout.session.completed | backend/webhook_handlers.py |
+| 2026-03 | **VÉRIFIÉ** : 30/30 tests (25 workflow + 5 webhook nouveaux) + 7/7 frontend | backend/tests/test_webhook_instant_booking_iter62.py |
+
 | Date | Fonctionnalité | Fichiers modifiés |
 |------|---------------|-------------------|
 | 2026-02 | **BUGFIX** : `confirm.tsx` masque "Validation manuelle" quand flag global=false via `effectiveApprovalMode` | frontend/app/booking/confirm.tsx |
