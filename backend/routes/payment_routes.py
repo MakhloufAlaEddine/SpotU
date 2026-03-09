@@ -239,20 +239,75 @@ async def get_checkout_status(session_id: str, request: Request):
     s_status   = session.status          # "open" | "complete" | "expired"
 
     async with pool.acquire() as conn:
+        # Récupérer le statut booking pour savoir si instant_booking
+        bk_row = None
+        if payment.get("booking_id"):
+            bk_row = await conn.fetchrow(
+                "SELECT status FROM bookings WHERE booking_id=$1",
+                payment["booking_id"],
+            )
+
         if s_status == "complete" and stripe_ps == "unpaid":
-            # capture_method=manual : paiement autorisé, pas encore capturé
-            if db_status not in ("authorized", "captured"):
-                async with conn.transaction():
-                    await conn.execute(
-                        "UPDATE payments SET status='authorized', updated_at=NOW() WHERE payment_id=$1",
-                        payment["payment_id"],
-                    )
-                    if payment.get("booking_id"):
+            # Paiement Stripe validé (capture_method=manual → requires_capture)
+            if db_status not in ("authorized", "captured", "paid"):
+                is_instant = bk_row and bk_row["status"] == "awaiting_payment"
+                if is_instant:
+                    # instant_booking : auto-confirmer immédiatement
+                    async with conn.transaction():
                         await conn.execute(
-                            "UPDATE bookings SET payment_status='authorized', updated_at=NOW() WHERE booking_id=$1",
+                            """UPDATE payments SET status='captured', updated_at=NOW()
+                               WHERE payment_id=$1""",
+                            payment["payment_id"],
+                        )
+                        await conn.execute(
+                            """UPDATE bookings
+                               SET status='confirmed', payment_status='paid', updated_at=NOW()
+                               WHERE booking_id=$1
+                                 AND status NOT IN ('confirmed','refused','cancelled','expired')""",
                             payment["booking_id"],
                         )
-                db_status = "authorized"
+                    db_status = "captured"
+                    # Envoyer notifications aux deux parties
+                    from push_service import send_push_to_user
+                    row = await conn.fetchrow(
+                        "SELECT payer_user_id, receiver_user_id FROM payments WHERE payment_id=$1",
+                        payment["payment_id"],
+                    )
+                    title_row = await conn.fetchrow(
+                        """SELECT s.title FROM bookings b
+                           JOIN services s ON b.service_id = s.service_id
+                           WHERE b.booking_id=$1""",
+                        payment["booking_id"],
+                    )
+                    title = title_row["title"] if title_row else "votre prestation"
+                    if row:
+                        await send_push_to_user(
+                            pool, row["payer_user_id"],
+                            "Réservation confirmée !",
+                            f"Votre réservation pour « {title} » est confirmée. À bientôt !",
+                            data={"type": "booking_confirmed", "booking_id": payment["booking_id"]},
+                            notif_type="booking_confirmed",
+                        )
+                        await send_push_to_user(
+                            pool, row["receiver_user_id"],
+                            "Nouvelle réservation !",
+                            f"Paiement reçu pour « {title} ». Votre planning a été mis à jour.",
+                            data={"type": "booking_confirmed", "booking_id": payment["booking_id"]},
+                            notif_type="booking_confirmed",
+                        )
+                else:
+                    # manual_approval + pay_now : juste autoriser
+                    async with conn.transaction():
+                        await conn.execute(
+                            "UPDATE payments SET status='authorized', updated_at=NOW() WHERE payment_id=$1",
+                            payment["payment_id"],
+                        )
+                        if payment.get("booking_id"):
+                            await conn.execute(
+                                "UPDATE bookings SET payment_status='authorized', updated_at=NOW() WHERE booking_id=$1",
+                                payment["booking_id"],
+                            )
+                    db_status = "authorized"
 
         elif stripe_ps == "paid" and db_status not in ("captured",):
             async with conn.transaction():
@@ -262,7 +317,10 @@ async def get_checkout_status(session_id: str, request: Request):
                 )
                 if payment.get("booking_id"):
                     await conn.execute(
-                        "UPDATE bookings SET payment_status='paid', updated_at=NOW() WHERE booking_id=$1",
+                        """UPDATE bookings
+                           SET status='confirmed', payment_status='paid', updated_at=NOW()
+                           WHERE booking_id=$1
+                             AND status NOT IN ('confirmed','refused','cancelled','expired')""",
                         payment["booking_id"],
                     )
             db_status = "captured"

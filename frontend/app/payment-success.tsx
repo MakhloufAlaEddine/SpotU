@@ -59,7 +59,7 @@ export default function PaymentSuccessScreen() {
   };
 
   const goHome = () => router.replace('/(tabs)/map' as any);
-  const goBookings = () => router.replace('/(tabs)/bookings' as any);
+  const goBookings = () => router.replace('/bookings' as any);
 
   return (
     <View style={s.container}>
