@@ -160,10 +160,22 @@ def single_slot_id(http, tok_user, coach_service_id):
     return specific[0]["slot_id"] if specific else None
 
 
-# ── Helper : restaurer le service en mode manuel après chaque classe ───────────
+@pytest.fixture(scope="module")
+def tok_admin(http):
+    return login(http, "admin@winek.app", "WinekAdmin2024!")
 
-def restore_manual_no_pay_later(http, tok_coach, service_id):
-    update_service_workflow(http, tok_coach, service_id, "manual_approval", False, 1440)
+
+def set_global_flags(http, tok_admin, manual_approval: bool = False, pay_later: bool = False):
+    """Configure les flags globaux de réservation via l'API admin."""
+    r = http.put(
+        "/api/admin/app-config",
+        json={
+            "enable_manual_approval_for_services": manual_approval,
+            "enable_pay_later_for_services": pay_later,
+        },
+        headers=auth(tok_admin),
+    )
+    assert r.status_code == 200, f"Impossible de mettre à jour les flags globaux : {r.text}"
 
 
 def cleanup_slot_bookings(service_id: str, slot_id: str | None):
@@ -227,11 +239,14 @@ class TestFluxA_InstantPayNow:
             f"Expected slot_status=reserved, got {slot['slot_status']}"
 
     def test_a_pay_later_rejected_when_not_allowed(self, http, tok_user, tok_coach, coach_service_id):
-        """Flux A : pay_later refusé si service ne l'autorise pas."""
+        """Flux A : pay_later refusé si désactivé (globalement ou au niveau service)."""
         update_service_workflow(http, tok_coach, coach_service_id, "instant_booking", False)
         r = book(http, tok_user, coach_service_id, payment_mode="pay_later")
-        assert r.status_code == 400, f"Expected 400, got {r.status_code}: {r.text}"
-        assert "pay_later" in r.json()["detail"].lower() or "différé" in r.json()["detail"].lower()
+        # En mode MVP (global flag=false) → 409 ; sinon (service flag=false) → 400
+        assert r.status_code in (400, 409), f"Expected 4xx, got {r.status_code}: {r.text}"
+        detail = r.json().get("detail", "")
+        assert "pay_later" in detail.lower() or "différé" in detail.lower() or "activé" in detail.lower(), \
+            f"Expected pay_later message in: {detail}"
 
     def teardown_method(self, method):
         pass  # Restauré par la prochaine classe
@@ -245,7 +260,14 @@ class TestFluxB_InstantPayLater:
     """
     Service configuré en instant_booking + pay_later=True, expiry=10min.
     La réservation doit passer directement en awaiting_payment avec expiry=10min.
+    Nécessite : enable_pay_later_for_services = True.
     """
+
+    @pytest.fixture(autouse=True)
+    def enable_pay_later_flag(self, http, tok_admin):
+        set_global_flags(http, tok_admin, manual_approval=False, pay_later=True)
+        yield
+        set_global_flags(http, tok_admin, manual_approval=False, pay_later=False)
 
     def test_b_booking_awaiting_payment_pay_later(self, http, tok_user, tok_coach, coach_service_id):
         """Flux B : instant_booking + pay_later → awaiting_payment, expiry=10min."""
@@ -275,12 +297,14 @@ class TestFluxB_InstantPayLater:
 class TestFluxC_ManualPayNow:
     """
     Service configuré en manual_approval + pay_later=False (pay_now).
-
-    Nouveau flux correct :
-      1. requested → /pay disponible immédiatement (autorisation Stripe)
-      2. Si paiement autorisé  : accept → confirmed (capture PI)
-      3. Si paiement non autorisé : accept → awaiting_payment (fallback)
+    Nécessite : enable_manual_approval_for_services = True.
     """
+
+    @pytest.fixture(autouse=True)
+    def enable_manual_flag(self, http, tok_admin):
+        set_global_flags(http, tok_admin, manual_approval=True, pay_later=False)
+        yield
+        set_global_flags(http, tok_admin, manual_approval=False, pay_later=False)
 
     def test_c_booking_requested(self, http, tok_user, tok_coach, coach_service_id):
         """Flux C : manual_approval → status=requested."""
@@ -391,7 +415,14 @@ class TestFluxD_ManualPayLater:
     """
     Service configuré en manual_approval + pay_later=True, expiry=10min.
     Flux : requested → accept → awaiting_payment (10 min).
+    Nécessite : enable_manual_approval=True ET enable_pay_later=True.
     """
+
+    @pytest.fixture(autouse=True)
+    def enable_all_flags(self, http, tok_admin):
+        set_global_flags(http, tok_admin, manual_approval=True, pay_later=True)
+        yield
+        set_global_flags(http, tok_admin, manual_approval=False, pay_later=False)
 
     def test_d_accept_pay_later_expiry_configured(self, http, tok_user, tok_coach, coach_service_id):
         """Flux D : accept d'une réservation pay_later → expiry=configured."""
@@ -447,6 +478,13 @@ class TestFluxD_ManualPayLater:
 # ══════════════════════════════════════════════════════════════════════════════
 
 class TestPayEndpoint:
+
+    @pytest.fixture(autouse=True)
+    def enable_all_flags(self, http, tok_admin):
+        """Active tous les flags pour tester les différents modes de paiement."""
+        set_global_flags(http, tok_admin, manual_approval=True, pay_later=True)
+        yield
+        set_global_flags(http, tok_admin, manual_approval=False, pay_later=False)
 
     def test_pay_allowed_on_requested_pay_now(self, http, tok_user, tok_coach, coach_service_id):
         """POST /bookings/{id}/pay → 200 si requested + pay_now (autorisation immédiate)."""

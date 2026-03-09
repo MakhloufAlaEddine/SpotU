@@ -16,6 +16,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
+import { useBookingConfig } from '../../lib/useBookingConfig';
 
 // ── Statuts ────────────────────────────────────────────────────────────────────
 
@@ -112,6 +113,8 @@ function ReceivedCard({
   const isAwaitingPayment = booking.status === 'awaiting_payment';
   const countdown = useCountdown(isAwaitingPayment ? booking.expires_at : null);
   const isExpired = countdown === 'Expiré';
+  // N'afficher les actions accept/refuse que si validation manuelle est activée globalement
+  const { enable_manual_approval_for_services: showManualActions } = useBookingConfig();
 
   return (
     <View style={c.card} testID={`received-card-${booking.booking_id}`}>
@@ -190,8 +193,8 @@ function ReceivedCard({
           )}
         </View>
 
-        {/* Boutons Accept/Refuse — uniquement pour les demandes en attente */}
-        {isPending && (
+        {/* Boutons Accept/Refuse — uniquement si validation manuelle activée globalement */}
+        {isPending && showManualActions && (
           <View style={c.actionRow}>
             <TouchableOpacity
               style={[c.refuseBtn, refusing && { opacity: 0.5 }]}

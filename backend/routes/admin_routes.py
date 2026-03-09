@@ -290,3 +290,48 @@ async def admin_domains(request: Request):
     async with pool.acquire() as conn:
         rows = await conn.fetch("SELECT * FROM domains ORDER BY name")
     return rows_to_list(rows)
+
+
+# ── Configuration globale de l'application ─────────────────────────────────────
+
+async def _get_booking_flags(conn) -> dict:
+    """Retourne les flags de configuration booking sous forme de dict bool."""
+    rows = await conn.fetch(
+        """SELECT config_key, config_value FROM app_config
+           WHERE config_key IN ('enable_manual_approval_for_services', 'enable_pay_later_for_services')"""
+    )
+    cfg = {r["config_key"]: r["config_value"] == "true" for r in rows}
+    return {
+        "enable_manual_approval_for_services": cfg.get("enable_manual_approval_for_services", False),
+        "enable_pay_later_for_services":       cfg.get("enable_pay_later_for_services", False),
+    }
+
+
+@router.get("/app-config")
+async def get_app_config(request: Request):
+    """Retourne la configuration globale de l'application (admin seulement)."""
+    pool = get_pool()
+    await require_role(request, pool, "admin")
+    async with pool.acquire() as conn:
+        return await _get_booking_flags(conn)
+
+
+@router.put("/app-config")
+async def update_app_config(request: Request):
+    """Met à jour un ou plusieurs flags de configuration (admin seulement)."""
+    pool = get_pool()
+    await require_role(request, pool, "admin")
+    body = await request.json()
+    allowed_keys = {"enable_manual_approval_for_services", "enable_pay_later_for_services"}
+    updates = {k: v for k, v in body.items() if k in allowed_keys}
+    if not updates:
+        raise HTTPException(400, "Aucune clé valide fournie")
+    async with pool.acquire() as conn:
+        for key, value in updates.items():
+            await conn.execute(
+                """INSERT INTO app_config (config_key, config_value, updated_at)
+                   VALUES ($1, $2, NOW())
+                   ON CONFLICT (config_key) DO UPDATE SET config_value=$2, updated_at=NOW()""",
+                key, "true" if value else "false",
+            )
+    return {"success": True, **{k: bool(v) for k, v in updates.items()}}

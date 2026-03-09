@@ -578,6 +578,21 @@ async def connect_to_db():
                 ON conversations(created_by);
         """)
 
+        # [APP-CONFIG-V1] Configuration globale de l'application — flags de fonctionnalités
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS app_config (
+                config_key   TEXT PRIMARY KEY,
+                config_value TEXT NOT NULL,
+                updated_at   TIMESTAMPTZ DEFAULT NOW()
+            );
+
+            -- Par défaut MVP : réservation directe + paiement immédiat
+            INSERT INTO app_config (config_key, config_value) VALUES
+                ('enable_manual_approval_for_services', 'false'),
+                ('enable_pay_later_for_services',       'false')
+            ON CONFLICT (config_key) DO NOTHING;
+        """)
+
     # 2. Seed données de base (users, tagpoints, tags, domaines...)
     from seed import seed_initial_data
     await seed_initial_data()

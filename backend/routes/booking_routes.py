@@ -132,9 +132,29 @@ async def _do_booking_request(data: BookingRequest, request: Request):
 
         svc              = dict(svc_row)
         receiver_user_id = svc["coach_id"]
+
+        # ── Normalisation selon les flags globaux (défense en profondeur) ────
+        cfg_rows = await conn.fetch(
+            "SELECT config_key, config_value FROM app_config WHERE config_key IN ('enable_manual_approval_for_services','enable_pay_later_for_services')"
+        )
+        cfg = {r["config_key"]: r["config_value"] == "true" for r in cfg_rows}
+        global_allow_manual = cfg.get("enable_manual_approval_for_services", False)
+        global_allow_pay_later = cfg.get("enable_pay_later_for_services", False)
+
         approval_mode    = svc["booking_approval_mode"] or "manual_approval"
         allow_pay_later  = bool(svc["allow_pay_later"])
         expiry_minutes   = int(svc["pay_later_expiration_minutes"] or DEFAULT_PAY_LATER_MINUTES)
+
+        # Appliquer les contraintes globales
+        if not global_allow_manual:
+            approval_mode = "instant_booking"
+        if not global_allow_pay_later:
+            allow_pay_later = False
+            if payment_mode == "pay_later":
+                raise HTTPException(
+                    409,
+                    "Le paiement différé n'est pas activé sur cette plateforme — veuillez choisir 'pay_now'",
+                )
 
         if receiver_user_id == payer_user_id:
             raise HTTPException(400, "Impossible de réserver son propre service")

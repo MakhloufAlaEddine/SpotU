@@ -8,6 +8,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
+import { useBookingConfig } from '../../lib/useBookingConfig';
 
 const ORANGE = '#FF9500';
 const ORANGE_LIGHT = 'rgba(255,149,0,0.12)';
@@ -59,11 +60,15 @@ export default function BookingConfirmScreen() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
+  // Flags globaux MVP
+  const bookingCfg     = useBookingConfig();
+  const enablePayLater = bookingCfg.enable_pay_later_for_services;
+
   // Résultat booking
   const [booking, setBooking] = useState<any>(null);
   const [pricing, setPricing] = useState<{ payer_total_amount: number } | null>(null);
 
-  // Mode paiement choisi par l'user
+  // Mode paiement choisi par l'user (forcé à 'pay_now' si pay_later désactivé)
   const [paymentMode, setPaymentMode] = useState<'pay_now' | 'pay_later'>('pay_now');
 
   // Machine d'état du bouton paiement
@@ -273,8 +278,8 @@ export default function BookingConfirmScreen() {
           {/* ── Formulaire (pré-booking) ───────────────────────────────── */}
           {!booking && (
             <>
-              {/* Sélecteur mode paiement */}
-              {allowPayLater && (
+              {/* Sélecteur mode paiement — seulement si pay_later actif globalement ET pour ce service */}
+              {enablePayLater && allowPayLater && (
                 <View style={s.section}>
                   <Text style={s.sectionLabel}>Mode de paiement</Text>
                   <View style={s.payModeRow}>
@@ -340,13 +345,17 @@ export default function BookingConfirmScreen() {
               <View style={s.paymentNote}>
                 <Ionicons name="information-circle-outline" size={16} color={Colors.muted} />
                 <Text style={s.paymentNoteText}>
-                  {approvalMode === 'instant_booking'
-                    ? paymentMode === 'pay_now'
-                      ? 'Le créneau sera confirmé dès réception du paiement.'
-                      : 'Le créneau sera bloqué pour vous. Le paiement sera demandé dans un délai configuré par le coach.'
-                    : paymentMode === 'pay_now'
-                      ? 'Votre moyen de paiement sera confirmé maintenant. Vous ne serez débité définitivement qu\'après acceptation du coach.'
-                      : 'Votre demande sera soumise au coach. Le paiement sera différé après acceptation.'
+                  {!enablePayLater
+                    ? (approvalMode === 'instant_booking'
+                        ? 'Le créneau sera confirmé dès réception du paiement.'
+                        : 'Votre moyen de paiement sera confirmé maintenant. Vous ne serez débité définitivement qu\'après acceptation du coach.')
+                    : (approvalMode === 'instant_booking'
+                        ? paymentMode === 'pay_now'
+                          ? 'Le créneau sera confirmé dès réception du paiement.'
+                          : 'Le créneau sera bloqué pour vous. Le paiement sera demandé dans un délai configuré par le coach.'
+                        : paymentMode === 'pay_now'
+                          ? 'Votre moyen de paiement sera confirmé maintenant. Vous ne serez débité définitivement qu\'après acceptation du coach.'
+                          : 'Votre demande sera soumise au coach. Le paiement sera différé après acceptation.')
                   }
                 </Text>
               </View>

@@ -14,6 +14,38 @@ SVC_FIELDS = """
 """
 
 
+async def _get_booking_flags(conn) -> dict:
+    """Lit les flags globaux de réservation depuis app_config."""
+    rows = await conn.fetch(
+        "SELECT config_key, config_value FROM app_config WHERE config_key IN ('enable_manual_approval_for_services','enable_pay_later_for_services')"
+    )
+    cfg = {r["config_key"]: r["config_value"] == "true" for r in rows}
+    return {
+        "enable_manual_approval": cfg.get("enable_manual_approval_for_services", False),
+        "enable_pay_later":       cfg.get("enable_pay_later_for_services", False),
+    }
+
+
+def _normalize_booking_config(
+    booking_approval_mode: str,
+    allow_pay_later: bool,
+    pay_later_expiration_minutes: int | None,
+    flags: dict,
+) -> tuple[str, bool, int | None]:
+    """Applique les flags globaux sur la config de réservation d'un service."""
+    mode = booking_approval_mode or 'instant_booking'
+    pay_later = allow_pay_later
+    expiry = pay_later_expiration_minutes
+
+    if not flags["enable_manual_approval"]:
+        mode = 'instant_booking'
+    if not flags["enable_pay_later"]:
+        pay_later = False
+        expiry = None
+
+    return mode, pay_later, expiry
+
+
 def build_service(row_dict: dict) -> dict:
     # Parse images JSON string → list
     raw_images = row_dict.get("images")
@@ -255,6 +287,17 @@ async def create_service(data: ServiceCreate, request: Request):
         service_price = min((p.price for p in data.packages), default=0.0)
 
     async with pool.acquire() as conn:
+        # Normalisation selon les flags globaux
+        flags = await _get_booking_flags(conn)
+        raw_mode = getattr(data, 'booking_approval_mode', None) or 'manual_approval'
+        raw_pay_later = getattr(data, 'allow_pay_later', True)
+        if raw_pay_later is None:
+            raw_pay_later = True
+        raw_expiry = getattr(data, 'pay_later_expiration_minutes', None) or 1440
+        norm_mode, norm_pay_later, norm_expiry = _normalize_booking_config(
+            raw_mode, raw_pay_later, raw_expiry, flags
+        )
+
         await conn.execute(
             """INSERT INTO services
                (service_id, coach_id, title, description, address, price, duration_min,
@@ -264,9 +307,9 @@ async def create_service(data: ServiceCreate, request: Request):
             sid, user["user_id"], data.title, data.description, data.address,
             service_price, data.duration_min, data.tag_ids, data.domain_id,
             data.max_participants, data.images or [],
-            getattr(data, 'booking_approval_mode', None) or 'manual_approval',
-            getattr(data, 'allow_pay_later', True) if getattr(data, 'allow_pay_later', True) is not None else True,
-            getattr(data, 'pay_later_expiration_minutes', None) or 1440,
+            norm_mode,
+            norm_pay_later,
+            norm_expiry or 1440,
         )
 
         # Handle packages (new model)
@@ -347,6 +390,22 @@ async def update_service(service_id: str, data: ServiceUpdate, request: Request)
                          'booking_approval_mode', 'allow_pay_later', 'pay_later_expiration_minutes'}
         raw = data.model_dump()
         update_dict = {k: raw[k] for k in SCALAR_FIELDS if raw.get(k) is not None}
+
+        # Normalisation selon les flags globaux (validation côté backend)
+        if 'booking_approval_mode' in update_dict or 'allow_pay_later' in update_dict:
+            flags = await _get_booking_flags(conn)
+            cur_mode     = update_dict.get('booking_approval_mode', 'instant_booking')
+            cur_pay_later = update_dict.get('allow_pay_later', False)
+            cur_expiry   = update_dict.get('pay_later_expiration_minutes', 1440)
+            norm_mode, norm_pay_later, norm_expiry = _normalize_booking_config(
+                cur_mode, cur_pay_later, cur_expiry, flags
+            )
+            if 'booking_approval_mode' in update_dict:
+                update_dict['booking_approval_mode'] = norm_mode
+            if 'allow_pay_later' in update_dict:
+                update_dict['allow_pay_later'] = norm_pay_later
+            if 'pay_later_expiration_minutes' in update_dict:
+                update_dict['pay_later_expiration_minutes'] = norm_expiry or 1440
 
         # JSONB fields — passer les listes Python directement avec cast ::jsonb
         jsonb_updates: dict = {}

@@ -17,6 +17,7 @@ import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
 import { Colors, Spacing, Radius } from '../constants/Colors';
+import { useBookingConfig } from '../lib/useBookingConfig';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ORANGE = '#FF9500';
@@ -106,6 +107,12 @@ export default function CreateServiceScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const { serviceId } = useLocalSearchParams<{ serviceId?: string }>();
   const isEditMode = !!serviceId;
+  const bookingCfg = useBookingConfig();
+  // Flags globaux MVP
+  const enableManualApproval = bookingCfg.enable_manual_approval_for_services;
+  const enablePayLater       = bookingCfg.enable_pay_later_for_services;
+  // Quand les deux sont désactivés, on saute complètement l'étape 4
+  const skipStep4 = !enableManualApproval && !enablePayLater;
 
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
@@ -333,11 +340,24 @@ export default function CreateServiceScreen() {
       const p = parseFloat(price);
       if (!price || isNaN(p) || p <= 0) { Alert.alert('Prix manquant', 'Renseignez le prix par séance'); return; }
     }
-    setStep(s => Math.min(s + 1, 5));
+    // MVP : sauter l'étape 4 (réservations) si les deux fonctionnalités sont désactivées
+    if (step === 3 && skipStep4) {
+      setStep(5);
+    } else {
+      setStep(s => Math.min(s + 1, 5));
+    }
     scrollTop();
   };
 
-  const goPrev = () => { setStep(s => Math.max(s - 1, 1)); scrollTop(); };
+  const goPrev = () => {
+    // MVP : sauter l'étape 4 en retour également
+    if (step === 5 && skipStep4) {
+      setStep(3);
+    } else {
+      setStep(s => Math.max(s - 1, 1));
+    }
+    scrollTop();
+  };
 
   // ─── Submit ──────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
@@ -400,28 +420,37 @@ export default function CreateServiceScreen() {
   };
 
   // ─── Step Header ─────────────────────────────────────────────────────────────
-  const renderStepHeader = () => (
-    <View style={s.stepHeader}>
-      {STEP_LABELS.map((label, idx) => {
-        const num = idx + 1;
-        const done = step > num;
-        const active = step === num;
-        return (
-          <React.Fragment key={num}>
-            {idx > 0 && <View style={[s.stepLine, done && s.stepLineDone]} />}
-            <View style={s.stepItem}>
-              <View style={[s.stepCircle, active && s.stepCircleActive, done && s.stepCircleDone]}>
-                {done
-                  ? <Ionicons name="checkmark" size={13} color={Colors.background} />
-                  : <Text style={[s.stepNum, active && s.stepNumActive]}>{num}</Text>}
+  const renderStepHeader = () => {
+    // En mode MVP (skipStep4), n'afficher que 4 étapes : Infos, Domaine, Config, Résumé
+    const visibleLabels = skipStep4
+      ? STEP_LABELS.filter((_, idx) => idx !== 3)  // retirer 'Réservations'
+      : STEP_LABELS;
+    // Mapper l'étape interne vers la position visuelle
+    const visualStep = skipStep4 && step >= 5 ? step - 1 : step;
+
+    return (
+      <View style={s.stepHeader}>
+        {visibleLabels.map((label, idx) => {
+          const num = idx + 1;
+          const done = visualStep > num;
+          const active = visualStep === num;
+          return (
+            <React.Fragment key={num}>
+              {idx > 0 && <View style={[s.stepLine, done && s.stepLineDone]} />}
+              <View style={s.stepItem}>
+                <View style={[s.stepCircle, active && s.stepCircleActive, done && s.stepCircleDone]}>
+                  {done
+                    ? <Ionicons name="checkmark" size={13} color={Colors.background} />
+                    : <Text style={[s.stepNum, active && s.stepNumActive]}>{num}</Text>}
+                </View>
+                <Text style={[s.stepLabel, active && s.stepLabelActive]}>{label}</Text>
               </View>
-              <Text style={[s.stepLabel, active && s.stepLabelActive]}>{label}</Text>
-            </View>
-          </React.Fragment>
-        );
-      })}
-    </View>
-  );
+            </React.Fragment>
+          );
+        })}
+      </View>
+    );
+  };
 
   // ─── Step 1: Informations générales ──────────────────────────────────────────
   const renderStep1 = () => (
@@ -685,100 +714,104 @@ export default function CreateServiceScreen() {
             <Text style={s.bookingSectionTitle}>Configuration des réservations</Text>
           </View>
 
-          {/* 1. Mode de réservation */}
-          <View style={s.field}>
-            <Text style={s.fieldLabel}>Mode de réservation</Text>
-            <View style={s.bookingOptionRow}>
-              <TouchableOpacity
-                style={[s.bookingOptionCard, bookingApprovalMode === 'instant_booking' && s.bookingOptionCardActive]}
-                onPress={() => setBookingApprovalMode('instant_booking')}
-                testID="booking-mode-instant"
-              >
-                <View style={s.bookingOptionTop}>
-                  <View style={[s.bookingRadio, bookingApprovalMode === 'instant_booking' && s.bookingRadioActive]}>
-                    {bookingApprovalMode === 'instant_booking' && <View style={s.bookingRadioDot} />}
+          {/* 1. Mode de réservation — masqué si validation manuelle désactivée */}
+          {enableManualApproval && (
+            <View style={s.field}>
+              <Text style={s.fieldLabel}>Mode de réservation</Text>
+              <View style={s.bookingOptionRow}>
+                <TouchableOpacity
+                  style={[s.bookingOptionCard, bookingApprovalMode === 'instant_booking' && s.bookingOptionCardActive]}
+                  onPress={() => setBookingApprovalMode('instant_booking')}
+                  testID="booking-mode-instant"
+                >
+                  <View style={s.bookingOptionTop}>
+                    <View style={[s.bookingRadio, bookingApprovalMode === 'instant_booking' && s.bookingRadioActive]}>
+                      {bookingApprovalMode === 'instant_booking' && <View style={s.bookingRadioDot} />}
+                    </View>
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={[s.bookingOptionLabel, bookingApprovalMode === 'instant_booking' && s.bookingOptionLabelActive]}>
+                        Réservation directe
+                      </Text>
+                      <Text style={s.bookingOptionDesc}>
+                        Le créneau est bloqué dès la réservation
+                      </Text>
+                    </View>
                   </View>
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <Text style={[s.bookingOptionLabel, bookingApprovalMode === 'instant_booking' && s.bookingOptionLabelActive]}>
-                      Réservation directe
-                    </Text>
-                    <Text style={s.bookingOptionDesc}>
-                      Le créneau est bloqué dès la réservation
-                    </Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[s.bookingOptionCard, bookingApprovalMode === 'manual_approval' && s.bookingOptionCardActive]}
-                onPress={() => setBookingApprovalMode('manual_approval')}
-                testID="booking-mode-manual"
-              >
-                <View style={s.bookingOptionTop}>
-                  <View style={[s.bookingRadio, bookingApprovalMode === 'manual_approval' && s.bookingRadioActive]}>
-                    {bookingApprovalMode === 'manual_approval' && <View style={s.bookingRadioDot} />}
+                <TouchableOpacity
+                  style={[s.bookingOptionCard, bookingApprovalMode === 'manual_approval' && s.bookingOptionCardActive]}
+                  onPress={() => setBookingApprovalMode('manual_approval')}
+                  testID="booking-mode-manual"
+                >
+                  <View style={s.bookingOptionTop}>
+                    <View style={[s.bookingRadio, bookingApprovalMode === 'manual_approval' && s.bookingRadioActive]}>
+                      {bookingApprovalMode === 'manual_approval' && <View style={s.bookingRadioDot} />}
+                    </View>
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={[s.bookingOptionLabel, bookingApprovalMode === 'manual_approval' && s.bookingOptionLabelActive]}>
+                        Validation manuelle
+                      </Text>
+                      <Text style={s.bookingOptionDesc}>
+                        Vous acceptez ou refusez chaque demande
+                      </Text>
+                    </View>
                   </View>
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <Text style={[s.bookingOptionLabel, bookingApprovalMode === 'manual_approval' && s.bookingOptionLabelActive]}>
-                      Validation manuelle
-                    </Text>
-                    <Text style={s.bookingOptionDesc}>
-                      Vous acceptez ou refusez chaque demande
-                    </Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
+          )}
 
-          {/* 2. Paiement */}
-          <View style={s.field}>
-            <Text style={s.fieldLabel}>Paiement</Text>
-            <View style={s.bookingOptionRow}>
-              <TouchableOpacity
-                style={[s.bookingOptionCard, !allowPayLater && s.bookingOptionCardActive]}
-                onPress={() => setAllowPayLater(false)}
-                testID="pay-mode-now"
-              >
-                <View style={s.bookingOptionTop}>
-                  <View style={[s.bookingRadio, !allowPayLater && s.bookingRadioActive]}>
-                    {!allowPayLater && <View style={s.bookingRadioDot} />}
+          {/* 2. Paiement différé — masqué si désactivé globalement */}
+          {enablePayLater && (
+            <View style={s.field}>
+              <Text style={s.fieldLabel}>Paiement</Text>
+              <View style={s.bookingOptionRow}>
+                <TouchableOpacity
+                  style={[s.bookingOptionCard, !allowPayLater && s.bookingOptionCardActive]}
+                  onPress={() => setAllowPayLater(false)}
+                  testID="pay-mode-now"
+                >
+                  <View style={s.bookingOptionTop}>
+                    <View style={[s.bookingRadio, !allowPayLater && s.bookingRadioActive]}>
+                      {!allowPayLater && <View style={s.bookingRadioDot} />}
+                    </View>
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={[s.bookingOptionLabel, !allowPayLater && s.bookingOptionLabelActive]}>
+                        Paiement immédiat
+                      </Text>
+                      <Text style={s.bookingOptionDesc}>
+                        L'utilisateur paie pour confirmer
+                      </Text>
+                    </View>
                   </View>
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <Text style={[s.bookingOptionLabel, !allowPayLater && s.bookingOptionLabelActive]}>
-                      Paiement immédiat
-                    </Text>
-                    <Text style={s.bookingOptionDesc}>
-                      L'utilisateur paie pour confirmer
-                    </Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[s.bookingOptionCard, allowPayLater && s.bookingOptionCardActive]}
-                onPress={() => setAllowPayLater(true)}
-                testID="pay-mode-later"
-              >
-                <View style={s.bookingOptionTop}>
-                  <View style={[s.bookingRadio, allowPayLater && s.bookingRadioActive]}>
-                    {allowPayLater && <View style={s.bookingRadioDot} />}
+                <TouchableOpacity
+                  style={[s.bookingOptionCard, allowPayLater && s.bookingOptionCardActive]}
+                  onPress={() => setAllowPayLater(true)}
+                  testID="pay-mode-later"
+                >
+                  <View style={s.bookingOptionTop}>
+                    <View style={[s.bookingRadio, allowPayLater && s.bookingRadioActive]}>
+                      {allowPayLater && <View style={s.bookingRadioDot} />}
+                    </View>
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={[s.bookingOptionLabel, allowPayLater && s.bookingOptionLabelActive]}>
+                        Payer plus tard autorisé
+                      </Text>
+                      <Text style={s.bookingOptionDesc}>
+                        Le créneau est bloqué sans paiement immédiat
+                      </Text>
+                    </View>
                   </View>
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <Text style={[s.bookingOptionLabel, allowPayLater && s.bookingOptionLabelActive]}>
-                      Payer plus tard autorisé
-                    </Text>
-                    <Text style={s.bookingOptionDesc}>
-                      Le créneau est bloqué sans paiement immédiat
-                    </Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
+          )}
 
-          {/* 3. Délai d'expiration */}
-          {allowPayLater && (
+          {/* 3. Délai d'expiration (seulement si pay_later activé) */}
+          {enablePayLater && allowPayLater && (
             <View style={s.field}>
               <Text style={s.fieldLabel}>Délai de paiement</Text>
               <View style={s.chips}>

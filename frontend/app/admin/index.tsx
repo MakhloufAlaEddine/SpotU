@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   Switch, TextInput, Modal, Alert, ActivityIndicator,
@@ -12,7 +12,7 @@ import { api } from '../../lib/api';
 import { Colors, Spacing } from '../../constants/Colors';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-type Tab = 'stats' | 'rules' | 'plans' | 'payments';
+type Tab = 'stats' | 'rules' | 'plans' | 'payments' | 'booking';
 
 interface PricingRule {
   rule_id: string; name: string; product_type: string;
@@ -493,6 +493,108 @@ function PaymentsTab({ payments }: { payments: any[] }) {
   );
 }
 
+// ── Onglet Configuration des réservations ────────────────────────────────────
+function BookingConfigTab() {
+  const [cfg, setCfg] = useState({ enable_manual_approval_for_services: false, enable_pay_later_for_services: false });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.get<typeof cfg>('/admin/app-config')
+      .then(data => { setCfg(data); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  const toggle = async (key: keyof typeof cfg) => {
+    setSaving(key);
+    const newVal = !cfg[key];
+    try {
+      await api.put('/admin/app-config', { [key]: newVal });
+      setCfg(prev => ({ ...prev, [key]: newVal }));
+      // Invalider le cache frontend
+      const { invalidateBookingConfig } = await import('../../lib/useBookingConfig');
+      invalidateBookingConfig();
+      Alert.alert('Sauvegardé', `Configuration mise à jour.`);
+    } catch {
+      Alert.alert('Erreur', 'Impossible de sauvegarder');
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  if (loading) return <View style={s.center}><ActivityIndicator color={Colors.primary} /></View>;
+
+  const rows: { key: keyof typeof cfg; label: string; help: string; icon: string; color: string }[] = [
+    {
+      key: 'enable_manual_approval_for_services',
+      label: 'Validation manuelle',
+      help: "Permet aux propriétaires de services d'accepter ou refuser les demandes avant confirmation.",
+      icon: 'hand-left-outline',
+      color: '#FF9500',
+    },
+    {
+      key: 'enable_pay_later_for_services',
+      label: 'Paiement différé',
+      help: "Permet de réserver un créneau sans payer immédiatement. Le créneau peut être bloqué temporairement en attente de paiement.",
+      icon: 'time-outline',
+      color: '#0A84FF',
+    },
+  ];
+
+  return (
+    <ScrollView contentContainerStyle={s.tabContent}>
+      <Text style={s.tabSectionTitle}>Configuration des réservations</Text>
+
+      {/* Bandeau MVP */}
+      <View style={bc.mvpBanner}>
+        <Ionicons name="flash" size={16} color="#fff" />
+        <View style={{ flex: 1 }}>
+          <Text style={bc.mvpTitle}>Mode MVP actif</Text>
+          <Text style={bc.mvpSub}>
+            Par défaut : réservation directe · paiement immédiat.
+            Activez les options ci-dessous pour débloquer des fonctionnalités avancées.
+          </Text>
+        </View>
+      </View>
+
+      {rows.map(row => (
+        <View key={row.key} style={bc.row} testID={`config-row-${row.key}`}>
+          <View style={[bc.iconWrap, { backgroundColor: row.color + '18' }]}>
+            <Ionicons name={row.icon as any} size={22} color={row.color} />
+          </View>
+          <View style={{ flex: 1, gap: 4 }}>
+            <Text style={bc.rowLabel}>{row.label}</Text>
+            <Text style={bc.rowHelp}>{row.help}</Text>
+          </View>
+          <View style={{ alignItems: 'center', gap: 4 }}>
+            {saving === row.key
+              ? <ActivityIndicator size="small" color={row.color} />
+              : <Switch
+                  value={cfg[row.key]}
+                  onValueChange={() => toggle(row.key)}
+                  trackColor={{ true: row.color, false: Colors.border }}
+                  thumbColor="#fff"
+                  testID={`toggle-${row.key}`}
+                />
+            }
+            <Text style={[bc.rowStatus, { color: cfg[row.key] ? row.color : Colors.muted }]}>
+              {cfg[row.key] ? 'Activé' : 'Désactivé'}
+            </Text>
+          </View>
+        </View>
+      ))}
+
+      <View style={bc.footer}>
+        <Ionicons name="information-circle-outline" size={14} color={Colors.muted} />
+        <Text style={bc.footerText}>
+          Ces paramètres s'appliquent à tous les nouveaux services et réservations.
+          Les services existants sont maintenus mais les fonctionnalités désactivées sont ignorées lors des réservations.
+        </Text>
+      </View>
+    </ScrollView>
+  );
+}
+
 // ── Label helper ──────────────────────────────────────────────────────────────
 function Label({ children }: { children: string }) {
   return <Text style={mf.label}>{children}</Text>;
@@ -545,10 +647,11 @@ export default function AdminScreen() {
   if (!user || user.role !== 'admin') return null;
 
   const TABS: { key: Tab; label: string; icon: string }[] = [
-    { key: 'stats',    label: 'Aperçu',   icon: 'bar-chart-outline' },
-    { key: 'rules',    label: 'Règles',   icon: 'options-outline' },
-    { key: 'plans',    label: 'Abonnements', icon: 'card-outline' },
-    { key: 'payments', label: 'Paiements', icon: 'receipt-outline' },
+    { key: 'stats',    label: 'Aperçu',        icon: 'bar-chart-outline' },
+    { key: 'rules',    label: 'Règles',        icon: 'options-outline' },
+    { key: 'plans',    label: 'Abonnements',   icon: 'card-outline' },
+    { key: 'payments', label: 'Paiements',     icon: 'receipt-outline' },
+    { key: 'booking',  label: 'Réservations',  icon: 'settings-outline' },
   ];
 
   return (
@@ -582,6 +685,7 @@ export default function AdminScreen() {
           {tab === 'rules'    && <RulesTab rules={rules} onRefresh={() => load(true)} />}
           {tab === 'plans'    && <PlansTab plans={plans} onRefresh={() => load(true)} />}
           {tab === 'payments' && <PaymentsTab payments={payments} />}
+          {tab === 'booking'  && <BookingConfigTab />}
         </View>
       )}
     </View>
@@ -649,6 +753,19 @@ const s = StyleSheet.create({
   empty:       { alignItems: 'center', paddingVertical: 40, gap: 10 },
   emptyText:   { fontSize: 15, fontWeight: '600', color: Colors.muted },
   emptySubText:{ fontSize: 12, color: Colors.muted, textAlign: 'center' },
+});
+
+const bc = StyleSheet.create({
+  mvpBanner:   { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: Colors.primary, borderRadius: 12, padding: 14, marginBottom: 8 },
+  mvpTitle:    { fontSize: 13, fontWeight: '700', color: '#fff', marginBottom: 2 },
+  mvpSub:      { fontSize: 12, color: 'rgba(255,255,255,0.8)', lineHeight: 17 },
+  row:         { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.card, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: Colors.border },
+  iconWrap:    { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  rowLabel:    { fontSize: 15, fontWeight: '700', color: Colors.foreground },
+  rowHelp:     { fontSize: 12, color: Colors.muted, lineHeight: 17 },
+  rowStatus:   { fontSize: 11, fontWeight: '600' },
+  footer:      { flexDirection: 'row', alignItems: 'flex-start', gap: 6, paddingTop: 8, paddingHorizontal: 4 },
+  footerText:  { flex: 1, fontSize: 11, color: Colors.muted, lineHeight: 16 },
 });
 
 const mf = StyleSheet.create({

@@ -1,0 +1,60 @@
+{
+  "summary": "Iteration 60 — Full testing of global booking flags system (enable_manual_approval_for_services, enable_pay_later_for_services). 24/24 backend tests pass. All 8 frontend scenarios verified and passing. One bug fixed (missing useEffect import in admin panel).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_global_booking_flags_iter60.py",
+    "/app/test_reports/pytest/iter60_global_booking_flags.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "FIXED: admin/index.tsx was missing `useEffect` import (only useState, useCallback were imported). BookingConfigTab uses useEffect at line 502. This would cause 'useEffect is not defined' runtime error when Réservations tab is rendered. Fixed by adding useEffect to imports."
+  ],
+  "updated_files": [
+    "/app/frontend/app/admin/index.tsx (added useEffect to imports)"
+  ],
+  "success_rate": {
+    "backend": "100% (24/24 passed)",
+    "frontend": "100% (8/8 scenarios verified)"
+  },
+  "test_credentials": {
+    "user": "user@winek.app / WinekUser2024!",
+    "coach": "coach@winek.app / WinekCoach2024!",
+    "admin": "admin@winek.app / WinekAdmin2024!"
+  },
+  "seed_data_creation": "Test services created during flag normalization tests (TEST_SVC_*) were cleaned up. Some test bookings were created and immediately cancelled.",
+  "retest_needed": false,
+  "main_agent_can_self_test": false,
+  "should_main_agent_self_test": false,
+  "flags_final_state": {
+    "enable_manual_approval_for_services": false,
+    "enable_pay_later_for_services": false,
+    "verified_via": "GET /api/config/booking after all tests"
+  },
+  "context_for_next_testing_agent": "All global booking flags features fully verified and passing. Flags are at MVP defaults (both false). Bug fixed: useEffect was missing from admin/index.tsx imports. Backend: 24/24 tests in test_global_booking_flags_iter60.py. Frontend: Admin panel Réservations tab with correct testIDs (config-row-enable_manual_approval_for_services, toggle-enable_manual_approval_for_services etc), service badges (Réservation directe, Paiement immédiat), booking confirm without pay_later selector.",
+  "test_results_detail": {
+    "backend_1_public_config_returns_mvp_defaults": "PASS — GET /api/config/booking returns {false, false} without auth",
+    "backend_2_admin_get_config": "PASS — GET /api/admin/app-config returns flags with admin auth, 401/403 without",
+    "backend_3_update_manual_flag": "PASS — PUT /api/admin/app-config {enable_manual_approval_for_services: true} → updates and persists",
+    "backend_4_update_blocked_non_admin": "PASS — PUT /api/admin/app-config without auth returns 401/403",
+    "backend_5_service_manual_normalized": "PASS — Create service with manual_approval when flag=false → saved as instant_booking",
+    "backend_6_service_pay_later_normalized": "PASS — Create service with allow_pay_later=true when flag=false → saved as allow_pay_later=false",
+    "backend_7_booking_pay_later_rejected": "PASS — POST /api/bookings/request with pay_later when flag=false → 409 with appropriate message",
+    "backend_8_booking_instant_forced": "PASS — Booking manual_approval service when flag=false → awaiting_payment (instant_booking forced)",
+    "frontend_9_reservations_tab_visible": "PASS — Admin panel Réservations tab (testID=admin-tab-booking) visible and clickable",
+    "frontend_10_config_row_testids": "PASS — config-row-enable_manual_approval_for_services and config-row-enable_pay_later_for_services present",
+    "frontend_11_toggle_testids": "PASS — toggle-enable_manual_approval_for_services and toggle-enable_pay_later_for_services present",
+    "frontend_12_toggles_show_disabled_mvp": "PASS — Both toggles show 'Désactivé' in MVP mode",
+    "frontend_13_toggle_click_updates": "PASS — Clicking toggle calls API and shows 'Activé' after click",
+    "frontend_14_service_badge_reservation_directe": "PASS — 'Réservation directe' badge shown in service detail in MVP mode",
+    "frontend_15_service_badge_paiement_immediat": "PASS — 'Paiement immédiat' badge shown in service detail in MVP mode",
+    "frontend_16_booking_confirm_no_pay_later": "PASS — Booking confirmation page has no 'Payer plus tard' selector in MVP mode"
+  }
+}

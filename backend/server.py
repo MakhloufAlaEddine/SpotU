@@ -71,6 +71,27 @@ api_router.include_router(upload_router)
 api_router.include_router(payment_router, tags=["payments"])
 api_router.include_router(subscription_router, tags=["subscriptions"])
 
+
+# ── Endpoint public : configuration des fonctionnalités de réservation ─────────
+
+@api_router.get("/config/booking", tags=["config"])
+async def public_booking_config():
+    """
+    Retourne les flags globaux de réservation (pas d'auth requise).
+    Utilisé par le frontend pour adapter l'UI au mode MVP ou avancé.
+    """
+    from database import get_pool
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT config_key, config_value FROM app_config WHERE config_key IN ('enable_manual_approval_for_services','enable_pay_later_for_services')"
+        )
+    cfg = {r["config_key"]: r["config_value"] == "true" for r in rows}
+    return {
+        "enable_manual_approval_for_services": cfg.get("enable_manual_approval_for_services", False),
+        "enable_pay_later_for_services":       cfg.get("enable_pay_later_for_services", False),
+    }
+
 app.include_router(api_router)
 
 # Serve uploaded images at /api/uploads/*

@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { MapViewComponent } from '../../components/MapViewComponent';
 import type { MapPin } from '../../components/MapViewComponent';
 import { api } from '../../lib/api';
+import { useBookingConfig } from '../../lib/useBookingConfig';
 import { getOrCreateConversation } from '../../lib/chat';
 import { useAuth } from '../../context/AuthContext';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
@@ -82,6 +83,9 @@ export default function ServiceDetailScreen() {
   const [isSaved, setIsSaved] = useState(false);
   const [savingInProgress, setSavingInProgress] = useState(false);
   const photoListRef = useRef<FlatList>(null);
+  const bookingCfg = useBookingConfig();
+  const showManualBadge = bookingCfg.enable_manual_approval_for_services;
+  const showPayLaterBadge = bookingCfg.enable_pay_later_for_services;
 
   // ── États pour les demandes/réservations supprimés (géré dans booking/confirm) ──
 
@@ -592,20 +596,31 @@ export default function ServiceDetailScreen() {
                 : 'Choisir un créneau'
               }
             </Text>
-            {/* Badge mode réservation */}
+            {/* Badge mode réservation — adapté selon les flags globaux */}
             <View style={s.bookingModeRow}>
+              {/* MVP défaut : toujours afficher "Réservation directe" */}
               <Ionicons
-                name={service.booking_approval_mode === 'instant_booking' ? 'flash-outline' : 'hand-left-outline'}
+                name={showManualBadge && service.booking_approval_mode !== 'instant_booking' ? 'hand-left-outline' : 'flash-outline'}
                 size={10}
-                color={service.booking_approval_mode === 'instant_booking' ? '#1DBF73' : '#FF9500'}
+                color={showManualBadge && service.booking_approval_mode !== 'instant_booking' ? '#FF9500' : '#1DBF73'}
               />
-              <Text style={[s.bookingModeLabel, { color: service.booking_approval_mode === 'instant_booking' ? '#1DBF73' : '#FF9500' }]}>
-                {service.booking_approval_mode === 'instant_booking' ? 'Réservation directe' : 'Validation manuelle'}
+              <Text style={[s.bookingModeLabel, {
+                color: showManualBadge && service.booking_approval_mode !== 'instant_booking' ? '#FF9500' : '#1DBF73',
+              }]}>
+                {showManualBadge && service.booking_approval_mode !== 'instant_booking' ? 'Validation manuelle' : 'Réservation directe'}
               </Text>
-              {service.allow_pay_later && (
+              {/* Badge paiement différé — seulement si flag activé */}
+              {showPayLaterBadge && service.allow_pay_later && (
                 <>
                   <Text style={s.bookingModeSep}>·</Text>
                   <Text style={[s.bookingModeLabel, { color: '#0A84FF' }]}>Paiement différé possible</Text>
+                </>
+              )}
+              {/* MVP : toujours afficher "Paiement immédiat" quand pay_later désactivé */}
+              {!showPayLaterBadge && (
+                <>
+                  <Text style={s.bookingModeSep}>·</Text>
+                  <Text style={[s.bookingModeLabel, { color: '#0A84FF' }]}>Paiement immédiat</Text>
                 </>
               )}
             </View>
