@@ -6,15 +6,20 @@ Tests des 4 flux de réservation flexible SpotU v2.
 Flux testés :
   A. instant_booking + pay_now    → awaiting_payment (30 min expiry), slot reserved
   B. instant_booking + pay_later  → awaiting_payment (config expiry), slot reserved
-  C. manual_approval + pay_now    → requested, accept → awaiting_payment (30 min)
+  C. manual_approval + pay_now    → requested, /pay autorisé immédiatement
+                                    accept + autorisé  → confirmed (capture PI)
+                                    accept + non autorisé → awaiting_payment (fallback)
   D. manual_approval + pay_later  → requested, accept → awaiting_payment (config expiry)
 
 Tests supplémentaires :
   - pay_later bloqué si non autorisé par le service
   - Expiration de 'awaiting_payment' → slot libéré
   - /bookings/{id}/pay → URL Stripe Checkout
+  - /bookings/{id}/pay sur 'requested' + pay_now → URL Stripe (authorisation)
+  - /bookings/{id}/pay sur 'requested' + pay_later → 409
   - /bookings/{id}/cancel libère le slot 'reserved'
   - Slot bloqué : instant_booking empêche une 2ème réservation
+  - accept + paiement autorisé → confirmed + capture
 """
 
 import pytest
@@ -269,8 +274,12 @@ class TestFluxB_InstantPayLater:
 
 class TestFluxC_ManualPayNow:
     """
-    Service configuré en manual_approval + pay_later=False.
-    Flux : requested → accept → awaiting_payment (30 min).
+    Service configuré en manual_approval + pay_later=False (pay_now).
+
+    Nouveau flux correct :
+      1. requested → /pay disponible immédiatement (autorisation Stripe)
+      2. Si paiement autorisé  : accept → confirmed (capture PI)
+      3. Si paiement non autorisé : accept → awaiting_payment (fallback)
     """
 
     def test_c_booking_requested(self, http, tok_user, tok_coach, coach_service_id):
@@ -282,22 +291,77 @@ class TestFluxC_ManualPayNow:
         assert r.json()["status"] == "requested", \
             f"Expected requested, got {r.json()['status']}"
 
-    def test_c_accept_transitions_to_awaiting_payment(self, http, tok_user, tok_coach, coach_service_id):
-        """Flux C : accept → awaiting_payment."""
+    def test_c_pay_allowed_on_requested(self, http, tok_user, tok_coach, coach_service_id):
+        """Flux C : /pay est accessible depuis l'état 'requested' + pay_now (autorisation immédiate)."""
+        update_service_workflow(http, tok_coach, coach_service_id, "manual_approval", False)
+
+        r = book(http, tok_user, coach_service_id, payment_mode="pay_now")
+        assert r.status_code == 200, r.text
+        bid = r.json()["booking_id"]
+        assert r.json()["status"] == "requested"
+
+        # NOUVEAU comportement : /pay doit retourner 200 avec URL Stripe (autorisation)
+        r_pay = http.post(
+            f"/api/bookings/{bid}/pay",
+            json={"origin_url": "http://localhost:3000"},
+            headers=auth(tok_user),
+        )
+        assert r_pay.status_code == 200, \
+            f"Expected 200 (Stripe auth URL), got {r_pay.status_code}: {r_pay.text}"
+        d = r_pay.json()
+        assert "url" in d, f"Expected Stripe URL in response, got: {d}"
+
+    def test_c_accept_transitions_to_awaiting_payment_when_not_authorized(self, http, tok_user, tok_coach, coach_service_id):
+        """Flux C : accept sans paiement autorisé → awaiting_payment (fallback)."""
         update_service_workflow(http, tok_coach, coach_service_id, "manual_approval", False)
 
         r = book(http, tok_user, coach_service_id, payment_mode="pay_now")
         bid = r.json()["booking_id"]
 
+        # Payment status = requires_authorization (pas encore passé par Stripe)
+        # → accept doit tomber dans le fallback awaiting_payment
         r_acc = http.post(f"/api/bookings/{bid}/accept", headers=auth(tok_coach))
         assert r_acc.status_code == 200, r_acc.text
         d = r_acc.json()
-        assert d["status"] == "awaiting_payment", f"Expected awaiting_payment, got {d['status']}"
+        assert d["status"] == "awaiting_payment", f"Expected awaiting_payment (fallback), got {d['status']}"
         assert d["payment_mode"] == "pay_now"
         assert "pay_expiry_interval" in d
 
+    def test_c_accept_captures_when_authorized(self, http, tok_user, tok_coach, coach_service_id):
+        """Flux C : accept avec paiement autorisé → confirmed (capture directe)."""
+        update_service_workflow(http, tok_coach, coach_service_id, "manual_approval", False)
+
+        r = book(http, tok_user, coach_service_id, payment_mode="pay_now")
+        assert r.status_code == 200, r.text
+        bid = r.json()["booking_id"]
+
+        # Simuler une autorisation Stripe en forçant le statut 'authorized' dans la DB
+        conn = db_conn()
+        cur  = conn.cursor()
+        cur.execute(
+            "UPDATE payments SET status='authorized' WHERE booking_id=%s",
+            (bid,),
+        )
+        conn.commit()
+        cur.close(); conn.close()
+
+        # Accept → doit capturer et confirmer directement
+        r_acc = http.post(f"/api/bookings/{bid}/accept", headers=auth(tok_coach))
+        assert r_acc.status_code == 200, r_acc.text
+        d = r_acc.json()
+        assert d["status"] == "confirmed", \
+            f"Expected confirmed (paiement autorisé → capture), got {d['status']}"
+        assert d.get("payment_captured") is True, \
+            f"Expected payment_captured=True, got: {d}"
+        assert d["payment_mode"] == "pay_now"
+
+        # Vérifier la DB
+        bk_row = db_get("bookings", "booking_id", bid)
+        assert bk_row["status"] == "confirmed"
+        assert bk_row["payment_status"] in ("captured", "paid")
+
     def test_c_slot_reserved_after_accept(self, http, tok_user, tok_coach, coach_service_id, single_slot_id):
-        """Flux C avec slot : slot passe de 'pending' à 'reserved' après accept."""
+        """Flux C avec slot : slot passe de 'pending' à 'reserved' après accept (sans paiement autorisé)."""
         if not single_slot_id:
             pytest.skip("Aucun slot single disponible")
         cleanup_slot_bookings(coach_service_id, single_slot_id)
@@ -314,8 +378,9 @@ class TestFluxC_ManualPayNow:
 
         http.post(f"/api/bookings/{bid}/accept", headers=auth(tok_coach))
         slot_after = db_get("service_slots", "slot_id", single_slot_id)
-        assert slot_after["slot_status"] == "reserved", \
-            f"Expected reserved after accept, got {slot_after['slot_status']}"
+        # Sans paiement autorisé → awaiting_payment → slot reserved
+        assert slot_after["slot_status"] in ("reserved", "booked"), \
+            f"Expected reserved or booked after accept, got {slot_after['slot_status']}"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -383,16 +448,32 @@ class TestFluxD_ManualPayLater:
 
 class TestPayEndpoint:
 
-    def test_pay_requires_awaiting_payment_status(self, http, tok_user, tok_coach, coach_service_id):
-        """POST /bookings/{id}/pay → 409 si booking pas en awaiting_payment."""
+    def test_pay_allowed_on_requested_pay_now(self, http, tok_user, tok_coach, coach_service_id):
+        """POST /bookings/{id}/pay → 200 si requested + pay_now (autorisation immédiate)."""
         update_service_workflow(http, tok_coach, coach_service_id, "manual_approval", False)
         r = book(http, tok_user, coach_service_id, payment_mode="pay_now")
         bid = r.json()["booking_id"]
-        # Status = requested → /pay doit retourner 409
+        assert r.json()["status"] == "requested"
+        # NOUVEAU : requested + pay_now → /pay retourne 200 (Stripe URL d'autorisation)
         r_pay = http.post(f"/api/bookings/{bid}/pay",
                           json={"origin_url": "http://localhost:3000"},
                           headers=auth(tok_user))
-        assert r_pay.status_code == 409, f"Expected 409, got {r_pay.status_code}: {r_pay.text}"
+        assert r_pay.status_code == 200, \
+            f"Expected 200 (autorisation Stripe), got {r_pay.status_code}: {r_pay.text}"
+        assert "url" in r_pay.json(), "Expected Stripe URL in response"
+
+    def test_pay_blocked_on_requested_pay_later(self, http, tok_user, tok_coach, coach_service_id):
+        """POST /bookings/{id}/pay → 409 si requested + pay_later (pas encore accepté)."""
+        update_service_workflow(http, tok_coach, coach_service_id, "manual_approval", True)
+        r = book(http, tok_user, coach_service_id, payment_mode="pay_later")
+        bid = r.json()["booking_id"]
+        assert r.json()["status"] == "requested"
+        # pay_later ne peut être payé qu'après acceptation du coach
+        r_pay = http.post(f"/api/bookings/{bid}/pay",
+                          json={"origin_url": "http://localhost:3000"},
+                          headers=auth(tok_user))
+        assert r_pay.status_code == 409, \
+            f"Expected 409 (pay_later nécessite acceptation), got {r_pay.status_code}: {r_pay.text}"
 
     def test_pay_forbidden_for_non_payer(self, http, tok_user, tok_coach, coach_service_id):
         """POST /bookings/{id}/pay → 403 si non-payeur."""

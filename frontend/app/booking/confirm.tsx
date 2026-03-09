@@ -343,9 +343,9 @@ export default function BookingConfirmScreen() {
                   {approvalMode === 'instant_booking'
                     ? paymentMode === 'pay_now'
                       ? 'Le créneau sera confirmé dès réception du paiement.'
-                      : `Le créneau sera bloqué pour vous. Le paiement sera demandé dans un délai configuré par le coach.`
+                      : 'Le créneau sera bloqué pour vous. Le paiement sera demandé dans un délai configuré par le coach.'
                     : paymentMode === 'pay_now'
-                      ? 'Le paiement sera demandé après acceptation par le coach.'
+                      ? 'Votre moyen de paiement sera confirmé maintenant. Vous ne serez débité définitivement qu\'après acceptation du coach.'
                       : 'Votre demande sera soumise au coach. Le paiement sera différé après acceptation.'
                   }
                 </Text>
@@ -369,12 +369,22 @@ export default function BookingConfirmScreen() {
                 </View>
               ) : bookingStatus === 'requested' ? (
                 <View style={s.resultHeader}>
-                  <View style={[s.resultIcon, { backgroundColor: BLUE + '15' }]}>
-                    <Ionicons name="time-outline" size={26} color={BLUE} />
+                  <View style={[s.resultIcon, {
+                    backgroundColor: (booking?.payment_mode === 'pay_now' ? ORANGE : BLUE) + '15',
+                  }]}>
+                    <Ionicons
+                      name={booking?.payment_mode === 'pay_now' ? 'card-outline' : 'time-outline'}
+                      size={26}
+                      color={booking?.payment_mode === 'pay_now' ? ORANGE : BLUE}
+                    />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={s.resultTitle}>Demande envoyée !</Text>
-                    <Text style={s.resultSubtitle}>En attente d'acceptation du coach</Text>
+                    <Text style={s.resultSubtitle}>
+                      {booking?.payment_mode === 'pay_now'
+                        ? 'Confirmez votre paiement pour sécuriser le créneau'
+                        : "En attente d'acceptation du coach"}
+                    </Text>
                   </View>
                 </View>
               ) : (
@@ -495,22 +505,76 @@ export default function BookingConfirmScreen() {
           ) : (
             /* Booking requested (manual_approval) */
             <View style={s.paymentStep}>
-              <View style={s.requestedNote}>
-                <Ionicons name="mail-outline" size={18} color={BLUE} />
-                <Text style={s.requestedNoteText}>
-                  {booking.payment_mode === 'pay_later'
-                    ? "Votre demande a été envoyée. Vous pourrez payer après l'acceptation du coach."
-                    : "Votre demande a été envoyée. Le paiement sera demandé après acceptation."}
-                </Text>
-              </View>
-              <TouchableOpacity
-                style={[s.payBtn, { backgroundColor: BLUE }]}
-                onPress={() => router.push('/bookings' as any)}
-                testID="goto-bookings-btn"
-              >
-                <Ionicons name="list-outline" size={18} color={Colors.background} />
-                <Text style={s.confirmBtnText}>Suivre ma réservation</Text>
-              </TouchableOpacity>
+              {booking?.payment_mode === 'pay_now' ? (
+                /* pay_now : autorisation immédiate du paiement */
+                <>
+                  <View style={[s.requestedNote, { borderColor: ORANGE + '30', backgroundColor: ORANGE_LIGHT }]}>
+                    <Ionicons name="shield-checkmark-outline" size={18} color={ORANGE} />
+                    <Text style={[s.requestedNoteText, { color: Colors.foreground }]}>
+                      Confirmez votre moyen de paiement. Vous ne serez débité qu'après acceptation du coach.
+                    </Text>
+                  </View>
+                  {payState === 'idle' && (
+                    <TouchableOpacity
+                      style={s.payBtn}
+                      onPress={handlePay}
+                      testID="authorize-pay-btn"
+                    >
+                      <Ionicons name="card" size={20} color={Colors.background} />
+                      <Text style={s.confirmBtnText}>Confirmer mon moyen de paiement</Text>
+                    </TouchableOpacity>
+                  )}
+                  {payState === 'opening' && (
+                    <View style={[s.payBtn, s.payBtnSpinner]}>
+                      <ActivityIndicator color={Colors.background} />
+                      <Text style={s.confirmBtnText}>Ouverture du paiement...</Text>
+                    </View>
+                  )}
+                  {payState === 'verifying' && (
+                    <>
+                      <View style={[s.payBtn, s.payBtnSpinner]}>
+                        <ActivityIndicator color={Colors.background} />
+                        <Text style={s.confirmBtnText}>Vérification en cours...</Text>
+                      </View>
+                      <TouchableOpacity
+                        style={s.skipPayBtn}
+                        onPress={() => { stopPolling(); setPayState('idle'); }}
+                        testID="cancel-verify-btn"
+                      >
+                        <Text style={s.skipPayText}>Annuler la vérification</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+                  {payState === 'timeout' && (
+                    <TouchableOpacity
+                      style={[s.payBtn, { backgroundColor: Colors.muted }]}
+                      onPress={() => router.push('/bookings' as any)}
+                      testID="see-bookings-btn"
+                    >
+                      <Ionicons name="list-outline" size={20} color={Colors.background} />
+                      <Text style={s.confirmBtnText}>Voir mes réservations</Text>
+                    </TouchableOpacity>
+                  )}
+                </>
+              ) : (
+                /* pay_later : en attente d'acceptation coach */
+                <>
+                  <View style={s.requestedNote}>
+                    <Ionicons name="mail-outline" size={18} color={BLUE} />
+                    <Text style={s.requestedNoteText}>
+                      Votre demande a été envoyée. Vous pourrez payer après l'acceptation du coach.
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[s.payBtn, { backgroundColor: BLUE }]}
+                    onPress={() => router.push('/bookings' as any)}
+                    testID="goto-bookings-btn"
+                  >
+                    <Ionicons name="list-outline" size={18} color={Colors.background} />
+                    <Text style={s.confirmBtnText}>Suivre ma réservation</Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
           )}
         </SafeAreaView>

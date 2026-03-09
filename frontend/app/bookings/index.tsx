@@ -105,9 +105,14 @@ function BookingCard({ booking, onPay, paying }: { booking: any; onPay: () => vo
     booking.status === 'awaiting_payment' ? booking.expires_at : null
   );
 
-  // Peut payer si awaiting_payment (nouveau workflow) ou accepté avec paiement en attente (ancien)
+  // Peut payer si awaiting_payment, accepté avec paiement en attente, ou requested+pay_now (autorisation)
+  const needsAuthorization = booking.status === 'requested' &&
+    booking.payment_mode === 'pay_now' &&
+    ['pending', 'requires_authorization'].includes(booking.payment_status ?? '');
+
   const canPay = booking.status === 'awaiting_payment' ||
-    (booking.status === 'accepted' && ['pending', 'unpaid', 'requires_authorization'].includes(booking.payment_status ?? ''));
+    (booking.status === 'accepted' && ['pending', 'unpaid', 'requires_authorization'].includes(booking.payment_status ?? '')) ||
+    needsAuthorization;
 
   const isExpired = countdown === 'Expiré';
 
@@ -176,7 +181,7 @@ function BookingCard({ booking, onPay, paying }: { booking: any; onPay: () => vo
         {/* CTA Payer */}
         {canPay && !isExpired && (
           <TouchableOpacity
-            style={[c.payBtn, paying && c.payBtnLoading]}
+            style={[c.payBtn, paying && c.payBtnLoading, needsAuthorization && { backgroundColor: '#FF9500' }]}
             onPress={onPay}
             disabled={paying}
             testID={`pay-btn-${booking.booking_id}`}
@@ -186,7 +191,11 @@ function BookingCard({ booking, onPay, paying }: { booking: any; onPay: () => vo
               : <Ionicons name="card" size={15} color="#fff" />
             }
             <Text style={c.payBtnText}>
-              {paying ? 'Ouverture...' : 'Payer maintenant'}
+              {paying
+                ? 'Ouverture...'
+                : needsAuthorization
+                  ? 'Confirmer le paiement'
+                  : 'Payer maintenant'}
             </Text>
           </TouchableOpacity>
         )}

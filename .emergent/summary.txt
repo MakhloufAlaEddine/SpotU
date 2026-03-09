@@ -1,92 +1,102 @@
-<analysis>**original_problem_statement**: The user wants to implement a highly flexible and configurable service booking workflow within the SpotU application. This includes allowing service owners to choose between manual approval and instant booking, offering a pay later option with an configurable expiration time, and ensuring the system can handle concurrent bookings safely. The goal is to build this on top of the existing generic payment and user system, with clear UI/UX for both the service owner configuring the service and the user booking it.
+<analysis>**original_problem_statement**: The user wants to implement a highly flexible and configurable service booking workflow. This includes allowing service owners to choose between manual approval and instant booking, offering a pay later option, and ensuring the system can handle concurrent bookings.
 
-PRODUCT REQUIREMENTS:
-1.  **Service Configuration**: Service owners can set  (manual/instant) and  (true/false) with a .
-2.  **Booking Flows**: Support all four combinations of the above settings, including temporarily blocking slots for  options.
-3.  **Concurrency & Idempotence**: Use database transactions and row-level locks to prevent double bookings.
-4.  **Automatic Expiration**: A backend worker must expire unpaid bookings and release the slot.
-5.  **API Updates**: Adapt booking and service endpoints (, , ) to handle the new logic.
-6.  **Frontend Updates**: Implement UI for service configuration (with explanatory text) and for the user booking flow (showing Pay Now vs Pay Later options).
-7.  **Testing**: Create comprehensive backend tests for all new workflows and edge cases.
+A new critical requirement has been added:
+For services configured as  + , the payment flow must be corrected. The expected behavior is:
+1.  **Authorize on Request**: The user's payment method is authorized (but not charged) when they request a booking. This should use Stripe's  with .
+2.  **Capture on Acceptance**: The payment is captured (charged) only after the service owner (coach) accepts the booking request.
+3.  **Cancel on Rejection**: The authorization is canceled if the coach rejects the request or if the request expires.
+4.  **UI/UX Correction**: The frontend text must be updated to clearly communicate this authorize now, capture later flow. Additionally, a UI bug where the user is asked to choose a payment method on two different screens must be fixed, consolidating the choice into the Confirm Booking screen.
 
 **User's preferred language**: French. The next agent MUST respond in **French**.
 
 **what currently exists?**
-A full-stack application with a React Native (Expo) frontend and a FastAPI/PostgreSQL backend. The agent was in the middle of a major backend implementation for a new flexible booking workflow. Database migrations have been created and run, Pydantic models have been updated, and the core booking logic in  and  has been significantly refactored to support the new flows. The implementation is mid-flight and not yet complete or tested.
+A full-stack application with a React Native (Expo) frontend and a FastAPI/PostgreSQL backend. The core backend and frontend for the flexible booking workflow are implemented and have passed tests. This includes:
+-   **Backend**: Endpoints for creating, accepting, and paying for bookings with the four different workflow combinations ( approval, ). A background worker handles expired bookings. A comprehensive test suite for these workflows is in place.
+-   **Frontend (Coach)**: A 5-step wizard in  allows coaches to configure the booking workflow for their services, with dynamic help text explaining the impact of their choices.
+-   **Frontend (User)**: The booking screens (, ) have been updated to handle the different workflows, showing options like Pay Now vs Pay Later and displaying countdowns for bookings awaiting payment.
 
 **Last working item**:
--   **Last item agent was working**: Implementing the flexible booking workflow. The agent had just finished a significant refactoring of the backend, including DB migrations, updating , , and the main booking creation logic in  within . The last action was to start refactoring the  endpoint, noting that the  pattern was fragile and needed to be rewritten to call the Stripe logic directly.
--   **Status**: IN PROGRESS
+-   **Last item agent was working**: Auditing the current implementation based on the user's latest request to correct the  +  workflow and fix a UI bug with duplicate payment selection screens. The agent had just started by viewing .
+-   **Status**: NOT STARTED
 -   **Agent Testing Done**: N
--   **Which testing method agent to use?**: backend testing agent
+-   **Which testing method agent to use?**: both
 -   **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
--   Issue 1: Implement Flexible Booking Workflow (P0)
--   Issue 2: Update SpotYou flow not fully verified (P2)
--   Issue 3: Expo Hot-Reload Instability (P3 - RECURRING)
+-   Issue 1: Correct  +  workflow to use Stripe's authorize/capture model (P0)
+-   Issue 2: Fix duplicate payment method selection UI (P0)
+-   Issue 3: Update SpotYou flow not fully verified (P2)
+-   Issue 4: Expo Hot-Reload Instability (P3 - RECURRING)
 
 **Issues Detail**:
--   **Issue 1: Implement Flexible Booking Workflow**
-    -   **Description**: This is the main task from the user's last message, requiring a complete overhaul of the booking logic to support configurable workflows (instant/manual approval, pay now/later).
-    -   **Attempted fixes**:
-        -   **DB Schema**: Created and applied a migration to add , ,  to  and update  status/payment_mode enums.
-        -   **Backend Models**: Updated  with new  types and Pydantic model fields.
-        -   **Booking Logic**: Rewrote  in  to handle the 4 new booking flows.
-        -   **Service Logic**: Updated  to filter out slots that are reserved for  bookings.
-        -   **Accept Logic**: Rewrote  to handle the  flow.
+-   **Issue 1: Correct  +  workflow**
+    -   **Description**: The current implementation for  +  incorrectly waits for coach approval before asking for payment. The user requires the payment to be *authorized* upon request and *captured* only upon acceptance.
+    -   **Attempted fixes**: None. This is a new requirement.
     -   **Next debug checklist**:
-        1.  Finalize the refactoring of the  endpoint to properly create a Stripe checkout session without using the  hack.
-        2.  Update  to handle the expiration of bookings with  status.
-        3.  Create a new test file () with comprehensive tests for all 4 booking flows, concurrency, and expiration logic.
-        4.  Once the backend is complete and tested, implement the frontend changes for service configuration and the user booking flow.
-    -   **Why fix this issue and what will be achieved with the fix?**: This will deliver a core business feature requested by the user, making the booking system much more powerful and flexible. It will also resolve underlying payment flow issues.
-    -   **Status**: IN PROGRESS
+        1.  Audit  and .
+        2.  Modify the  endpoint to create a Stripe  with  for this specific flow.
+        3.  Modify the  endpoint to capture the existing .
+        4.  Ensure the  or expiry worker logic correctly cancels the  authorization.
+        5.  Update  to remove any logic that delays payment and update the descriptive text to reflect the new Authorize Now, Capture Later flow.
+        6.  Update the backend test suite () to validate this new flow.
+    -   **Why fix this issue and what will be achieved with the fix?**: This aligns the application with the user's core business logic, reducing friction for the end-user and guaranteeing payment for the coach upon acceptance.
+    -   **Status**: NOT STARTED
     -   **Is recurring issue?**: N
     -   **Should Test frontend/backend/both after fix?**: both
-    -   **Blocked on other issue**: None
+    -   **Blocked on other issue**: None.
 
--   **Issue 2: Update SpotYou flow not fully verified**
+-   **Issue 2: Fix duplicate payment method selection UI**
+    -   **Description**: The user has pointed out (with a screenshot) that the booking flow presents two consecutive screens for choosing the payment method.
+    -   **Attempted fixes**: None.
+    -   **Next debug checklist**:
+        1.  Analyze the navigation flow starting from  through .
+        2.  Identify the two components/screens responsible for the payment choice.
+        3.  Consolidate the logic into a single screen, likely , removing the redundant step.
+    -   **Why fix this issue and what will be achieved with the fix?**: It will improve the user experience by removing a redundant and confusing step in the booking process.
+    -   **Status**: NOT STARTED
+    -   **Is recurring issue?**: N
+    -   **Should Test frontend/backend/both after fix?**: frontend
+    -   **Blocked on other issue**: None. Can be fixed alongside Issue 1.
+
+-   **Issue 3: Update SpotYou flow not fully verified**
     -   **Description**: A user flow from a previous session that was never fully re-verified.
     -   **Status**: NOT STARTED
     -   **Is recurring issue?**: N
     -   **Should Test frontend/backend/both after fix?**: both
 
--   **Issue 3: Expo Hot-Reload Instability**
+-   **Issue 4: Expo Hot-Reload Instability**
     -   **Description**: The Metro bundler for the Expo frontend frequently crashes with  or  errors.
     -   **Attempted fixes**: A temporary workaround is to run frontend: ERROR (no such process)
-frontend: ERROR (no such process).
+frontend: ERROR (no such process) or .
     -   **Status**: IN PROGRESS (fragile workaround)
     -   **Is recurring issue?**: Y
 
 **In progress Task List**:
--   **Task 1: Complete Backend for Flexible Booking Workflow**
-    -   **Where to resume**: The agent was refactoring the  endpoint in . The next steps are to complete that, update , and then write a full test suite.
-    -   **What will be achieved with this?**: A complete, robust, and tested backend for the new booking features.
-    -   **Status**: IN PROGRESS
-    -   **Should Test frontend/backend/both after fix?**: backend
+-   None.
 
 **Upcoming and Future Tasks**
 -   **Upcoming Tasks**:
-    -   (P1) Frontend for Flexible Booking Workflow: Implement the UI for service configuration and the user-facing booking process.
     -   (P1) Bilingual Support (i18n): Fully implement French/English translations.
 -   **Future Tasks**:
     -   (P2) Finalize Push Notifications with EAS Build for production deployment.
 
 **Completed work in this session**
--   **Cancellation & Refund Policy (DONE)**:
-    -   Implemented a new  endpoint supporting payer/beneficiary cancellations, reasons, and Stripe refunds.
-    -   Added  and  to the  table.
-    -   Created a new test suite  (24/24 tests passing).
--   **Payment Flow Bug Fixes (PARTIALLY DONE)**:
-    -   Fixed a mobile-specific crash by replacing  with  in , , and .
-    -   Implemented a frontend state machine with polling in  to improve UX around Stripe redirects. Note: These fixes were superseded by the new P0 flexible booking task, which re-architects the entire flow.
--   **Frontend Navigation for Monetization (DONE)**:
-    -   Added navigation links on  for My Bookings, Booking Requests, and Subscriptions.
-    -   Verified with the frontend testing agent.
+-   **Flexible Booking Workflow - Backend (DONE)**:
+    -   Implemented the full backend logic for the 4 configurable booking workflows.
+    -   Created a new test suite () with 55 passing tests validating all flows, concurrency, and expiry logic.
+-   **Flexible Booking Workflow - Frontend (Coach UI) (DONE)**:
+    -   Implemented the UI in  for coaches to configure booking settings, including dynamic help text.
+-   **Flexible Booking Workflow - Frontend (User UI) (DONE)**:
+    -   Implemented the user-facing UI for the new booking flows, including Pay Now/Later choices and countdowns for pending payments on , , and .
+-   **Service Creation Wizard Refactor (DONE)**:
+    -   Moved the Booking Configuration into its own dedicated step in the  wizard, improving the user flow for coaches.
 
 **Earlier issues found/mentioned but not fixed**
--   The Update SpotYou flow verification remains pending.
+-   **Issue 1: Old test suites are failing**
+    -   **Debug checklist**:  and other older test files are failing due to function signature changes from recent refactoring. They need to be updated or deleted to prevent regression confusion.
+    -   **Why to solve this issue and what will be achieved with this?**: Ensures the entire test suite is green and reliable, preventing old regressions.
+    -   **Should Test frontend/backend/both after fix?**: backend
+    -   **Is recurring issue?**: Y
 
 **Known issue recurrence from previous fork**
 -   **Issue recurrence in previous fork**: Expo Metro Bundler Instability ( error).
@@ -97,70 +107,72 @@ frontend: ERROR (no such process).
 
 
 **Key Technical Concepts**
+-   **Stripe Payment Intents with Manual Capture ()**: This will be the core concept for the next task.
 -   **Configurable Business Logic**: Building workflows based on stored service settings.
 -   **Asynchronous Background Worker ()**: Used for .
--   **Row-Level Locking ()**: Essential for concurrency control.
--   **Database Migrations (Alembic)**
--   **Frontend State Machine**: Implemented in React (, ) to manage complex UI states during payment.
+-   **Row-Level Locking ()**: For concurrency control.
+-   **Frontend State Management (React Hooks)**.
 
 **key DB schema**
--   ****: Added  (Enum),  (bool),  (int).
--   ****: Added  (Enum). Updated  (Enum) to include  and . Added  (datetime),  (FK),  (str).
+-   ****:  (Enum),  (bool),  (int).
+-   ****:  (Enum),  (Enum: , ),  (datetime).
 
 **All files of reference**
--   **Backend (Modified/Created)**:
+-   **Backend (Key files for next task)**:
     -   
     -   
     -   
-    -   
-    -   
-    -   
--   **Frontend (Modified)**:
-    -   
-    -   
+-   **Frontend (Key files for next task)**:
     -   
     -   
 
 **Critical Info for New Agent**
--   The absolute priority is to complete the backend implementation for the Flexible Booking Workflow as detailed in the user's last major request (message #249).
--   Resume work in  to fix the  endpoint, then update , and then create a comprehensive test suite in a new file ().
--   Do not start frontend work until the backend is fully implemented and tested.
--   The previous fixes to the payment flow UI in  were a temporary solution. The new backend architecture will solve the root cause, but the frontend will need to be adapted to it later.
+-   The highest priority (P0) is to address the user's latest request in message #332. This involves two parts:
+    1.  **Backend Change**: Implement the authorize now, capture later logic for  +  bookings using Stripe's .
+    2.  **Frontend Change**: Fix the UI bug causing a duplicate payment selection screen and update all relevant text to clearly explain the new authorization flow to the user.
+-   You must ensure all other booking flows (, ) remain unaffected.
+-   The agent was in a fragile state with the Expo Metro bundler, frequently needing cache clearing () to resolve phantom Babel errors. Be prepared for this.
 
 **documents and test reports created in this job**
--    (updated)
+-   
+-   
+-   
+-   
+-   
 -   
 
 **Last 10 User Messages and any pending HUMAN messages**
-10. **User**: Start backend. **Status: COMPLETED**
-9.  **User**: Start backend. **Status: COMPLETED**
-8.  **User**: Start backend. **Status: COMPLETED**
-7.  **Agent**: Explains the new state machine logic for the payment button. **Status: N/A**
-6.  **Agent**: Fixes a linting error by moving a type definition. **Status: N/A**
-5.  **User**: Problem 1: Spinner disappears early. Problem 2: No redirection after payment. Problem 3: Payments stay pending. **Status: IN PROGRESS (being addressed by new P0 task)**
-4.  **User**: Error: After payment, I stay on the same screen with a spinner. **Status: IN PROGRESS (being addressed by new P0 task)**
-3.  **User**: Error paying now. **Status: COMPLETED (mobile redirect bug fixed)**
-2.  **User**: Asks to implement the full flexible booking workflow (manual/instant approval, pay later, expiration, etc.). This is the current P0 task. **Status: IN PROGRESS**
-1.  **Agent**: Acknowledges user request and begins analyzing existing code. **Status: N/A**
+10. **User**: Asks to move the booking configuration into its own step in the service creation wizard. **Status: COMPLETED**
+9.  **Agent**: Acknowledges and starts working on the wizard refactor. **Status: N/A**
+8.  **User**: Continues a previous command. **Status: N/A**
+7.  **User**: Asks about implementing the user-side frontend for the new booking flows. **Status: COMPLETED**
+6.  **Agent**: Acknowledges and starts working on the user-facing frontend changes. **Status: N/A**
+5.  **Agent**: Finishes the coach-side UI and asks for the next step. **Status: N/A**
+4.  **User**: Provides detailed requirements for the coach-side UI to configure booking workflows. **Status: COMPLETED**
+3.  **User**: Asks if the service creation flow is adapted to the new backend changes. **Status: ADDRESSED**
+2.  **Agent**: Finishes the entire backend implementation for the flexible booking workflow. **Status: N/A**
+1.  **User**: Provides a critical bug fix and feature request: fix the  +  flow to use authorize/capture, and fix the duplicate payment selection UI. **Status: NOT STARTED**
 
 **Project Health Check:**
 -   **Broken**:
-    -   The booking and payment flow is partially broken pending the completion of the new flexible workflow feature.
-    -   The frontend development environment (Expo) is fragile and prone to crashing.
+    -   The  +  booking workflow does not meet business requirements.
+    -   The user booking flow has a UI bug with a duplicate screen.
+    -   The frontend development environment (Expo) is fragile and prone to crashing, requiring cache clearing.
 -   **Mocked**:
     -   None.
 
 **3rd Party Integrations**
--   **Stripe**: Used via Python SDK for  and .
+-   **Stripe**: Used via Python SDK for payments.
 -   **EAS** (Expo Application Services)
 -   **Google Places API**
 
 **Testing status**
--   **Testing agent used after significant changes**: YES (for frontend navigation).
+-   **Testing agent used after significant changes**: YES (4 times in this session for backend and frontend features).
 -   **Troubleshoot agent used after agent stuck in loop**: NO
 -   **Test files created**:
     -   
--   **Known regressions**: Older test suites (, etc.) are failing due to signature changes in core functions. These tests need to be updated or removed. The agent correctly identified this but did not fix them yet.
+-   **Known regressions**:
+    -   Older test suites (e.g., ) are failing due to recent refactoring and have not been updated.
 
 **Credentials to test flow:**
 -   **Admin**:  / 
@@ -168,5 +180,4 @@ frontend: ERROR (no such process).
 -   **User**:  / 
 
 **What agent forgot to execute**
--   The agent has correctly prioritized the user's latest and most critical requests. The Update SpotYou flow remains a low-priority backlog item.
--   The agent identified that old test suites are failing due to recent refactoring but has not yet fixed them. This should be addressed after the current P0 task is complete to ensure no regressions have been introduced.</analysis>
+-   The agent has not yet fixed or removed the old, failing test suites that were broken by recent refactoring. This remains a pending cleanup task.</analysis>

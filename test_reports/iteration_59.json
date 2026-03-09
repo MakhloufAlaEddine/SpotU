@@ -1,0 +1,45 @@
+{
+  "summary": "Iteration 59 — Full backend + frontend testing of manual_approval+pay_now workflow. All 25 backend tests (test_booking_workflows_v2.py) pass. All 5 frontend test scenarios verified and passing.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_booking_workflows_v2.py",
+    "/app/test_reports/pytest/iter59_booking_workflows_v2.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100% (25/25 passed)",
+    "frontend": "100% (5/5 scenarios verified)"
+  },
+  "test_credentials": {
+    "user": "user@winek.app / WinekUser2024!",
+    "coach": "coach@winek.app / WinekCoach2024!",
+    "admin": "admin@winek.app / WinekAdmin2024!"
+  },
+  "seed_data_creation": "Multiple test bookings created during backend test runs (automatically via pytest fixtures)",
+  "retest_needed": false,
+  "main_agent_can_self_test": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All 10 requested features have been verified and are passing. Backend: 25/25 tests pass in test_booking_workflows_v2.py. Frontend: all 5 scenarios confirmed. Service svc_demo001 was set to manual_approval+pay_later=true during testing; restore to original config if needed.",
+  "test_results_detail": {
+    "backend_1_requested_status": "PASS — POST /api/bookings/request with manual_approval+pay_now returns status=requested",
+    "backend_2_pay_on_requested_pay_now": "PASS — POST /api/bookings/{id}/pay on 'requested'+pay_now returns 200 with Stripe URL",
+    "backend_3_pay_blocked_pay_later": "PASS — POST /api/bookings/{id}/pay on 'requested'+pay_later returns 409",
+    "backend_4_accept_authorized": "PASS — POST /api/bookings/{id}/accept with payment.status=authorized → confirmed + payment_captured=true",
+    "backend_5_accept_not_authorized_fallback": "PASS — POST /api/bookings/{id}/accept without authorization → awaiting_payment (fallback)",
+    "frontend_6_payment_note": "PASS — confirm.tsx paymentNote shows 'Votre moyen de paiement sera confirmé maintenant. Vous ne serez débité définitivement qu'après acceptation du coach.' for manual_approval+pay_now",
+    "frontend_7_authorize_btn": "PASS — confirm.tsx footer shows 'Confirmer mon moyen de paiement' button (testID=authorize-pay-btn) after booking with manual_approval+pay_now",
+    "frontend_8_pay_later_waiting": "PASS — confirm.tsx footer shows 'En attente d'acceptation du coach' in resultHeader + 'Suivre ma réservation' button for pay_later; authorize-pay-btn NOT present",
+    "frontend_9_payment_success_authorized": "PASS — payment-success.tsx shows 'Paiement confirmé !' + 'Votre moyen de paiement a été confirmé. Vous ne serez débité qu'après acceptation du coach.' for authorized status",
+    "frontend_10_bookings_confirm_pay_btn": "PASS — bookings/index.tsx shows 'Confirmer le paiement' button with orange (#FF9500) background for requested+pay_now+pending payment_status"
+  }
+}

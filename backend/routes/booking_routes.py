@@ -318,14 +318,28 @@ async def accept_booking(booking_id: str, request: Request):
     Bénéficiaire accepte (uniquement pour manual_approval).
 
     Transitions :
-      requested → awaiting_payment  (slot: pending → reserved)
-      payment_mode=pay_now  → expires_at = NOW() + 30min
-      payment_mode=pay_later → expires_at = NOW() + service.pay_later_expiration_minutes
+      Cas A — manual_approval + pay_now + paiement déjà autorisé :
+        requested → confirmed  (capture PaymentIntent immédiate)
+        slot: pending → booked
+        Notification : "Réservation confirmée !"
+
+      Cas B — tous autres cas (pay_later OU pay_now non encore autorisé) :
+        requested → awaiting_payment  (slot: pending → reserved)
+        payment_mode=pay_now  → expires_at = NOW() + 30min
+        payment_mode=pay_later → expires_at = NOW() + service.pay_later_expiration_minutes
+        Notification : "Réservation acceptée — paiement requis"
 
     Garde TTL : refus si expires_at déjà passé.
     """
     pool = get_pool()
     user = await require_auth(request, pool)
+
+    # Variables initialisées avant le bloc de connexion (utilisées après)
+    do_capture       = False
+    pi_id_to_capture = None
+    exp_min          = DEFAULT_PAY_LATER_MINUTES
+    pay_expiry_interval = ""
+    payment_mode     = "pay_now"
 
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
@@ -344,11 +358,9 @@ async def accept_booking(booking_id: str, request: Request):
         if bk["receiver_user_id"] != user["user_id"] and user.get("role") != "admin":
             raise HTTPException(403, "Seul le bénéficiaire peut accepter cette réservation")
 
-        # Idempotence
-        if bk["status"] == "awaiting_payment":
-            return {"success": True, "status": "awaiting_payment", "booking_id": booking_id, "idempotent": True}
-        if bk["status"] == "accepted":
-            return {"success": True, "status": "accepted", "booking_id": booking_id, "idempotent": True}
+        # Idempotence (confirmed inclus pour le nouveau flux)
+        if bk["status"] in ("awaiting_payment", "accepted", "confirmed"):
+            return {"success": True, "status": bk["status"], "booking_id": booking_id, "idempotent": True}
 
         if bk["status"] != "requested":
             raise HTTPException(409, f"Impossible d'accepter une réservation en état '{bk['status']}'")
@@ -362,32 +374,89 @@ async def accept_booking(booking_id: str, request: Request):
             if expires_at < now_utc:
                 raise HTTPException(410, "Cette réservation a expiré — le créneau a été libéré")
 
-        # Calculer le nouveau expires_at pour le paiement
         payment_mode = bk.get("payment_mode") or "pay_now"
-        exp_min = int(bk.get("pay_later_expiration_minutes") or DEFAULT_PAY_LATER_MINUTES)
-        pay_expiry_minutes = PAY_NOW_CHECKOUT_MINUTES if payment_mode == "pay_now" else exp_min
-        pay_expiry_interval = f"{pay_expiry_minutes} minutes"
-        from datetime import timedelta
-        new_expires_at = datetime.now(timezone.utc) + timedelta(minutes=pay_expiry_minutes)
 
-        async with conn.transaction():
-            await conn.execute(
-                """UPDATE bookings
-                   SET status='awaiting_payment',
-                       expires_at = $2,
-                       updated_at = NOW()
-                   WHERE booking_id=$1""",
-                booking_id, new_expires_at,
-            )
-            if bk["slot_id"]:
+        # ── Lire le statut du paiement associé ───────────────────────────────
+        pay_row = await conn.fetchrow(
+            "SELECT payment_id, stripe_payment_intent_id, status AS pay_status FROM payments WHERE booking_id=$1 LIMIT 1",
+            booking_id,
+        )
+        pay_status  = pay_row["pay_status"]               if pay_row else None
+        pi_id       = pay_row["stripe_payment_intent_id"] if pay_row else None
+        payment_id  = pay_row["payment_id"]               if pay_row else None
+
+        # ── Cas A : pay_now + paiement autorisé → confirmer + capturer ───────
+        if payment_mode == "pay_now" and pay_status == "authorized":
+            do_capture       = True
+            pi_id_to_capture = pi_id  # peut être None en environnement de test
+            async with conn.transaction():
                 await conn.execute(
-                    "UPDATE service_slots SET slot_status='reserved' WHERE slot_id=$1 AND slot_status IN ('pending','available')",
-                    bk["slot_id"],
+                    """UPDATE bookings
+                       SET status='confirmed',
+                           payment_status='captured',
+                           expires_at = NULL,
+                           updated_at = NOW()
+                       WHERE booking_id=$1""",
+                    booking_id,
                 )
+                if payment_id:
+                    await conn.execute(
+                        "UPDATE payments SET status='captured', updated_at=NOW() WHERE payment_id=$1",
+                        payment_id,
+                    )
+                if bk["slot_id"]:
+                    await conn.execute(
+                        "UPDATE service_slots SET slot_status='booked' WHERE slot_id=$1 AND slot_status IN ('pending','available','reserved')",
+                        bk["slot_id"],
+                    )
+
+        # ── Cas B : transition standard → awaiting_payment ───────────────────
+        else:
+            do_capture = False
+            exp_min = int(bk.get("pay_later_expiration_minutes") or DEFAULT_PAY_LATER_MINUTES)
+            pay_expiry_minutes  = PAY_NOW_CHECKOUT_MINUTES if payment_mode == "pay_now" else exp_min
+            pay_expiry_interval = f"{pay_expiry_minutes} minutes"
+            from datetime import timedelta
+            new_expires_at = datetime.now(timezone.utc) + timedelta(minutes=pay_expiry_minutes)
+
+            async with conn.transaction():
+                await conn.execute(
+                    """UPDATE bookings
+                       SET status='awaiting_payment',
+                           expires_at = $2,
+                           updated_at = NOW()
+                       WHERE booking_id=$1""",
+                    booking_id, new_expires_at,
+                )
+                if bk["slot_id"]:
+                    await conn.execute(
+                        "UPDATE service_slots SET slot_status='reserved' WHERE slot_id=$1 AND slot_status IN ('pending','available')",
+                        bk["slot_id"],
+                    )
+
+    # ── Capture Stripe hors transaction (Cas A seulement) ────────────────────
+    if do_capture and pi_id_to_capture:
+        try:
+            await stripe_service.capture_payment_intent(pi_id_to_capture)
+            log.info("PaymentIntent capturé lors de l'acceptation : pi=%s | booking=%s",
+                     pi_id_to_capture, booking_id)
+        except Exception as exc:
+            log.error("Erreur capture PI pi=%s booking=%s : %s", pi_id_to_capture, booking_id, exc)
+
+    # ── Notifications et réponse ──────────────────────────────────────────────
+    if do_capture:
+        _push(pool, bk["payer_user_id"],
+              title="Réservation confirmée !",
+              body="Votre demande a été acceptée et votre paiement a été confirmé.",
+              data={"type": "booking_confirmed", "bookingId": booking_id,
+                    "payment_captured": True, "action_text": "a accepté et confirmé votre réservation"},
+              notif_type="booking_accepted")
+        return {"success": True, "status": "confirmed", "booking_id": booking_id,
+                "payment_mode": payment_mode, "payment_captured": True}
 
     _push(pool, bk["payer_user_id"],
           title="Réservation acceptée — paiement requis",
-          body=f"Votre demande a été acceptée. Vous avez {exp_min if payment_mode=='pay_later' else PAY_NOW_CHECKOUT_MINUTES} min pour payer.",
+          body=f"Votre demande a été acceptée. Vous avez {exp_min if payment_mode == 'pay_later' else PAY_NOW_CHECKOUT_MINUTES} min pour payer.",
           data={"type": "booking_accepted", "bookingId": booking_id,
                 "requires_payment": True, "action_text": "a accepté votre demande"},
           notif_type="booking_accepted")
@@ -422,7 +491,7 @@ async def pay_booking(booking_id: str, request: Request):
 
     async with pool.acquire() as conn:
         bk_row = await conn.fetchrow(
-            "SELECT booking_id, status, payer_user_id, expires_at FROM bookings WHERE booking_id=$1",
+            "SELECT booking_id, status, payer_user_id, expires_at, payment_mode FROM bookings WHERE booking_id=$1",
             booking_id,
         )
         if not bk_row:
@@ -432,10 +501,17 @@ async def pay_booking(booking_id: str, request: Request):
         if bk["payer_user_id"] != user["user_id"] and user.get("role") != "admin":
             raise HTTPException(403, "Seul le payeur peut initier le paiement")
 
-        if bk["status"] != "awaiting_payment":
+        bk_payment_mode = bk.get("payment_mode") or "pay_now"
+        # Pour manual_approval + pay_now : autoriser l'autorisation depuis l'état 'requested'
+        is_payment_allowed = (
+            bk["status"] == "awaiting_payment"
+            or (bk["status"] == "requested" and bk_payment_mode == "pay_now")
+        )
+        if not is_payment_allowed:
             raise HTTPException(
                 409,
-                f"Le paiement n'est possible qu'en état 'awaiting_payment' (actuel : '{bk['status']}')",
+                f"Le paiement n'est pas disponible pour ce booking "
+                f"(statut : '{bk['status']}', mode : '{bk_payment_mode}')",
             )
 
         expires_at = bk.get("expires_at")

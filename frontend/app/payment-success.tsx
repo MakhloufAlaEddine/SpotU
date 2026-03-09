@@ -11,7 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { api } from '../lib/api';
 import { Colors } from '../constants/Colors';
 
-type Status = 'loading' | 'success' | 'pending' | 'failed' | 'cancelled';
+type Status = 'loading' | 'success' | 'authorized' | 'pending' | 'failed' | 'cancelled';
 
 export default function PaymentSuccessScreen() {
   const router = useRouter();
@@ -33,8 +33,11 @@ export default function PaymentSuccessScreen() {
       const res = await api.get<any>(`/payments/checkout/status/${session_id}`);
       setAmount(res.amount);
 
-      if (res.payment_status === 'paid') {
+      if (res.payment_status === 'paid' || res.payment_status === 'captured') {
         setStatus('success');
+      } else if (res.payment_status === 'authorized') {
+        // capture_method=manual : paiement autorisé, en attente d'acceptation du coach
+        setStatus('authorized');
       } else if (res.status === 'expired' || res.status === 'cancelled') {
         setStatus('cancelled');
       } else if (attempt < 5) {
@@ -56,7 +59,7 @@ export default function PaymentSuccessScreen() {
   };
 
   const goHome = () => router.replace('/(tabs)/map' as any);
-  const goBookings = () => router.replace('/(tabs)/map' as any);
+  const goBookings = () => router.replace('/(tabs)/bookings' as any);
 
   return (
     <View style={s.container}>
@@ -83,6 +86,25 @@ export default function PaymentSuccessScreen() {
               <TouchableOpacity style={[s.btn, { backgroundColor: Colors.success }]} onPress={goHome} testID="payment-home-btn">
                 <Ionicons name="home-outline" size={18} color="#fff" />
                 <Text style={s.btnText}>Retour à l'accueil</Text>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {status === 'authorized' && (
+            <>
+              <View style={[s.iconWrap, { backgroundColor: '#FF9500' + '22' }]}>
+                <Ionicons name="shield-checkmark" size={64} color="#FF9500" />
+              </View>
+              <Text style={[s.title, { color: '#FF9500' }]}>Paiement confirmé !</Text>
+              {amount != null && (
+                <Text style={s.amount}>{amount.toFixed(2)} €</Text>
+              )}
+              <Text style={s.sub}>
+                Votre moyen de paiement a été confirmé. Vous ne serez débité qu'après acceptation du coach.
+              </Text>
+              <TouchableOpacity style={[s.btn, { backgroundColor: '#FF9500' }]} onPress={goBookings} testID="payment-authorized-bookings-btn">
+                <Ionicons name="list-outline" size={18} color="#fff" />
+                <Text style={s.btnText}>Suivre ma réservation</Text>
               </TouchableOpacity>
             </>
           )}
