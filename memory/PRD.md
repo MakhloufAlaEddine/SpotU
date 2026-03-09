@@ -99,20 +99,32 @@ Fonctionnalités : création/découverte de services et SpotYous, système de r�
 | 2026-03-08 | Données test: plan_basic, plan_premium, plan_pro_annual | DB seed |
 | 2026-03-08 | Test suite: 27 tests abonnements (100% pass) | backend/tests/test_subscriptions_iter51.py |
 
+### Phase 8 - Correction Workflow manual_approval + pay_now (2026-03-09)
+| Date | Fonctionnalité | Fichiers modifiés |
+|------|---------------|-------------------|
+| 2026-03-09 | **NOUVEAU FLUX** : pay_now → autorisation immédiate à la demande, capture à l'acceptation | backend/routes/booking_routes.py |
+| 2026-03-09 | `pay_booking` : accepte `requested+pay_now` (autorisation Stripe dès demande) | backend/routes/booking_routes.py |
+| 2026-03-09 | `accept_booking` : si payment.status=authorized → capture PI → status=confirmed | backend/routes/booking_routes.py |
+| 2026-03-09 | Frontend : note "confirmé maintenant, débité après acceptation" + bouton autorisation | frontend/app/booking/confirm.tsx |
+| 2026-03-09 | Frontend : payment-success gère statut `authorized` (message en attente coach) | frontend/app/payment-success.tsx |
+| 2026-03-09 | Frontend : bookings/index bouton "Confirmer le paiement" orange pour requested+pay_now | frontend/app/bookings/index.tsx |
+| 2026-03-09 | Tests : 25/25 tests workflow + 2 nouveaux tests (pay_allowed_requested, accept_captures_authorized) | backend/tests/test_booking_workflows_v2.py |
+
 ## Test Suite
 ```bash
+# Tests workflow de réservation (PRINCIPAUX)
+cd /app/backend && pytest tests/test_booking_workflows_v2.py -v  # 25/25 ✅
+
 # E2E Playwright
 cd /app/frontend/e2e && python3 -m pytest --browser chromium --tb=short -v
 
 # Backend Stripe tests
 cd /app/backend && pytest tests/test_stripe_payment_iter50.py -v
 ```
+- test_booking_workflows_v2.py: 25 tests workflow (flux A/B/C/D, concurrence, expiry) ✅
 - test_01_auth.py ~ test_10_image_deletion.py: 45 tests ✅
 - test_admin_iter48.py: 27 tests admin dashboard ✅
-- test_stripe_iter49.py: 22 tests (3 assertions à corriger pour nouveau flow) ⚠️
 - test_stripe_payment_iter50.py: 61 tests Stripe PaymentIntent ✅
-- test_booking_workflow.py: concurrency tests ✅
-- test_booking_expiry.py: expiration worker tests ✅
 
 ## Code Architecture
 ```
