@@ -362,6 +362,8 @@ export default function SpotYouDetail() {
   const [maxParticipants, setMaxParticipants] = useState<number | null>(null);
   const [isFull, setIsFull] = useState(false);
   const [participantsCount, setParticipantsCount] = useState(0);
+  const [activityFeed, setActivityFeed] = useState<any[]>([]);
+  const [activityLoading, setActivityLoading] = useState(false);
   const [participants, setParticipants] = useState<any[]>([]);
   const [participantsLoading, setParticipantsLoading] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
@@ -399,8 +401,36 @@ export default function SpotYouDetail() {
       setIsSaved(data.is_saved || false);
       setIsPublic(data.is_public !== false);
       setIsCancelled(!!data.cancelled);
+      // Charger le fil d'activité si membre
+      const member = data.is_member || data.is_participant;
+      if (member) loadActivity();
     } catch (e: any) { Alert.alert('Erreur', e.message); }
     finally { setLoading(false); }
+  };
+
+  // ─── Helpers de date relative ─────────────────────────────────────────────
+  const relativeTime = (iso: string): string => {
+    const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+    if (diff < 60)     return 'à l\'instant';
+    if (diff < 3600)   return `il y a ${Math.floor(diff / 60)} min`;
+    if (diff < 86400)  return `il y a ${Math.floor(diff / 3600)}h`;
+    if (diff < 172800) return 'hier';
+    if (diff < 604800) return `il y a ${Math.floor(diff / 86400)} j`;
+    const d = new Date(iso);
+    return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+  };
+
+  // ─── Chargement du fil d'activité ─────────────────────────────────────────
+  const loadActivity = async () => {
+    setActivityLoading(true);
+    try {
+      const data = await api.get(`/spot-you/${id}/activity`);
+      setActivityFeed(data.activities || []);
+    } catch {
+      // Silencieux : le fil d'activité n'est pas critique
+    } finally {
+      setActivityLoading(false);
+    }
   };
 
   const [showVisibilityConfirm, setShowVisibilityConfirm] = useState(false);
@@ -558,10 +588,10 @@ export default function SpotYouDetail() {
       setIsParticipant(res.is_member);
       setParticipantsCount(res.participants_count || participantsCount);
       if (!res.is_member) {
-        // Si on quitte, on n'est plus inscrit à la séance non plus
         setIsGoing(false);
       }
       loadParticipants();
+      if (res.is_member) loadActivity();
     } catch (e: any) { Alert.alert('Erreur', e.message); }
     finally { setRsvpLoading(false); }
   };
@@ -581,6 +611,7 @@ export default function SpotYouDetail() {
         setIsParticipant(res.is_member);
       }
       if (res.participants_count !== undefined) setParticipantsCount(res.participants_count);
+      loadActivity();
     } catch (e: any) { Alert.alert('Erreur', e.message); }
     finally { setGoingLoading(false); }
   };
@@ -1055,6 +1086,56 @@ export default function SpotYouDetail() {
           </TouchableOpacity>
         )}
 
+        {/* ── Fil d'activité (visible uniquement aux membres) ─────────────── */}
+        {isMember && (activityFeed.length > 0 || activityLoading) && (
+          <View style={st.activitySection} testID="activity-feed">
+            <View style={st.activityHeader}>
+              <View style={st.activityDot} />
+              <Text style={st.activityTitle}>Activité récente</Text>
+              {activityLoading && (
+                <ActivityIndicator size="small" color={Colors.primary} style={{ marginLeft: 8 }} />
+              )}
+            </View>
+
+            {activityFeed.map((item, idx) => (
+              <View key={`${item.user_id}-${item.type}-${item.session_date || idx}`} style={st.activityItem} testID={`activity-item-${idx}`}>
+                {/* Avatar */}
+                <View style={st.activityAvatarWrap}>
+                  {item.picture
+                    ? <Image source={{ uri: item.picture }} style={st.activityAvatar} />
+                    : <View style={[st.activityAvatar, st.activityAvatarFallback]}>
+                        <Text style={st.activityAvatarInitial}>
+                          {(item.name || '?')[0].toUpperCase()}
+                        </Text>
+                      </View>
+                  }
+                  {/* Icône type */}
+                  <View style={[
+                    st.activityTypeIcon,
+                    item.type === 'going' ? st.activityTypeIconGoing : st.activityTypeIconJoined
+                  ]}>
+                    <Ionicons
+                      name={item.type === 'going' ? 'calendar-outline' : 'person-add-outline'}
+                      size={9}
+                      color="#fff"
+                    />
+                  </View>
+                </View>
+
+                {/* Texte */}
+                <View style={st.activityContent}>
+                  <Text style={st.activityText} numberOfLines={1}>
+                    <Text style={st.activityName}>{item.name?.split(' ')[0] ?? 'Quelqu\'un'}</Text>
+                    {'  '}
+                    <Text>{item.action_text}</Text>
+                  </Text>
+                  <Text style={st.activityTime}>{relativeTime(item.timestamp)}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
         <View style={st.actionsRow}>
           <TouchableOpacity style={st.actionBtn} onPress={openSimilar} activeOpacity={0.7} testID="similar-btn">
             <View style={st.actionIcon}>
@@ -1062,7 +1143,6 @@ export default function SpotYouDetail() {
             </View>
             <Text style={st.actionLabel}>Similaires</Text>
           </TouchableOpacity>
-
           <TouchableOpacity
             style={st.actionBtn}
             onPress={async () => { try { await Share.share({ message: `"${point.title}" sur SpotU !` }); } catch {} }}
@@ -1442,6 +1522,24 @@ const st = StyleSheet.create({
   newDateBannerText: { fontSize: 13, fontWeight: '600', color: Colors.primary },
   newDateToggle: { flexDirection: 'row', alignItems: 'center', gap: 6, marginHorizontal: Spacing.md, marginBottom: Spacing.md, paddingVertical: Spacing.sm },
   newDateToggleText: { fontSize: 13, color: Colors.primary, fontWeight: '500' },
+
+  // Fil d'activité
+  activitySection: { marginHorizontal: Spacing.md, marginBottom: Spacing.md, backgroundColor: Colors.card, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
+  activityHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: Spacing.md, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  activityDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: Colors.primary },
+  activityTitle: { fontSize: 13, fontWeight: '800', color: Colors.foreground, flex: 1, textTransform: 'uppercase', letterSpacing: 0.5 },
+  activityItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: Spacing.md, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.border + '60' },
+  activityAvatarWrap: { position: 'relative', width: 36, height: 36 },
+  activityAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.border },
+  activityAvatarFallback: { alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.primary + '20' },
+  activityAvatarInitial: { fontSize: 14, fontWeight: '700', color: Colors.primary },
+  activityTypeIcon: { position: 'absolute', bottom: -2, right: -2, width: 16, height: 16, borderRadius: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: Colors.card },
+  activityTypeIconGoing: { backgroundColor: Colors.primary },
+  activityTypeIconJoined: { backgroundColor: '#10B981' },
+  activityContent: { flex: 1, gap: 2 },
+  activityText: { fontSize: 13, color: Colors.foreground, lineHeight: 18 },
+  activityName: { fontWeight: '700' },
+  activityTime: { fontSize: 11, color: Colors.muted },
 
   rsvpSection: { paddingHorizontal: Spacing.md, marginBottom: Spacing.sm },
   rsvpRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: 8 },

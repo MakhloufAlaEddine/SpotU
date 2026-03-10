@@ -330,7 +330,110 @@ async def not_going_spot_you(point_id: str, request: Request):
     }
 
 
-@router.get("/spot-you/{point_id}/members")
+@router.get("/spot-you/{point_id}/activity")
+async def get_spot_you_activity(point_id: str, request: Request):
+    """
+    Fil d'activité d'un SpotYou pour ses membres :
+    - "Thomas vient samedi"   → going avec session_date >= today
+    - "Marie a rejoint"       → joins des 30 derniers jours
+
+    Règles d'affichage :
+    - Les "vient [jour]" ne sont affichés QUE si la session est dans le futur (>= today)
+    - Les "a rejoint" ne sont affichés que sur les 30 derniers jours
+    - Résultat trié par timestamp DESC, max 30 items
+    """
+    pool = get_pool()
+
+    async with pool.acquire() as conn:
+        point = await conn.fetchrow(
+            "SELECT point_id, event_date, event_schedule FROM tag_points WHERE point_id = $1 AND active = TRUE",
+            point_id,
+        )
+        if not point:
+            raise HTTPException(status_code=404, detail="SpotYou introuvable")
+
+        from datetime import date as date_type
+        now = datetime.now(timezone.utc)
+        today = now.date()
+        cutoff_joins = now - timedelta(days=30)
+
+        DAY_NAMES = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
+
+        activities = []
+
+        # ── Présences à venir ─────────────────────────────────────────────────
+        going_rows = await conn.fetch(
+            """SELECT a.user_id, a.session_date, a.created_at,
+                      u.name, u.picture
+               FROM spot_you_attendance a
+               JOIN users u ON a.user_id = u.user_id
+               WHERE a.spot_you_id = $1
+                 AND a.status = 'going'
+                 AND a.session_date >= $2
+               ORDER BY a.created_at DESC
+               LIMIT 50""",
+            point_id, today,
+        )
+
+        for row in going_rows:
+            session_date: date_type = row["session_date"]
+            days_diff = (session_date - today).days
+            if days_diff == 0:
+                day_label = "aujourd'hui"
+            elif days_diff == 1:
+                day_label = "demain"
+            else:
+                day_label = DAY_NAMES[session_date.weekday()]
+
+            activities.append({
+                "type": "going",
+                "user_id": row["user_id"],
+                "name": row["name"],
+                "picture": row["picture"],
+                "action_text": f"vient {day_label}",
+                "session_date": session_date.isoformat(),
+                "timestamp": row["created_at"].isoformat(),
+            })
+
+        # ── Membres récents (30 derniers jours) ───────────────────────────────
+        join_rows = await conn.fetch(
+            """SELECT p.user_id, p.joined_at,
+                      u.name, u.picture
+               FROM spot_you_participants p
+               JOIN users u ON p.user_id = u.user_id
+               WHERE p.spot_you_id = $1
+                 AND p.joined_at >= $2
+               ORDER BY p.joined_at DESC
+               LIMIT 50""",
+            point_id, cutoff_joins,
+        )
+
+        for row in join_rows:
+            activities.append({
+                "type": "joined",
+                "user_id": row["user_id"],
+                "name": row["name"],
+                "picture": row["picture"],
+                "action_text": "a rejoint la communauté",
+                "session_date": None,
+                "timestamp": row["joined_at"].isoformat(),
+            })
+
+        # Déduplique par (user_id, type) pour éviter doublons visuels
+        seen: set[tuple] = set()
+        unique: list[dict] = []
+        for a in activities:
+            key = (a["user_id"], a["type"], a.get("session_date"))
+            if key not in seen:
+                seen.add(key)
+                unique.append(a)
+
+        # Trier par timestamp DESC
+        unique.sort(key=lambda x: x["timestamp"], reverse=True)
+
+    return {"activities": unique[:30]}
+
+
 async def get_spot_you_members(point_id: str):
     """Liste les membres de la communauté SpotYou."""
     pool = get_pool()
