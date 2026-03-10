@@ -1,0 +1,52 @@
+{
+  "summary": "Iteration 65 — Full backend + frontend testing of SpotYou group chat access control. All 12/12 backend tests pass. All 4/4 frontend UI features verified. Backend: join sets active, leave sets blocked, non-member 403, blocked can read, rejoin resets to active. Frontend: Groupe button hidden for non-members, visible for members, blocked banner shown with correct text for former members, input bar visible for active members.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_spotyou_chat_access.py",
+    "/app/test_reports/pytest/iter65_chat_access.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "The going route (POST /api/spot-you/{id}/going) also auto-adds participant to group conv — this is correct behavior and consistent with join.",
+    "The owner of pt_demo013 (Streetball 3x3 - République) is user_demo003 (Camille Durand), not coach@winek.app (Sophie Martin / user_coach001). Test credentials provided said 'coach = SpotYou owner' but this was inaccurate for pt_demo013. The owner UI (owner-action-bar, owner-group-chat-btn) would only show for Camille Durand. No code issue — just a documentation mismatch in test credentials.",
+    "Blocked users still appear in conversation_participants list (read-only) — correct design. The WS endpoint correctly rejects blocked users (status != active check on line 376-382 of chat_routes.py).",
+    "No cleanup of blocked participant rows when a SpotYou is deleted — minor concern for data hygiene but no functional impact."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100% (12/12 tests pass)",
+    "frontend": "100% (all 4 frontend UI features verified)"
+  },
+  "test_credentials": {
+    "user": "user@winek.app / WinekUser2024! (Thomas Dupont / user_demo001)",
+    "coach": "coach@winek.app / WinekCoach2024! (Sophie Martin / user_coach001 — NOT owner of pt_demo013)",
+    "actual_pt_demo013_owner": "Camille Durand / user_demo003 (no login credentials provided)"
+  },
+  "seed_data_creation": "No new seed data created. Tests used existing pt_demo013 (Streetball 3x3 - République) with group conv conv_demo002.",
+  "retest_needed": false,
+  "main_agent_can_self_test": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "SpotYou group chat access control fully implemented and verified in iteration 65. All 12 backend tests pass. Frontend: non-member does NOT see Groupe button; member DOES see Groupe button; active member sees input bar in chat; former member sees 'Chat bloqué — vous n\'êtes plus membre du SpotYou «Streetball 3x3 - République»' blocked banner instead of input bar. Re-join clears blocked status. coach@winek.app is NOT the owner of pt_demo013 — owner is user_demo003 (Camille Durand) with no test credentials provided, so owner-group-chat-btn (testID: owner-group-chat-btn) could not be tested via UI.",
+  "test_results_detail": {
+    "backend_12_tests": "PASS — All 12/12 tests in test_spotyou_chat_access.py pass (4.80s).",
+    "test_join_auto_sets_active": "PASS — POST /api/spot-you/pt_demo013/join returns is_member=True and conv_demo002 shows is_blocked=False",
+    "test_non_member_403": "PASS — POST /api/conversations {type:tagpoint_group, context_id:pt_demo013} returns 403 for non-member",
+    "test_leave_sets_blocked": "PASS — DELETE /api/spot-you/pt_demo013/leave → conv_demo002 is_blocked=True in GET /api/conversations",
+    "test_blocked_can_read": "PASS — GET /api/conversations/conv_demo002/messages returns 200 with message list for blocked user",
+    "test_blocked_conv_in_list": "PASS — conv_demo002 still appears in GET /api/conversations with is_blocked=True after leave",
+    "test_rejoin_resets_active": "PASS — join→leave→join: is_blocked goes True→False",
+    "test_owner_not_blocked": "PASS — coach@winek.app: conv_demo002 is_blocked=False (conv in coach's list via seed data)",
+    "frontend_non_member_no_groupe_btn": "PASS — [data-testid='group-chat-button'] NOT visible when RSVP shows 'Rejoindre'",
+    "frontend_member_groupe_btn_visible": "PASS — [data-testid='group-chat-button'] text='Groupe' visible when RSVP shows 'Membre ✓'",
+    "frontend_active_chat_input_visible": "PASS — [data-testid='chat-input'] visible, [data-testid='chat-blocked-banner'] not visible for active member",
+    "frontend_blocked_banner": "PASS — [data-testid='chat-blocked-banner'] visible, input bar hidden. Text: 'Chat bloqué — vous n'êtes plus membre du SpotYou «Streetball 3x3 - République»'"
+  }
+}

@@ -158,6 +158,22 @@ async def join_spot_you(point_id: str, request: Request):
             "SELECT COUNT(*) FROM spot_you_participants WHERE spot_you_id = $1", point_id
         )
 
+        # Auto-ajouter l'utilisateur dans la conversation de groupe si elle existe
+        group_conv = await conn.fetchrow(
+            "SELECT conversation_id FROM conversations WHERE type='tagpoint_group' AND context_id=$1",
+            point_id,
+        )
+        if group_conv:
+            conv_id = group_conv["conversation_id"]
+            # UPSERT: si déjà présent (même bloqué), remettre à 'active'
+            await conn.execute(
+                """INSERT INTO conversation_participants (conversation_id, user_id, status)
+                   VALUES ($1, $2, 'active')
+                   ON CONFLICT (conversation_id, user_id)
+                   DO UPDATE SET status = 'active'""",
+                conv_id, user["user_id"],
+            )
+
     # Notifier le créateur (si différent)
     if point["user_id"] != user["user_id"]:
         try:
@@ -209,6 +225,19 @@ async def leave_spot_you(point_id: str, request: Request):
         count = await conn.fetchval(
             "SELECT COUNT(*) FROM spot_you_participants WHERE spot_you_id = $1", point_id
         )
+
+        # Bloquer l'utilisateur dans la conversation de groupe (sans le supprimer)
+        group_conv = await conn.fetchrow(
+            "SELECT conversation_id FROM conversations WHERE type='tagpoint_group' AND context_id=$1",
+            point_id,
+        )
+        if group_conv:
+            await conn.execute(
+                """UPDATE conversation_participants
+                   SET status = 'blocked'
+                   WHERE conversation_id = $1 AND user_id = $2""",
+                group_conv["conversation_id"], user["user_id"],
+            )
 
     return {"success": True, "participants_count": int(count), "is_member": False}
 
@@ -266,6 +295,20 @@ async def going_spot_you(point_id: str, request: Request):
                VALUES ($1, $2, $3) ON CONFLICT (point_id, user_id) DO NOTHING""",
             tpp_id, point_id, user["user_id"],
         )
+
+        # Auto-ajouter l'utilisateur dans la conversation de groupe si elle existe
+        group_conv = await conn.fetchrow(
+            "SELECT conversation_id FROM conversations WHERE type='tagpoint_group' AND context_id=$1",
+            point_id,
+        )
+        if group_conv:
+            await conn.execute(
+                """INSERT INTO conversation_participants (conversation_id, user_id, status)
+                   VALUES ($1, $2, 'active')
+                   ON CONFLICT (conversation_id, user_id)
+                   DO UPDATE SET status = 'active'""",
+                group_conv["conversation_id"], user["user_id"],
+            )
 
         # Upsert de la présence
         att_id = new_id("att")

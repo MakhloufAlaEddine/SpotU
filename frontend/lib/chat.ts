@@ -27,6 +27,7 @@ export interface Conversation {
   unread_count: number;
   other_participant?: { user_id: string; name: string; picture?: string } | null;
   participant_count?: number;
+  is_blocked?: boolean;
 }
 
 // ── Emitter module-level pour les nouvelles notifications ─────────────────────

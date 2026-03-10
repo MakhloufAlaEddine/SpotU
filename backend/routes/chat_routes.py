@@ -84,6 +84,13 @@ async def _enrich_conversations(conn, convs: list, current_user_id: str) -> list
         )
         c["unread_count"] = unread_row["cnt"] if unread_row else 0
 
+        # Status de l'utilisateur courant dans la conversation (active / blocked)
+        status_row = await conn.fetchrow(
+            "SELECT status FROM conversation_participants WHERE conversation_id=$1 AND user_id=$2",
+            c["conversation_id"], current_user_id
+        )
+        c["is_blocked"] = (status_row["status"] == "blocked") if status_row else False
+
         # Other participant (for 1-to-1 conversations)
         if c["type"] != "tagpoint_group":
             other = await conn.fetchrow(
@@ -133,6 +140,16 @@ async def create_or_get_conversation(data: ConversationCreate, request: Request)
         title = await _resolve_title(conn, data.type, data.context_id)
 
         if data.type == "tagpoint_group":
+            # Vérifier que l'utilisateur est membre ou créateur du SpotYou
+            is_member_row = await conn.fetchrow(
+                """SELECT 1 FROM spot_you_participants WHERE spot_you_id = $1 AND user_id = $2
+                   UNION
+                   SELECT 1 FROM tag_points WHERE point_id = $1 AND user_id = $2""",
+                data.context_id, uid
+            )
+            if not is_member_row:
+                raise HTTPException(status_code=403, detail="Vous devez être membre de ce SpotYou pour accéder au groupe")
+
             # Only 1 group per tagpoint
             existing = await conn.fetchrow(
                 "SELECT conversation_id FROM conversations WHERE type='tagpoint_group' AND context_id=$1",
@@ -140,10 +157,12 @@ async def create_or_get_conversation(data: ConversationCreate, request: Request)
             )
             if existing:
                 conv_id = existing["conversation_id"]
-                # Add user as participant if not already
+                # Ajouter l'utilisateur ou ré-activer s'il était bloqué
                 await conn.execute(
-                    """INSERT INTO conversation_participants (conversation_id, user_id)
-                       VALUES ($1, $2) ON CONFLICT DO NOTHING""",
+                    """INSERT INTO conversation_participants (conversation_id, user_id, status)
+                       VALUES ($1, $2, 'active')
+                       ON CONFLICT (conversation_id, user_id)
+                       DO UPDATE SET status = 'active'""",
                     conv_id, uid
                 )
             else:
@@ -157,11 +176,11 @@ async def create_or_get_conversation(data: ConversationCreate, request: Request)
                        VALUES ($1, 'tagpoint_group', $2, $3, $4)""",
                     conv_id, data.context_id, title, creator_id
                 )
-                # Add creator and current user as participants
+                # Add creator and current user as participants (both active)
                 for pid in set([creator_id, uid]):
                     await conn.execute(
-                        """INSERT INTO conversation_participants (conversation_id, user_id)
-                           VALUES ($1, $2) ON CONFLICT DO NOTHING""",
+                        """INSERT INTO conversation_participants (conversation_id, user_id, status)
+                           VALUES ($1, $2, 'active') ON CONFLICT DO NOTHING""",
                         conv_id, pid
                     )
 
@@ -352,10 +371,10 @@ async def ws_chat(websocket: WebSocket, conv_id: str):
         await websocket.close(code=4001)
         return
 
-    # [SEC-14] Vérifier que l'utilisateur est membre de la conversation
+    # [SEC-14] Vérifier que l'utilisateur est membre ACTIF de la conversation
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            "SELECT 1 FROM conversation_participants WHERE conversation_id=$1 AND user_id=$2",
+            "SELECT 1 FROM conversation_participants WHERE conversation_id=$1 AND user_id=$2 AND status='active'",
             conv_id, user_id
         )
         if not row:
@@ -419,7 +438,7 @@ async def ws_chat(websocket: WebSocket, conv_id: str):
 
             async with pool.acquire() as conn2:
                 participants = await conn2.fetch(
-                    "SELECT user_id FROM conversation_participants WHERE conversation_id = $1 AND user_id != $2",
+                    "SELECT user_id FROM conversation_participants WHERE conversation_id = $1 AND user_id != $2 AND status = 'active'",
                     conv_id, user_id
                 )
                 participant_ids = [p["user_id"] for p in participants]

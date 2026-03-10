@@ -68,6 +68,8 @@ export default function ChatScreen() {
 
   const { messages, sendMessage, isConnected } = useChat(id ?? null);
 
+  const isBlocked = convInfo?.is_blocked === true;
+
   useEffect(() => {
     api.get<any>('/auth/me').then(me => setCurrentUserId(me.user_id)).catch(() => {});
     if (id) {
@@ -170,34 +172,45 @@ export default function ChatScreen() {
         }
       />
 
-      {/* Input bar */}
-      <SafeAreaView edges={['bottom']} style={st.inputSafe}>
-        <View style={st.inputBar}>
-          <TextInput
-            style={st.input}
-            value={input}
-            onChangeText={setInput}
-            placeholder="Votre message…"
-            placeholderTextColor={Colors.muted}
-            multiline
-            maxLength={1000}
-            onSubmitEditing={handleSend}
-            testID="chat-input"
-          />
-          <TouchableOpacity
-            style={[st.sendBtn, (!input.trim() || sending) && st.sendBtnDisabled]}
-            onPress={handleSend}
-            disabled={!input.trim() || sending}
-            testID="chat-send-btn"
-          >
-            {sending ? (
-              <ActivityIndicator size="small" color={Colors.background} />
-            ) : (
-              <Ionicons name="send" size={18} color={Colors.background} />
-            )}
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
+      {/* Input bar — désactivé si bloqué */}
+      {isBlocked ? (
+        <SafeAreaView edges={['bottom']} style={st.inputSafe}>
+          <View style={st.blockedBanner} testID="chat-blocked-banner">
+            <Ionicons name="lock-closed-outline" size={16} color={Colors.muted} />
+            <Text style={st.blockedText}>
+              Chat bloqué — vous n'êtes plus membre du SpotYou «{convInfo?.context_title ?? ''}»
+            </Text>
+          </View>
+        </SafeAreaView>
+      ) : (
+        <SafeAreaView edges={['bottom']} style={st.inputSafe}>
+          <View style={st.inputBar}>
+            <TextInput
+              style={st.input}
+              value={input}
+              onChangeText={setInput}
+              placeholder="Votre message…"
+              placeholderTextColor={Colors.muted}
+              multiline
+              maxLength={1000}
+              onSubmitEditing={handleSend}
+              testID="chat-input"
+            />
+            <TouchableOpacity
+              style={[st.sendBtn, (!input.trim() || sending) && st.sendBtnDisabled]}
+              onPress={handleSend}
+              disabled={!input.trim() || sending}
+              testID="chat-send-btn"
+            >
+              {sending ? (
+                <ActivityIndicator size="small" color={Colors.background} />
+              ) : (
+                <Ionicons name="send" size={18} color={Colors.background} />
+              )}
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -272,4 +285,14 @@ const st = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   sendBtnDisabled: { opacity: 0.4 },
+  blockedBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    padding: Spacing.md,
+    borderTopWidth: 1, borderTopColor: Colors.border,
+    backgroundColor: Colors.card,
+  },
+  blockedText: {
+    flex: 1, fontSize: 13, color: Colors.muted,
+    fontStyle: 'italic', lineHeight: 18,
+  },
 });

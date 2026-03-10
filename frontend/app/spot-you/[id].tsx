@@ -1102,15 +1102,17 @@ export default function SpotYouDetail() {
             <Text style={st.chatBtnText}>Message</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[st.chatBtn, { flex: 1, backgroundColor: Colors.primaryLight, borderColor: Colors.primary + '40' }]}
-            onPress={openGroupChat}
-            disabled={chatLoading}
-            testID="group-chat-button"
-          >
-            <Ionicons name="people-outline" size={18} color={Colors.primary} />
-            <Text style={[st.chatBtnText, { color: Colors.primary }]}>Groupe</Text>
-          </TouchableOpacity>
+          {isMember && (
+            <TouchableOpacity
+              style={[st.chatBtn, { flex: 1, backgroundColor: Colors.primaryLight, borderColor: Colors.primary + '40' }]}
+              onPress={openGroupChat}
+              disabled={chatLoading}
+              testID="group-chat-button"
+            >
+              <Ionicons name="people-outline" size={18} color={Colors.primary} />
+              <Text style={[st.chatBtnText, { color: Colors.primary }]}>Groupe</Text>
+            </TouchableOpacity>
+          )}
         </View>
         )}
 

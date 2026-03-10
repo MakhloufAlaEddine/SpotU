@@ -578,6 +578,12 @@ async def connect_to_db():
                 ON conversations(created_by);
         """)
 
+        # [CHAT-V2] Statut participant conversation (active / blocked)
+        await conn.execute("""
+            ALTER TABLE conversation_participants ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active';
+            CREATE INDEX IF NOT EXISTS idx_conv_participants_status ON conversation_participants(conversation_id, status);
+        """)
+
         # [SPOTYOU-V1] Capacité + participation communauté + présence séances
         await conn.execute("""
             ALTER TABLE tag_points ADD COLUMN IF NOT EXISTS minimum_participants INTEGER NULL;
