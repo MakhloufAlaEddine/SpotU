@@ -1086,56 +1086,6 @@ export default function SpotYouDetail() {
           </TouchableOpacity>
         )}
 
-        {/* ── Fil d'activité (visible uniquement aux membres) ─────────────── */}
-        {isMember && (activityFeed.length > 0 || activityLoading) && (
-          <View style={st.activitySection} testID="activity-feed">
-            <View style={st.activityHeader}>
-              <View style={st.activityDot} />
-              <Text style={st.activityTitle}>Activité récente</Text>
-              {activityLoading && (
-                <ActivityIndicator size="small" color={Colors.primary} style={{ marginLeft: 8 }} />
-              )}
-            </View>
-
-            {activityFeed.map((item, idx) => (
-              <View key={`${item.user_id}-${item.type}-${item.session_date || idx}`} style={st.activityItem} testID={`activity-item-${idx}`}>
-                {/* Avatar */}
-                <View style={st.activityAvatarWrap}>
-                  {item.picture
-                    ? <Image source={{ uri: item.picture }} style={st.activityAvatar} />
-                    : <View style={[st.activityAvatar, st.activityAvatarFallback]}>
-                        <Text style={st.activityAvatarInitial}>
-                          {(item.name || '?')[0].toUpperCase()}
-                        </Text>
-                      </View>
-                  }
-                  {/* Icône type */}
-                  <View style={[
-                    st.activityTypeIcon,
-                    item.type === 'going' ? st.activityTypeIconGoing : st.activityTypeIconJoined
-                  ]}>
-                    <Ionicons
-                      name={item.type === 'going' ? 'calendar-outline' : 'person-add-outline'}
-                      size={9}
-                      color="#fff"
-                    />
-                  </View>
-                </View>
-
-                {/* Texte */}
-                <View style={st.activityContent}>
-                  <Text style={st.activityText} numberOfLines={1}>
-                    <Text style={st.activityName}>{item.name?.split(' ')[0] ?? 'Quelqu\'un'}</Text>
-                    {'  '}
-                    <Text>{item.action_text}</Text>
-                  </Text>
-                  <Text style={st.activityTime}>{relativeTime(item.timestamp)}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
-
         <View style={st.actionsRow}>
           <TouchableOpacity style={st.actionBtn} onPress={openSimilar} activeOpacity={0.7} testID="similar-btn">
             <View style={st.actionIcon}>

@@ -282,6 +282,8 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [SpotYou, setSpotYou] = useState<any[]>([]);
   const [services, setServices] = useState<any[]>([]);
+  const [activityFeed, setActivityFeed] = useState<any[]>([]);
+  const [activityLoading, setActivityLoading] = useState(false);
 
   const [heroIndex, setHeroIndex] = useState(0);
   const carouselRef = useRef<FlatList>(null);
@@ -290,6 +292,10 @@ export default function HomeScreen() {
   useEffect(() => {
     if (!locLoading) loadData();
   }, [location.lat, location.lng, locLoading]);
+
+  useEffect(() => {
+    if (user) loadActivity();
+  }, [user]);
 
   // Auto-scroll
   useEffect(() => {
@@ -317,10 +323,34 @@ export default function HomeScreen() {
     finally { setLoading(false); setRefreshing(false); }
   };
 
+  const loadActivity = async () => {
+    setActivityLoading(true);
+    try {
+      const data = await api.get('/users/me/activity-feed');
+      setActivityFeed(data.activities || []);
+    } catch {
+      // Silencieux
+    } finally {
+      setActivityLoading(false);
+    }
+  };
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     loadData();
-  }, [location.lat, location.lng]);
+    if (user) loadActivity();
+  }, [location.lat, location.lng, user]);
+
+  const relativeTime = (iso: string): string => {
+    const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+    if (diff < 60)     return 'à l\'instant';
+    if (diff < 3600)   return `il y a ${Math.floor(diff / 60)} min`;
+    if (diff < 86400)  return `il y a ${Math.floor(diff / 3600)}h`;
+    if (diff < 172800) return 'hier';
+    if (diff < 604800) return `il y a ${Math.floor(diff / 86400)} j`;
+    const d = new Date(iso);
+    return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+  };
 
   const heroPoints = SpotYou.slice(0, 5);
   const recentPoints = [...SpotYou]
@@ -388,7 +418,66 @@ export default function HomeScreen() {
             </View>
           )}
 
-          {/* ── Section 2 : Coachs & Services ── */}
+          {/* ── Section 2 : Activité récente (membres uniquement) ── */}
+          {user && activityFeed.length > 0 && (
+            <View style={{ marginTop: 24 }}>
+              <View style={[secSt.header]}>
+                <View>
+                  <Text style={secSt.title}>Activité récente</Text>
+                  <Text style={secSt.sub}>Vos communautés SpotYou</Text>
+                </View>
+                {activityLoading && <ActivityIndicator size="small" color={Colors.primary} />}
+              </View>
+              <View style={actSt.card}>
+                {activityFeed.map((item, idx) => (
+                  <TouchableOpacity
+                    key={`${item.user_id}-${item.type}-${item.session_date || idx}`}
+                    style={[actSt.row, idx < activityFeed.length - 1 && actSt.rowBorder]}
+                    onPress={() => router.push(`/spot-you/${item.spot_you_id}` as any)}
+                    activeOpacity={0.75}
+                    testID={`activity-item-${idx}`}
+                  >
+                    {/* Avatar */}
+                    <View style={actSt.avatarWrap}>
+                      {item.picture
+                        ? <Image source={{ uri: item.picture }} style={actSt.avatar} />
+                        : <View style={[actSt.avatar, actSt.avatarFallback]}>
+                            <Text style={actSt.avatarInitial}>{(item.name || '?')[0].toUpperCase()}</Text>
+                          </View>
+                      }
+                      <View style={[actSt.typeIcon, item.type === 'going' ? actSt.typeIconGoing : actSt.typeIconJoined]}>
+                        <Ionicons
+                          name={item.type === 'going' ? 'calendar-outline' : 'person-add-outline'}
+                          size={8}
+                          color="#fff"
+                        />
+                      </View>
+                    </View>
+
+                    {/* Texte */}
+                    <View style={actSt.content}>
+                      <Text style={actSt.text} numberOfLines={1}>
+                        <Text style={actSt.name}>{item.name?.split(' ')[0] ?? 'Quelqu\'un'}</Text>
+                        {'  '}{item.action_text}
+                      </Text>
+                      {/* SpotYou name badge */}
+                      <View style={actSt.spotRow}>
+                        <View style={actSt.spotBadge}>
+                          <Ionicons name="location-outline" size={9} color={Colors.primary} />
+                          <Text style={actSt.spotName} numberOfLines={1}>{item.spot_you_title}</Text>
+                        </View>
+                      </View>
+                    </View>
+
+                    {/* Timestamp */}
+                    <Text style={actSt.time}>{relativeTime(item.timestamp)}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {/* ── Section 3 : Coachs & Services ── */}
           {services.length > 0 && (
             <View style={{ marginTop: 28 }}>
               <View style={secSt.header}>
@@ -501,5 +590,48 @@ const styles = StyleSheet.create({
   nearbyBottom: {}, ownerRow: {}, ownerAvatar: {}, ownerName: {}, nearbyDist: {},
   listCard: {}, listThumb: {}, listInfo: {}, listTitle: {}, listDesc: {}, listOwner: {}, listDist: {},
   empty: {}, emptyTitle: {}, emptyDesc: {}, createBtn: {}, createBtnText: {},
+});
+
+const actSt = StyleSheet.create({
+  card: {
+    marginHorizontal: 16,
+    backgroundColor: Colors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    overflow: 'hidden',
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    gap: 12,
+  },
+  rowBorder: { borderBottomWidth: 1, borderBottomColor: Colors.border + '50' },
+  avatarWrap: { position: 'relative', width: 38, height: 38, flexShrink: 0 },
+  avatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: Colors.border },
+  avatarFallback: { alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.primary + '20' },
+  avatarInitial: { fontSize: 15, fontWeight: '700', color: Colors.primary },
+  typeIcon: {
+    position: 'absolute', bottom: -2, right: -2,
+    width: 16, height: 16, borderRadius: 8,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1.5, borderColor: Colors.card,
+  },
+  typeIconGoing: { backgroundColor: Colors.primary },
+  typeIconJoined: { backgroundColor: '#10B981' },
+  content: { flex: 1, minWidth: 0 },
+  text: { fontSize: 13, color: Colors.foreground, lineHeight: 17 },
+  name: { fontWeight: '700' },
+  spotRow: { flexDirection: 'row', alignItems: 'center', marginTop: 3 },
+  spotBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    backgroundColor: Colors.primary + '15',
+    paddingHorizontal: 7, paddingVertical: 2,
+    borderRadius: 20,
+  },
+  spotName: { fontSize: 11, color: Colors.primary, fontWeight: '600', flexShrink: 1 },
+  time: { fontSize: 11, color: Colors.muted, flexShrink: 0 },
 });
 

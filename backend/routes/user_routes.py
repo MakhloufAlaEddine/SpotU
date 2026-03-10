@@ -291,3 +291,118 @@ async def create_user_review(user_id: str, data: ProfileReviewCreate, request: R
     ))
     return review_data
 
+
+
+@router.get("/me/activity-feed")
+async def get_activity_feed(request: Request):
+    """
+    Fil d'activité personnel — agrège l'activité de tous les SpotYou
+    dont l'utilisateur est membre.
+
+    Règles :
+    - "going" : session_date >= today uniquement
+    - "joined" : rejoints dans les 30 derniers jours, excluant l'utilisateur lui-même
+    - Résultat trié par timestamp DESC, max 30 items
+    """
+    from datetime import timedelta, date as date_type
+
+    pool = get_pool()
+    user = await require_auth(request, pool)
+
+    async with pool.acquire() as conn:
+        now = datetime.now(timezone.utc)
+        today = now.date()
+        cutoff = now - timedelta(days=30)
+
+        # SpotYou dont l'utilisateur est membre
+        member_spots = await conn.fetch(
+            """SELECT p.spot_you_id, tp.title
+               FROM spot_you_participants p
+               JOIN tag_points tp ON tp.point_id = p.spot_you_id
+               WHERE p.user_id = $1 AND tp.active = TRUE""",
+            user["user_id"],
+        )
+
+        if not member_spots:
+            return {"activities": []}
+
+        spot_ids = [row["spot_you_id"] for row in member_spots]
+        spot_titles = {row["spot_you_id"]: row["title"] for row in member_spots}
+
+        DAY_NAMES = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
+        activities: list[dict] = []
+
+        # ── Présences futures ────────────────────────────────────────────────
+        going_rows = await conn.fetch(
+            """SELECT a.user_id, a.spot_you_id, a.session_date, a.created_at,
+                      u.name, u.picture
+               FROM spot_you_attendance a
+               JOIN users u ON a.user_id = u.user_id
+               WHERE a.spot_you_id = ANY($1)
+                 AND a.status = 'going'
+                 AND a.session_date >= $2
+               ORDER BY a.created_at DESC
+               LIMIT 80""",
+            spot_ids, today,
+        )
+        for row in going_rows:
+            session_date: date_type = row["session_date"]
+            days_diff = (session_date - today).days
+            if days_diff == 0:
+                day_label = "aujourd'hui"
+            elif days_diff == 1:
+                day_label = "demain"
+            else:
+                day_label = DAY_NAMES[session_date.weekday()]
+            spot_id = row["spot_you_id"]
+            activities.append({
+                "type": "going",
+                "user_id": row["user_id"],
+                "name": row["name"],
+                "picture": row["picture"],
+                "action_text": f"vient {day_label}",
+                "session_date": session_date.isoformat(),
+                "spot_you_id": spot_id,
+                "spot_you_title": spot_titles.get(spot_id, ""),
+                "timestamp": row["created_at"].isoformat(),
+            })
+
+        # ── Rejoints récents (sans l'utilisateur lui-même) ───────────────────
+        join_rows = await conn.fetch(
+            """SELECT p.user_id, p.spot_you_id, p.joined_at,
+                      u.name, u.picture
+               FROM spot_you_participants p
+               JOIN users u ON p.user_id = u.user_id
+               WHERE p.spot_you_id = ANY($1)
+                 AND p.user_id != $2
+                 AND p.joined_at >= $3
+               ORDER BY p.joined_at DESC
+               LIMIT 80""",
+            spot_ids, user["user_id"], cutoff,
+        )
+        for row in join_rows:
+            spot_id = row["spot_you_id"]
+            activities.append({
+                "type": "joined",
+                "user_id": row["user_id"],
+                "name": row["name"],
+                "picture": row["picture"],
+                "action_text": "a rejoint",
+                "session_date": None,
+                "spot_you_id": spot_id,
+                "spot_you_title": spot_titles.get(spot_id, ""),
+                "timestamp": row["joined_at"].isoformat(),
+            })
+
+        # Déduplique (même user, même type, même jour, même spot)
+        seen: set[tuple] = set()
+        unique: list[dict] = []
+        for a in activities:
+            key = (a["user_id"], a["type"], a.get("session_date"), a["spot_you_id"])
+            if key not in seen:
+                seen.add(key)
+                unique.append(a)
+
+        unique.sort(key=lambda x: x["timestamp"], reverse=True)
+
+    return {"activities": unique[:30]}
