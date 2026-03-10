@@ -878,7 +878,46 @@ export default function SpotYouDetail() {
                           </View>
                         </View>
                         <Text style={st.dateValue}>{nextLabel}</Text>
+                        {/* Compteur participants séance */}
+                        {goingCount > 0 && (
+                          <Text style={st.goingCountInline}>
+                            {goingCount} {goingCount > 1 ? 'participants' : 'participant'}
+                            {maxParticipants ? ` / ${maxParticipants}` : ''}
+                          </Text>
+                        )}
                       </View>
+                      {/* Bouton Je participe — seulement si pas propriétaire */}
+                      {!isOwner && (
+                        <TouchableOpacity
+                          style={[
+                            st.goingBtnInline,
+                            isGoing && st.goingBtnInlineActive,
+                            (isFull && !isGoing) && st.goingBtnInlineDisabled,
+                          ]}
+                          onPress={(isFull && !isGoing) ? undefined : toggleGoing}
+                          disabled={goingLoading || (isFull && !isGoing)}
+                          testID="going-button"
+                        >
+                          {goingLoading
+                            ? <ActivityIndicator color={isGoing ? Colors.primary : Colors.background} size="small" />
+                            : (isFull && !isGoing)
+                              ? <>
+                                  <Ionicons name="flash" size={12} color="#F59E0B" />
+                                  <Text style={[st.goingBtnInlineText, { color: '#F59E0B' }]}>Complet</Text>
+                                </>
+                              : <>
+                                  <Ionicons
+                                    name={isGoing ? 'checkmark-circle' : 'add-circle-outline'}
+                                    size={13}
+                                    color={isGoing ? Colors.primary : Colors.background}
+                                  />
+                                  <Text style={[st.goingBtnInlineText, isGoing && { color: Colors.primary }]}>
+                                    {isGoing ? 'Je participe ✓' : 'Je participe'}
+                                  </Text>
+                                </>
+                          }
+                        </TouchableOpacity>
+                      )}
                     </View>
                     {/* Per-day schedule table */}
                     {rec.perDay && rec.perDay.length > 0 && (
@@ -946,37 +985,6 @@ export default function SpotYouDetail() {
                   </>}
             </TouchableOpacity>
 
-            {/* Bouton Je viens (séance) — seulement si une prochaine séance existe */}
-            {point.next_session_date && (
-              <TouchableOpacity
-                style={[
-                  st.goingBtn,
-                  isGoing && st.goingBtnActive,
-                  (isFull && !isGoing) && st.goingBtnDisabled,
-                ]}
-                onPress={(isFull && !isGoing) ? undefined : toggleGoing}
-                disabled={goingLoading || (isFull && !isGoing)}
-                testID="going-button"
-              >
-                {goingLoading
-                  ? <ActivityIndicator color={isGoing ? Colors.primary : Colors.background} size="small" />
-                  : <>
-                      {(isFull && !isGoing)
-                        ? <Ionicons name="flash" size={15} color="#F59E0B" />
-                        : <Ionicons name={isGoing ? 'checkmark-circle' : 'calendar-outline'}
-                            size={15} color={isGoing ? Colors.primary : Colors.background} />
-                      }
-                      <Text style={[
-                        st.goingText,
-                        isGoing && st.goingTextActive,
-                        (isFull && !isGoing) && { color: '#F59E0B' },
-                      ]}>
-                        {(isFull && !isGoing) ? 'Complet' : isGoing ? 'Je viens ✓' : 'Je viens'}
-                      </Text>
-                    </>}
-              </TouchableOpacity>
-            )}
-
             <View style={{ flex: 1 }} />
 
             <TouchableOpacity
@@ -1017,7 +1025,7 @@ export default function SpotYouDetail() {
               <View style={st.counterChip}>
                 <Ionicons name="checkmark-circle-outline" size={13} color={Colors.primary} />
                 <Text style={[st.counterChipText, { color: Colors.primary }]}>
-                  {goingCount} viennent
+                  {goingCount} {goingCount > 1 ? 'participants' : 'participant'}
                   {maxParticipants ? ` / ${maxParticipants}` : ''}
                 </Text>
               </View>
@@ -1503,6 +1511,12 @@ const st = StyleSheet.create({
   goingBtnDisabled: { backgroundColor: '#F59E0B22', borderWidth: 1.5, borderColor: '#F59E0B' },
   goingText: { fontSize: 13, fontWeight: '700', color: Colors.background },
   goingTextActive: { color: Colors.primary },
+  // Bouton "Je participe" inline dans la date card
+  goingBtnInline: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.primary, paddingHorizontal: 11, paddingVertical: 6, borderRadius: Radius.full, flexShrink: 0, marginLeft: 8 },
+  goingBtnInlineActive: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: Colors.primary },
+  goingBtnInlineDisabled: { backgroundColor: '#F59E0B22', borderWidth: 1.5, borderColor: '#F59E0B' },
+  goingBtnInlineText: { fontSize: 12, fontWeight: '700', color: Colors.background },
+  goingCountInline: { fontSize: 11, color: Colors.primary, fontWeight: '600', marginTop: 3 },
   countersRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
   counterChip: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: Colors.card, paddingHorizontal: 10, paddingVertical: 4, borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.border },
   counterChipText: { fontSize: 12, color: Colors.muted, fontWeight: '500' },
