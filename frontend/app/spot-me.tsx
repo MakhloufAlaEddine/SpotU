@@ -110,19 +110,18 @@ function SpotCard({ item, onNavigate, onToggleGoing, togglingId, onViewMembers }
                 <Text style={st.badgeText}>Masqué</Text>
               </View>
             )}
-            {(item.participants_count > 0) && (
-              <TouchableOpacity
-                style={st.membersChip}
-                onPress={() => onViewMembers(item.point_id, item.title)}
-                testID={`members-chip-${item.point_id}`}
-              >
-                <Ionicons name="people-outline" size={11} color={Colors.primary} />
-                <Text style={st.membersChipText}>
-                  {item.participants_count} membre{item.participants_count > 1 ? 's' : ''}
-                </Text>
-                <Ionicons name="chevron-forward" size={10} color={Colors.primary} />
-              </TouchableOpacity>
-            )}
+            {/* Chip membres — toujours visible (propriétaire est toujours membre) */}
+            <TouchableOpacity
+              style={st.membersChip}
+              onPress={() => onViewMembers(item.point_id, item.title)}
+              testID={`members-chip-${item.point_id}`}
+            >
+              <Ionicons name="people-outline" size={11} color={Colors.primary} />
+              <Text style={st.membersChipText}>
+                {Math.max(item.participants_count || 0, 1)} membre{Math.max(item.participants_count || 0, 1) > 1 ? 's' : ''}
+              </Text>
+              <Ionicons name="chevron-forward" size={10} color={Colors.primary} />
+            </TouchableOpacity>
           </View>
         </View>
       </View>

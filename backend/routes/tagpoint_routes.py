@@ -581,7 +581,7 @@ async def leave_tag_point(point_id: str, request: Request):
 
 @router.get("/tag-points/{point_id}/participants")
 async def get_tag_point_participants(point_id: str):
-    """Retourne la liste des participants d'un SpotYou avec infos utilisateur."""
+    """Retourne la liste des participants d'un SpotYou — le propriétaire est toujours inclus en premier."""
     pool = get_pool()
     async with pool.acquire() as conn:
         rows = await conn.fetch(
@@ -594,16 +594,22 @@ async def get_tag_point_participants(point_id: str):
                ORDER BY (u.user_id = tp.user_id) DESC, p.joined_at ASC""",
             point_id
         )
-    return [
-        {
-            "user_id": r["user_id"],
-            "name": r["name"],
-            "picture": r["picture"],
-            "role": r["role"],
-            "is_creator": r["is_creator"],
-        }
-        for r in rows
-    ]
+        result = [
+            {"user_id": r["user_id"], "name": r["name"], "picture": r["picture"], "role": r["role"], "is_creator": r["is_creator"]}
+            for r in rows
+        ]
+        # Toujours inclure le propriétaire (même s'il n'a pas rejoint explicitement)
+        owner = await conn.fetchrow(
+            """SELECT u.user_id, u.name, u.picture, u.role
+               FROM tag_points tp JOIN users u ON tp.user_id = u.user_id
+               WHERE tp.point_id = $1""", point_id
+        )
+        if owner:
+            owner_id = str(owner["user_id"])
+            already_in = any(str(r["user_id"]) == owner_id for r in result)
+            if not already_in:
+                result.insert(0, {"user_id": owner["user_id"], "name": owner["name"], "picture": owner["picture"], "role": owner["role"], "is_creator": True})
+    return result
 
 
 @router.get("/users/me/notifications")
