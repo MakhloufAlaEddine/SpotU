@@ -226,6 +226,16 @@ async def leave_spot_you(point_id: str, request: Request):
             "DELETE FROM tag_point_participants WHERE point_id = $1 AND user_id = $2",
             point_id, user["user_id"],
         )
+
+        # Annuler les participations futures aux séances (évite le bug is_going=true après leave)
+        await conn.execute(
+            """UPDATE spot_you_attendance SET status = 'not_going'
+               WHERE spot_you_id = $1 AND user_id = $2
+                 AND status = 'going'
+                 AND session_date >= (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Paris')::date""",
+            point_id, user["user_id"],
+        )
+
         count = await conn.fetchval(
             "SELECT COUNT(*) FROM spot_you_participants WHERE spot_you_id = $1", point_id
         )
