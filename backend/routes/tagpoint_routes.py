@@ -206,16 +206,62 @@ async def search_tag_points(
 async def my_tag_points(request: Request):
     pool = get_pool()
     user = await require_auth(request, pool)
+    from routes.spot_you_routes import get_next_session_date as _get_next
     async with pool.acquire() as conn:
         rows = await conn.fetch(
-            f"""SELECT {TP_FIELDS} 
-                FROM tag_points tp 
-                LEFT JOIN users u ON tp.user_id = u.user_id 
-                WHERE tp.user_id = $1 AND tp.active = TRUE 
+            f"""SELECT {TP_FIELDS}
+                FROM tag_points tp
+                LEFT JOIN users u ON tp.user_id = u.user_id
+                WHERE tp.user_id = $1 AND tp.active = TRUE
                 ORDER BY tp.created_at DESC""",
             user["user_id"]
         )
-    return [build_point_response(row_to_dict(r)) for r in rows]
+        points = [build_point_response(row_to_dict(r)) for r in rows]
+        if not points:
+            return []
+
+        point_ids = [pt["point_id"] for pt in points]
+
+        # Batch: participants count per spot
+        part_rows = await conn.fetch(
+            """SELECT spot_you_id, COUNT(*) AS cnt
+               FROM spot_you_participants WHERE spot_you_id = ANY($1::text[])
+               GROUP BY spot_you_id""", point_ids)
+        part_map = {r["spot_you_id"]: int(r["cnt"]) for r in part_rows}
+
+        # Compute next session dates
+        next_dates = {}
+        for pt in points:
+            nd = _get_next(pt)
+            next_dates[pt["point_id"]] = nd
+
+        # Batch: going count per spot for next session
+        going_pairs = [(pid, nd) for pid, nd in next_dates.items() if nd]
+        going_map = {}
+        is_going_map = {}
+        if going_pairs:
+            for pid, nd in going_pairs:
+                cnt = await conn.fetchval(
+                    """SELECT COUNT(*) FROM spot_you_attendance
+                       WHERE spot_you_id=$1 AND session_date=$2 AND status='going'""",
+                    pid, nd) or 0
+                going_map[pid] = int(cnt)
+                is_going_map[pid] = bool(await conn.fetchval(
+                    """SELECT EXISTS(SELECT 1 FROM spot_you_attendance
+                       WHERE spot_you_id=$1 AND user_id=$2 AND session_date=$3 AND status='going')""",
+                    pid, user["user_id"], nd))
+
+        for pt in points:
+            pid = pt["point_id"]
+            pt["participants_count"] = part_map.get(pid, 0)
+            nd = next_dates.get(pid)
+            pt["next_session_date"] = nd.isoformat() if nd else None
+            pt["going_count"] = going_map.get(pid, 0)
+            pt["is_going"] = is_going_map.get(pid, False)
+            max_p = pt.get("maximum_participants")
+            pt["is_full"] = max_p is not None and pt["going_count"] >= max_p
+
+    return points
 
 
 @router.get("/tag-points/saved")
