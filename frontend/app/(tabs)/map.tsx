@@ -429,9 +429,15 @@ export default function HomeScreen() {
                 {activityLoading && <ActivityIndicator size="small" color={Colors.primary} />}
               </View>
               <View style={actSt.card}>
+                <ScrollView
+                  scrollEnabled={activityFeed.length > 4}
+                  style={{ maxHeight: activityFeed.length > 4 ? 240 : undefined }}
+                  showsVerticalScrollIndicator={activityFeed.length > 4}
+                  nestedScrollEnabled
+                >
                 {activityFeed.map((item, idx) => (
                   <TouchableOpacity
-                    key={`${item.user_id}-${item.type}-${item.session_date || idx}`}
+                    key={`${item.user_id}-${item.type}-${item.spot_you_id}-${item.session_date || idx}`}
                     style={[actSt.row, idx < activityFeed.length - 1 && actSt.rowBorder]}
                     onPress={() => router.push(`/spot-you/${item.spot_you_id}` as any)}
                     activeOpacity={0.75}
@@ -473,6 +479,7 @@ export default function HomeScreen() {
                     <Text style={actSt.time}>{relativeTime(item.timestamp)}</Text>
                   </TouchableOpacity>
                 ))}
+                </ScrollView>
               </View>
             </View>
           )}
