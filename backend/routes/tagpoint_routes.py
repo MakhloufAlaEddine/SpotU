@@ -718,7 +718,8 @@ async def get_my_events(request: Request):
 @router.get("/users/me/planning-events")
 async def get_planning_events(request: Request):
     """Retourne les événements SpotYou dans un format compatible avec le planning.
-    Génère les occurrences récurrentes sur les 90 prochains jours."""
+    Seules les séances cochées via 'Je participe' (spot_you_attendance) apparaissent.
+    Être membre d'un SpotYou n'impacte plus le planning."""
     from datetime import timedelta, date as date_type
     import asyncio
 
@@ -727,17 +728,19 @@ async def get_planning_events(request: Request):
 
     now = datetime.now(timezone.utc)
     range_start = now - timedelta(days=30)
-    range_end = now + timedelta(days=90)
+    range_end   = now + timedelta(days=90)
 
     async with pool.acquire() as conn:
+        # Uniquement les séances auxquelles l'utilisateur a confirmé sa présence
         rows = await conn.fetch(
             """SELECT tp.point_id, tp.title, tp.event_date, tp.event_end_date, tp.event_schedule,
                       tp.image_url, tp.user_id as owner_id, u.name as owner_name,
-                      tp.cancelled
+                      tp.cancelled,
+                      a.session_date
                FROM tag_points tp
-               JOIN tag_point_participants p ON tp.point_id = p.point_id
+               JOIN spot_you_attendance a ON tp.point_id = a.spot_you_id
                LEFT JOIN users u ON tp.user_id = u.user_id
-               WHERE p.user_id = $1 AND tp.active = TRUE
+               WHERE a.user_id = $1 AND a.status = 'going' AND tp.active = TRUE
                  AND (tp.is_public = TRUE OR tp.user_id = $1)""",
             user["user_id"]
         )
@@ -745,11 +748,12 @@ async def get_planning_events(request: Request):
     events = []
     for row in rows:
         tp = row_to_dict(row)
-        event_date = tp.get("event_date")
+        event_date     = tp.get("event_date")
         event_schedule = tp.get("event_schedule")
+        session_date   = tp.get("session_date")   # date précise de la séance cochée
 
-        # Événement unique
-        if event_date:
+        # ── Événement unique ──────────────────────────────────────────────────
+        if event_date and not event_schedule:
             from zoneinfo import ZoneInfo
             paris = ZoneInfo('Europe/Paris')
             if isinstance(event_date, str):
@@ -759,9 +763,8 @@ async def get_planning_events(request: Request):
                 dt = event_date
             dt_local = dt.astimezone(paris)
 
-            # end_time depuis event_end_date si disponible
-            end_date_raw = tp.get("event_end_date")
             end_time_str = None
+            end_date_raw = tp.get("event_end_date")
             if end_date_raw:
                 if isinstance(end_date_raw, str):
                     from dateutil.parser import parse as _parse2
@@ -771,20 +774,20 @@ async def get_planning_events(request: Request):
                 end_time_str = end_dt.strftime("%H:%M")
 
             events.append({
-                "point_id": tp["point_id"],
-                "title": tp["title"],
+                "point_id":   tp["point_id"],
+                "title":      tp["title"],
                 "owner_name": tp.get("owner_name"),
-                "image_url": tp.get("image_url"),
-                "is_own": tp.get("owner_id") == user["user_id"],
+                "image_url":  tp.get("image_url"),
+                "is_own":     tp.get("owner_id") == user["user_id"],
                 "is_cancelled": bool(tp.get("cancelled")),
-                "date": dt_local.strftime("%Y-%m-%d"),
-                "time": dt_local.strftime("%H:%M"),
-                "end_time": end_time_str,
-                "type": "single",
+                "date":       dt_local.strftime("%Y-%m-%d"),
+                "time":       dt_local.strftime("%H:%M"),
+                "end_time":   end_time_str,
+                "type":       "single",
             })
 
-        # Événement récurrent (hebdomadaire)
-        if event_schedule:
+        # ── Événement récurrent — séance spécifique ───────────────────────────
+        elif event_schedule and session_date:
             import json as _json
             if isinstance(event_schedule, str):
                 try:
@@ -796,42 +799,64 @@ async def get_planning_events(request: Request):
             else:
                 sched = {}
 
-            if sched.get("type") == "weekly":
-                # Format : {"type":"weekly","schedule":{"0":[{"start":"07:00","end":"07:45"}],...}}
-                # Clés = Python weekday (0=Lun, 1=Mar, ..., 6=Dim) — PAS JS convention
-                schedule_dict = sched.get("schedule", {})
-                for py_day_str, time_slots in schedule_dict.items():
-                    py_weekday = int(py_day_str)  # direct, pas de conversion
+            # Récupérer le jour de semaine Python (0=Lun..6=Dim) de la session
+            if isinstance(session_date, str):
+                from datetime import date as _dt_date
+                sd = _dt_date.fromisoformat(session_date)
+            else:
+                sd = session_date
 
-                    for time_slot in (time_slots if isinstance(time_slots, list) else []):
-                        time_str = time_slot.get("start", "00:00")
-                        end_str  = time_slot.get("end")
+            py_weekday = sd.weekday()  # 0=Lun..6=Dim
 
-                        cursor = range_start.date()
-                        while cursor <= range_end.date():
-                            if cursor.weekday() == py_weekday:
-                                events.append({
-                                    "point_id": tp["point_id"],
-                                    "title": tp["title"],
-                                    "owner_name": tp.get("owner_name"),
-                                    "image_url": tp.get("image_url"),
-                                    "is_own": tp.get("owner_id") == user["user_id"],
-                                    "is_cancelled": bool(tp.get("cancelled")),
-                                    "date": cursor.isoformat(),
-                                    "time": time_str,
-                                    "end_time": end_str,
-                                    "type": "recurring",
-                                })
-                            cursor += timedelta(days=1)
+            # Récupérer les créneaux horaires pour ce jour
+            schedule_dict = sched.get("schedule", {})
+            time_slots = schedule_dict.get(str(py_weekday), [])
 
-    # Dédoublonner si un SpotYou a à la fois event_date ET event_schedule
+            if time_slots:
+                # S'il y a plusieurs créneaux dans la journée, créer une entrée par créneau
+                for slot in (time_slots if isinstance(time_slots, list) else [time_slots]):
+                    if isinstance(slot, str):
+                        time_str, end_str = slot, None
+                    else:
+                        time_str = slot.get("start", "00:00")
+                        end_str  = slot.get("end")
+
+                    events.append({
+                        "point_id":     tp["point_id"],
+                        "title":        tp["title"],
+                        "owner_name":   tp.get("owner_name"),
+                        "image_url":    tp.get("image_url"),
+                        "is_own":       tp.get("owner_id") == user["user_id"],
+                        "is_cancelled": bool(tp.get("cancelled")),
+                        "date":         sd.isoformat(),
+                        "time":         time_str,
+                        "end_time":     end_str,
+                        "type":         "recurring",
+                    })
+            else:
+                # Pas d'horaire trouvé pour ce jour (données incohérentes) → fallback sans heure
+                events.append({
+                    "point_id":     tp["point_id"],
+                    "title":        tp["title"],
+                    "owner_name":   tp.get("owner_name"),
+                    "image_url":    tp.get("image_url"),
+                    "is_own":       tp.get("owner_id") == user["user_id"],
+                    "is_cancelled": bool(tp.get("cancelled")),
+                    "date":         sd.isoformat(),
+                    "time":         None,
+                    "end_time":     None,
+                    "type":         "recurring",
+                })
+
+    # Dédoublonner (même point_id + date + time)
     seen = set()
     unique = []
     for e in events:
-        key = f"{e['point_id']}_{e['date']}"
+        key = f"{e['point_id']}_{e['date']}_{e.get('time','')}"
         if key not in seen:
             seen.add(key)
             unique.append(e)
+    events = unique
 
     # ── Réservations de services confirmées ────────────────────────────────────
     async with pool.acquire() as conn:

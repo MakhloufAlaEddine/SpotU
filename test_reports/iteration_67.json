@@ -1,0 +1,63 @@
+{
+  "summary": "Iteration 67 — Planning logic change: only spot_you_attendance (status=going) sessions appear in planning. 22/22 backend tests pass. All frontend flows verified end-to-end via Playwright.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "spot-me.tsx SpotCard",
+        "issue": "Prochain événement time always shows '00:00' for all SpotYous (both recurring and single-date). Root cause: next_session_date from API is a date-only string (YYYY-MM-DD), and new Date('2026-03-11').toLocaleTimeString() = '00:00' (midnight). For recurring SpotYous, the time should be extracted from event_schedule; for single-date, from event_date.",
+        "selector": "formatNextDate function in spot-me.tsx line 16-28",
+        "priority": "LOW (doesn't affect planning logic, just display on spot-me page)"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_planning_logic_iter67.py",
+    "/app/test_reports/pytest/iter67_planning.xml"
+  ],
+  "action_items": [
+    "OPTIONAL FIX: spot-me.tsx formatNextDate() should extract time from event_schedule (for recurring) or event_date (for single-date) instead of relying on next_session_date which is date-only. Example fix: for recurring, iterate event_schedule.schedule[next_weekday] to get start time."
+  ],
+  "critical_code_review_comments": [
+    "Planning logic correctly uses spot_you_attendance JOIN instead of tag_point_participants — new behavior confirmed working.",
+    "get_next_session_date returns date-only (not datetime), so spot-me.tsx formatNextDate() always shows 00:00 for time. Minor cosmetic issue.",
+    "going_spot_you auto-joins community (adds to spot_you_participants) but not_going_spot_you only removes attendance, NOT membership — this is intentional behavior (per feature: only attendance affects planning).",
+    "Backend deduplication logic (seen set) in get_planning_events is correct and prevents duplicate entries.",
+    "Bookings fallback (scheduled_at → slot_date+start_time) working correctly for all tested bookings."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_planning_logic_iter67.py"
+  ],
+  "success_rate": {
+    "backend": "100% (22/22 tests pass)",
+    "frontend": "100% (all critical flows verified)"
+  },
+  "test_credentials": {
+    "user": "user@winek.app / WinekUser2024! (Thomas Dupont / user_demo001)"
+  },
+  "seed_data_creation": "Test left user_demo001 as 'going' to pt_demo014 (HIIT morning - Sceaux) from spot-me page Je participe test. Original state: going to pt_demo012 + pt_demo013.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Planning logic fully verified in iteration 67. Key: only spot_you_attendance with status=going appears in planning (not member-join). Backend 22/22 pass. Frontend: planning shows 2+1 SpotYou events correctly. SpotMe badge (green) for owner's own spots. Filter buttons (Tout/Événements/Réservations) work. Minor: spot-me.tsx shows '00:00' for event times (pre-existing display bug, not related to planning change).",
+  "test_results_detail": {
+    "TestPlanningReturnsOnlyAttendanceGoing": "5/5 PASS — GET /planning-events returns only attendance-based events, recurring events have precise session_date",
+    "TestJoinDoesNotAddToPlanning": "3/3 PASS — POST /join does NOT add to planning",
+    "TestGoingAddsToPlanning": "4/4 PASS — POST /going adds precise session, DELETE /going removes it",
+    "TestIsOwnForOwner": "2/2 PASS — is_own=True for owner, type=single for single-date SpotYou",
+    "TestBookingsStillAppear": "3/3 PASS — 7 booking events present with correct structure",
+    "TestSingleDateSpotYouPlanning": "2/2 PASS — single-date event has correct date, is_own=False for non-owner",
+    "TestGoingEndpointDetails": "3/3 PASS — session_date format correct, is_going=False on DELETE, join does not set is_going",
+    "FrontendFilters": "PASS — Événements filter hides bookings, Réservations filter hides SpotYou",
+    "FrontendGoingAddsToPlanning": "PASS — After Je participe on spot-you page, event appears in planning",
+    "FrontendNotGoingRemovesFromPlanning": "PASS — After Je participe plus, event removed from planning (SpotYou=2)",
+    "FrontendSpotMeGoingAddsToPlanning": "PASS — After Je participe from spot-me page, SpotMe event (green) appears in planning",
+    "FrontendSpotMeTimeDisplay": "MINOR BUG — '00:00' shown for all event times on spot-me page"
+  },
+  "rca_of_issue": "N/A — all planned features working correctly. Minor: spot-me.tsx formatNextDate(next_session_date) → new Date('2026-03-11') is midnight UTC → toLocaleTimeString()='00:00'. Fix: extract time from event_schedule.schedule[weekday][0].start for recurring events, or use event_date directly for single-date events (which has time component)."
+}
