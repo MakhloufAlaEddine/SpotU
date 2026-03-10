@@ -375,7 +375,21 @@ cd /app/backend && pytest tests/test_stripe_payment_iter50.py -v
 - Coach: coach@winek.app / WinekCoach2024!
 - User: user@winek.app / WinekUser2024!
 
-## Chat de groupe SpotYou — Contrôle d'accès (2026-03-10)
+## Modals de confirmation SpotYou (2026-03-10)
+### Nouveau composant partagé
+- `frontend/components/ConfirmActionModal.tsx` : bottom sheet animé (slide-up) avec icône colorée, titre, description, liste d'impacts (bullets), boutons Annuler / Confirmer
+
+### Intégration
+| Action | Titre modal | Style | Bullets |
+|--------|-------------|-------|---------|
+| Rejoindre | "Rejoindre ce SpotYou ?" | Primaire | Accès chat, notifs, profil visible |
+| Quitter | "Quitter le SpotYou ?" | Danger | Chat bloqué, plus de notifs, rejoindre possible |
+| Je participe | "Confirmer votre présence ?" | Primaire | Coach notifié, rappel avant séance |
+| Annuler participation | "Annuler votre participation ?" | Danger | Reste membre, coach informé |
+
+### Fichiers modifiés
+- `frontend/app/spot-you/[id].tsx` : toggleRSVP et toggleGoing remplacés par confirmation gated
+- `frontend/app/spot-me.tsx` : toggleGoing remplacé par confirmation gated
 ### Comportement implémenté
 | Statut | Bouton Groupe | Voir chat | Envoyer | Notifs push |
 |--------|---------------|-----------|---------|-------------|
