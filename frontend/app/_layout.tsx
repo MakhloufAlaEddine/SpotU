@@ -1,6 +1,6 @@
 import { Stack, useRouter, useSegments, useRootNavigationState } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Platform } from 'react-native';
+import { Platform, View } from 'react-native';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { RefreshProvider } from '../context/RefreshContext';
 import { LanguageProvider } from '../context/LanguageContext';
@@ -12,6 +12,7 @@ import {
   saveTokenToServer,
   setupNotificationResponseHandler,
 } from '../lib/push-notifications';
+import { OfflineBanner } from '../components/OfflineBanner';
 
 // Empêche le splash natif de disparaître automatiquement
 SplashScreen.preventAutoHideAsync();
@@ -77,40 +78,44 @@ export default function RootLayout() {
         <LocationProvider>
           <StatusBar style="light" />
           <NavigationGuard />
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: '#000000' }
-            }}
-          >
-            <Stack.Screen name="index" />
-            <Stack.Screen name="(auth)" />
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen
-              name="spot-you"
-              options={{
+          <View style={{ flex: 1 }}>
+            <Stack
+              screenOptions={{
                 headerShown: false,
-                presentation: 'card',
-                animation: 'slide_from_right'
+                contentStyle: { backgroundColor: '#000000' }
               }}
-            />
-            <Stack.Screen name="coach/[id]" />
-            <Stack.Screen name="booking/confirm" />
-            <Stack.Screen name="admin/index" />
-            <Stack.Screen
-              name="set-location"
-              options={{
-                headerShown: false,
-                presentation: 'modal',
-                animation: 'slide_from_bottom'
-              }}
-            />
-            <Stack.Screen name="create-service" />
-            <Stack.Screen name="spot-me" options={{ headerShown: false, animation: 'slide_from_right' }} />
-            <Stack.Screen name="planning" options={{ headerShown: false, animation: 'slide_from_right' }} />
-            <Stack.Screen name="saved" options={{ headerShown: false, animation: 'slide_from_right' }} />
-            <Stack.Screen name="events" options={{ headerShown: false, animation: 'slide_from_right' }} />
-          </Stack>
+            >
+              <Stack.Screen name="index" />
+              <Stack.Screen name="(auth)" />
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen
+                name="spot-you"
+                options={{
+                  headerShown: false,
+                  presentation: 'card',
+                  animation: 'slide_from_right'
+                }}
+              />
+              <Stack.Screen name="coach/[id]" />
+              <Stack.Screen name="booking/confirm" />
+              <Stack.Screen name="admin/index" />
+              <Stack.Screen
+                name="set-location"
+                options={{
+                  headerShown: false,
+                  presentation: 'modal',
+                  animation: 'slide_from_bottom'
+                }}
+              />
+              <Stack.Screen name="create-service" />
+              <Stack.Screen name="spot-me" options={{ headerShown: false, animation: 'slide_from_right' }} />
+              <Stack.Screen name="planning" options={{ headerShown: false, animation: 'slide_from_right' }} />
+              <Stack.Screen name="saved" options={{ headerShown: false, animation: 'slide_from_right' }} />
+              <Stack.Screen name="events" options={{ headerShown: false, animation: 'slide_from_right' }} />
+            </Stack>
+            {/* Bannière réseau globale — toujours au-dessus du contenu */}
+            <OfflineBanner />
+          </View>
         </LocationProvider>
       </LanguageProvider>
       </RefreshProvider>

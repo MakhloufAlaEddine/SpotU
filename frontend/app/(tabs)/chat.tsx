@@ -1,7 +1,7 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity,
-  StyleSheet, Image, RefreshControl,
+  StyleSheet, Image, RefreshControl, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -9,6 +9,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { api } from '../../lib/api';
 import { Conversation, useNotifications } from '../../lib/chat';
+import { buildCacheKey, cacheGet, cacheSet, isFresh, cacheAgeMinutes, getTtl, SCHEMA_VERSION } from '../../lib/cache';
+import { useAuth } from '../../context/AuthContext';
+import { StaleBanner, ErrorNoData } from '../../components/OfflineBanner';
+import { registerScreenRefresh } from '../../hooks/useNetwork';
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -109,8 +113,10 @@ function ConvItem({ item, currentUserId }: { item: Conversation; currentUserId: 
 }
 
 export default function ChatListScreen() {
+  const { user } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [screenState, setScreenState] = useState<'loading_initial' | 'ready_fresh' | 'ready_cached' | 'error_no_data'>('loading_initial');
+  const [staleMinutes, setStaleMinutes] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [currentUserId, setCurrentUserId] = useState('');
 
@@ -118,28 +124,52 @@ export default function ChatListScreen() {
   const { unreadTotal } = useNotifications();
 
   const load = useCallback(async (isRefresh = false) => {
+    const userId = user?.user_id;
+    const { buildCacheKey, cacheGet, cacheSet, isFresh, cacheAgeMinutes, getTtl, SCHEMA_VERSION } = require('../../lib/cache');
+    const convKey = buildCacheKey({ path: '/conversations', userId, schemaVersion: SCHEMA_VERSION });
+    const convTtl = getTtl('/conversations') ?? 2 * 60_000;
+
+    // 1. Cache immédiat sur le premier chargement
+    if (!isRefresh) {
+      const cached = await cacheGet(convKey);
+      if (cached) {
+        setConversations(Array.isArray(cached.data) ? cached.data : []);
+        const fresh = isFresh(cached);
+        setScreenState(fresh ? 'ready_fresh' : 'ready_cached');
+        setStaleMinutes(fresh ? null : cacheAgeMinutes(cached));
+        if (fresh) return;
+      }
+    }
+
     if (isRefresh) setRefreshing(true);
+
+    // 2. Fetch réseau
     try {
       const [me, convs] = await Promise.all([
         api.get<any>('/auth/me'),
         api.get<Conversation[]>('/conversations'),
       ]);
-      setCurrentUserId(me.user_id);
-      setConversations(convs || []);
+      const convList = convs || [];
+      setCurrentUserId(me.user_id || userId || '');
+      setConversations(convList);
+      setScreenState('ready_fresh');
+      setStaleMinutes(null);
+      await cacheSet(convKey, convList, convTtl);
     } catch {
+      if (conversations.length === 0) setScreenState('error_no_data');
+      else setScreenState('ready_cached');
     } finally {
-      setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [user?.user_id]);
 
-  // Rechargement à chaque fois que l'onglet prend le focus (retour depuis un chat)
-  useFocusEffect(
-    useCallback(() => { load(); }, [load])
-  );
+  // Enregistrement refresh progressif
+  useEffect(() => registerScreenRefresh('chat', () => load(true), 8), []);
 
-  // Rechargement en temps réel quand le total non-lus change (nouveau message reçu)
-  // useEffect avec unreadTotal pour détecter les changements WS
+  // Rechargement à chaque fois que l'onglet prend le focus
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  // Rechargement WS quand le total non-lus change
   const prevUnreadRef = React.useRef(unreadTotal);
   React.useEffect(() => {
     if (prevUnreadRef.current !== unreadTotal) {
@@ -167,7 +197,16 @@ export default function ChatListScreen() {
         </View>
       </SafeAreaView>
 
-      {conversations.length === 0 && !loading ? (
+      {/* Indicateur stale */}
+      {screenState === 'ready_cached' && <StaleBanner staleMinutes={staleMinutes} />}
+
+      {screenState === 'loading_initial' ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      ) : screenState === 'error_no_data' ? (
+        <ErrorNoData onRetry={() => load(true)} testID="chat-error-no-data" />
+      ) : conversations.length === 0 ? (
         <View style={st.empty}>
           <Ionicons name="chatbubbles-outline" size={56} color={Colors.muted} />
           <Text style={st.emptyTitle}>Aucune conversation</Text>

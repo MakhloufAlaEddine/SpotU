@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, RefreshControl, Dimensions, FlatList,
-  Image,
+  RefreshControl, Dimensions, FlatList,
+  Image, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -13,6 +13,9 @@ import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { useLocation } from '../../context/LocationContext';
 import { useAuth } from '../../context/AuthContext';
 import { haversineDistance, formatDistance } from '../../utils/distance';
+import { buildCacheKey, cacheGet, cacheSet, isFresh, cacheAgeMinutes, getTtl, SCHEMA_VERSION } from '../../lib/cache';
+import { StaleBanner, ErrorNoData } from '../../components/OfflineBanner';
+import { registerScreenRefresh } from '../../hooks/useNetwork';
 
 const { width: SW } = Dimensions.get('window');
 const HERO_H = 280;
@@ -278,7 +281,8 @@ export default function HomeScreen() {
   const { t } = useLang();
   const { user } = useAuth();
   const { location, loading: locLoading } = useLocation();
-  const [loading, setLoading] = useState(true);
+  const [screenState, setScreenState] = useState<'loading_initial' | 'ready_fresh' | 'ready_cached' | 'error_no_data'>('loading_initial');
+  const [staleMinutes, setStaleMinutes] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [SpotYou, setSpotYou] = useState<any[]>([]);
   const [services, setServices] = useState<any[]>([]);
@@ -297,6 +301,11 @@ export default function HomeScreen() {
     if (user) loadActivity();
   }, [user]);
 
+  // Enregistrement pour le refresh progressif au retour réseau (priorité max = écran actif)
+  useEffect(() => {
+    return registerScreenRefresh('home', () => loadData(true), 10);
+  }, [location.lat, location.lng]);
+
   // Auto-scroll
   useEffect(() => {
     const heroes = SpotYou.slice(0, 5);
@@ -311,16 +320,65 @@ export default function HomeScreen() {
     return () => { if (autoTimer.current) clearInterval(autoTimer.current); };
   }, [SpotYou]);
 
-  const loadData = async () => {
+  const loadData = async (isRefresh = false) => {
+    const latStr = String(location.lat);
+    const lngStr = String(location.lng);
+    const userId = user?.user_id;
+
+    const tpKey = buildCacheKey({ path: '/tag-points', params: { lat: latStr, lng: lngStr, radius: '50000' }, userId, schemaVersion: SCHEMA_VERSION });
+    const svcKey = buildCacheKey({ path: '/services', params: { lat: latStr, lng: lngStr, radius: '50000' }, userId, schemaVersion: SCHEMA_VERSION });
+    const tpTtl = getTtl('/tag-points')!;
+    const svcTtl = getTtl('/services')!;
+
+    // ── 1. Cache immédiat sur premier chargement ──────────────────────────────
+    if (!isRefresh) {
+      const [cachedTp, cachedSvc] = await Promise.all([cacheGet(tpKey), cacheGet(svcKey)]);
+      if (cachedTp || cachedSvc) {
+        if (cachedTp) setSpotYou(Array.isArray(cachedTp.data) ? cachedTp.data as any[] : []);
+        if (cachedSvc) setServices(Array.isArray(cachedSvc.data) ? cachedSvc.data as any[] : []);
+        const bothFresh = (cachedTp ? isFresh(cachedTp) : true) && (cachedSvc ? isFresh(cachedSvc) : true);
+        if (bothFresh) {
+          setScreenState('ready_fresh');
+          setStaleMinutes(null);
+          return; // Données fraîches — pas besoin de fetch
+        }
+        const oldestAge = Math.max(
+          cachedTp ? cacheAgeMinutes(cachedTp) : 0,
+          cachedSvc ? cacheAgeMinutes(cachedSvc) : 0,
+        );
+        setScreenState('ready_cached');
+        setStaleMinutes(oldestAge);
+        // Continuer pour rafraîchir en arrière-plan
+      }
+    }
+
+    if (isRefresh) setRefreshing(true);
+
+    // ── 2. Fetch réseau ───────────────────────────────────────────────────────
     try {
       const [nearby, svcs] = await Promise.all([
-        api.get(`/tag-points?lat=${location.lat}&lng=${location.lng}&radius=50000`).catch(() => []),
-        api.get(`/services?lat=${location.lat}&lng=${location.lng}&radius=50000`).catch(() => []),
+        api.get(`/tag-points?lat=${location.lat}&lng=${location.lng}&radius=50000`).catch(() => null),
+        api.get(`/services?lat=${location.lat}&lng=${location.lng}&radius=50000`).catch(() => null),
       ]);
-      setSpotYou(Array.isArray(nearby) ? nearby : []);
-      setServices(Array.isArray(svcs) ? svcs : []);
-    } catch {}
-    finally { setLoading(false); setRefreshing(false); }
+      if (nearby !== null) {
+        setSpotYou(Array.isArray(nearby) ? nearby : []);
+        await cacheSet(tpKey, nearby, tpTtl);
+      }
+      if (svcs !== null) {
+        setServices(Array.isArray(svcs) ? svcs : []);
+        await cacheSet(svcKey, svcs, svcTtl);
+      }
+      setScreenState('ready_fresh');
+      setStaleMinutes(null);
+    } catch {
+      // Si on n'a pas de données du tout → error_no_data
+      if (SpotYou.length === 0 && services.length === 0) {
+        setScreenState('error_no_data');
+      }
+      // Sinon on reste en ready_cached (données du cache déjà affichées)
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const loadActivity = async () => {
@@ -336,10 +394,12 @@ export default function HomeScreen() {
   };
 
   const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    loadData();
+    loadData(true);
     if (user) loadActivity();
   }, [location.lat, location.lng, user]);
+
+  const isLoading = screenState === 'loading_initial';
+  const isStale = screenState === 'ready_cached';
 
   const relativeTime = (iso: string): string => {
     const diff = (Date.now() - new Date(iso).getTime()) / 1000;
@@ -378,7 +438,12 @@ export default function HomeScreen() {
         </View>
       </SafeAreaView>
 
-      {loading ? <SkeletonScreen /> : (
+      {/* ── Bannière stale ── */}
+      {isStale && <StaleBanner staleMinutes={staleMinutes} />}
+
+      {isLoading ? <SkeletonScreen /> : screenState === 'error_no_data' ? (
+        <ErrorNoData onRetry={() => loadData(false)} testID="home-error-no-data" />
+      ) : (
         <ScrollView
           style={{ flex: 1 }}
           showsVerticalScrollIndicator={false}

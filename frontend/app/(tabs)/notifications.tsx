@@ -1,14 +1,18 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  ActivityIndicator, RefreshControl, Image,
+  RefreshControl, Image, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
 import { subscribeNewNotification } from '../../lib/chat';
+import { buildCacheKey, cacheGet, cacheSet, isFresh, cacheAgeMinutes, getTtl, SCHEMA_VERSION } from '../../lib/cache';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
+import { useAuth } from '../../context/AuthContext';
+import { StaleBanner, ErrorNoData } from '../../components/OfflineBanner';
+import { registerScreenRefresh } from '../../hooks/useNetwork';
 
 // ── Config visuelle par type ──────────────────────────────────────────────────
 const NOTIF_CFG: Record<string, { icon: any; color: string; bg: string; label: string }> = {
@@ -106,49 +110,69 @@ function NotifItem({ item, onPress }: { item: any; onPress: () => void }) {
 // ── Écran principal ───────────────────────────────────────────────────────────
 export default function NotificationsScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const [notifs, setNotifs]     = useState<any[]>([]);
-  const [loading, setLoading]   = useState(true);
+  const [screenState, setScreenState] = useState<'loading_initial' | 'ready_fresh' | 'ready_cached' | 'error_no_data'>('loading_initial');
+  const [staleMinutes, setStaleMinutes] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
+  const parseNotifs = (dbNotifs: any[]) => (Array.isArray(dbNotifs) ? dbNotifs.map(n => {
+    const d = n.data || {};
+    let action = '/planning';
+    if (d.point_id) action = `/spot-you/${d.point_id}`;
+    else if (d.service_id) action = `/service/${d.service_id}`;
+    else if (d.profile_id) action = `/user/${d.profile_id}`;
+    return {
+      id: n.id,
+      type: d.type === 'chat_message' ? 'chat_message' : (n.type || d.type || 'info'),
+      sender_name: d.sender_name || n.title || '',
+      sender_picture: d.sender_picture || '',
+      action_text: d.action_text || n.body || '',
+      content_title: d.content_title || '',
+      time: n.created_at || new Date().toISOString(),
+      action: d.type === 'chat_message' && d.conversationId ? `/chat/${d.conversationId}` : action,
+      read: n.read,
+    };
+  }) : []);
+
   const load = useCallback(async (isRefresh = false) => {
+    const userId = user?.user_id;
+    const notifKey = buildCacheKey({ path: '/users/me/notifications', userId, schemaVersion: SCHEMA_VERSION });
+    const notifTtl = getTtl('/users/me/notifications') ?? 60_000;
+
+    // 1. Cache immédiat
+    if (!isRefresh) {
+      const cached = await cacheGet(notifKey);
+      if (cached) {
+        const parsed = parseNotifs(cached.data as any[]);
+        setNotifs(parsed);
+        setUnreadCount(parsed.filter((n: any) => !n.read).length);
+        const fresh = isFresh(cached);
+        setScreenState(fresh ? 'ready_fresh' : 'ready_cached');
+        setStaleMinutes(fresh ? null : cacheAgeMinutes(cached));
+        if (fresh) return;
+      }
+    }
+
     if (isRefresh) setRefreshing(true);
+
+    // 2. Fetch réseau
     try {
-      const dbNotifs = await api.get<any[]>('/users/me/notifications').catch(() => []);
-
-      const notifList = Array.isArray(dbNotifs)
-        ? dbNotifs.map(n => {
-            const d = n.data || {};
-            let action = '/planning';
-            if (d.point_id) action = `/spot-you/${d.point_id}`;
-            else if (d.service_id) action = `/service/${d.service_id}`;
-            else if (d.profile_id) action = `/user/${d.profile_id}`;
-
-            return {
-              id: n.id,
-              type: d.type === 'chat_message' ? 'chat_message' : (n.type || d.type || 'info'),
-              sender_name: d.sender_name || n.title || '',
-              sender_picture: d.sender_picture || '',
-              action_text: d.action_text || n.body || '',
-              content_title: d.content_title || '',
-              time: n.created_at || new Date().toISOString(),
-              action: d.type === 'chat_message' && d.conversationId
-                ? `/chat/${d.conversationId}`
-                : action,
-              read: n.read,
-            };
-          })
-        : [];
-
+      const dbNotifs = await api.get<any[]>('/users/me/notifications');
+      const notifList = parseNotifs(dbNotifs);
       setNotifs(notifList);
       setUnreadCount(notifList.filter(n => !n.read).length);
+      setScreenState('ready_fresh');
+      setStaleMinutes(null);
+      await cacheSet(notifKey, dbNotifs, notifTtl);
     } catch {
-      setNotifs([]);
+      if (notifs.length === 0) setScreenState('error_no_data');
+      else setScreenState('ready_cached');
     } finally {
-      setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [user?.user_id]);
 
   const markAllRead = async () => {
     try {
@@ -174,6 +198,10 @@ export default function NotificationsScreen() {
     return subscribeNewNotification(() => load());
   }, [load]);
 
+  useEffect(() => {
+    return registerScreenRefresh('notifications', () => load(true), 8);
+  }, []);
+
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   return (
@@ -189,10 +217,14 @@ export default function NotificationsScreen() {
         </View>
       </SafeAreaView>
 
-      {loading ? (
+      {screenState === 'ready_cached' && <StaleBanner staleMinutes={staleMinutes} />}
+
+      {screenState === 'loading_initial' ? (
         <View style={s.center}>
           <ActivityIndicator size="large" color={Colors.primary} />
         </View>
+      ) : screenState === 'error_no_data' ? (
+        <ErrorNoData onRetry={() => load(true)} testID="notif-error-no-data" />
       ) : notifs.length === 0 ? (
         <View style={s.center} testID="empty-notifs">
           <Ionicons name="notifications-outline" size={56} color={Colors.muted} />

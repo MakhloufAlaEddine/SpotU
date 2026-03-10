@@ -46,19 +46,13 @@ class TestSpotYouCRUD:
         assert next_step, "Doit passer à l'étape suivante après avoir rempli le titre"
 
     def test_spotyou_detail_shows_rsvp_for_user(self, page: Page):
-        """Un utilisateur voit le bouton RSVP sur la page de détail d'un SpotYou."""
+        """Un utilisateur voit le bouton RSVP sur la page de détail d'un SpotYou récurrent."""
         login_fast(page, "user")
-        page.goto(APP_URL, timeout=NAV_TIMEOUT)
-        page.wait_for_timeout(4000)
-        first_hero = page.locator('[data-testid^="hero-card-"]').first
-        if first_hero.count() == 0:
-            first_hero = page.locator('[data-testid^="recent-row-"]').first
-        if first_hero.count() == 0:
-            pytest.skip("Aucun SpotYou disponible")
-        first_hero.click()
+        # Naviguer directement vers un SpotYou récurrent connu (pt_demo009 : owner=coach, récurrent)
+        page.goto(f"{APP_URL}/spot-you/pt_demo009", timeout=NAV_TIMEOUT)
         page.wait_for_timeout(3000)
         assert page.locator('[data-testid="rsvp-button"]').is_visible(), \
-            "Bouton RSVP doit être visible pour un utilisateur"
+            "Bouton RSVP doit être visible pour un utilisateur sur un SpotYou récurrent"
 
     def test_spotyou_detail_shows_vote_fab(self, page: Page):
         """La page de détail d'un SpotYou montre le FAB de vote pour un user."""

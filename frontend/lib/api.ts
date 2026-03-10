@@ -1,6 +1,8 @@
 import { storage } from './storage';
+import { AppNetworkError, classifyHttpError, classifyFetchError } from './network-error';
 
 const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+const REQUEST_TIMEOUT_MS = 10_000;
 
 async function request<T = any>(
   method: string,
@@ -11,23 +13,37 @@ async function request<T = any>(
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const res = await fetch(`${BASE_URL}/api${path}`, {
-    method,
-    headers,
-    body: data !== undefined ? JSON.stringify(data) : undefined,
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-  if (!res.ok) {
-    let detail = 'An error occurred';
-    try {
-      const err = await res.json();
-      detail = err.detail || detail;
-    } catch {}
-    throw new Error(detail);
+  try {
+    const res = await fetch(`${BASE_URL}/api${path}`, {
+      method,
+      headers,
+      body: data !== undefined ? JSON.stringify(data) : undefined,
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      let detail = 'Une erreur est survenue';
+      try {
+        const err = await res.json();
+        detail = err.detail || detail;
+      } catch {}
+      throw classifyHttpError(res.status, detail);
+    }
+
+    const text = await res.text();
+    return text ? JSON.parse(text) : null;
+  } catch (err: unknown) {
+    clearTimeout(timeoutId);
+    // Re-lancer les AppNetworkError telles quelles (HTTP 4xx/5xx)
+    if (err instanceof AppNetworkError) throw err;
+    // Classifier les erreurs réseau natives (offline, timeout, etc.)
+    throw classifyFetchError(err);
   }
-
-  const text = await res.text();
-  return text ? JSON.parse(text) : null;
 }
 
 export const api = {

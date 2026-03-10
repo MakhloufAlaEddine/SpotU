@@ -1,0 +1,85 @@
+{
+  "summary": "Iteration 69 — Protection réseau avancée. Tests des nouveaux modules (cache, network-error, api, OfflineBanner, StaleBanner) + regression complète. 23 nouveaux tests PASS. Bugs critiques corrigés dans notifications.tsx et map.tsx. Regression test_03 RSVP fixée.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/frontend/e2e/test_13_network_protection.py",
+    "/app/test_reports/pytest/iter69_network_protection.xml",
+    "/app/test_reports/pytest/iter69_regression.xml"
+  ],
+  "action_items": [
+    "MINOR: StaleBanner était importée dans notifications.tsx mais pas rendue — corrigé dans cette itération",
+    "INFO: TypeScript donne d'autres erreurs non-liées aux nouveaux modules (app/saved.tsx, bookings/received.tsx, app/_layout.tsx comparaison de type) — à traiter séparément si besoin"
+  ],
+  "critical_code_review_comments": [
+    "BUG CORRIGÉ: notifications.tsx ligne 220 utilisait `loading` (variable non définie) → corrigé en `screenState === 'loading_initial'`. Sans ce fix, les notifications n'affichaient jamais le spinner de chargement.",
+    "BUG CORRIGÉ: map.tsx utilisait `ActivityIndicator` (de react-native) mais ne l'importait pas → TS2304 compilé. Corrigé en ajoutant ActivityIndicator dans l'import.",
+    "TEST CORRIGÉ: test_03_spotyou.py::test_spotyou_detail_shows_rsvp_for_user — le test cliquait sur le 1er hero card (ordre variable) et vérifiait rsvp-button, mais le rsvp-button n'est visible que sur les SpotYous avec event_schedule (récurrents). Le test pointe désormais directement vers pt_demo009 (récurrent, owner=coach).",
+    "Autres erreurs TS dans la codebase (non liées aux nouveaux modules) : app/saved.tsx type mismatch FlatList, app/bookings/received.tsx null safety, app/(tabs)/create.tsx implicit any — à corriger par E1 dans une prochaine itération.",
+    "lib/api.ts: `return text ? JSON.parse(text) : null` retourne null|T, mais le type T ne peut pas être null selon TypeScript strict. TS2322 signalé — peut être résolu avec `as T` ou en changeant le type de retour.",
+    "hooks/useScreenData.ts: bien implémenté, stale-while-revalidate correct, erreurs auth non masquées par cache ✓",
+    "lib/cache.ts: buildCacheKey correctement implémenté, params triés alphabétiquement ✓, SCHEMA_VERSION=1 ✓",
+    "lib/network-error.ts: classification 401/403/5xx/offline/timeout correcte ✓, shouldFallbackToCache exclut auth_error et forbidden ✓",
+    "lib/api.ts: timeout 10s via AbortController ✓, clearTimeout dans les deux branches (normal + catch) ✓"
+  ],
+  "updated_files": [
+    "/app/frontend/app/(tabs)/notifications.tsx",
+    "/app/frontend/app/(tabs)/map.tsx",
+    "/app/frontend/e2e/test_03_spotyou.py",
+    "/app/frontend/e2e/test_13_network_protection.py"
+  ],
+  "success_rate": {
+    "backend": "100% (14 API tests PASS)",
+    "frontend": "100% (68 tests existants + 23 nouveaux = 91 PASS, 1 SKIP)"
+  },
+  "test_credentials": {
+    "admin": "admin@winek.app / WinekAdmin2024!",
+    "coach": "coach@winek.app / WinekCoach2024!",
+    "user": "user@winek.app / WinekUser2024!"
+  },
+  "seed_data_creation": "Aucune. Les tests régressent sur des données existantes (pt_demo009, pt_demo013, pt_demo014).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 69: 91 tests PASS (68 existants + 23 nouveaux), 1 SKIP. Bugs corrigés: (1) notifications.tsx `loading` → `screenState === 'loading_initial'` + StaleBanner ajouté, (2) map.tsx ActivityIndicator manquant dans imports. Test_03 RSVP fixed pour pointer vers pt_demo009 (SpotYou récurrent stable). Nouveaux tests dans test_13_network_protection.py: CacheKeyConstruction (6), NetworkErrorClassification (5), ApiTimeout (3), OfflineBanner (3), RSVPRegression (6). APP_URL = https://spotyou-chat-preview.preview.emergentagent.com. Commande: cd /app/frontend/e2e && EXPO_PUBLIC_BACKEND_URL=https://spotyou-chat-preview.preview.emergentagent.com python -m pytest -v. Autres erreurs TS dans la codebase (saved.tsx, bookings/received.tsx, create.tsx, _layout.tsx) — non liées aux nouveaux modules réseau, à traiter séparément.",
+  "test_results_detail": {
+    "test_01_auth.py": "6/6 PASS",
+    "test_02_home.py": "5/5 PASS",
+    "test_03_spotyou.py": "7/7 PASS (fix: RSVP test → pt_demo009 direct)",
+    "test_04_search.py": "4/4 PASS",
+    "test_05_chat.py": "4/4 PASS",
+    "test_06_notifications.py": "3/3 PASS",
+    "test_07_profile.py": "7/7 PASS",
+    "test_08_bookings.py": "1/1 PASS, 1 SKIP",
+    "test_09_upload.py": "7/7 PASS",
+    "test_10_image_deletion.py": "4/4 PASS",
+    "test_11_spotyou_rules.py": "10/10 PASS",
+    "test_12_spotme.py": "13/13 PASS",
+    "test_13_network_protection.py": "23/23 PASS — CacheKey(6), NetworkError(5), ApiTimeout(3), OfflineBanner(3), RSVPRegression(6)"
+  },
+  "bugs_fixed_this_iteration": [
+    {
+      "file": "frontend/app/(tabs)/notifications.tsx",
+      "bug": "Variable `loading` non définie utilisée en JSX → TypeError silencieux, pas de spinner de chargement",
+      "fix": "Remplacé par `screenState === 'loading_initial'` + ajout de `ErrorNoData` pour `error_no_data` + ajout `StaleBanner` pour `ready_cached`"
+    },
+    {
+      "file": "frontend/app/(tabs)/map.tsx",
+      "bug": "ActivityIndicator utilisé mais non importé depuis react-native → TS2304 compile error",
+      "fix": "Ajouté ActivityIndicator dans l'import react-native"
+    },
+    {
+      "file": "frontend/e2e/test_03_spotyou.py",
+      "bug": "test_spotyou_detail_shows_rsvp_for_user dépendait du 1er hero card de la home page (ordre variable). SpotYous non-récurrents n'ont pas de rsvp-button → FAIL intermittent",
+      "fix": "Navigation directe vers pt_demo009 (SpotYou récurrent stable, owner=coach)"
+    }
+  ],
+  "rca_of_issue": "Trois bugs introduits lors du refactoring réseau : 1) notifications.tsx a été refactorisé pour utiliser screenState mais l'ancienne variable `loading` a été laissée dans le JSX sans être mise à jour. 2) ActivityIndicator a été utilisé dans le nouveau code (activité récente) mais non ajouté aux imports. 3) Le test_03 dépendait de données variables (premier hero card) — avec les SpotYous non-récurrents créés par les tests d'upload, l'ordre des hero cards a changé."
+}

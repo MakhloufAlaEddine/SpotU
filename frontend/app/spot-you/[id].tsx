@@ -19,6 +19,8 @@ import { useRefresh } from '../../context/RefreshContext';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { haversineDistance, formatDistance } from '../../utils/distance';
 import { useClickSound } from '../../hooks/useClickSound';
+import { useNetwork } from '../../hooks/useNetwork';
+import { cacheInvalidate } from '../../lib/cache';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -338,6 +340,7 @@ export default function SpotYouDetail() {
   const { lang } = useLang();
   const { triggerProfileRefresh } = useRefresh();
   const { playClickSound } = useClickSound();
+  const { isOnline } = useNetwork();
 
   const [point, setPoint] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -612,12 +615,18 @@ export default function SpotYouDetail() {
       if (!res.is_member) setIsGoing(false);
       loadParticipants();
       if (res.is_member) loadActivity();
+      // Invalidation ciblée des caches impactés par ce changement de membership
+      await cacheInvalidate(['/tag-points', '/planning', '/conversations']);
     } catch (e: any) { Alert.alert('Erreur', e.message); }
     finally { setRsvpLoading(false); }
   };
 
   const toggleRSVP = () => {
     if (!user) { Alert.alert('Connexion requise', 'Connectez-vous pour participer.'); return; }
+    if (!isOnline) {
+      Alert.alert('Hors ligne', 'Impossible de rejoindre ou quitter un SpotYou sans connexion. Vérifiez votre réseau et réessayez.');
+      return;
+    }
     playClickSound();
     if (isMember) {
       showConfirm({
@@ -671,12 +680,18 @@ export default function SpotYouDetail() {
       loadActivity();
       loadGoingList();
       loadParticipants();
+      // Invalidation ciblée : la participation impacte planning et tag-points/mine
+      await cacheInvalidate(['/planning', '/tag-points/mine']);
     } catch (e: any) { Alert.alert('Erreur', e.message); }
     finally { setGoingLoading(false); }
   };
 
   const toggleGoing = () => {
     if (!user) { Alert.alert('Connexion requise', 'Connectez-vous pour vous inscrire à la séance.'); return; }
+    if (!isOnline) {
+      Alert.alert('Hors ligne', 'Impossible de s\'inscrire ou se désinscrire d\'une séance sans connexion. Vérifiez votre réseau et réessayez.');
+      return;
+    }
     playClickSound();
     if (isGoing) {
       showConfirm({
