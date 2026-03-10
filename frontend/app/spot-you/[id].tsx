@@ -806,7 +806,7 @@ export default function SpotYouDetail() {
 
             {/* Rejoindre + membres — intégrés dans la ligne rating */}
             {!isOwner && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginRight: 10 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
                 {participantsCount > 0 && (
                   <TouchableOpacity
                     onPress={() => setShowParticipants(true)}
@@ -841,15 +841,6 @@ export default function SpotYouDetail() {
                 </TouchableOpacity>
               </View>
             )}
-
-            {/* Stars rating */}
-            <TouchableOpacity style={st.ratingTap} onPress={!isOwner ? openVoteModal : undefined} testID="open-vote-modal-btn" disabled={isOwner}>
-              {[1,2,3,4,5].map(i => (
-                <Ionicons key={i} name={i <= Math.round(currentRating) ? 'star' : 'star-outline'}
-                  size={14} color={i <= Math.round(currentRating) ? Colors.star : Colors.muted} />
-              ))}
-              {currentVotes > 0 && <Text style={st.ratingCount}>{currentRating.toFixed(1)} ({currentVotes})</Text>}
-            </TouchableOpacity>
           </View>
 
           {/* Tags colorés */}
@@ -1157,7 +1148,12 @@ export default function SpotYouDetail() {
         {(currentVotes > 0) && (
           <View style={st.section}>
             <View style={st.reviewsHeader}>
-              <View style={st.reviewsBig}>
+              <TouchableOpacity
+                style={st.reviewsBig}
+                onPress={!isOwner ? openVoteModal : undefined}
+                disabled={isOwner}
+                testID="reviews-header-rating-tap"
+              >
                 <Text style={st.reviewsNum}>{currentRating.toFixed(1)}</Text>
                 <View>
                   <View style={{ flexDirection: 'row', gap: 2 }}>
@@ -1168,7 +1164,7 @@ export default function SpotYouDetail() {
                   </View>
                   <Text style={st.reviewsCountTxt}>{currentVotes} avis</Text>
                 </View>
-              </View>
+              </TouchableOpacity>
               <View style={{ flex: 1, paddingLeft: Spacing.md }}>
                 <RatingBars dist={ratingDist} total={currentVotes} />
               </View>
