@@ -554,6 +554,7 @@ export default function SpotYouDetail() {
     try {
       const data = await api.get(`/tag-points/${id}/participants`);
       setParticipants(data);
+      setParticipantsCount(data.length);
     } catch {}
     finally { setParticipantsLoading(false); }
   };
@@ -625,6 +626,7 @@ export default function SpotYouDetail() {
       if (res.participants_count !== undefined) setParticipantsCount(res.participants_count);
       loadActivity();
       loadGoingList();
+      loadParticipants();
     } catch (e: any) { Alert.alert('Erreur', e.message); }
     finally { setGoingLoading(false); }
   };
