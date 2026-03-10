@@ -48,6 +48,29 @@ Fonctionnalités : création/découverte de services et SpotYous, système de r�
 | 2026-03 | Rate limit login: 30/min | backend/routes/auth_routes.py |
 | 2026-03 | P0 Bugfix: Planning scroll TDZ bug | frontend/app/planning.tsx |
 
+### Phase 3 - MVP Booking Flow & Planning (2026-03)
+| Date | Fonctionnalité | Fichiers modifiés |
+|------|---------------|-------------------|
+| 2026-03 | MVP Booking: bouton unique "Réserver et payer maintenant" | frontend/app/booking/confirm.tsx |
+| 2026-03 | Fix Stripe polling (pas de webhooks) | backend/routes/payment_routes.py |
+| 2026-03 | Bookings dans Planning view | frontend/app/planning.tsx, backend/routes/tagpoint_routes.py |
+
+### Phase 4 - Système de Participation SpotYou (2026-03)
+| Date | Fonctionnalité | Fichiers modifiés |
+|------|---------------|-------------------|
+| 2026-03 | DB Migration: tables spot_you_participants + spot_you_attendance | backend/database.py |
+| 2026-03 | DB Migration: colonnes minimum_participants + maximum_participants sur tag_points | backend/database.py |
+| 2026-03 | API: POST/DELETE /spot-you/{id}/join et /leave | backend/routes/spot_you_routes.py |
+| 2026-03 | API: POST/DELETE /spot-you/{id}/going | backend/routes/spot_you_routes.py |
+| 2026-03 | API: GET /spot-you/{id}/members + /going | backend/routes/spot_you_routes.py |
+| 2026-03 | Backend: champs is_member, is_going, going_count, is_full, next_session_date dans GET /tag-points/{id} | backend/routes/tagpoint_routes.py |
+| 2026-03 | Frontend: Bouton "Rejoindre" + "Je viens" sur écran SpotYou | frontend/app/spot-you/[id].tsx |
+| 2026-03 | Frontend: Compteurs "X membres" et "X viennent" | frontend/app/spot-you/[id].tsx |
+| 2026-03 | Frontend: Badge "Complet" si capacité atteinte | frontend/app/spot-you/[id].tsx |
+| 2026-03 | Frontend: Section Capacité (min/max) dans stepper création | frontend/app/(tabs)/create.tsx |
+| 2026-03 | Worker: SpotYouNotifWorker (notifications post-séance + 3h avant) | backend/spot_you_notif_worker.py |
+| 2026-03 | Tests: 17/17 tests backend test_spotyou_participation.py | backend/tests/test_spotyou_participation.py |
+
 ### Phase 3 - Moteur de Monétisation (2026-03)
 | Date | Fonctionnalité | Fichiers modifiés |
 |------|---------------|-------------------|
