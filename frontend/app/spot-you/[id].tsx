@@ -819,8 +819,8 @@ export default function SpotYouDetail() {
 
             <View style={{ flex: 1 }} />
 
-            {/* Rejoindre + membres — uniquement pour les SpotYou récurrents */}
-            {!isOwner && !!point.event_schedule && (
+            {/* Rejoindre + membres — récurrents OU événement unique passé (pour pouvoir quitter) */}
+            {!isOwner && (!!point.event_schedule || (!point.event_schedule && !!point.event_date && new Date(point.event_date) < new Date())) && (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
                 {participantsCount > 0 && (
                   <TouchableOpacity
