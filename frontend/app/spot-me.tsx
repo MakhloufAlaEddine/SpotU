@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
 import { Colors, Spacing, Radius } from '../constants/Colors';
+import ConfirmActionModal, { ConfirmAction } from '../components/ConfirmActionModal';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -225,6 +226,11 @@ export default function MySpotYouScreen() {
   const [membersList, setMembersList] = useState<any[]>([]);
   const [membersLoading, setMembersLoading] = useState(false);
 
+  // Modal de confirmation
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
+  const [pendingCallback, setPendingCallback] = useState<(() => void) | null>(null);
+
   const loadPoints = async () => {
     try {
       const data = await api.get('/tag-points/mine');
@@ -248,20 +254,53 @@ export default function MySpotYouScreen() {
     finally { setMembersLoading(false); }
   };
 
-  const toggleGoing = async (item: any) => {
+  const toggleGoing = (item: any) => {
     if (!user) { Alert.alert('Connexion requise', 'Connectez-vous pour participer.'); return; }
-    setTogglingId(item.point_id);
-    try {
-      const res = item.is_going
-        ? await api.delete(`/spot-you/${item.point_id}/going`)
-        : await api.post(`/spot-you/${item.point_id}/going`, {});
-      setPoints(prev => prev.map(p =>
-        p.point_id === item.point_id
-          ? { ...p, is_going: res.is_going, going_count: res.going_count ?? p.going_count, is_full: res.is_full || false }
-          : p
-      ));
-    } catch (e: any) { Alert.alert('Erreur', e.message || 'Une erreur est survenue'); }
-    finally { setTogglingId(null); }
+    if (item.is_going) {
+      setConfirmAction({
+        title: 'Annuler votre participation ?',
+        description: 'Vous vous désinscrivez de la prochaine séance.',
+        icon: 'close-circle-outline',
+        iconColor: '#F59E0B',
+        iconBg: '#FFFBEB',
+        confirmLabel: 'Annuler ma participation',
+        confirmStyle: 'danger',
+        cancelLabel: 'Garder ma place',
+        bullets: [
+          'Vous restez créateur / membre de la communauté',
+          'Le coach sera informé de votre désistement',
+        ],
+      });
+    } else {
+      setConfirmAction({
+        title: 'Confirmer votre présence ?',
+        description: `Vous vous inscrivez à la prochaine séance «${item.title}».`,
+        icon: 'calendar-number-outline',
+        iconColor: Colors.primary,
+        iconBg: Colors.primaryLight,
+        confirmLabel: 'Je participe',
+        confirmStyle: 'primary',
+        bullets: [
+          'Les membres seront notifiés de votre présence',
+          'Vous recevrez un rappel avant la séance',
+        ],
+      });
+    }
+    setPendingCallback(() => async () => {
+      setTogglingId(item.point_id);
+      try {
+        const res = item.is_going
+          ? await api.delete(`/spot-you/${item.point_id}/going`)
+          : await api.post(`/spot-you/${item.point_id}/going`, {});
+        setPoints(prev => prev.map(p =>
+          p.point_id === item.point_id
+            ? { ...p, is_going: res.is_going, going_count: res.going_count ?? p.going_count, is_full: res.is_full || false }
+            : p
+        ));
+      } catch (e: any) { Alert.alert('Erreur', e.message || 'Une erreur est survenue'); }
+      finally { setTogglingId(null); }
+    });
+    setConfirmVisible(true);
   };
 
   return (
@@ -356,6 +395,17 @@ export default function MySpotYouScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Modal de confirmation (Je participe / Annuler) */}
+      <ConfirmActionModal
+        visible={confirmVisible}
+        action={confirmAction}
+        onConfirm={() => {
+          setConfirmVisible(false);
+          if (pendingCallback) pendingCallback();
+        }}
+        onCancel={() => setConfirmVisible(false)}
+      />
     </SafeAreaView>
   );
 }

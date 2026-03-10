@@ -9,6 +9,7 @@ import { useLocalSearchParams, useRouter, Stack, useFocusEffect } from 'expo-rou
 import { Ionicons } from '@expo/vector-icons';
 import { MapViewComponent } from '../../components/MapViewComponent';
 import { MarkdownText } from '../../components/RichTextInput';
+import ConfirmActionModal, { ConfirmAction } from '../../components/ConfirmActionModal';
 import { api } from '../../lib/api';
 import { getOrCreateConversation } from '../../lib/chat';
 import { useAuth } from '../../context/AuthContext';
@@ -590,7 +591,13 @@ export default function SpotYouDetail() {
     finally { setSubmitting(false); }
   };
 
-  const toggleRSVP = async () => {
+  const showConfirm = (action: ConfirmAction, cb: () => void) => {
+    setConfirmAction(action);
+    setPendingCallback(() => cb);
+    setConfirmVisible(true);
+  };
+
+  const doRSVP = async () => {
     if (!user) { Alert.alert('Connexion requise', 'Connectez-vous pour participer.'); return; }
     setRsvpLoading(true);
     try {
@@ -600,17 +607,51 @@ export default function SpotYouDetail() {
       setIsMember(res.is_member);
       setIsParticipant(res.is_member);
       setParticipantsCount(res.participants_count || participantsCount);
-      if (!res.is_member) {
-        setIsGoing(false);
-      }
+      if (!res.is_member) setIsGoing(false);
       loadParticipants();
       if (res.is_member) loadActivity();
     } catch (e: any) { Alert.alert('Erreur', e.message); }
     finally { setRsvpLoading(false); }
   };
 
-  const toggleGoing = async () => {
-    if (!user) { Alert.alert('Connexion requise', 'Connectez-vous pour vous inscrire à la séance.'); return; }
+  const toggleRSVP = () => {
+    if (!user) { Alert.alert('Connexion requise', 'Connectez-vous pour participer.'); return; }
+    if (isMember) {
+      showConfirm({
+        title: 'Quitter le SpotYou ?',
+        description: 'Vous êtes sur le point de quitter cette communauté.',
+        icon: 'person-remove-outline',
+        iconColor: '#EF4444',
+        iconBg: '#FEF2F2',
+        confirmLabel: 'Quitter',
+        confirmStyle: 'danger',
+        cancelLabel: 'Rester',
+        bullets: [
+          'Votre accès au chat de groupe sera suspendu',
+          'Vous ne recevrez plus de notifications de ce SpotYou',
+          'Vous pouvez rejoindre à nouveau à tout moment',
+        ],
+      }, doRSVP);
+    } else {
+      showConfirm({
+        title: 'Rejoindre ce SpotYou ?',
+        description: `Devenez membre de la communauté «${point?.title ?? 'ce SpotYou'}».`,
+        icon: 'people-outline',
+        iconColor: Colors.primary,
+        iconBg: Colors.primaryLight,
+        confirmLabel: 'Rejoindre',
+        confirmStyle: 'primary',
+        bullets: [
+          'Accès au chat de groupe',
+          'Notifications pour chaque nouvelle séance',
+          'Votre profil visible dans la liste des membres',
+        ],
+      }, doRSVP);
+    }
+  };
+
+  const doGoing = async () => {
+    if (!user) { Alert.alert('Connexion requise', 'Connectez-vous pour vous inscrire.'); return; }
     setGoingLoading(true);
     try {
       const res = isGoing
@@ -629,6 +670,40 @@ export default function SpotYouDetail() {
       loadParticipants();
     } catch (e: any) { Alert.alert('Erreur', e.message); }
     finally { setGoingLoading(false); }
+  };
+
+  const toggleGoing = () => {
+    if (!user) { Alert.alert('Connexion requise', 'Connectez-vous pour vous inscrire à la séance.'); return; }
+    if (isGoing) {
+      showConfirm({
+        title: 'Annuler votre participation ?',
+        description: 'Vous vous désinscrivez de la prochaine séance.',
+        icon: 'close-circle-outline',
+        iconColor: '#F59E0B',
+        iconBg: '#FFFBEB',
+        confirmLabel: 'Annuler ma participation',
+        confirmStyle: 'danger',
+        cancelLabel: 'Garder ma place',
+        bullets: [
+          'Vous restez membre de la communauté',
+          'Le coach sera informé de votre désistement',
+        ],
+      }, doGoing);
+    } else {
+      showConfirm({
+        title: 'Confirmer votre présence ?',
+        description: 'Vous vous inscrivez à la prochaine séance.',
+        icon: 'calendar-number-outline',
+        iconColor: Colors.primary,
+        iconBg: Colors.primaryLight,
+        confirmLabel: 'Je participe',
+        confirmStyle: 'primary',
+        bullets: [
+          'Le coach et les membres seront notifiés',
+          'Vous recevrez un rappel avant la séance',
+        ],
+      }, doGoing);
+    }
   };
 
   const openSimilar = async () => {
@@ -663,6 +738,10 @@ export default function SpotYouDetail() {
   };
 
   const [chatLoading, setChatLoading] = useState(false);
+  // État du modal de confirmation
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
+  const [pendingCallback, setPendingCallback] = useState<(() => void) | null>(null);
   const openPrivateChat = async () => {
     if (!user) { Alert.alert('', 'Connectez-vous pour envoyer un message'); return; }
     setChatLoading(true);
@@ -1526,6 +1605,17 @@ export default function SpotYouDetail() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Modal de confirmation (rejoindre/quitter/participer) */}
+      <ConfirmActionModal
+        visible={confirmVisible}
+        action={confirmAction}
+        onConfirm={() => {
+          setConfirmVisible(false);
+          if (pendingCallback) pendingCallback();
+        }}
+        onCancel={() => setConfirmVisible(false)}
+      />
     </View>
   );
 }
