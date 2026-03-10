@@ -28,7 +28,30 @@ Fonctionnalités : création/découverte de services et SpotYous, système de r�
 
 ## What's Been Implemented
 
-### Phase 4 - UX Feedback + E2E Tests Complets (2026-03)
+### Phase 5 - Protection réseau avancée (2026-03)
+| Date | Composant | Fichiers |
+|------|-----------|---------|
+| 2026-03 | `lib/cache.ts` — cache persistant (AsyncStorage + TTL + metadata) | NEW |
+| 2026-03 | `lib/network-error.ts` — classification offline/timeout/5xx/401/403 | NEW |
+| 2026-03 | `hooks/useNetwork.ts` — détection connectivité + refresh progressif | NEW |
+| 2026-03 | `hooks/useScreenData.ts` — ScreenState (loading_initial/ready_fresh/ready_cached/error_no_data) | NEW |
+| 2026-03 | `components/OfflineBanner.tsx` — bannière globale + StaleBanner + ErrorNoData | NEW |
+| 2026-03 | `lib/api.ts` — timeout 10s AbortController + classification erreurs | UPDATED |
+| 2026-03 | `app/_layout.tsx` — OfflineBanner globale | UPDATED |
+| 2026-03 | `app/(tabs)/map.tsx` — cache stale-while-revalidate + screenState | UPDATED |
+| 2026-03 | `app/(tabs)/chat.tsx` — cache + screenState + registerScreenRefresh | UPDATED |
+| 2026-03 | `app/(tabs)/notifications.tsx` — cache + screenState + registerScreenRefresh | UPDATED |
+| 2026-03 | `app/spot-you/[id].tsx` — guard offline mutations + cacheInvalidate ciblée | UPDATED |
+| 2026-03 | `@react-native-community/netinfo@12.0.1` installé | package.json |
+
+**Détails**:
+- Clé cache = méthode + path + params normalisés + userId + schemaVersion
+- Fallback cache JAMAIS pour 401/403 (erreurs auth toujours propagées)
+- Refresh progressif au retour réseau (écrans prioritaires d'abord, délai 350ms entre chaque)
+- Invalidation ciblée: join/leave → `/tag-points,/planning,/conversations` | going → `/planning,/tag-points/mine`
+- Actions offline (join, going) → message explicite, pas d'échec silencieux
+
+
 | Date | Fonctionnalité | Fichiers modifiés |
 |------|---------------|-------------------|
 | 2026-03 | Feedback sonore + haptic sur boutons principaux | frontend/hooks/useClickSound.ts, [id].tsx, spot-me.tsx |
