@@ -375,6 +375,16 @@ cd /app/backend && pytest tests/test_stripe_payment_iter50.py -v
 - Coach: coach@winek.app / WinekCoach2024!
 - User: user@winek.app / WinekUser2024!
 
+## Fix décalage d'un jour SpotYou ↔ Planning (2026-03-10)
+### Cause racine
+`get_next_session_date` comparait les heures de session (Paris local) avec `datetime.now(UTC)`.
+Entre H (heure Paris) et H+1 (UTC), le backend pensait que la session n'était pas encore passée
+alors que le frontend (qui utilise l'heure locale) la considérait comme terminée → 1 jour de décalage.
+
+### Fix
+- `spot_you_routes.py` : `get_next_session_date` utilise `ZoneInfo('Europe/Paris')` pour tout (date today + comparaison heure session)
+- `tagpoint_routes.py` : `get_planning_events` ajoute `AND a.session_date >= (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Paris')::date` pour n'afficher que les séances à venir
+
 ## Planning SpotYou — Basé sur présence uniquement (2026-03-10)
 ### Changement majeur de logique
 - **Avant** : être membre d'un SpotYou → TOUS les créneaux (récurrents/unique) dans le planning

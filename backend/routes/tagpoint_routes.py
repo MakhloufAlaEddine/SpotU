@@ -732,6 +732,7 @@ async def get_planning_events(request: Request):
 
     async with pool.acquire() as conn:
         # Uniquement les séances auxquelles l'utilisateur a confirmé sa présence
+        # et dont la date n'est pas encore passée (heure locale Paris)
         rows = await conn.fetch(
             """SELECT tp.point_id, tp.title, tp.event_date, tp.event_end_date, tp.event_schedule,
                       tp.image_url, tp.user_id as owner_id, u.name as owner_name,
@@ -741,7 +742,8 @@ async def get_planning_events(request: Request):
                JOIN spot_you_attendance a ON tp.point_id = a.spot_you_id
                LEFT JOIN users u ON tp.user_id = u.user_id
                WHERE a.user_id = $1 AND a.status = 'going' AND tp.active = TRUE
-                 AND (tp.is_public = TRUE OR tp.user_id = $1)""",
+                 AND (tp.is_public = TRUE OR tp.user_id = $1)
+                 AND a.session_date >= (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Paris')::date""",
             user["user_id"]
         )
 

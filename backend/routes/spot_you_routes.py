@@ -27,9 +27,13 @@ def get_next_session_date(point: dict) -> Optional[date_type]:
     Calcule la prochaine date de séance d'un SpotYou.
     Retourne None si aucune séance future n'est définie.
     Convention jours : 0=Lun … 6=Dim (identique au frontend).
+    Utilise le fuseau Paris (Europe/Paris) pour les comparaisons d'heures,
+    car les heures du schedule sont exprimées en heure locale Paris.
     """
-    now = datetime.now(timezone.utc)
-    today = now.date()
+    from zoneinfo import ZoneInfo
+    paris = ZoneInfo('Europe/Paris')
+    now_paris = datetime.now(paris)
+    today = now_paris.date()          # date locale Paris
 
     event_schedule = point.get("event_schedule")
     event_date = point.get("event_date")
@@ -75,9 +79,9 @@ def get_next_session_date(point: dict) -> Optional[date_type]:
 
             days_until = (day_idx - today_weekday) % 7
             if days_until == 0:
-                # Aujourd'hui : vérifier si l'heure est déjà passée
-                session_time = now.replace(hour=h, minute=m, second=0, microsecond=0)
-                if now >= session_time:
+                # Aujourd'hui : comparer en heure de Paris (les heures du schedule sont en heure locale)
+                session_time = now_paris.replace(hour=h, minute=m, second=0, microsecond=0)
+                if now_paris >= session_time:
                     days_until = 7
 
             candidate = today + timedelta(days=days_until)
