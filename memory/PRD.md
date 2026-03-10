@@ -375,6 +375,23 @@ cd /app/backend && pytest tests/test_stripe_payment_iter50.py -v
 - Coach: coach@winek.app / WinekCoach2024!
 - User: user@winek.app / WinekUser2024!
 
+## Chat de groupe SpotYou — Contrôle d'accès (2026-03-10)
+### Comportement implémenté
+| Statut | Bouton Groupe | Voir chat | Envoyer | Notifs push |
+|--------|---------------|-----------|---------|-------------|
+| Non-membre | Caché | Non | Non | Non |
+| Membre actif | Visible | Oui | Oui | Oui |
+| Ancien membre (a quitté) | — | Oui (lecture seule) | Non | Non |
+| Propriétaire | "Voir le groupe" | Oui | Oui | Oui |
+
+### Fichiers modifiés
+- `backend/database.py`: Migration `ALTER TABLE conversation_participants ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active'`
+- `backend/routes/spot_you_routes.py`: join → auto-add conversation_participants (status='active'); leave → UPDATE status='blocked'; going → idem join
+- `backend/routes/chat_routes.py`: WS check status='active'; push notif filter status='active'; _enrich_conversations ajoute is_blocked; create_or_get_conversation vérifie membership
+- `frontend/app/spot-you/[id].tsx`: Bouton "Groupe" conditionné sur `isMember`
+- `frontend/app/chat/[id].tsx`: Bannière de blocage si is_blocked=true
+- `frontend/lib/chat.ts`: Interface Conversation + is_blocked?: boolean
+
 ## Notes Techniques - Proxy Emergent Stripe
 Le proxy Emergent (`sk_test_emergent` → `https://integrations.emergentagent.com/stripe`) est utilisé pour les tests. Comportement connu :
 - `session.payment_intent = None` (le proxy ne retourne pas l'ID du PI)
