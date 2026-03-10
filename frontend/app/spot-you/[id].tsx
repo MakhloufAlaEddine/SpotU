@@ -908,7 +908,15 @@ export default function SpotYouDetail() {
                     </View>
                   </View>
                   {/* Barre d'action Je participe pour date unique */}
-                  {!isOwner && !isPast && (
+                  {!isOwner && (
+                    isPast ? (
+                      <View style={[st.eventActionBar, { justifyContent: 'flex-start', gap: 6 }]}>
+                        <Ionicons name="time-outline" size={13} color={Colors.muted} />
+                        <Text style={{ fontSize: 12, color: Colors.muted, fontStyle: 'italic' }}>
+                          Événement terminé · {formatEventDateFull(point.event_date)}
+                        </Text>
+                      </View>
+                    ) : (
                     <View style={st.eventActionBar}>
                       <TouchableOpacity
                         style={st.eventParticipantChip}
@@ -952,6 +960,7 @@ export default function SpotYouDetail() {
                         }
                       </TouchableOpacity>
                     </View>
+                    )
                   )}
                 </View>
               )}
