@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  ActivityIndicator, RefreshControl, Image, Alert,
+  ActivityIndicator, RefreshControl, Image, Alert, Modal, ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -34,11 +34,12 @@ function isPastDate(event_date: string | null, event_schedule: any): boolean {
 
 // ─── SpotMe Card ────────────────────────────────────────────────────────────
 
-function SpotCard({ item, onNavigate, onToggleGoing, togglingId }: {
+function SpotCard({ item, onNavigate, onToggleGoing, togglingId, onViewMembers }: {
   item: any;
   onNavigate: (id: string) => void;
   onToggleGoing: (item: any) => void;
   togglingId: string | null;
+  onViewMembers: (id: string, title: string) => void;
 }) {
   const isRecurring = !!item.event_schedule;
   const past = isPastDate(item.event_date, item.event_schedule);
@@ -101,13 +102,26 @@ function SpotCard({ item, onNavigate, onToggleGoing, togglingId }: {
             </View>
           )}
 
-          {/* Badges: visibility + participants */}
+          {/* Badges: visibility + membres cliquable */}
           <View style={st.metaBadgesRow}>
             {item.is_public === false && (
               <View style={st.badge}>
                 <Ionicons name="eye-off-outline" size={10} color={Colors.muted} />
                 <Text style={st.badgeText}>Masqué</Text>
               </View>
+            )}
+            {(item.participants_count > 0) && (
+              <TouchableOpacity
+                style={st.membersChip}
+                onPress={() => onViewMembers(item.point_id, item.title)}
+                testID={`members-chip-${item.point_id}`}
+              >
+                <Ionicons name="people-outline" size={11} color={Colors.primary} />
+                <Text style={st.membersChipText}>
+                  {item.participants_count} membre{item.participants_count > 1 ? 's' : ''}
+                </Text>
+                <Ionicons name="chevron-forward" size={10} color={Colors.primary} />
+              </TouchableOpacity>
             )}
           </View>
         </View>
@@ -206,6 +220,12 @@ export default function MySpotYouScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
+  // Modal membres
+  const [membersModal, setMembersModal] = useState(false);
+  const [membersTitle, setMembersTitle] = useState('');
+  const [membersList, setMembersList] = useState<any[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+
   const loadPoints = async () => {
     try {
       const data = await api.get('/tag-points/mine');
@@ -217,6 +237,18 @@ export default function MySpotYouScreen() {
   useEffect(() => { loadPoints(); }, []);
   const onRefresh = useCallback(() => { setRefreshing(true); loadPoints(); }, []);
 
+  const openMembersModal = async (pointId: string, title: string) => {
+    setMembersTitle(title);
+    setMembersList([]);
+    setMembersModal(true);
+    setMembersLoading(true);
+    try {
+      const data = await api.get(`/tag-points/${pointId}/participants`);
+      setMembersList(data || []);
+    } catch {}
+    finally { setMembersLoading(false); }
+  };
+
   const toggleGoing = async (item: any) => {
     if (!user) { Alert.alert('Connexion requise', 'Connectez-vous pour participer.'); return; }
     setTogglingId(item.point_id);
@@ -226,12 +258,7 @@ export default function MySpotYouScreen() {
         : await api.post(`/spot-you/${item.point_id}/going`, {});
       setPoints(prev => prev.map(p =>
         p.point_id === item.point_id
-          ? {
-              ...p,
-              is_going: res.is_going,
-              going_count: res.going_count ?? p.going_count,
-              is_full: res.is_full || false,
-            }
+          ? { ...p, is_going: res.is_going, going_count: res.going_count ?? p.going_count, is_full: res.is_full || false }
           : p
       ));
     } catch (e: any) { Alert.alert('Erreur', e.message || 'Une erreur est survenue'); }
@@ -262,6 +289,7 @@ export default function MySpotYouScreen() {
               onNavigate={id => router.push(`/spot-you/${id}` as any)}
               onToggleGoing={toggleGoing}
               togglingId={togglingId}
+              onViewMembers={openMembersModal}
             />
           )}
           contentContainerStyle={{ padding: Spacing.md, gap: 12, paddingBottom: 48 }}
@@ -278,6 +306,57 @@ export default function MySpotYouScreen() {
           }
         />
       )}
+
+      {/* Modal liste des membres */}
+      <Modal visible={membersModal} animationType="slide" transparent onRequestClose={() => setMembersModal(false)}>
+        <View style={st.modalOverlay}>
+          <TouchableOpacity style={st.modalBackdrop} activeOpacity={1} onPress={() => setMembersModal(false)} />
+          <View style={st.modalSheet}>
+            <View style={st.modalHeader}>
+              <View>
+                <Text style={st.modalTitle}>
+                  {membersLoading ? 'Chargement...' : `${membersList.length} membre${membersList.length > 1 ? 's' : ''}`}
+                </Text>
+                <Text style={st.modalSubtitle} numberOfLines={1}>{membersTitle}</Text>
+              </View>
+              <TouchableOpacity onPress={() => setMembersModal(false)} testID="close-members-modal">
+                <Ionicons name="close" size={22} color={Colors.foreground} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {membersLoading ? (
+                <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: 24 }} />
+              ) : membersList.length === 0 ? (
+                <Text style={st.emptyModalText}>Aucun membre pour l'instant</Text>
+              ) : (
+                membersList.map((m) => (
+                  <TouchableOpacity
+                    key={m.user_id}
+                    style={st.memberRow}
+                    onPress={() => { setMembersModal(false); router.push(`/user/${m.user_id}` as any); }}
+                    testID={`member-row-${m.user_id}`}
+                  >
+                    <View style={st.memberAvatar}>
+                      {m.picture
+                        ? <Image source={{ uri: m.picture }} style={{ width: '100%', height: '100%', borderRadius: 20 }} />
+                        : <Text style={st.memberAvatarLetter}>{m.name?.charAt(0)?.toUpperCase() || '?'}</Text>
+                      }
+                    </View>
+                    <Text style={st.memberName} numberOfLines={1}>{m.name}</Text>
+                    {m.role === 'coach' && (
+                      <View style={st.coachBadge}>
+                        <Text style={st.coachBadgeText}>Coach</Text>
+                      </View>
+                    )}
+                    <Ionicons name="chevron-forward" size={14} color={Colors.muted} style={{ marginLeft: 'auto' }} />
+                  </TouchableOpacity>
+                ))
+              )}
+              <View style={{ height: 24 }} />
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -394,6 +473,52 @@ const st = StyleSheet.create({
   goingBtnFull: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: '#F59E0B' },
   goingBtnText: { fontSize: 12, fontWeight: '700', color: Colors.background },
   pastText: { fontSize: 11, color: Colors.muted, fontStyle: 'italic' },
+
+  membersChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    backgroundColor: Colors.primary + '12',
+    borderRadius: Radius.full,
+    paddingHorizontal: 8, paddingVertical: 3,
+    borderWidth: 1, borderColor: Colors.primary + '30',
+  },
+  membersChipText: { fontSize: 11, fontWeight: '600', color: Colors.primary },
+
+  // Modal membres
+  modalOverlay: { flex: 1, justifyContent: 'flex-end' },
+  modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.4)' },
+  modalSheet: {
+    backgroundColor: Colors.card,
+    borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    maxHeight: '75%',
+    paddingBottom: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: Spacing.md, paddingVertical: Spacing.md,
+    borderBottomWidth: 1, borderBottomColor: Colors.border,
+  },
+  modalTitle: { fontSize: 16, fontWeight: '700', color: Colors.foreground },
+  modalSubtitle: { fontSize: 12, color: Colors.muted, marginTop: 2, maxWidth: 240 },
+  emptyModalText: { textAlign: 'center', color: Colors.muted, paddingVertical: 32, fontSize: 14 },
+  memberRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: Spacing.md, paddingVertical: 12,
+    borderBottomWidth: 1, borderBottomColor: Colors.border + '50',
+  },
+  memberAvatar: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: Colors.primary + '20',
+    alignItems: 'center', justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  memberAvatarLetter: { fontSize: 16, fontWeight: '700', color: Colors.primary },
+  memberName: { flex: 1, fontSize: 14, fontWeight: '600', color: Colors.foreground },
+  coachBadge: {
+    backgroundColor: Colors.primary + '15', borderRadius: 4,
+    paddingHorizontal: 6, paddingVertical: 2,
+    borderWidth: 1, borderColor: Colors.primary + '30',
+  },
+  coachBadgeText: { fontSize: 10, fontWeight: '600', color: Colors.primary },
 
   // Empty state
   empty: { alignItems: 'center', paddingTop: 80, gap: 12 },
