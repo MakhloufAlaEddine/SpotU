@@ -819,8 +819,8 @@ export default function SpotYouDetail() {
 
             <View style={{ flex: 1 }} />
 
-            {/* Rejoindre + membres — intégrés dans la ligne rating */}
-            {!isOwner && (
+            {/* Rejoindre + membres — uniquement pour les SpotYou récurrents */}
+            {!isOwner && !!point.event_schedule && (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
                 {participantsCount > 0 && (
                   <TouchableOpacity
@@ -882,29 +882,77 @@ export default function SpotYouDetail() {
           return (
             <View style={[st.dateCard, isPast && st.dateCardPast]}>
               {showOnce && (
-                <View style={st.dateRow}>
-                  <View style={[st.dateIconBox, isPast && st.dateIconBoxPast]}>
-                    <Ionicons name={isPast ? 'calendar-outline' : 'calendar'} size={20} color={isPast ? Colors.muted : Colors.primary} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Text style={[st.dateLabel, isPast && { color: Colors.muted }]}>
-                        {isPast ? 'Événement passé' : 'Prochain événement'}
-                      </Text>
-                      {isPast && (
-                        <View style={st.pastBadge}>
-                          <Text style={st.pastBadgeText}>Passé</Text>
-                        </View>
-                      )}
+                <View>
+                  <View style={st.dateRow}>
+                    <View style={[st.dateIconBox, isPast && st.dateIconBoxPast]}>
+                      <Ionicons name={isPast ? 'calendar-outline' : 'calendar'} size={20} color={isPast ? Colors.muted : Colors.primary} />
                     </View>
-                    <Text style={[st.dateValue, isPast && { color: Colors.muted }]}>
-                      {formatEventDate(point.event_date)}
-                      {point.event_end_date && (
-                        ` → ${new Date(point.event_end_date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
-                      )}
-                    </Text>
-                    <Text style={st.dateSub}>{formatEventDateFull(point.event_date)}</Text>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={[st.dateLabel, isPast && { color: Colors.muted }]}>
+                          {isPast ? 'Événement passé' : 'Prochain événement'}
+                        </Text>
+                        {isPast && (
+                          <View style={st.pastBadge}>
+                            <Text style={st.pastBadgeText}>Passé</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={[st.dateValue, isPast && { color: Colors.muted }]}>
+                        {formatEventDate(point.event_date)}
+                        {point.event_end_date && (
+                          ` → ${new Date(point.event_end_date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+                        )}
+                      </Text>
+                      <Text style={st.dateSub}>{formatEventDateFull(point.event_date)}</Text>
+                    </View>
                   </View>
+                  {/* Barre d'action Je participe pour date unique */}
+                  {!isOwner && !isPast && (
+                    <View style={st.eventActionBar}>
+                      <TouchableOpacity
+                        style={st.eventParticipantChip}
+                        onPress={() => setShowGoingList(true)}
+                        testID="event-participant-count"
+                      >
+                        <Ionicons name="people-outline" size={14} color={Colors.primary} />
+                        <Text style={st.eventParticipantChipText}>
+                          {goingCount} {goingCount > 1 ? 'participants' : 'participant'}
+                          {maxParticipants ? ` / ${maxParticipants}` : ''}
+                        </Text>
+                        <Ionicons name="chevron-forward" size={12} color={Colors.primary} />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          st.goingBtnInline,
+                          isGoing && st.goingBtnInlineActive,
+                          (isFull && !isGoing) && st.goingBtnInlineDisabled,
+                        ]}
+                        onPress={(isFull && !isGoing) ? undefined : toggleGoing}
+                        disabled={goingLoading || (isFull && !isGoing)}
+                        testID="going-button"
+                      >
+                        {goingLoading
+                          ? <ActivityIndicator color={isGoing ? Colors.primary : Colors.background} size="small" />
+                          : (isFull && !isGoing)
+                            ? <>
+                                <Ionicons name="flash" size={12} color="#F59E0B" />
+                                <Text style={[st.goingBtnInlineText, { color: '#F59E0B' }]}>Complet</Text>
+                              </>
+                            : <>
+                                <Ionicons
+                                  name={isGoing ? 'checkmark-circle' : 'add-circle-outline'}
+                                  size={13}
+                                  color={isGoing ? Colors.primary : Colors.background}
+                                />
+                                <Text style={[st.goingBtnInlineText, isGoing && { color: Colors.primary }]}>
+                                  {isGoing ? 'Je participe ✓' : 'Je participe'}
+                                </Text>
+                              </>
+                        }
+                      </TouchableOpacity>
+                    </View>
+                  )}
                 </View>
               )}
               {showRecurring && (() => {
