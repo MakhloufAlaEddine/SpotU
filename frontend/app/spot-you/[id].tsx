@@ -344,6 +344,9 @@ export default function SpotYouDetail() {
   const [showAllVotes, setShowAllVotes] = useState(false);
   const [showSimilar, setShowSimilar] = useState(false);
   const [showParticipants, setShowParticipants] = useState(false);
+  const [showGoingList, setShowGoingList] = useState(false);
+  const [goingList, setGoingList] = useState<any[]>([]);
+  const [goingListLoading, setGoingListLoading] = useState(false);
   const [similar, setSimilar] = useState<any[]>([]);
   const [loadingSimilar, setLoadingSimilar] = useState(false);
   const [myVote, setMyVote] = useState<{ rating: number; comment: string | null } | null>(null);
@@ -374,13 +377,13 @@ export default function SpotYouDetail() {
   const [ownerActionLoading, setOwnerActionLoading] = useState(false);
 
   useEffect(() => {
-    if (id) { loadPoint(); loadVotes(); loadParticipants(); if (user) loadMyVote(); }
+    if (id) { loadPoint(); loadVotes(); loadParticipants(); loadGoingList(); if (user) loadMyVote(); }
   }, [id, user]);
 
   // Reload data when screen comes back into focus (e.g. after editing)
   useFocusEffect(
     useCallback(() => {
-      if (id) { loadPoint(); if (user) loadMyVote(); loadVotes(); loadParticipants(); }
+      if (id) { loadPoint(); if (user) loadMyVote(); loadVotes(); loadParticipants(); loadGoingList(); }
     }, [id, user])
   );
 
@@ -555,6 +558,15 @@ export default function SpotYouDetail() {
     finally { setParticipantsLoading(false); }
   };
 
+  const loadGoingList = async () => {
+    setGoingListLoading(true);
+    try {
+      const data = await api.get(`/spot-you/${id}/going`);
+      setGoingList(data.going || []);
+    } catch {}
+    finally { setGoingListLoading(false); }
+  };
+
   const openVoteModal = () => {
     setPendingStar(myVote?.rating || 0);
     setComment(myVote?.comment || '');
@@ -612,6 +624,7 @@ export default function SpotYouDetail() {
       }
       if (res.participants_count !== undefined) setParticipantsCount(res.participants_count);
       loadActivity();
+      loadGoingList();
     } catch (e: any) { Alert.alert('Erreur', e.message); }
     finally { setGoingLoading(false); }
   };
@@ -914,11 +927,11 @@ export default function SpotYouDetail() {
                         <Text style={st.dateValue}>{nextLabel}</Text>
                       </View>
                     </View>
-                    {/* Barre d'action : participants (cliquable) + Je participe */}
+                    {/* Barre d'action : participants séance (cliquable) + Je participe */}
                     <View style={st.eventActionBar}>
                       <TouchableOpacity
                         style={st.eventParticipantChip}
-                        onPress={() => setShowParticipants(true)}
+                        onPress={() => setShowGoingList(true)}
                         testID="event-participant-count"
                       >
                         <Ionicons name="people-outline" size={14} color={Colors.primary} />
@@ -1308,7 +1321,7 @@ export default function SpotYouDetail() {
           <View style={[ms.sheet, { maxHeight: '75%' }]}>
             <View style={ms.header}>
               <Text style={ms.title}>
-                {participants.length} participant{participants.length > 1 ? 's' : ''}
+                {participants.length} membre{participants.length > 1 ? 's' : ''}
               </Text>
               <TouchableOpacity onPress={() => setShowParticipants(false)} testID="close-participants-modal">
                 <Ionicons name="close" size={22} color={Colors.foreground} />
@@ -1356,6 +1369,69 @@ export default function SpotYouDetail() {
                       </TouchableOpacity>
                     );
                   })
+              }
+              <View style={{ height: 24 }} />
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal — Liste inscrits prochaine séance */}
+      <Modal visible={showGoingList} animationType="slide" transparent onRequestClose={() => setShowGoingList(false)}>
+        <View style={ms.overlay}>
+          <TouchableOpacity style={ms.backdrop} activeOpacity={1} onPress={() => setShowGoingList(false)} />
+          <View style={[ms.sheet, { maxHeight: '75%' }]}>
+            <View style={ms.header}>
+              <View>
+                <Text style={ms.title}>
+                  {goingList.length} participant{goingList.length > 1 ? 's' : ''}
+                </Text>
+                <Text style={{ fontSize: 11, color: Colors.muted, marginTop: 1 }}>Inscrits à la prochaine séance</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowGoingList(false)} testID="close-going-modal">
+                <Ionicons name="close" size={22} color={Colors.foreground} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {goingListLoading
+                ? <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: 24 }} />
+                : goingList.length === 0
+                  ? <Text style={{ textAlign: 'center', color: Colors.muted, paddingVertical: 32, fontSize: 14 }}>
+                      Aucun inscrit pour l'instant
+                    </Text>
+                  : goingList.map((p) => {
+                      const isMe = !!(user && user.user_id === p.user_id);
+                      return (
+                        <TouchableOpacity
+                          key={p.user_id}
+                          style={ps.row}
+                          activeOpacity={0.75}
+                          onPress={() => { setShowGoingList(false); router.push(`/user/${p.user_id}` as any); }}
+                          testID={`going-modal-${p.user_id}`}
+                        >
+                          <View style={ps.avatar}>
+                            {p.picture
+                              ? <Image source={{ uri: p.picture }} style={{ width: '100%', height: '100%' }} />
+                              : <Text style={ps.avatarLetter}>{p.name?.charAt(0)?.toUpperCase() || '?'}</Text>
+                            }
+                          </View>
+                          <Text style={ps.name} numberOfLines={1}>{p.name}</Text>
+                          <View style={ps.badges}>
+                            {isMe && (
+                              <View style={ps.badgeYou}>
+                                <Text style={ps.badgeYouTxt}>Vous</Text>
+                              </View>
+                            )}
+                            {p.role === 'coach' && (
+                              <View style={ps.badgeCoach}>
+                                <Text style={ps.badgeCoachTxt}>Coach</Text>
+                              </View>
+                            )}
+                          </View>
+                          <Ionicons name="chevron-forward" size={14} color={Colors.muted} />
+                        </TouchableOpacity>
+                      );
+                    })
               }
               <View style={{ height: 24 }} />
             </ScrollView>
