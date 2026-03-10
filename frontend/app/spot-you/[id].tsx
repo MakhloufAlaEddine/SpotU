@@ -1603,7 +1603,7 @@ const st = StyleSheet.create({
   chatRow: { flexDirection: 'row', gap: Spacing.sm, paddingHorizontal: Spacing.md, marginBottom: Spacing.sm },
   chatBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: Colors.card, paddingVertical: 9, borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.border },
   chatBtnText: { fontSize: 13, fontWeight: '600', color: Colors.foreground },
-  eventActionBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingLeft: 76, paddingRight: Spacing.md, paddingBottom: Spacing.md, paddingTop: 4 },
+  eventActionBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingLeft: 76, paddingRight: Spacing.md, paddingBottom: Spacing.sm, paddingTop: 0 },
   eventParticipantChip: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: Colors.primary + '15', borderRadius: Radius.full, paddingHorizontal: 11, paddingVertical: 6, borderWidth: 1, borderColor: Colors.primary + '40' },
   eventParticipantChipText: { fontSize: 12, fontWeight: '700', color: Colors.primary },
   countersRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
