@@ -16,15 +16,37 @@ import ConfirmActionModal, { ConfirmAction } from '../components/ConfirmActionMo
 function formatNextDate(next_session_date: string | null, event_date: string | null, event_schedule: any): string {
   const src = next_session_date || event_date;
   if (!src) return '';
+
   const d = new Date(src);
   const now = new Date();
-  const diffDays = Math.floor((d.getTime() - now.setHours(0,0,0,0)) / 86400000);
+  const diffDays = Math.floor((d.getTime() - new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) / 86400000);
   let prefix = '';
   if (diffDays === 0) prefix = "Aujourd'hui";
   else if (diffDays === 1) prefix = 'Demain';
   else prefix = d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
-  const time = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-  return `${prefix} · ${time}`;
+
+  // Récupérer l'heure depuis event_schedule (récurrent) ou event_date (date unique)
+  let timeStr = '';
+  if (event_schedule && next_session_date) {
+    // Extraire l'heure du planning pour le jour de la semaine de next_session_date
+    try {
+      const sched = typeof event_schedule === 'string' ? JSON.parse(event_schedule) : event_schedule;
+      const weekday = d.getDay(); // 0=Dim..6=Sam (JS)
+      // Conversion JS Sunday=0 → Python Monday=0 convention
+      const pyWeekday = weekday === 0 ? 6 : weekday - 1;
+      const slots = sched?.schedule?.[String(pyWeekday)] || [];
+      const firstSlot = Array.isArray(slots) ? slots[0] : slots;
+      timeStr = firstSlot?.start || '';
+    } catch (_) {}
+  } else if (event_date) {
+    // Événement date unique : extraire l'heure depuis event_date (datetime ISO)
+    const dt = new Date(event_date);
+    const h = dt.getHours().toString().padStart(2, '0');
+    const m = dt.getMinutes().toString().padStart(2, '0');
+    timeStr = `${h}:${m}`;
+  }
+
+  return timeStr ? `${prefix} · ${timeStr}` : prefix;
 }
 
 function isPastDate(event_date: string | null, event_schedule: any): boolean {

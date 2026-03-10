@@ -375,6 +375,22 @@ cd /app/backend && pytest tests/test_stripe_payment_iter50.py -v
 - Coach: coach@winek.app / WinekCoach2024!
 - User: user@winek.app / WinekUser2024!
 
+## Planning SpotYou — Basé sur présence uniquement (2026-03-10)
+### Changement majeur de logique
+- **Avant** : être membre d'un SpotYou → TOUS les créneaux (récurrents/unique) dans le planning
+- **Maintenant** : UNIQUEMENT les séances cochées via "Je participe" apparaissent
+
+### Fichier modifié
+- `backend/routes/tagpoint_routes.py` : `get_planning_events` — remplace `JOIN tag_point_participants` par `JOIN spot_you_attendance WHERE status='going'`. Pour les récurrents : utilise `session_date` de l'attendance (date précise, pas génération exhaustive)
+- `frontend/app/spot-me.tsx` : `formatNextDate` corrigé pour extraire l'heure depuis `event_schedule` (récurrents) ou `event_date` (date unique), au lieu d'afficher "00:00"
+
+### Comportement résultant
+| Action | Planning |
+|--------|---------|
+| Rejoindre SpotYou | Aucun effet sur planning |
+| "Je participe" session X | Session X ajoutée au planning |
+| "Je participe plus" session X | Session X retirée du planning |
+
 ## Modals de confirmation SpotYou (2026-03-10)
 ### Nouveau composant partagé
 - `frontend/components/ConfirmActionModal.tsx` : bottom sheet animé (slide-up) avec icône colorée, titre, description, liste d'impacts (bullets), boutons Annuler / Confirmer
