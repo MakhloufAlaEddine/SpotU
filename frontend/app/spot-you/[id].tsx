@@ -819,6 +819,21 @@ export default function SpotYouDetail() {
 
             <View style={{ flex: 1 }} />
 
+            {/* Chip membres pour le propriétaire — toujours visible */}
+            {isOwner && (
+              <TouchableOpacity
+                onPress={() => setShowParticipants(true)}
+                testID="owner-members-count"
+                style={st.membersChipInline}
+              >
+                <Ionicons name="people-outline" size={12} color={Colors.muted} />
+                <Text style={st.membersChipInlineText}>
+                  {Math.max(participantsCount, 1)} membre{Math.max(participantsCount, 1) > 1 ? 's' : ''}
+                </Text>
+                <Ionicons name="chevron-forward" size={10} color={Colors.muted} />
+              </TouchableOpacity>
+            )}
+
             {/* Rejoindre + membres — récurrents OU événement unique passé (pour pouvoir quitter) */}
             {!isOwner && (!!point.event_schedule || (!point.event_schedule && !!point.event_date && new Date(point.event_date) < new Date())) && (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
