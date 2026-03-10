@@ -908,15 +908,14 @@ export default function SpotYouDetail() {
                     </View>
                   </View>
                   {/* Barre d'action Je participe pour date unique */}
-                  {!isOwner && (
-                    isPast ? (
-                      <View style={[st.eventActionBar, { justifyContent: 'flex-start', gap: 6 }]}>
-                        <Ionicons name="time-outline" size={13} color={Colors.muted} />
-                        <Text style={{ fontSize: 12, color: Colors.muted, fontStyle: 'italic' }}>
-                          Événement terminé · {formatEventDateFull(point.event_date)}
-                        </Text>
-                      </View>
-                    ) : (
+                  {isPast ? (
+                    <View style={[st.eventActionBar, { justifyContent: 'flex-start', gap: 6 }]}>
+                      <Ionicons name="time-outline" size={13} color={Colors.muted} />
+                      <Text style={{ fontSize: 12, color: Colors.muted, fontStyle: 'italic' }}>
+                        Événement terminé · {formatEventDateFull(point.event_date)}
+                      </Text>
+                    </View>
+                  ) : (
                     <View style={st.eventActionBar}>
                       <TouchableOpacity
                         style={st.eventParticipantChip}
@@ -960,7 +959,6 @@ export default function SpotYouDetail() {
                         }
                       </TouchableOpacity>
                     </View>
-                    )
                   )}
                 </View>
               )}
@@ -1000,37 +998,35 @@ export default function SpotYouDetail() {
                         </Text>
                         <Ionicons name="chevron-forward" size={12} color={Colors.primary} />
                       </TouchableOpacity>
-                      {!isOwner && (
-                        <TouchableOpacity
-                          style={[
-                            st.goingBtnInline,
-                            isGoing && st.goingBtnInlineActive,
-                            (isFull && !isGoing) && st.goingBtnInlineDisabled,
-                          ]}
-                          onPress={(isFull && !isGoing) ? undefined : toggleGoing}
-                          disabled={goingLoading || (isFull && !isGoing)}
-                          testID="going-button"
-                        >
-                          {goingLoading
-                            ? <ActivityIndicator color={isGoing ? Colors.primary : Colors.background} size="small" />
-                            : (isFull && !isGoing)
-                              ? <>
-                                  <Ionicons name="flash" size={12} color="#F59E0B" />
-                                  <Text style={[st.goingBtnInlineText, { color: '#F59E0B' }]}>Complet</Text>
-                                </>
-                              : <>
-                                  <Ionicons
-                                    name={isGoing ? 'checkmark-circle' : 'add-circle-outline'}
-                                    size={13}
-                                    color={isGoing ? Colors.primary : Colors.background}
-                                  />
-                                  <Text style={[st.goingBtnInlineText, isGoing && { color: Colors.primary }]}>
-                                    {isGoing ? 'Je participe ✓' : 'Je participe'}
-                                  </Text>
-                                </>
-                          }
-                        </TouchableOpacity>
-                      )}
+                      <TouchableOpacity
+                        style={[
+                          st.goingBtnInline,
+                          isGoing && st.goingBtnInlineActive,
+                          (isFull && !isGoing) && st.goingBtnInlineDisabled,
+                        ]}
+                        onPress={(isFull && !isGoing) ? undefined : toggleGoing}
+                        disabled={goingLoading || (isFull && !isGoing)}
+                        testID="going-button"
+                      >
+                        {goingLoading
+                          ? <ActivityIndicator color={isGoing ? Colors.primary : Colors.background} size="small" />
+                          : (isFull && !isGoing)
+                            ? <>
+                                <Ionicons name="flash" size={12} color="#F59E0B" />
+                                <Text style={[st.goingBtnInlineText, { color: '#F59E0B' }]}>Complet</Text>
+                              </>
+                            : <>
+                                <Ionicons
+                                  name={isGoing ? 'checkmark-circle' : 'add-circle-outline'}
+                                  size={13}
+                                  color={isGoing ? Colors.primary : Colors.background}
+                                />
+                                <Text style={[st.goingBtnInlineText, isGoing && { color: Colors.primary }]}>
+                                  {isGoing ? 'Je participe ✓' : 'Je participe'}
+                                </Text>
+                              </>
+                        }
+                      </TouchableOpacity>
                     </View>
                     {/* Per-day schedule table */}
                     {rec.perDay && rec.perDay.length > 0 && (
