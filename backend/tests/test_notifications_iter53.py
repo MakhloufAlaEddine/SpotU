@@ -45,7 +45,7 @@ import pytest
 import requests
 
 DB_URL   = "postgresql://winek:winek2024@127.0.0.1/winek_db"
-BASE_URL = "https://reserve-pay-now.preview.emergentagent.com"
+BASE_URL = "https://activity-feed-demo.preview.emergentagent.com"
 
 USER_EMAIL  = "user@winek.app"
 USER_PASS   = "WinekUser2024!"

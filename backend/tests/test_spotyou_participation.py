@@ -18,7 +18,7 @@ import uuid
 import json
 
 # URL de l'API
-API_BASE = "https://reserve-pay-now.preview.emergentagent.com/api"
+API_BASE = "https://activity-feed-demo.preview.emergentagent.com/api"
 
 # Credentials
 COACH_EMAIL = "coach@winek.app"

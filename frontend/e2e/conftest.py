@@ -7,7 +7,7 @@ import os
 from playwright.sync_api import Page
 
 # ─── Configuration ─────────────────────────────────────────────────────────────
-APP_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://reserve-pay-now.preview.emergentagent.com")
+APP_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://activity-feed-demo.preview.emergentagent.com")
 API_URL = APP_URL
 
 CREDENTIALS = {

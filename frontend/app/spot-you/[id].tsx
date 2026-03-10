@@ -878,15 +878,22 @@ export default function SpotYouDetail() {
                           </View>
                         </View>
                         <Text style={st.dateValue}>{nextLabel}</Text>
-                        {/* Compteur participants séance */}
-                        {goingCount > 0 && (
-                          <Text style={st.goingCountInline}>
-                            {goingCount} {goingCount > 1 ? 'participants' : 'participant'}
-                            {maxParticipants ? ` / ${maxParticipants}` : ''}
-                          </Text>
-                        )}
                       </View>
-                      {/* Bouton Je participe — seulement si pas propriétaire */}
+                    </View>
+                    {/* Barre d'action : participants (cliquable) + Je participe */}
+                    <View style={st.eventActionBar}>
+                      <TouchableOpacity
+                        style={st.eventParticipantChip}
+                        onPress={() => setShowParticipants(true)}
+                        testID="event-participant-count"
+                      >
+                        <Ionicons name="people-outline" size={14} color={Colors.primary} />
+                        <Text style={st.eventParticipantChipText}>
+                          {goingCount} {goingCount > 1 ? 'participants' : 'participant'}
+                          {maxParticipants ? ` / ${maxParticipants}` : ''}
+                        </Text>
+                        <Ionicons name="chevron-forward" size={12} color={Colors.primary} />
+                      </TouchableOpacity>
                       {!isOwner && (
                         <TouchableOpacity
                           style={[
@@ -1517,6 +1524,9 @@ const st = StyleSheet.create({
   goingBtnInlineDisabled: { backgroundColor: '#F59E0B22', borderWidth: 1.5, borderColor: '#F59E0B' },
   goingBtnInlineText: { fontSize: 12, fontWeight: '700', color: Colors.background },
   goingCountInline: { fontSize: 11, color: Colors.primary, fontWeight: '600', marginTop: 3 },
+  eventActionBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, paddingTop: 8, borderTopWidth: 1, borderTopColor: Colors.border + '60', marginTop: 0 },
+  eventParticipantChip: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: Colors.primary + '15', borderRadius: Radius.full, paddingHorizontal: 11, paddingVertical: 6, borderWidth: 1, borderColor: Colors.primary + '40' },
+  eventParticipantChipText: { fontSize: 12, fontWeight: '700', color: Colors.primary },
   countersRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
   counterChip: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: Colors.card, paddingHorizontal: 10, paddingVertical: 4, borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.border },
   counterChipText: { fontSize: 12, color: Colors.muted, fontWeight: '500' },

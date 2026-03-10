@@ -11,7 +11,7 @@ import requests
 import os
 import json
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://reserve-pay-now.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://activity-feed-demo.preview.emergentagent.com').rstrip('/')
 SERVICE_ID = "svc_b184a9f7f6db"  # owned by user_demo001 (user@winek.app)
 
 # ─── Fixtures ─────────────────────────────────────────────────────────────────
