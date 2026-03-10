@@ -28,17 +28,18 @@ Fonctionnalités : création/découverte de services et SpotYous, système de r�
 
 ## What's Been Implemented
 
-### Phase 4 - UX Feedback (2026-03)
+### Phase 4 - UX Feedback + E2E Tests Complets (2026-03)
 | Date | Fonctionnalité | Fichiers modifiés |
 |------|---------------|-------------------|
-| 2026-03 | Feedback sonore + haptic sur boutons principaux | frontend/hooks/useClickSound.ts, frontend/app/spot-you/[id].tsx, frontend/app/spot-me.tsx |
-| 2026-03 | Installation expo-av v16.0.8 (dépendance audio) | frontend/package.json |
+| 2026-03 | Feedback sonore + haptic sur boutons principaux | frontend/hooks/useClickSound.ts, [id].tsx, spot-me.tsx |
+| 2026-03 | expo-av@16.0.8 installé | frontend/package.json |
+| 2026-03 | test_11_spotyou_rules.py — règles métier propriétaire/membre/non-membre + modals | frontend/e2e/ |
+| 2026-03 | test_12_spotme.py — SpotMe, Planning, Profile extended tests | frontend/e2e/ |
 
-**Détails**:
-- Hook `useClickSound` (déjà existant) : charge `click.wav` une seule fois au montage, joue haptic light + son (<120ms) sans bloquer l'action
-- Intégré sur : `toggleRSVP` (Rejoindre/Quitter SpotYou) et `toggleGoing` (Je participe/plus) dans les deux écrans
-- Dégradation silencieuse : si son ou haptic échoue, l'action principale continue normalement
-- Mode silencieux iOS respecté (`playsInSilentModeIOS: false`)
+**Tests E2E — Couverture totale validée (Iteration 68)**:
+- 68 tests PASS, 1 SKIP, 0 FAIL (tous fichiers test_01→test_12)
+- Règles testées: owner no-rsvp, owner-bar, owner-group-chat, member group-chat, confirm modals
+- SpotMe, Planning, Profile, Chat, Auth, Search, Upload, CRUD, Image deletion
 
 ### Phase 1 - Core Features
 - Auth JWT (login/register/logout)
