@@ -18,6 +18,7 @@ import { useLang } from '../../context/LanguageContext';
 import { useRefresh } from '../../context/RefreshContext';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { haversineDistance, formatDistance } from '../../utils/distance';
+import { useClickSound } from '../../hooks/useClickSound';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -336,6 +337,7 @@ export default function SpotYouDetail() {
   const { location } = useLocation();
   const { lang } = useLang();
   const { triggerProfileRefresh } = useRefresh();
+  const { playClickSound } = useClickSound();
 
   const [point, setPoint] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -616,6 +618,7 @@ export default function SpotYouDetail() {
 
   const toggleRSVP = () => {
     if (!user) { Alert.alert('Connexion requise', 'Connectez-vous pour participer.'); return; }
+    playClickSound();
     if (isMember) {
       showConfirm({
         title: 'Quitter le SpotYou ?',
@@ -674,6 +677,7 @@ export default function SpotYouDetail() {
 
   const toggleGoing = () => {
     if (!user) { Alert.alert('Connexion requise', 'Connectez-vous pour vous inscrire à la séance.'); return; }
+    playClickSound();
     if (isGoing) {
       showConfirm({
         title: 'Annuler votre participation ?',

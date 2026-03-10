@@ -10,6 +10,7 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
 import { Colors, Spacing, Radius } from '../constants/Colors';
 import ConfirmActionModal, { ConfirmAction } from '../components/ConfirmActionModal';
+import { useClickSound } from '../hooks/useClickSound';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -237,6 +238,8 @@ function SpotCard({ item, onNavigate, onToggleGoing, togglingId, onViewMembers }
 export default function MySpotYouScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { playClickSound } = useClickSound();
+
   const [points, setPoints] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -278,6 +281,7 @@ export default function MySpotYouScreen() {
 
   const toggleGoing = (item: any) => {
     if (!user) { Alert.alert('Connexion requise', 'Connectez-vous pour participer.'); return; }
+    playClickSound();
     if (item.is_going) {
       setConfirmAction({
         title: 'Annuler votre participation ?',

@@ -28,6 +28,18 @@ Fonctionnalités : création/découverte de services et SpotYous, système de r�
 
 ## What's Been Implemented
 
+### Phase 4 - UX Feedback (2026-03)
+| Date | Fonctionnalité | Fichiers modifiés |
+|------|---------------|-------------------|
+| 2026-03 | Feedback sonore + haptic sur boutons principaux | frontend/hooks/useClickSound.ts, frontend/app/spot-you/[id].tsx, frontend/app/spot-me.tsx |
+| 2026-03 | Installation expo-av v16.0.8 (dépendance audio) | frontend/package.json |
+
+**Détails**:
+- Hook `useClickSound` (déjà existant) : charge `click.wav` une seule fois au montage, joue haptic light + son (<120ms) sans bloquer l'action
+- Intégré sur : `toggleRSVP` (Rejoindre/Quitter SpotYou) et `toggleGoing` (Je participe/plus) dans les deux écrans
+- Dégradation silencieuse : si son ou haptic échoue, l'action principale continue normalement
+- Mode silencieux iOS respecté (`playsInSilentModeIOS: false`)
+
 ### Phase 1 - Core Features
 - Auth JWT (login/register/logout)
 - SpotYou CRUD complet
