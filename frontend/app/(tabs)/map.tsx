@@ -418,9 +418,39 @@ export default function HomeScreen() {
             </View>
           )}
 
-          {/* ── Section 2 : Activité récente (membres uniquement) ── */}
+          {/* ── Section 2 : Coachs & Services ── */}
+          {services.length > 0 && (
+            <View style={{ marginTop: 28 }}>
+              <View style={secSt.header}>
+                <View>
+                  <Text style={secSt.title}>Coachs & Services</Text>
+                  <Text style={secSt.sub}>{services.length} disponible{services.length > 1 ? 's' : ''} près de vous</Text>
+                </View>
+                <TouchableOpacity onPress={() => router.push('/(tabs)/search' as any)}>
+                  <Text style={secSt.seeAll}>Voir tout</Text>
+                </TouchableOpacity>
+              </View>
+              <FlatList
+                data={services}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                keyExtractor={i => i.service_id}
+                renderItem={({ item }) => (
+                  <ServiceCard
+                    svc={item}
+                    userLat={location.lat}
+                    userLng={location.lng}
+                    onPress={() => router.push(`/service/${item.service_id}` as any)}
+                  />
+                )}
+                contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}
+              />
+            </View>
+          )}
+
+          {/* ── Section 3 : Activité récente (membres uniquement) ── */}
           {user && activityFeed.length > 0 && (
-            <View style={{ marginTop: 24 }}>
+            <View style={{ marginTop: 28 }}>
               <View style={[secSt.header]}>
                 <View>
                   <Text style={secSt.title}>Activité récente</Text>
@@ -484,37 +514,7 @@ export default function HomeScreen() {
             </View>
           )}
 
-          {/* ── Section 3 : Coachs & Services ── */}
-          {services.length > 0 && (
-            <View style={{ marginTop: 28 }}>
-              <View style={secSt.header}>
-                <View>
-                  <Text style={secSt.title}>Coachs & Services</Text>
-                  <Text style={secSt.sub}>{services.length} disponible{services.length > 1 ? 's' : ''} près de vous</Text>
-                </View>
-                <TouchableOpacity onPress={() => router.push('/(tabs)/search' as any)}>
-                  <Text style={secSt.seeAll}>Voir tout</Text>
-                </TouchableOpacity>
-              </View>
-              <FlatList
-                data={services}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                keyExtractor={i => i.service_id}
-                renderItem={({ item }) => (
-                  <ServiceCard
-                    svc={item}
-                    userLat={location.lat}
-                    userLng={location.lng}
-                    onPress={() => router.push(`/service/${item.service_id}` as any)}
-                  />
-                )}
-                contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}
-              />
-            </View>
-          )}
-
-          {/* ── Section 3 : Feed récents ── */}
+          {/* ── Section 4 : Feed récents ── */}
           {recentPoints.length > 0 && (
             <View style={{ marginTop: 28, paddingHorizontal: 16, marginBottom: 24 }}>
               <View style={[secSt.header, { paddingHorizontal: 0 }]}>
