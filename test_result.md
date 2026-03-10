@@ -325,7 +325,7 @@ agent_communication:
       - Coach: coach@winek.app / WinekCoach2024!
       - User: user@winek.app / WinekUser2024!
       
-      FRONTEND URL: https://approval-system-32.preview.emergentagent.com
-      BACKEND URL: https://approval-system-32.preview.emergentagent.com/api
+      FRONTEND URL: https://reserve-pay-now.preview.emergentagent.com
+      BACKEND URL: https://reserve-pay-now.preview.emergentagent.com/api
       
       Test all high priority features. Note: Stripe payment test not critical for MVP verification.

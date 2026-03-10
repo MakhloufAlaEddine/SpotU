@@ -16,6 +16,7 @@ TP_FIELDS = """
     tp.point_id, tp.user_id, tp.title, tp.description,
     tp.precision, tp.tag_ids, tp.domain_id, tp.active, tp.is_public, tp.cancelled, tp.expires_at, tp.created_at, tp.updated_at,
     tp.image_url, tp.images, tp.schedule, tp.event_date, tp.event_end_date, tp.event_schedule, tp.new_date_coming,
+    tp.minimum_participants, tp.maximum_participants,
     ST_Y(tp.location::geometry) as latitude,
     ST_X(tp.location::geometry) as longitude,
     u.name as owner_name, u.picture as owner_picture, u.role as owner_role,
@@ -278,26 +279,64 @@ async def get_tag_point(point_id: str, request: Request):
         )
         pt["rating_distribution"] = {str(r["rating"]): r["cnt"] for r in dist}
 
-        # Participants
-        pt["participants_count"] = await conn.fetchval(
+        # Participants — utiliser spot_you_participants (nouvelle table) ET tag_point_participants (legacy)
+        syp_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM spot_you_participants WHERE spot_you_id=$1", point_id
+        ) or 0
+        legacy_count = await conn.fetchval(
             "SELECT COUNT(*) FROM tag_point_participants WHERE point_id=$1", point_id
         ) or 0
+        pt["participants_count"] = int(max(syp_count, legacy_count))
+
+        # Prochaine séance + going_count
+        from routes.spot_you_routes import get_next_session_date as _get_next
+        next_date = _get_next(pt)
+        pt["next_session_date"] = next_date.isoformat() if next_date else None
+        if next_date:
+            going_count = await conn.fetchval(
+                """SELECT COUNT(*) FROM spot_you_attendance
+                   WHERE spot_you_id=$1 AND session_date=$2 AND status='going'""",
+                point_id, next_date,
+            ) or 0
+            pt["going_count"] = int(going_count)
+            max_p = pt.get("maximum_participants")
+            pt["is_full"] = max_p is not None and going_count >= max_p
+        else:
+            pt["going_count"] = 0
+            pt["is_full"] = False
 
         # Current user participation + save
         pt["is_participant"] = False
+        pt["is_member"] = False
+        pt["is_going"] = False
         pt["is_saved"] = False
         auth_header = request.headers.get("Authorization", "")
         if auth_header.startswith("Bearer "):
             try:
                 user = await require_auth(request, pool)
-                pt["is_participant"] = await conn.fetchval(
+                # Legacy + nouvelle table
+                pt["is_participant"] = bool(await conn.fetchval(
                     "SELECT EXISTS(SELECT 1 FROM tag_point_participants WHERE point_id=$1 AND user_id=$2)",
                     point_id, user["user_id"]
-                )
-                pt["is_saved"] = await conn.fetchval(
+                ))
+                pt["is_member"] = bool(await conn.fetchval(
+                    "SELECT EXISTS(SELECT 1 FROM spot_you_participants WHERE spot_you_id=$1 AND user_id=$2)",
+                    point_id, user["user_id"]
+                ))
+                if not pt["is_member"] and pt["is_participant"]:
+                    pt["is_member"] = True  # Compat rétrograde
+                if next_date:
+                    pt["is_going"] = bool(await conn.fetchval(
+                        """SELECT EXISTS(
+                             SELECT 1 FROM spot_you_attendance
+                             WHERE spot_you_id=$1 AND user_id=$2 AND session_date=$3 AND status='going'
+                           )""",
+                        point_id, user["user_id"], next_date,
+                    ))
+                pt["is_saved"] = bool(await conn.fetchval(
                     "SELECT EXISTS(SELECT 1 FROM tag_point_saves WHERE point_id=$1 AND user_id=$2)",
                     point_id, user["user_id"]
-                )
+                ))
             except Exception:
                 pass
 
@@ -951,20 +990,39 @@ async def create_tag_point(data: TagPointCreate, request: Request):
     stored_lat, stored_lng = randomize_for_storage(data.latitude, data.longitude, data.precision)
     event_schedule_val = data.event_schedule
 
+    # Règles métier capacité
+    min_p, max_p = data.minimum_participants, data.maximum_participants
+    if min_p is not None and max_p is None:
+        max_p = min_p
+    elif max_p is not None and min_p is None:
+        min_p = max_p
+    if min_p is not None and min_p < 1:
+        min_p = 1
+    if min_p is not None and max_p is not None and max_p < min_p:
+        max_p = min_p
+
     async with pool.acquire() as conn:
         await conn.execute(
             """INSERT INTO tag_points
-               (point_id, user_id, title, description, location, precision, tag_ids, domain_id, active, expires_at, event_date, event_end_date, event_schedule, images)
-               VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($5, $6), 4326), $7, $8, $9, TRUE, $10, $11, $12, $13, $14)""",
+               (point_id, user_id, title, description, location, precision, tag_ids, domain_id, active, expires_at,
+                event_date, event_end_date, event_schedule, images, minimum_participants, maximum_participants)
+               VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($5, $6), 4326), $7, $8, $9, TRUE, $10, $11, $12, $13, $14, $15, $16)""",
             pid, user["user_id"], data.title, data.description,
             stored_lng, stored_lat,
             data.precision, data.tag_ids, data.domain_id, expires_at,
-            data.event_date, data.event_end_date, event_schedule_val, data.images or []
+            data.event_date, data.event_end_date, event_schedule_val, data.images or [],
+            min_p, max_p,
         )
-        # Le créateur est automatiquement participant (#3)
+        # Le créateur est automatiquement participant
         await conn.execute(
             "INSERT INTO tag_point_participants (participant_id, point_id, user_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING",
             part_id, pid, user["user_id"]
+        )
+        # Aussi dans spot_you_participants (nouvelle table)
+        syp_id = new_id("syp")
+        await conn.execute(
+            "INSERT INTO spot_you_participants (id, spot_you_id, user_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING",
+            syp_id, pid, user["user_id"]
         )
         row = await conn.fetchrow(f"SELECT {TP_FIELDS} FROM tag_points tp LEFT JOIN users u ON tp.user_id = u.user_id WHERE tp.point_id = $1", pid)
     return build_point_response(row_to_dict(row))
@@ -1018,6 +1076,29 @@ async def update_tag_point(point_id: str, data: TagPointUpdate, request: Request
         if not raw:
             row = await conn.fetchrow(f"SELECT {TP_FIELDS} FROM tag_points tp LEFT JOIN users u ON tp.user_id = u.user_id WHERE tp.point_id = $1", point_id)
             return build_point_response(row_to_dict(row))
+
+        # Appliquer les règles métier capacité si l'un des deux champs est fourni
+        if 'minimum_participants' in raw or 'maximum_participants' in raw:
+            # Récupérer les valeurs existantes pour compléter les non-fournies
+            ex_min = existing.get("minimum_participants") if hasattr(existing, 'get') else None
+            ex_max = existing.get("maximum_participants") if hasattr(existing, 'get') else None
+            try:
+                ex_min_db = await conn.fetchval("SELECT minimum_participants FROM tag_points WHERE point_id=$1", point_id)
+                ex_max_db = await conn.fetchval("SELECT maximum_participants FROM tag_points WHERE point_id=$1", point_id)
+            except Exception:
+                ex_min_db, ex_max_db = None, None
+            min_p = raw.get('minimum_participants', ex_min_db)
+            max_p = raw.get('maximum_participants', ex_max_db)
+            if min_p is not None and max_p is None:
+                max_p = min_p
+                raw['maximum_participants'] = max_p
+            elif max_p is not None and min_p is None:
+                min_p = max_p
+                raw['minimum_participants'] = min_p
+            if min_p is not None and min_p < 1:
+                raw['minimum_participants'] = 1
+            if min_p is not None and max_p is not None and max_p < min_p:
+                raw['maximum_participants'] = min_p
 
         # Détecter les vrais changements avant de construire la requête
         lat = raw.pop('latitude', None)

@@ -24,6 +24,7 @@ from routes.chat_routes import router as chat_router
 from routes.push_routes import router as push_router
 from routes.payment_routes import router as payment_router
 from routes.subscription_routes import router as subscription_router
+from routes.spot_you_routes import router as spot_you_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -62,6 +63,7 @@ api_router.include_router(auth_router, prefix="/auth", tags=["auth"])
 api_router.include_router(user_router, prefix="/users", tags=["users"])
 api_router.include_router(domain_router, tags=["domains"])
 api_router.include_router(tagpoint_router, tags=["tagpoints"])
+api_router.include_router(spot_you_router, tags=["spot-you"])
 api_router.include_router(service_router, tags=["services"])
 api_router.include_router(booking_router, tags=["bookings"])
 api_router.include_router(admin_router, prefix="/admin", tags=["admin"])
@@ -141,6 +143,13 @@ async def startup():
     worker = ExpiryWorker(get_pool(), interval_secs=interval_secs)
     worker.start()
     app.state.expiry_worker = worker
+
+    # ── Démarrage du worker de notifications SpotYou ──────────────────────────
+    from spot_you_notif_worker import SpotYouNotifWorker
+    notif_worker = SpotYouNotifWorker(get_pool())
+    notif_worker.start()
+    app.state.spotyou_notif_worker = notif_worker
+
     logger.info(
         "SpotU API started successfully (expiry TTL=%dh, worker_interval=%ds)",
         ttl_hours, interval_secs,
@@ -151,4 +160,6 @@ async def startup():
 async def shutdown():
     if hasattr(app.state, "expiry_worker"):
         await app.state.expiry_worker.stop()
+    if hasattr(app.state, "spotyou_notif_worker"):
+        await app.state.spotyou_notif_worker.stop()
     await close_db()

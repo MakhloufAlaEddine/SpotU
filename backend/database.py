@@ -578,6 +578,34 @@ async def connect_to_db():
                 ON conversations(created_by);
         """)
 
+        # [SPOTYOU-V1] Capacité + participation communauté + présence séances
+        await conn.execute("""
+            ALTER TABLE tag_points ADD COLUMN IF NOT EXISTS minimum_participants INTEGER NULL;
+            ALTER TABLE tag_points ADD COLUMN IF NOT EXISTS maximum_participants INTEGER NULL;
+
+            CREATE TABLE IF NOT EXISTS spot_you_participants (
+                id TEXT PRIMARY KEY,
+                spot_you_id TEXT NOT NULL REFERENCES tag_points(point_id) ON DELETE CASCADE,
+                user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                UNIQUE (spot_you_id, user_id)
+            );
+
+            CREATE TABLE IF NOT EXISTS spot_you_attendance (
+                id TEXT PRIMARY KEY,
+                spot_you_id TEXT NOT NULL REFERENCES tag_points(point_id) ON DELETE CASCADE,
+                user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                session_date DATE NOT NULL,
+                status TEXT NOT NULL CHECK (status IN ('going', 'not_going')),
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                UNIQUE (spot_you_id, user_id, session_date)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_syu_participants_spot ON spot_you_participants(spot_you_id);
+            CREATE INDEX IF NOT EXISTS idx_syu_attendance_spot ON spot_you_attendance(spot_you_id);
+            CREATE INDEX IF NOT EXISTS idx_syu_attendance_date ON spot_you_attendance(session_date);
+        """)
+
         # [APP-CONFIG-V1] Configuration globale de l'application — flags de fonctionnalités
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS app_config (

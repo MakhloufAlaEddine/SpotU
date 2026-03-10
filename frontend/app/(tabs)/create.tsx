@@ -141,6 +141,10 @@ export default function CreateSpotYouScreen() {
   const [editingDayIdx, setEditingDayIdx] = useState<number | null>(null);
   const [editingTimeIdx, setEditingTimeIdx] = useState<number | null>(null);
   const [editingTimeType, setEditingTimeType] = useState<'start' | 'end'>('start');
+
+  // Capacité
+  const [minParticipants, setMinParticipants] = useState<string>('');
+  const [maxParticipants, setMaxParticipants] = useState<string>('');
   // Full preview modal (at root level to avoid ScrollView clipping)
   const [showFullPreview, setShowFullPreview] = useState(false);
 
@@ -384,6 +388,8 @@ export default function CreateSpotYouScreen() {
       }
 
       // 2. Build payload with real image URLs
+      const minP = minParticipants.trim() ? parseInt(minParticipants) : null;
+      const maxP = maxParticipants.trim() ? parseInt(maxParticipants) : null;
       const payload: any = {
         title: title.trim(),
         description: description.trim() || null,
@@ -405,6 +411,8 @@ export default function CreateSpotYouScreen() {
             ),
           }
           : null,
+        minimum_participants: minP,
+        maximum_participants: maxP,
       };
 
       const result = isEditMode && params.pointId
@@ -477,6 +485,10 @@ export default function CreateSpotYouScreen() {
             setEditingTimeIdx(timeIdx);
             setEditingTimeType(type);
           }}
+          minParticipants={minParticipants}
+          setMinParticipants={setMinParticipants}
+          maxParticipants={maxParticipants}
+          setMaxParticipants={setMaxParticipants}
         />
       );
       case 4: return (
@@ -1084,8 +1096,20 @@ function StepLocalisation({ selectedLat, selectedLng, locationAddress, precision
 }
 
 // ─── Step 4: Date ───────────────────────────────────────────────────────────────
-function StepDate({ scheduleType, setScheduleType, eventDateTime, onOpenDatePicker, eventEndDateTime, onOpenEndTimePicker, onClearEndTime, recurringSchedule, toggleDay, addTimeToDay, removeTimeFromDay, editTimeForDay }: any) {
+function StepDate({ scheduleType, setScheduleType, eventDateTime, onOpenDatePicker, eventEndDateTime, onOpenEndTimePicker, onClearEndTime, recurringSchedule, toggleDay, addTimeToDay, removeTimeFromDay, editTimeForDay, minParticipants, setMinParticipants, maxParticipants, setMaxParticipants }: any) {
   const selectedDays = Object.keys(recurringSchedule).map(Number).sort((a, b) => a - b);
+
+  const handleMinChange = (val: string) => {
+    setMinParticipants(val);
+    // Auto-fill max if not set
+    if (val && !maxParticipants) setMaxParticipants(val);
+  };
+
+  const handleMaxChange = (val: string) => {
+    setMaxParticipants(val);
+    // Auto-fill min if not set
+    if (val && !minParticipants) setMinParticipants(val);
+  };
 
   return (
     <View style={{ gap: Spacing.lg }}>
@@ -1146,8 +1170,7 @@ function StepDate({ scheduleType, setScheduleType, eventDateTime, onOpenDatePick
         <View style={{ gap: Spacing.md }}>
           {/* Day selector */}
           <View>
-            <Text style={sc.scheduleFieldLabel}>Jours actifs</Text>
-            <View style={sc.daysRow}>
+            <Text style={sc.scheduleFieldLabel}>Jours actifs</Text>            <View style={sc.daysRow}>
               {DAYS.map((d, i) => {
                 const active = recurringSchedule[i] !== undefined;
                 return (
@@ -1214,11 +1237,65 @@ function StepDate({ scheduleType, setScheduleType, eventDateTime, onOpenDatePick
           ))}
         </View>
       )}
+
+      {/* ── Section Capacité (optionnel) ───────────────────── */}
+      <View style={sc.capacityCard}>
+        <View style={sc.capacityHeader}>
+          <Ionicons name="people-outline" size={18} color={Colors.primary} />
+          <Text style={sc.capacityTitle}>Capacité</Text>
+          <Text style={sc.capacityOptional}>optionnel</Text>
+        </View>
+        <Text style={sc.capacityDesc}>
+          Définissez le nombre minimum et/ou maximum de participants par séance.
+        </Text>
+        <View style={{ flexDirection: 'row', gap: Spacing.md }}>
+          <View style={{ flex: 1 }}>
+            <Text style={sc.capacityFieldLabel}>Minimum</Text>
+            <TextInput
+              style={sc.capacityInput}
+              placeholder="ex: 3"
+              placeholderTextColor={Colors.muted}
+              keyboardType="number-pad"
+              value={minParticipants}
+              onChangeText={handleMinChange}
+              testID="min-participants-input"
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={sc.capacityFieldLabel}>Maximum</Text>
+            <TextInput
+              style={sc.capacityInput}
+              placeholder="ex: 15"
+              placeholderTextColor={Colors.muted}
+              keyboardType="number-pad"
+              value={maxParticipants}
+              onChangeText={handleMaxChange}
+              testID="max-participants-input"
+            />
+          </View>
+        </View>
+        {(minParticipants || maxParticipants) && (
+          <View style={sc.capacityPreview}>
+            <Ionicons name="information-circle-outline" size={14} color={Colors.primary} />
+            <Text style={sc.capacityPreviewText}>
+              {minParticipants && maxParticipants && minParticipants === maxParticipants
+                ? `Séance de ${minParticipants} personnes exactement`
+                : minParticipants && maxParticipants
+                  ? `De ${minParticipants} à ${maxParticipants} participants`
+                  : maxParticipants
+                    ? `Maximum ${maxParticipants} participants`
+                    : `Minimum ${minParticipants} participants`
+              }
+            </Text>
+          </View>
+        )}
+      </View>
+
     </View>
   );
 }
 
-// ─── Step 5: Preview ────────────────────────────────────────────────────────────
+// ─── Step 5: Preview ───────────────────────────────────────────────────────────
 function StepPreview({ title, description, images, selectedTags, locationAddress, precision, scheduleType, eventDateTime, eventEndDateTime, recurringSchedule, quality, lang, onOpenFullPreview }: any) {
   const scheduleLabel = buildScheduleLabel(scheduleType, eventDateTime, eventEndDateTime, recurringSchedule);
   const items = [
@@ -1688,6 +1765,17 @@ const sc = StyleSheet.create({
   // Day badge (time count on day button)
   dayTimeBadge: { position: 'absolute', top: -4, right: -4, width: 15, height: 15, borderRadius: 8, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
   dayTimeBadgeText: { fontSize: 9, color: Colors.background, fontWeight: '800' },
+
+  // Capacité
+  capacityCard: { backgroundColor: Colors.card, borderRadius: Radius.lg, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border },
+  capacityHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  capacityTitle: { fontSize: 14, fontWeight: '800', color: Colors.foreground, flex: 1 },
+  capacityOptional: { fontSize: 11, color: Colors.muted, backgroundColor: Colors.background, paddingHorizontal: 8, paddingVertical: 3, borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.border },
+  capacityDesc: { fontSize: 12, color: Colors.muted, marginBottom: 12, lineHeight: 17 },
+  capacityFieldLabel: { fontSize: 11, fontWeight: '700', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 },
+  capacityInput: { backgroundColor: Colors.background, borderRadius: Radius.md, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, color: Colors.foreground, borderWidth: 1.5, borderColor: Colors.border, fontWeight: '700', textAlign: 'center' },
+  capacityPreview: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, backgroundColor: Colors.primary + '10', borderRadius: Radius.md, padding: 8 },
+  capacityPreviewText: { fontSize: 12, color: Colors.primary, fontWeight: '600', flex: 1 },
 
   // Preview
   fullPreviewBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.primary + '12', borderRadius: Radius.lg, padding: Spacing.md, borderWidth: 1.5, borderColor: Colors.primary + '40' },

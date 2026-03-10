@@ -131,6 +131,8 @@ class TagPointCreate(BaseModel):
     event_end_date: Optional[datetime] = None
     event_schedule: Optional[dict] = None  # { type: "weekly", schedule: {dayIdx: [{start:'HH:MM', end:'HH:MM'}]} }
     images: Optional[List[str]] = []
+    minimum_participants: Optional[int] = None
+    maximum_participants: Optional[int] = None
 
 
 class TagPointUpdate(BaseModel):
@@ -147,6 +149,8 @@ class TagPointUpdate(BaseModel):
     event_date: Optional[datetime] = None
     event_end_date: Optional[datetime] = None
     event_schedule: Optional[dict] = None
+    minimum_participants: Optional[int] = None
+    maximum_participants: Optional[int] = None
 
 
 # --- SERVICE ---

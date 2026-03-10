@@ -356,12 +356,18 @@ export default function SpotYouDetail() {
   const [ratingDist, setRatingDist] = useState<Record<string, number>>({});
   const [isCancelled, setIsCancelled] = useState(false);
   const [isParticipant, setIsParticipant] = useState(false);
+  const [isMember, setIsMember] = useState(false);
+  const [isGoing, setIsGoing] = useState(false);
+  const [goingCount, setGoingCount] = useState(0);
+  const [maxParticipants, setMaxParticipants] = useState<number | null>(null);
+  const [isFull, setIsFull] = useState(false);
   const [participantsCount, setParticipantsCount] = useState(0);
   const [participants, setParticipants] = useState<any[]>([]);
   const [participantsLoading, setParticipantsLoading] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
   const [rsvpLoading, setRsvpLoading] = useState(false);
+  const [goingLoading, setGoingLoading] = useState(false);
   const [isPublic, setIsPublic] = useState(true);
   const [ownerActionLoading, setOwnerActionLoading] = useState(false);
 
@@ -383,7 +389,12 @@ export default function SpotYouDetail() {
       setCurrentRating(data.rating || 0);
       setCurrentVotes(data.votes || 0);
       setRatingDist(data.rating_distribution || {});
-      setIsParticipant(data.is_participant || false);
+      setIsParticipant(data.is_participant || data.is_member || false);
+      setIsMember(data.is_member || data.is_participant || false);
+      setIsGoing(data.is_going || false);
+      setGoingCount(data.going_count || 0);
+      setMaxParticipants(data.maximum_participants ?? null);
+      setIsFull(data.is_full || false);
       setParticipantsCount(data.participants_count || 0);
       setIsSaved(data.is_saved || false);
       setIsPublic(data.is_public !== false);
@@ -540,14 +551,38 @@ export default function SpotYouDetail() {
     if (!user) { Alert.alert('Connexion requise', 'Connectez-vous pour participer.'); return; }
     setRsvpLoading(true);
     try {
-      const res = isParticipant
-        ? await api.delete(`/tag-points/${id}/leave`)
-        : await api.post(`/tag-points/${id}/join`, {});
-      setIsParticipant(res.is_participant);
-      setParticipantsCount(res.participants_count);
+      const res = isMember
+        ? await api.delete(`/spot-you/${id}/leave`)
+        : await api.post(`/spot-you/${id}/join`, {});
+      setIsMember(res.is_member);
+      setIsParticipant(res.is_member);
+      setParticipantsCount(res.participants_count || participantsCount);
+      if (!res.is_member) {
+        // Si on quitte, on n'est plus inscrit à la séance non plus
+        setIsGoing(false);
+      }
       loadParticipants();
     } catch (e: any) { Alert.alert('Erreur', e.message); }
     finally { setRsvpLoading(false); }
+  };
+
+  const toggleGoing = async () => {
+    if (!user) { Alert.alert('Connexion requise', 'Connectez-vous pour vous inscrire à la séance.'); return; }
+    setGoingLoading(true);
+    try {
+      const res = isGoing
+        ? await api.delete(`/spot-you/${id}/going`)
+        : await api.post(`/spot-you/${id}/going`, {});
+      setIsGoing(res.is_going);
+      setGoingCount(res.going_count ?? goingCount);
+      setIsFull(res.is_full || false);
+      if (res.is_member !== undefined) {
+        setIsMember(res.is_member);
+        setIsParticipant(res.is_member);
+      }
+      if (res.participants_count !== undefined) setParticipantsCount(res.participants_count);
+    } catch (e: any) { Alert.alert('Erreur', e.message); }
+    finally { setGoingLoading(false); }
   };
 
   const openSimilar = async () => {
@@ -859,57 +894,110 @@ export default function SpotYouDetail() {
 
         {/* 4. RSVP + Message sur la même ligne */}
         {!isOwner && (
-        <View style={st.rsvpRow}>
-          <TouchableOpacity
-            style={[st.rsvpBtn, isParticipant && st.rsvpBtnActive]}
-            onPress={toggleRSVP}
-            disabled={rsvpLoading}
-            testID="rsvp-button"
-          >
-            {rsvpLoading
-              ? <ActivityIndicator color={isParticipant ? Colors.primary : Colors.background} size="small" />
-              : <>
-                  <Ionicons name={isParticipant ? 'checkmark-circle' : 'add-circle-outline'}
-                    size={18} color={isParticipant ? Colors.primary : Colors.background} />
-                  <Text style={[st.rsvpText, isParticipant && st.rsvpTextActive]}>
-                    {isParticipant ? 'Je participe' : 'Rejoindre'}
-                  </Text>
-                </>}
-          </TouchableOpacity>
-
-          {participantsCount > 0 && (
+        <View style={st.rsvpSection}>
+          {/* Ligne 1 : Rejoindre communauté + Je viens séance */}
+          <View style={st.rsvpRow}>
+            {/* Bouton Rejoindre (communauté) */}
             <TouchableOpacity
-              onPress={() => setShowParticipants(true)}
-              testID="participants-count"
+              style={[st.rsvpBtn, isMember && st.rsvpBtnActive]}
+              onPress={toggleRSVP}
+              disabled={rsvpLoading}
+              testID="rsvp-button"
             >
-              <Text style={[st.rsvpCount, { textDecorationLine: 'underline' }]}>
-                {participantsCount} participant{participantsCount > 1 ? 's' : ''}
-              </Text>
+              {rsvpLoading
+                ? <ActivityIndicator color={isMember ? Colors.primary : Colors.background} size="small" />
+                : <>
+                    <Ionicons name={isMember ? 'checkmark-circle' : 'people-outline'}
+                      size={17} color={isMember ? Colors.primary : Colors.background} />
+                    <Text style={[st.rsvpText, isMember && st.rsvpTextActive]}>
+                      {isMember ? 'Membre ✓' : 'Rejoindre'}
+                    </Text>
+                  </>}
             </TouchableOpacity>
-          )}
 
-          <View style={{ flex: 1 }} />
+            {/* Bouton Je viens (séance) — seulement si une prochaine séance existe */}
+            {point.next_session_date && (
+              <TouchableOpacity
+                style={[
+                  st.goingBtn,
+                  isGoing && st.goingBtnActive,
+                  (isFull && !isGoing) && st.goingBtnDisabled,
+                ]}
+                onPress={(isFull && !isGoing) ? undefined : toggleGoing}
+                disabled={goingLoading || (isFull && !isGoing)}
+                testID="going-button"
+              >
+                {goingLoading
+                  ? <ActivityIndicator color={isGoing ? Colors.primary : Colors.background} size="small" />
+                  : <>
+                      {(isFull && !isGoing)
+                        ? <Ionicons name="flash" size={15} color="#F59E0B" />
+                        : <Ionicons name={isGoing ? 'checkmark-circle' : 'calendar-outline'}
+                            size={15} color={isGoing ? Colors.primary : Colors.background} />
+                      }
+                      <Text style={[
+                        st.goingText,
+                        isGoing && st.goingTextActive,
+                        (isFull && !isGoing) && { color: '#F59E0B' },
+                      ]}>
+                        {(isFull && !isGoing) ? 'Complet' : isGoing ? 'Je viens ✓' : 'Je viens'}
+                      </Text>
+                    </>}
+              </TouchableOpacity>
+            )}
 
-          <TouchableOpacity
-            style={st.msgBtn}
-            onPress={openPrivateChat}
-            disabled={chatLoading}
-            testID="message-button"
-          >
-            {chatLoading
-              ? <ActivityIndicator size="small" color={Colors.foreground} />
-              : <Ionicons name="chatbubble-ellipses-outline" size={20} color={Colors.foreground} />
-            }
-          </TouchableOpacity>
+            <View style={{ flex: 1 }} />
 
-          <TouchableOpacity
-            style={[st.msgBtn, { backgroundColor: Colors.primaryLight }]}
-            onPress={openGroupChat}
-            disabled={chatLoading}
-            testID="group-chat-button"
-          >
-            <Ionicons name="people-outline" size={20} color={Colors.primary} />
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={st.msgBtn}
+              onPress={openPrivateChat}
+              disabled={chatLoading}
+              testID="message-button"
+            >
+              {chatLoading
+                ? <ActivityIndicator size="small" color={Colors.foreground} />
+                : <Ionicons name="chatbubble-ellipses-outline" size={20} color={Colors.foreground} />
+              }
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[st.msgBtn, { backgroundColor: Colors.primaryLight }]}
+              onPress={openGroupChat}
+              disabled={chatLoading}
+              testID="group-chat-button"
+            >
+              <Ionicons name="people-outline" size={20} color={Colors.primary} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Ligne 2 : Compteurs */}
+          <View style={st.countersRow}>
+            {participantsCount > 0 && (
+              <TouchableOpacity onPress={() => setShowParticipants(true)} testID="participants-count">
+                <View style={st.counterChip}>
+                  <Ionicons name="people-outline" size={13} color={Colors.muted} />
+                  <Text style={st.counterChipText}>
+                    {participantsCount} membre{participantsCount > 1 ? 's' : ''}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
+            {point.next_session_date && goingCount > 0 && (
+              <View style={st.counterChip}>
+                <Ionicons name="checkmark-circle-outline" size={13} color={Colors.primary} />
+                <Text style={[st.counterChipText, { color: Colors.primary }]}>
+                  {goingCount} viennent
+                  {maxParticipants ? ` / ${maxParticipants}` : ''}
+                </Text>
+              </View>
+            )}
+            {isFull && point.next_session_date && (
+              <View style={[st.counterChip, { backgroundColor: '#F59E0B22', borderColor: '#F59E0B' }]}>
+                <Ionicons name="flash" size={13} color="#F59E0B" />
+                <Text style={[st.counterChipText, { color: '#F59E0B' }]}>Complet</Text>
+              </View>
+            )}
+          </View>
         </View>
         )}
 
@@ -1355,12 +1443,21 @@ const st = StyleSheet.create({
   newDateToggle: { flexDirection: 'row', alignItems: 'center', gap: 6, marginHorizontal: Spacing.md, marginBottom: Spacing.md, paddingVertical: Spacing.sm },
   newDateToggleText: { fontSize: 13, color: Colors.primary, fontWeight: '500' },
 
-  rsvpRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.md, marginBottom: Spacing.sm },
+  rsvpSection: { paddingHorizontal: Spacing.md, marginBottom: Spacing.sm },
+  rsvpRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: 8 },
   rsvpBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.primary, paddingHorizontal: Spacing.md, paddingVertical: 7, borderRadius: Radius.full },
   rsvpBtnActive: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: Colors.primary },
   rsvpText: { fontSize: 13, fontWeight: '700', color: Colors.background },
   rsvpTextActive: { color: Colors.primary },
   rsvpCount: { fontSize: 13, color: Colors.muted },
+  goingBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: Colors.foreground, paddingHorizontal: 12, paddingVertical: 7, borderRadius: Radius.full },
+  goingBtnActive: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: Colors.primary },
+  goingBtnDisabled: { backgroundColor: '#F59E0B22', borderWidth: 1.5, borderColor: '#F59E0B' },
+  goingText: { fontSize: 13, fontWeight: '700', color: Colors.background },
+  goingTextActive: { color: Colors.primary },
+  countersRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
+  counterChip: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: Colors.card, paddingHorizontal: 10, paddingVertical: 4, borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.border },
+  counterChipText: { fontSize: 12, color: Colors.muted, fontWeight: '500' },
   msgBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
 
   messageBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.header, marginHorizontal: Spacing.md, paddingVertical: 10, borderRadius: Radius.full, gap: Spacing.sm, marginBottom: Spacing.sm },

@@ -20,7 +20,7 @@ def _load_base_url():
                     return line.split('=', 1)[1].strip().rstrip('/')
     except Exception:
         pass
-    return 'https://approval-system-32.preview.emergentagent.com'
+    return 'https://reserve-pay-now.preview.emergentagent.com'
 
 BASE_URL = _load_base_url()
 USER_EMAIL = "user@winek.app"
