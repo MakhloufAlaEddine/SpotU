@@ -319,6 +319,14 @@ cd /app/backend && pytest tests/test_stripe_payment_iter50.py -v
 
 **Tests : 55/55 tests backend passent (3 skips attendus — pas de slots single disponibles)**
 
+### SpotYou Participation System + UI Refinements (2026-03-10)
+- SpotYou Participation: BDD (spot_you_participants, spot_you_attendance), APIs join/leave/going, capacity limits
+- Home Screen Activity Feed (/api/users/me/activity-feed), scrollable, 4 items max, positionnée sous Coachs & Services
+- SpotYou detail UI redesign: 
+  - Bouton "Je participe" + compteur participants (cliquable) dans une `eventActionBar` sous la date
+  - Bouton "Rejoindre" + compteur membres déplacés dans la ligne rating/meta (utilise le gap entre distance et stars)
+  - Section RSVP simplifiée → juste chatRow (Message + Groupe)
+
 ### P1 - Important
 - [ ] Flow abonnement utilisateur (souscrire/gérer un plan Stripe Subscription)
 - [ ] Update SpotYou flow (à valider post-upload fix)

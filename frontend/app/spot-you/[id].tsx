@@ -796,10 +796,53 @@ export default function SpotYouDetail() {
         <View style={st.titleSection}>
           <Text style={st.title}>{point.title}</Text>
           <View style={st.metaRow}>
+            {/* Distance */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
               <Ionicons name="location-outline" size={15} color={Colors.primary} />
               <Text style={st.distText} testID="spotyou-distance">{distanceStr}</Text>
             </View>
+
+            <View style={{ flex: 1 }} />
+
+            {/* Rejoindre + membres — intégrés dans la ligne rating */}
+            {!isOwner && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginRight: 10 }}>
+                {participantsCount > 0 && (
+                  <TouchableOpacity
+                    onPress={() => setShowParticipants(true)}
+                    testID="members-count-inline"
+                    style={st.membersChipInline}
+                  >
+                    <Ionicons name="people-outline" size={12} color={Colors.muted} />
+                    <Text style={st.membersChipInlineText}>
+                      {participantsCount}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  style={[st.joinBtnCompact, isMember && st.joinBtnCompactActive]}
+                  onPress={toggleRSVP}
+                  disabled={rsvpLoading}
+                  testID="rsvp-button"
+                >
+                  {rsvpLoading
+                    ? <ActivityIndicator color={isMember ? Colors.primary : Colors.background} size="small" />
+                    : <>
+                        <Ionicons
+                          name={isMember ? 'checkmark-circle' : 'people-outline'}
+                          size={14}
+                          color={isMember ? Colors.primary : Colors.background}
+                        />
+                        <Text style={[st.joinBtnCompactText, isMember && st.joinBtnCompactTextActive]}>
+                          {isMember ? 'Membre ✓' : 'Rejoindre'}
+                        </Text>
+                      </>
+                  }
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Stars rating */}
             <TouchableOpacity style={st.ratingTap} onPress={!isOwner ? openVoteModal : undefined} testID="open-vote-modal-btn" disabled={isOwner}>
               {[1,2,3,4,5].map(i => (
                 <Ionicons key={i} name={i <= Math.round(currentRating) ? 'star' : 'star-outline'}
@@ -969,81 +1012,31 @@ export default function SpotYouDetail() {
           );
         })()}
 
-        {/* 4. RSVP + Message sur la même ligne */}
+        {/* 4. Boutons de communication */}
         {!isOwner && (
-        <View style={st.rsvpSection}>
-          {/* Ligne 1 : Rejoindre communauté + Je viens séance */}
-          <View style={st.rsvpRow}>
-            {/* Bouton Rejoindre (communauté) */}
-            <TouchableOpacity
-              style={[st.rsvpBtn, isMember && st.rsvpBtnActive]}
-              onPress={toggleRSVP}
-              disabled={rsvpLoading}
-              testID="rsvp-button"
-            >
-              {rsvpLoading
-                ? <ActivityIndicator color={isMember ? Colors.primary : Colors.background} size="small" />
-                : <>
-                    <Ionicons name={isMember ? 'checkmark-circle' : 'people-outline'}
-                      size={17} color={isMember ? Colors.primary : Colors.background} />
-                    <Text style={[st.rsvpText, isMember && st.rsvpTextActive]}>
-                      {isMember ? 'Membre ✓' : 'Rejoindre'}
-                    </Text>
-                  </>}
-            </TouchableOpacity>
+        <View style={st.chatRow}>
+          <TouchableOpacity
+            style={[st.chatBtn, { flex: 1 }]}
+            onPress={openPrivateChat}
+            disabled={chatLoading}
+            testID="message-button"
+          >
+            {chatLoading
+              ? <ActivityIndicator size="small" color={Colors.foreground} />
+              : <Ionicons name="chatbubble-ellipses-outline" size={18} color={Colors.foreground} />
+            }
+            <Text style={st.chatBtnText}>Message</Text>
+          </TouchableOpacity>
 
-            <View style={{ flex: 1 }} />
-
-            <TouchableOpacity
-              style={st.msgBtn}
-              onPress={openPrivateChat}
-              disabled={chatLoading}
-              testID="message-button"
-            >
-              {chatLoading
-                ? <ActivityIndicator size="small" color={Colors.foreground} />
-                : <Ionicons name="chatbubble-ellipses-outline" size={20} color={Colors.foreground} />
-              }
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[st.msgBtn, { backgroundColor: Colors.primaryLight }]}
-              onPress={openGroupChat}
-              disabled={chatLoading}
-              testID="group-chat-button"
-            >
-              <Ionicons name="people-outline" size={20} color={Colors.primary} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Ligne 2 : Compteurs */}
-          <View style={st.countersRow}>
-            {participantsCount > 0 && (
-              <TouchableOpacity onPress={() => setShowParticipants(true)} testID="participants-count">
-                <View style={st.counterChip}>
-                  <Ionicons name="people-outline" size={13} color={Colors.muted} />
-                  <Text style={st.counterChipText}>
-                    {participantsCount} membre{participantsCount > 1 ? 's' : ''}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            )}
-            {point.next_session_date && goingCount > 0 && (
-              <View style={st.counterChip}>
-                <Ionicons name="checkmark-circle-outline" size={13} color={Colors.primary} />
-                <Text style={[st.counterChipText, { color: Colors.primary }]}>
-                  {goingCount} {goingCount > 1 ? 'participants' : 'participant'}
-                  {maxParticipants ? ` / ${maxParticipants}` : ''}
-                </Text>
-              </View>
-            )}
-            {isFull && point.next_session_date && (
-              <View style={[st.counterChip, { backgroundColor: '#F59E0B22', borderColor: '#F59E0B' }]}>
-                <Ionicons name="flash" size={13} color="#F59E0B" />
-                <Text style={[st.counterChipText, { color: '#F59E0B' }]}>Complet</Text>
-              </View>
-            )}
-          </View>
+          <TouchableOpacity
+            style={[st.chatBtn, { flex: 1, backgroundColor: Colors.primaryLight, borderColor: Colors.primary + '40' }]}
+            onPress={openGroupChat}
+            disabled={chatLoading}
+            testID="group-chat-button"
+          >
+            <Ionicons name="people-outline" size={18} color={Colors.primary} />
+            <Text style={[st.chatBtnText, { color: Colors.primary }]}>Groupe</Text>
+          </TouchableOpacity>
         </View>
         )}
 
@@ -1524,6 +1517,18 @@ const st = StyleSheet.create({
   goingBtnInlineDisabled: { backgroundColor: '#F59E0B22', borderWidth: 1.5, borderColor: '#F59E0B' },
   goingBtnInlineText: { fontSize: 12, fontWeight: '700', color: Colors.background },
   goingCountInline: { fontSize: 11, color: Colors.primary, fontWeight: '600', marginTop: 3 },
+  // Bouton Rejoindre compact (dans la ligne rating)
+  joinBtnCompact: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.primary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: Radius.full },
+  joinBtnCompactActive: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: Colors.primary },
+  joinBtnCompactText: { fontSize: 12, fontWeight: '700', color: Colors.background },
+  joinBtnCompactTextActive: { color: Colors.primary },
+  // Chip membres inline
+  membersChipInline: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: Colors.card, borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: Colors.border },
+  membersChipInlineText: { fontSize: 11, color: Colors.muted, fontWeight: '600' },
+  // Boutons de communication (Message + Groupe)
+  chatRow: { flexDirection: 'row', gap: Spacing.sm, paddingHorizontal: Spacing.md, marginBottom: Spacing.sm },
+  chatBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: Colors.card, paddingVertical: 9, borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.border },
+  chatBtnText: { fontSize: 13, fontWeight: '600', color: Colors.foreground },
   eventActionBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, paddingTop: 8, borderTopWidth: 1, borderTopColor: Colors.border + '60', marginTop: 0 },
   eventParticipantChip: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: Colors.primary + '15', borderRadius: Radius.full, paddingHorizontal: 11, paddingVertical: 6, borderWidth: 1, borderColor: Colors.primary + '40' },
   eventParticipantChipText: { fontSize: 12, fontWeight: '700', color: Colors.primary },
