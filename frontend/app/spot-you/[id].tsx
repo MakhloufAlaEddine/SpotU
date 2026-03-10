@@ -1100,10 +1100,11 @@ export default function SpotYouDetail() {
         )}
 
         {/* Bouton Groupe + Toggle participation pour le créateur */}
+        {/* Bouton Voir le groupe — propriétaire uniquement */}
         {isOwner && (
-          <View style={st.ownerRsvpRow}>
+          <View style={st.chatRow}>
             <TouchableOpacity
-              style={[st.messageBtn, { flex: 1, marginHorizontal: 0, marginBottom: 0 }]}
+              style={[st.chatBtn, { flex: 1, backgroundColor: Colors.primaryLight, borderColor: Colors.primary + '40' }]}
               onPress={openGroupChat}
               disabled={chatLoading}
               testID="owner-group-chat-btn"
@@ -1112,45 +1113,9 @@ export default function SpotYouDetail() {
                 ? <ActivityIndicator size="small" color={Colors.primary} />
                 : <Ionicons name="people-outline" size={18} color={Colors.primary} />
               }
-              <Text style={[st.messageBtnText, { color: Colors.primary }]}>Voir le groupe</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[st.ownerRsvpToggle, isParticipant && st.ownerRsvpToggleActive]}
-              onPress={toggleRSVP}
-              disabled={rsvpLoading}
-              testID="owner-rsvp-toggle"
-            >
-              {rsvpLoading
-                ? <ActivityIndicator size="small" color={isParticipant ? Colors.primary : Colors.muted} />
-                : <>
-                    <Ionicons
-                      name={isParticipant ? 'checkmark-circle' : 'add-circle-outline'}
-                      size={15}
-                      color={isParticipant ? Colors.primary : Colors.muted}
-                    />
-                    <Text style={[st.ownerRsvpToggleTxt, isParticipant && { color: Colors.primary }]}>
-                      {isParticipant ? 'Participant' : 'Rejoindre'}
-                    </Text>
-                  </>
-              }
+              <Text style={[st.chatBtnText, { color: Colors.primary }]}>Voir le groupe</Text>
             </TouchableOpacity>
           </View>
-        )}
-
-        {/* Bouton compact "N participants" pour le créateur */}
-        {isOwner && participants.length > 0 && (
-          <TouchableOpacity
-            style={ps.countBtn}
-            onPress={() => setShowParticipants(true)}
-            testID="owner-participants-count-btn"
-          >
-            <Ionicons name="people" size={14} color={Colors.primary} />
-            <Text style={ps.countBtnTxt}>
-              {participants.length} participant{participants.length > 1 ? 's' : ''}
-            </Text>
-            <Ionicons name="chevron-forward" size={14} color={Colors.primary} />
-          </TouchableOpacity>
         )}
 
         <View style={st.actionsRow}>

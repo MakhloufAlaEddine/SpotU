@@ -190,6 +190,14 @@ async def leave_spot_you(point_id: str, request: Request):
     user = await require_auth(request, pool)
 
     async with pool.acquire() as conn:
+        # Le propriétaire ne peut pas quitter sa propre communauté
+        owner_id = await conn.fetchval(
+            "SELECT user_id FROM tag_points WHERE point_id = $1", point_id
+        )
+        if owner_id and str(owner_id) == str(user["user_id"]):
+            from fastapi import HTTPException
+            raise HTTPException(status_code=403, detail="Le propriétaire ne peut pas quitter sa propre communauté.")
+
         await conn.execute(
             "DELETE FROM spot_you_participants WHERE spot_you_id = $1 AND user_id = $2",
             point_id, user["user_id"],
