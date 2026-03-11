@@ -11,6 +11,9 @@ import { api } from '../lib/api';
 import { Colors, Spacing, Radius } from '../constants/Colors';
 import ConfirmActionModal, { ConfirmAction } from '../components/ConfirmActionModal';
 import { useClickSound } from '../hooks/useClickSound';
+import { useNetwork, registerScreenRefresh } from '../hooks/useNetwork';
+import { StaleBanner, ErrorNoData } from '../components/OfflineBanner';
+import { buildCacheKey, cacheGet, cacheSet, isFresh, cacheAgeMinutes, getTtl, SCHEMA_VERSION, cacheInvalidate } from '../lib/cache';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -240,8 +243,11 @@ export default function MySpotYouScreen() {
   const { user } = useAuth();
   const { playClickSound } = useClickSound();
 
+  const { isOnline } = useNetwork();
+
   const [points, setPoints] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [screenState, setScreenState] = useState<'loading_initial' | 'ready_fresh' | 'ready_cached' | 'error_no_data'>('loading_initial');
+  const [staleMinutes, setStaleMinutes] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
@@ -256,16 +262,50 @@ export default function MySpotYouScreen() {
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
   const [pendingCallback, setPendingCallback] = useState<(() => void) | null>(null);
 
-  const loadPoints = async () => {
+  const loadPoints = useCallback(async (isRefresh = false) => {
+    const userId = user?.user_id;
+    const cacheKey = buildCacheKey({ path: '/tag-points/mine', userId, schemaVersion: SCHEMA_VERSION });
+    const ttl = getTtl('/tag-points/mine') ?? 5 * 60_000;
+
+    // Étape 1 : lecture cache sur le premier chargement
+    if (!isRefresh) {
+      const cached = await cacheGet<any[]>(cacheKey);
+      if (cached) {
+        setPoints(Array.isArray(cached.data) ? cached.data : []);
+        const fresh = isFresh(cached);
+        setScreenState(fresh ? 'ready_fresh' : 'ready_cached');
+        setStaleMinutes(fresh ? null : cacheAgeMinutes(cached));
+        if (fresh) return;
+      }
+    }
+
+    if (isRefresh) setRefreshing(true);
+
+    // Étape 2 : fetch réseau
     try {
       const data = await api.get('/tag-points/mine');
-      setPoints(data || []);
-    } catch {}
-    finally { setLoading(false); setRefreshing(false); }
-  };
+      const list = data || [];
+      setPoints(list);
+      setScreenState('ready_fresh');
+      setStaleMinutes(null);
+      await cacheSet(cacheKey, list, ttl);
+    } catch {
+      setPoints(prev => {
+        if (prev.length > 0) {
+          setScreenState('ready_cached');
+        } else {
+          setScreenState('error_no_data');
+        }
+        return prev;
+      });
+    } finally {
+      setRefreshing(false);
+    }
+  }, [user?.user_id]);
 
-  useEffect(() => { loadPoints(); }, []);
-  const onRefresh = useCallback(() => { setRefreshing(true); loadPoints(); }, []);
+  useEffect(() => { loadPoints(false); }, [loadPoints]);
+  useEffect(() => registerScreenRefresh('spot-me', () => loadPoints(true), 5), [loadPoints]);
+  const onRefresh = useCallback(() => { loadPoints(true); }, [loadPoints]);
 
   const openMembersModal = async (pointId: string, title: string) => {
     setMembersTitle(title);
@@ -281,6 +321,13 @@ export default function MySpotYouScreen() {
 
   const toggleGoing = (item: any) => {
     if (!user) { Alert.alert('Connexion requise', 'Connectez-vous pour participer.'); return; }
+    if (!isOnline) {
+      Alert.alert(
+        'Action impossible hors ligne',
+        'Impossible de modifier votre participation sans connexion réseau. Vérifiez votre Wi-Fi ou données mobiles et réessayez.'
+      );
+      return;
+    }
     playClickSound();
     if (item.is_going) {
       setConfirmAction({
@@ -323,6 +370,8 @@ export default function MySpotYouScreen() {
             ? { ...p, is_going: res.is_going, going_count: res.going_count ?? p.going_count, is_full: res.is_full || false }
             : p
         ));
+        // Invalidation ciblée après mutation de participation
+        await cacheInvalidate(['/tag-points/mine', '/planning']);
       } catch (e: any) { Alert.alert('Erreur', e.message || 'Une erreur est survenue'); }
       finally { setTogglingId(null); }
     });
@@ -341,8 +390,12 @@ export default function MySpotYouScreen() {
         </TouchableOpacity>
       </View>
 
-      {loading ? (
+      {screenState === 'ready_cached' && <StaleBanner staleMinutes={staleMinutes} />}
+
+      {screenState === 'loading_initial' ? (
         <ActivityIndicator style={{ marginTop: 40 }} color={Colors.primary} />
+      ) : screenState === 'error_no_data' ? (
+        <ErrorNoData onRetry={() => loadPoints(true)} testID="spotme-error-no-data" />
       ) : (
         <FlatList
           data={points}

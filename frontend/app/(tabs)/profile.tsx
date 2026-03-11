@@ -12,6 +12,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/LanguageContext';
 import { api } from '../../lib/api';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
+import { StaleBanner } from '../../components/OfflineBanner';
+import { buildCacheKey, cacheGet, cacheSet, isFresh, getTtl, SCHEMA_VERSION } from '../../lib/cache';
 
 export default function MenuScreen() {
   const router = useRouter();
@@ -22,27 +24,72 @@ export default function MenuScreen() {
   const [showLangModal, setShowLangModal] = useState(false);
   const [isRefreshingUser, setIsRefreshingUser] = useState(false);
   const [reviewStats, setReviewStats] = useState<{ avg_rating: number | null; review_count: number }>({ avg_rating: null, review_count: 0 });
+  const [dataScreenState, setDataScreenState] = useState<'loading_initial' | 'ready_fresh' | 'ready_cached' | 'error_no_data'>('loading_initial');
+  const [staleMinutes, setStaleMinutes] = useState<number | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
       setIsRefreshingUser(true);
-      refreshUser().finally(() => setIsRefreshingUser(false));
+      const timeout = setTimeout(() => setIsRefreshingUser(false), 8000);
+      refreshUser().finally(() => {
+        clearTimeout(timeout);
+        setIsRefreshingUser(false);
+      });
     }
   }, [loading]);
 
-  useEffect(() => { if (user) loadData(); }, [user]);
+  useEffect(() => { if (user) loadData(false); }, [user]);
 
   const { profileKey } = useRefresh();
-  useEffect(() => { if (user && profileKey > 0) loadData(); }, [profileKey]);
+  useEffect(() => { if (user && profileKey > 0) loadData(false); }, [profileKey]);
 
   // Reload when tab comes into focus (fix: stats not updating after profile edit)
   useFocusEffect(
     useCallback(() => {
-      if (user) loadData();
+      if (user) loadData(false);
     }, [user?.user_id])
   );
 
-  const loadData = async () => {
+  const loadData = async (isRefresh = false) => {
+    const userId = user?.user_id;
+    const tpCacheKey = buildCacheKey({ path: '/tag-points/mine', userId, schemaVersion: SCHEMA_VERSION });
+    const profileCacheKey = buildCacheKey({ path: '/users/profile', userId, schemaVersion: SCHEMA_VERSION });
+    const tpTtl = getTtl('/tag-points/mine') ?? 5 * 60_000;
+    const profileTtl = getTtl('/users/profile') ?? 5 * 60_000;
+
+    // Étape 1 : lecture cache sur le premier chargement
+    if (!isRefresh) {
+      const [cachedTp, cachedProfile] = await Promise.all([
+        cacheGet<any[]>(tpCacheKey),
+        cacheGet<any>(profileCacheKey),
+      ]);
+      if (cachedTp || cachedProfile) {
+        if (cachedTp) setMySpotYou(Array.isArray(cachedTp.data) ? cachedTp.data : []);
+        if (cachedProfile?.data) {
+          setReviewStats({
+            avg_rating: cachedProfile.data.avg_rating ?? null,
+            review_count: cachedProfile.data.review_count ?? 0,
+          });
+        }
+        const tpFresh = !cachedTp || isFresh(cachedTp);
+        const profileFresh = !cachedProfile || isFresh(cachedProfile);
+        if (tpFresh && profileFresh) {
+          setDataScreenState('ready_fresh');
+          setStaleMinutes(null);
+          return;
+        }
+        setDataScreenState('ready_cached');
+        const minAge = Math.max(
+          cachedTp ? (Date.now() - cachedTp.cachedAt) : 0,
+          cachedProfile ? (Date.now() - cachedProfile.cachedAt) : 0,
+        );
+        setStaleMinutes(Math.floor(minAge / 60_000));
+      }
+    }
+
+    if (isRefresh) setRefreshing(true);
+
+    // Étape 2 : fetch réseau
     try {
       const [points, profileData] = await Promise.all([
         api.get('/tag-points/mine'),
@@ -55,11 +102,27 @@ export default function MenuScreen() {
           review_count: profileData.review_count ?? 0,
         });
       }
-    } catch {}
-    finally { setRefreshing(false); }
+      setDataScreenState('ready_fresh');
+      setStaleMinutes(null);
+      await Promise.all([
+        cacheSet(tpCacheKey, points || [], tpTtl),
+        cacheSet(profileCacheKey, profileData || {}, profileTtl),
+      ]);
+    } catch {
+      setMySpotYou(prev => {
+        if (prev.length > 0) {
+          setDataScreenState('ready_cached');
+        } else {
+          setDataScreenState('error_no_data');
+        }
+        return prev;
+      });
+    } finally {
+      setRefreshing(false);
+    }
   };
 
-  const onRefresh = useCallback(() => { setRefreshing(true); loadData(); }, []);
+  const onRefresh = useCallback(() => { loadData(true); }, []);
   const handleLogout = async () => { await logout(); router.replace('/(auth)/login'); };
 
   if (loading || isRefreshingUser) {
@@ -243,6 +306,9 @@ export default function MenuScreen() {
           </View>
         )}
 
+        {/* ── Stale data indicator ─────────────────────────────── */}
+        {dataScreenState === 'ready_cached' && <StaleBanner staleMinutes={staleMinutes} />}
+
         {/* ── MY TAGPOINTS (horizontal scroll) ──────────────── */}
         {mySpotYou.length > 0 && (
           <View style={st.section}>
@@ -277,15 +343,23 @@ export default function MenuScreen() {
           </View>
         )}
 
-        {mySpotYou.length === 0 && (
+        {mySpotYou.length === 0 && dataScreenState !== 'loading_initial' && (
           <View style={st.section}>
             <View style={st.sectionHeader}>
               <Text style={st.sectionTitle}>Mes SpotMe</Text>
             </View>
-            <TouchableOpacity style={st.emptyTp} onPress={() => router.push('/(tabs)/create' as any)} activeOpacity={0.8}>
-              <Ionicons name="add-circle-outline" size={32} color={Colors.primary} />
-              <Text style={st.emptyTpText}>Créer mon premier SpotMe</Text>
-            </TouchableOpacity>
+            {dataScreenState === 'error_no_data' ? (
+              <TouchableOpacity style={st.emptyTp} onPress={() => loadData(true)} activeOpacity={0.8} testID="profile-retry-data-btn">
+                <Ionicons name="wifi-outline" size={32} color={Colors.muted} />
+                <Text style={[st.emptyTpText, { color: Colors.muted }]}>Données indisponibles</Text>
+                <Text style={{ fontSize: 12, color: Colors.muted, textAlign: 'center' }}>Touchez pour réessayer</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity style={st.emptyTp} onPress={() => router.push('/(tabs)/create' as any)} activeOpacity={0.8}>
+                <Ionicons name="add-circle-outline" size={32} color={Colors.primary} />
+                <Text style={st.emptyTpText}>Créer mon premier SpotMe</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 

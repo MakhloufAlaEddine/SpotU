@@ -1,183 +1,192 @@
-<analysis>**original_problem_statement**: The user wants to implement a highly flexible and configurable service booking workflow. This includes allowing service owners to choose between manual approval and instant booking, offering a pay later option, and ensuring the system can handle concurrent bookings.
+<analysis>**original_problem_statement**: The user initiated a series of requests, starting with adding sound and haptic feedback to primary buttons. This led to requests for running e2e tests, documenting existing notification rules, analyzing code for duplication, and assessing the application's behavior under poor network conditions.
 
-A new critical requirement has been added:
-For services configured as  + , the payment flow must be corrected. The expected behavior is:
-1.  **Authorize on Request**: The user's payment method is authorized (but not charged) when they request a booking. This should use Stripe's  with .
-2.  **Capture on Acceptance**: The payment is captured (charged) only after the service owner (coach) accepts the booking request.
-3.  **Cancel on Rejection**: The authorization is canceled if the coach rejects the request or if the request expires.
-4.  **UI/UX Correction**: The frontend text must be updated to clearly communicate this authorize now, capture later flow. Additionally, a UI bug where the user is asked to choose a payment method on two different screens must be fixed, consolidating the choice into the Confirm Booking screen.
+The main and final requirement was to implement an advanced, robust network protection and caching layer to handle offline and low-connectivity scenarios gracefully. The user provided a detailed 9-point specification for this feature, demanding:
+1.  Structured cache keys.
+2.  Rich metadata in cache entries.
+3.  Clear distinction between error types (offline, timeout, 5xx, 401/403).
+4.  Handling of stale vs. fresh cache with clear UI indicators.
+5.  A clear screen state model to avoid infinite loaders.
+6.  Progressive refresh of data upon network reconnection.
+7.  Targeted cache invalidation after mutations.
+8.  Explicit error messages for unsupported offline actions.
+9.  A phased implementation, starting with read-only caching on critical screens.
 
-**User's preferred language**: French. The next agent MUST respond in **French**.
+**User's preferred language**: French
 
 **what currently exists?**
-A full-stack application with a React Native (Expo) frontend and a FastAPI/PostgreSQL backend. The core backend and frontend for the flexible booking workflow are implemented and have passed tests. This includes:
--   **Backend**: Endpoints for creating, accepting, and paying for bookings with the four different workflow combinations ( approval, ). A background worker handles expired bookings. A comprehensive test suite for these workflows is in place.
--   **Frontend (Coach)**: A 5-step wizard in  allows coaches to configure the booking workflow for their services, with dynamic help text explaining the impact of their choices.
--   **Frontend (User)**: The booking screens (, ) have been updated to handle the different workflows, showing options like Pay Now vs Pay Later and displaying countdowns for bookings awaiting payment.
+The application now includes an advanced, though partially integrated, network protection and caching layer.
+-   **Core Infrastructure**: A new caching library () using  with TTLs, structured keys, and metadata has been created. A centralized error classification system () and a real-time connectivity hook () are in place. A new data-fetching hook, , implements a stale-while-revalidate pattern.
+-   **UI Components**: A global  and a  have been created to provide users with network and data freshness status.
+-   **Integration**: This new system is integrated into the main layout () and four critical screens: , , , and the SpotYou detail page ().
+-   **Mutation Guards**: The SpotYou detail page now includes guards to prevent offline actions (like joining/participating) and uses targeted cache invalidation upon successful mutations.
+-   **Sound Feedback**: A  hook has been implemented and attached to the Join SpotYou and Participate buttons, using the newly installed  dependency.
+-   **Testing & Documentation**: The testing agent was run, and a detailed breakdown of all application notification rules was produced.
 
 **Last working item**:
--   **Last item agent was working**: Auditing the current implementation based on the user's latest request to correct the  +  workflow and fix a UI bug with duplicate payment selection screens. The agent had just started by viewing .
--   **Status**: NOT STARTED
--   **Agent Testing Done**: N
--   **Which testing method agent to use?**: both
+-   **Last item agent was working**: The agent just finished a massive implementation of the advanced network protection and caching layer and provided a highly detailed, verifiable report to the user as requested.
+-   **Status**: USER VERIFICATION PENDING
+-   **Agent Testing Done**: Y
+-   **Which testing method agent to use?**: testing_agent_v4_fork. The next agent must run a full regression test to validate the deep changes made. New tests should be created for the offline behavior on screens like  and .
 -   **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
--   Issue 1: Correct  +  workflow to use Stripe's authorize/capture model (P0)
--   Issue 2: Fix duplicate payment method selection UI (P0)
+-   Issue 1: Incomplete Network Protection Integration (P0)
+-   Issue 2: Expo Hot-Reload Instability (P1 - RECURRING)
 -   Issue 3: Update SpotYou flow not fully verified (P2)
--   Issue 4: Expo Hot-Reload Instability (P3 - RECURRING)
+-   Issue 4: Old e2e test suites are failing (P3)
 
-**Issues Detail**:
--   **Issue 1: Correct  +  workflow**
-    -   **Description**: The current implementation for  +  incorrectly waits for coach approval before asking for payment. The user requires the payment to be *authorized* upon request and *captured* only upon acceptance.
-    -   **Attempted fixes**: None. This is a new requirement.
-    -   **Next debug checklist**:
-        1.  Audit  and .
-        2.  Modify the  endpoint to create a Stripe  with  for this specific flow.
-        3.  Modify the  endpoint to capture the existing .
-        4.  Ensure the  or expiry worker logic correctly cancels the  authorization.
-        5.  Update  to remove any logic that delays payment and update the descriptive text to reflect the new Authorize Now, Capture Later flow.
-        6.  Update the backend test suite () to validate this new flow.
-    -   **Why fix this issue and what will be achieved with the fix?**: This aligns the application with the user's core business logic, reducing friction for the end-user and guaranteeing payment for the coach upon acceptance.
-    -   **Status**: NOT STARTED
-    -   **Is recurring issue?**: N
-    -   **Should Test frontend/backend/both after fix?**: both
-    -   **Blocked on other issue**: None.
+Issues Detail:
+-   **Issue 1: Incomplete Network Protection Integration**
+    -   Attempted fixes: The agent successfully integrated the new system into 4 main screens but did not have time to cover all of them.
+    -   Next debug checklist:
+        1.  Integrate the  hook into , replacing the old data fetching logic.
+        2.  Integrate the  hook into .
+        3.  Add the  to  and .
+        4.  Add offline guards and targeted cache invalidation to mutations in  (e.g., ).
+    -   Why fix this issue and what will be achieved with the fix?: To complete the user's primary request for robust network handling across the entire application, providing a consistent, reliable user experience.
+    -   Status: IN PROGRESS
+    -   Is recurring issue?: N
+    -   Should Test frontend/backend/both after fix?: frontend
+    -   Blocked on other issue: None
 
--   **Issue 2: Fix duplicate payment method selection UI**
-    -   **Description**: The user has pointed out (with a screenshot) that the booking flow presents two consecutive screens for choosing the payment method.
-    -   **Attempted fixes**: None.
-    -   **Next debug checklist**:
-        1.  Analyze the navigation flow starting from  through .
-        2.  Identify the two components/screens responsible for the payment choice.
-        3.  Consolidate the logic into a single screen, likely , removing the redundant step.
-    -   **Why fix this issue and what will be achieved with the fix?**: It will improve the user experience by removing a redundant and confusing step in the booking process.
-    -   **Status**: NOT STARTED
-    -   **Is recurring issue?**: N
-    -   **Should Test frontend/backend/both after fix?**: frontend
-    -   **Blocked on other issue**: None. Can be fixed alongside Issue 1.
+-   **Issue 2: Expo Hot-Reload Instability**
+    -   Attempted fixes: None in this session beyond workarounds (restarting services). The issue persists and was confirmed when e2e tests failed to start.
+    -   Next debug checklist: Investigate , Metro bundler cache, and potential memory leaks.
+    -   Why fix this issue and what will be achieved with the fix?: Dramatically improves development velocity.
+    -   Status: NOT STARTED
+    -   Is recurring issue?: Y
+    -   Should Test frontend/backend/both after fix?: frontend
+    -   Blocked on other issue: None
 
 -   **Issue 3: Update SpotYou flow not fully verified**
-    -   **Description**: A user flow from a previous session that was never fully re-verified.
-    -   **Status**: NOT STARTED
-    -   **Is recurring issue?**: N
-    -   **Should Test frontend/backend/both after fix?**: both
+    -   Attempted fixes: None.
+    -   Next debug checklist: Create a test plan for the Update SpotYou feature to check for regressions.
+    -   Why fix this issue and what will be achieved with the fix?: Ensures core functionality remains stable after major refactors.
+    -   Status: NOT STARTED
+    -   Is recurring issue?: N
+    -   Should Test frontend/backend/both after fix?: both
+    -   Blocked on other issue: None
 
--   **Issue 4: Expo Hot-Reload Instability**
-    -   **Description**: The Metro bundler for the Expo frontend frequently crashes with  or  errors.
-    -   **Attempted fixes**: A temporary workaround is to run frontend: ERROR (no such process)
-frontend: ERROR (no such process) or .
-    -   **Status**: IN PROGRESS (fragile workaround)
-    -   **Is recurring issue?**: Y
+-   **Issue 4: Old e2e test suites are failing**
+    -   Attempted fixes: The agent ran the tests and confirmed a  failure, noting it was pre-existing and likely related to the Expo instability or a stale URL in .
+    -   Next debug checklist: Debug . Check the  file for incorrect URLs. Fix or update the test.
+    -   Why fix this issue and what will be achieved with the fix?: Restores confidence in the automated testing pipeline.
+    -   Status: NOT STARTED
+    -   Is recurring issue?: Y
+    -   Should Test frontend/backend/both after fix?: frontend
+    -   Blocked on other issue: Issue 2 (Expo Instability) might be the root cause.
 
 **In progress Task List**:
--   None.
+- NONE
 
 **Upcoming and Future Tasks**
 -   **Upcoming Tasks**:
-    -   (P1) Bilingual Support (i18n): Fully implement French/English translations.
+    -   (P1) **Code Refactoring**: Create shared components for , , and  to reduce code duplication as identified in the agent's analysis.
+    -   (P1) **Bilingual Support (i18n)**: Fully implement French/English translations across the application.
 -   **Future Tasks**:
-    -   (P2) Finalize Push Notifications with EAS Build for production deployment.
+    -   (P2) **Offline Mutations**: Implement a queueing system for offline actions (chat messages, joining SpotYous) that syncs when connectivity is restored.
+    -   (P2) **Enhance Notifications**: Implement the missing notifications identified by the agent (e.g., when a user joins a session, a SpotYou is full, etc.).
+    -   (P2) **Finalize Push Notifications**: Use EAS Build for production deployment.
 
 **Completed work in this session**
--   **Flexible Booking Workflow - Backend (DONE)**:
-    -   Implemented the full backend logic for the 4 configurable booking workflows.
-    -   Created a new test suite () with 55 passing tests validating all flows, concurrency, and expiry logic.
--   **Flexible Booking Workflow - Frontend (Coach UI) (DONE)**:
-    -   Implemented the UI in  for coaches to configure booking settings, including dynamic help text.
--   **Flexible Booking Workflow - Frontend (User UI) (DONE)**:
-    -   Implemented the user-facing UI for the new booking flows, including Pay Now/Later choices and countdowns for pending payments on , , and .
--   **Service Creation Wizard Refactor (DONE)**:
-    -   Moved the Booking Configuration into its own dedicated step in the  wizard, improving the user flow for coaches.
+-   **Advanced Network Protection & Caching (PARTIAL)**:
+    -   Created core infrastructure (, , , , ).
+    -   Integrated the system into , , , and .
+-   **Sound & Haptic Feedback (DONE)**:
+    -   Installed .
+    -   Integrated  hook into  and .
+-   **Analysis & Documentation (DONE)**:
+    -   Performed detailed analysis of code duplication and network handling.
+    -   Generated a comprehensive document outlining all notification rules.
+-   **Testing (DONE)**:
+    -   Executed the testing agent, which passed 68 tests after applying fixes.
 
 **Earlier issues found/mentioned but not fixed**
--   **Issue 1: Old test suites are failing**
-    -   **Debug checklist**:  and other older test files are failing due to function signature changes from recent refactoring. They need to be updated or deleted to prevent regression confusion.
-    -   **Why to solve this issue and what will be achieved with this?**: Ensures the entire test suite is green and reliable, preventing old regressions.
-    -   **Should Test frontend/backend/both after fix?**: backend
-    -   **Is recurring issue?**: Y
+-   Same as **All Pending/In progress Issue list**.
 
 **Known issue recurrence from previous fork**
--   **Issue recurrence in previous fork**: Expo Metro Bundler Instability ( error).
--   **Recurrence count**: 5+
--   **Status**: IN PROGRESS (A workaround is available but the root cause is not fixed).
+-   **Issue recurrence in previous fork**: Expo Metro Bundler Instability.
+-   **Recurrence count**: High. Encountered again in this session, blocking e2e tests.
+-   **Status**: NOT STARTED (workaround is to restart services).
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Stripe Payment Intents with Manual Capture ()**: This will be the core concept for the next task.
--   **Configurable Business Logic**: Building workflows based on stored service settings.
--   **Asynchronous Background Worker ()**: Used for .
--   **Row-Level Locking ()**: For concurrency control.
--   **Frontend State Management (React Hooks)**.
+-   **Advanced Caching Strategy**: Implemented a sophisticated caching layer using  with TTLs, structured keys (user-specific, normalized params, schema version), and rich metadata.
+-   **Stale-While-Revalidate (SWR)**: The new  hook shows cached/stale data instantly while fetching a fresh version in the background, preventing empty loading screens.
+-   **Offline-First UI**: Screens now have defined states (, , , ) to handle network unavailability gracefully.
+-   **Centralized API Error Handling**:  and  work together to classify all fetch errors (timeout, offline, 401/403, 5xx), ensuring consistent behavior and preventing fallback to cache on authentication errors.
+-   **Progressive Refresh**: The  hook triggers a prioritized, staggered refresh of on-screen data when the network connection is restored.
+-   **Expo AV & Haptics**: Used for providing audio-visual feedback on user interactions.
 
 **key DB schema**
--   ****:  (Enum),  (bool),  (int).
--   ****:  (Enum),  (Enum: , ),  (datetime).
+-   No changes made to the database schema in this session.
 
 **All files of reference**
--   **Backend (Key files for next task)**:
-    -   
-    -   
-    -   
--   **Frontend (Key files for next task)**:
-    -   
-    -   
+-   : The core caching logic.
+-   : The new standard for fetching and displaying data on screens.
+-   : Modified to integrate caching, timeouts, and error classification.
+-   : The most complete example of the new system, including mutation guards and cache invalidation.
+-   , , : Screens updated to the new data-fetching pattern.
+-   , : Screens that **still need to be migrated** to the new system.
+-   : Updated with  and .
+
+**Areas that need refactoring**:
+-   **Network Layer Rollout**: The new caching/network system must be implemented in the remaining screens (, , etc.) to ensure a consistent UX.
+-   **Component Duplication**: The agent's analysis identified repeated patterns for Avatars, Loaders, and Empty States that should be extracted into shared components (, , ).
+
+**key api endpoints**
+-   No new API endpoints were created. The existing endpoints are now consumed through the new caching layer in .
 
 **Critical Info for New Agent**
--   The highest priority (P0) is to address the user's latest request in message #332. This involves two parts:
-    1.  **Backend Change**: Implement the authorize now, capture later logic for  +  bookings using Stripe's .
-    2.  **Frontend Change**: Fix the UI bug causing a duplicate payment selection screen and update all relevant text to clearly explain the new authorization flow to the user.
--   You must ensure all other booking flows (, ) remain unaffected.
--   The agent was in a fragile state with the Expo Metro bundler, frequently needing cache clearing () to resolve phantom Babel errors. Be prepared for this.
+-   The user is highly technical and expects detailed, verifiable proof of work, not just summaries. When you finish a task, be prepared to provide , command outputs, and code snippets demonstrating you met every requirement.
+-   Your immediate priority (P0) is to **complete the network protection integration**. This means migrating  and  to use the  hook and implementing the same offline guards and cache invalidation patterns seen in .
+-   The Expo hot-reload environment is unstable and is the likely cause of the failing e2e tests. Do not waste too much time on a failing test without first trying frontend: ERROR (no such process)
+frontend: ERROR (no such process).
+-   All new data-fetching logic should use the  hook. Do not use  directly in components.
 
 **documents and test reports created in this job**
 -   
--   
--   
--   
--   
--   
+-   , , etc.
+-    (updated)
 
 **Last 10 User Messages and any pending HUMAN messages**
-10. **User**: Asks to move the booking configuration into its own step in the service creation wizard. **Status: COMPLETED**
-9.  **Agent**: Acknowledges and starts working on the wizard refactor. **Status: N/A**
-8.  **User**: Continues a previous command. **Status: N/A**
-7.  **User**: Asks about implementing the user-side frontend for the new booking flows. **Status: COMPLETED**
-6.  **Agent**: Acknowledges and starts working on the user-facing frontend changes. **Status: N/A**
-5.  **Agent**: Finishes the coach-side UI and asks for the next step. **Status: N/A**
-4.  **User**: Provides detailed requirements for the coach-side UI to configure booking workflows. **Status: COMPLETED**
-3.  **User**: Asks if the service creation flow is adapted to the new backend changes. **Status: ADDRESSED**
-2.  **Agent**: Finishes the entire backend implementation for the flexible booking workflow. **Status: N/A**
-1.  **User**: Provides a critical bug fix and feature request: fix the  +  flow to use authorize/capture, and fix the duplicate payment selection UI. **Status: NOT STARTED**
+1.  **User**: Asked for a full, verifiable report on the network implementation, providing a detailed 9-point checklist. **Status**: . The agent provided the report.
+2.  **User**: Validated the 5-point plan for advanced network protection but provided a more detailed 9-point specification to follow. **Status**: . The agent used this as the blueprint.
+3.  **User**: Asked for a proposal for advanced network protection to avoid empty/infinite loading screens. **Status**: .
+4.  **User**: Asked how the app behaves with network loss or a weak connection. **Status**: . The agent provided a detailed analysis.
+5.  **User**: Asked if the code is optimized using shared components to avoid duplication. **Status**: . The agent analyzed the code and confirmed it was not, proposing a refactoring plan.
+6.  **User**: Asked for the rules governing notifications (when, who, what trigger). **Status**: . The agent provided a comprehensive summary.
+7.  **User**: Requested the agent to run e2e tests, fix bugs, and add missing tests for all buttons. **Status**: .
+8.  **User**: Finished the sound feedback implementation. **Status**: .
+9.  **User**: Asked to add light sound and haptic feedback to main buttons. **Status**: .
+10. **Agent**: Proposed initial plan to explore codebase. **Status**: .
 
 **Project Health Check:**
 -   **Broken**:
-    -   The  +  booking workflow does not meet business requirements.
-    -   The user booking flow has a UI bug with a duplicate screen.
-    -   The frontend development environment (Expo) is fragile and prone to crashing, requiring cache clearing.
+    -   Expo hot-reload environment remains unstable.
+    -   Older e2e test suite () is failing, likely due to the environment instability.
 -   **Mocked**:
     -   None.
 
 **3rd Party Integrations**
--   **Stripe**: Used via Python SDK for payments.
--   **EAS** (Expo Application Services)
--   **Google Places API**
+-   Stripe (Payments)
+-   EAS (Expo Application Services)
+-   Google Places API
+-    (NEW)
+-    (NEW)
 
 **Testing status**
--   **Testing agent used after significant changes**: YES (4 times in this session for backend and frontend features).
--   **Troubleshoot agent used after agent stuck in loop**: NO
--   **Test files created**:
-    -   
--   **Known regressions**:
-    -   Older test suites (e.g., ) are failing due to recent refactoring and have not been updated.
+-   **Testing agent used after significant changes**: YES.
+-   **Troubleshoot agent used after agent stuck in loop**: NO.
+-   **Test files created**: Yes, the testing agent created new test files (, ).
+-   **Known regressions**: The  e2e test continues to fail due to a pre-existing environment issue.
 
 **Credentials to test flow:**
 -   **Admin**:  / 
--   **Coach**:  / 
+-   **Coach (SpotYou Owner)**:  / 
 -   **User**:  / 
 
 **What agent forgot to execute**
--   The agent has not yet fixed or removed the old, failing test suites that were broken by recent refactoring. This remains a pending cleanup task.</analysis>
+-   The agent did not complete the full rollout of the new network protection layer.  and  are known to be missing the new  implementation and associated UI/logic (StaleBanner, offline guards).</analysis>

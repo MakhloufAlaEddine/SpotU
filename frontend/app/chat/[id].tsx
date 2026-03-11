@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, FlatList, TextInput, TouchableOpacity,
   StyleSheet, KeyboardAvoidingView, Platform, Image,
-  ActivityIndicator,
+  ActivityIndicator, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -94,11 +94,18 @@ export default function ChatScreen() {
   const handleSend = useCallback(() => {
     const text = input.trim();
     if (!text || sending) return;
+    if (!isConnected) {
+      Alert.alert(
+        'Envoi impossible',
+        'La connexion au chat est interrompue. Votre message n\'a pas été envoyé.\nVérifiez votre connexion et réessayez.',
+      );
+      return;
+    }
     setSending(true);
     sendMessage(text);
     setInput('');
     setSending(false);
-  }, [input, sending, sendMessage]);
+  }, [input, sending, sendMessage, isConnected]);
 
   const typeLabel = convInfo?.type === 'service' ? 'Service'
     : convInfo?.type === 'tagpoint_group' ? 'Groupe'
