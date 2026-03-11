@@ -1,322 +1,100 @@
 {
-  "project_context": {
-    "app_type": "React Native (Expo)",
-    "styling_engine": "StyleSheet",
-    "theme": "Dark Premium",
-    "target_file": "/app/frontend/app/user/[id].tsx"
-  },
-  "design_system": {
-    "colors": {
-      "background": "#0A0A0A",
-      "surface": "#161616",
-      "surface_highlight": "#1F1F1F",
-      "primary": "#00BFA5",
-      "primary_dim": "rgba(0, 191, 165, 0.1)",
-      "text_main": "#FFFFFF",
-      "text_secondary": "#A1A1AA",
-      "text_tertiary": "#71717A",
-      "border": "#27272A",
-      "success": "#00BFA5",
-      "star": "#FFD700"
-    },
-    "typography": {
-      "hero_title": {
-        "fontSize": 28,
-        "fontWeight": "800",
-        "letterSpacing": -0.5,
-        "color": "#FFFFFF"
+  "design_guidelines": {
+    "file_target": "/app/frontend/app/user/[id].tsx",
+    "theme": {
+      "mode": "dark",
+      "colors": {
+        "background": "#0A0A0A",
+        "card": "#1A1A1A",
+        "primary": "#00BFA5",
+        "text_primary": "#FFFFFF",
+        "text_secondary": "#A1A1AA",
+        "border": "#333333",
+        "verified_badge": "#00BFA5",
+        "coach_badge_bg": "#0D2420", 
+        "coach_badge_border": "#00BFA5",
+        "rating_badge_bg": "#2A2005",
+        "rating_badge_border": "#FFD700",
+        "rating_icon": "#FFD700"
       },
-      "section_header": {
-        "fontSize": 13,
-        "fontWeight": "700",
-        "textTransform": "uppercase",
-        "letterSpacing": 1.5,
-        "color": "#00BFA5"
+      "typography": {
+        "name": {
+          "fontSize": 26,
+          "fontWeight": "bold",
+          "color": "#FFFFFF",
+          "letterSpacing": -0.5
+        },
+        "bio": {
+          "fontSize": 14,
+          "color": "#A1A1AA",
+          "textAlign": "center",
+          "lineHeight": 20
+        },
+        "stats_number": {
+          "fontSize": 20,
+          "fontWeight": "bold",
+          "color": "#FFFFFF"
+        },
+        "stats_label": {
+          "fontSize": 11,
+          "color": "#A1A1AA",
+          "textTransform": "uppercase",
+          "fontWeight": "600"
+        }
+      },
+      "spacing": {
+        "cover_height": 180,
+        "avatar_size": 106,
+        "avatar_border_width": 3,
+        "avatar_offset_bottom": -53,
+        "content_top_padding": 60 
       }
-    }
-  },
-  "layout_strategy": {
-    "hero": {
-      "avatar_size": 120,
-      "avatar_border": "3px solid #00BFA5",
-      "spacing": "Generous vertical padding (40px)"
     },
-    "services": {
-      "priority": "High - Placed immediately after hero",
-      "style": "Large Cards, Dark Surface (#161616), Teal Accent"
+    "components": {
+      "Hero": {
+        "structure": [
+          "Container View (relative, no padding top)",
+          "Cover Image (180px height, resizeMode='cover')",
+          "Upload Button (Owner only, absolute bottom-right of cover)",
+          "Avatar Container (Absolute, centered, bottom: -53 of cover)",
+          "Content Container (marginTop: ~60px to clear avatar)",
+          "Name Text",
+          "Badges Row (Coach, Rating)",
+          "Bio Text",
+          "Follow Button (Visitor only)",
+          "Stats Row (Card with 4 columns: SpotYou, Avis, Services, Abonnés)"
+        ],
+        "state_requirements": [
+          "isFollowing (boolean)",
+          "followersCount (number)",
+          "followingCount (number)",
+          "coverUrl (string)"
+        ],
+        "icons": {
+          "library": "Ionicons",
+          "upload": "camera",
+          "verified": "checkmark-circle",
+          "coach": "trophy",
+          "rating": "star",
+          "follow": "add",
+          "following": "checkmark"
+        }
+      }
     },
-    "spot_you": {
-      "style": "Row Layout with Large Thumbnail (90px)",
-      "date_style": "Accent Color, Bold"
-    }
-  },
-  "implementation_guide": {
-    "instructions": "Refactor /app/frontend/app/user/[id].tsx. Replace existing styles with the new StyleSheet below. Update JSX to use new structure (Hero -> Services -> SpotYou -> Reviews -> Interests). Preserve all logic.",
-    "new_stylesheet": {
-      "safe": { "flex": 1, "backgroundColor": "#0A0A0A" },
-      "header": {
-        "flexDirection": "row",
-        "alignItems": "center",
-        "justifyContent": "space-between",
-        "paddingHorizontal": 20,
-        "paddingVertical": 16,
-        "backgroundColor": "#0A0A0A",
-        "zIndex": 10
-      },
-      "backBtn": {
-        "width": 44,
-        "height": 44,
-        "borderRadius": 22,
-        "backgroundColor": "#1A1A1A",
-        "alignItems": "center",
-        "justifyContent": "center",
-        "borderWidth": 1,
-        "borderColor": "#27272A"
-      },
-      "headerTitle": {
-        "fontSize": 16,
-        "fontWeight": "700",
-        "color": "#FFFFFF",
-        "textTransform": "uppercase",
-        "letterSpacing": 1
-      },
-      "editBtn": {
-        "flexDirection": "row",
-        "alignItems": "center",
-        "gap": 6,
-        "backgroundColor": "rgba(0, 191, 165, 0.1)",
-        "borderRadius": 20,
-        "paddingHorizontal": 14,
-        "paddingVertical": 8,
-        "borderWidth": 1,
-        "borderColor": "rgba(0, 191, 165, 0.3)"
-      },
-      "editBtnText": { "fontSize": 13, "fontWeight": "700", "color": "#00BFA5" },
-      "scroll": { "paddingBottom": 40 },
-      "hero": {
-        "alignItems": "center",
-        "paddingTop": 32,
-        "paddingBottom": 40,
-        "borderBottomWidth": 1,
-        "borderBottomColor": "#1A1A1A",
-        "marginBottom": 24
-      },
-      "avatarContainer": {
-        "position": "relative",
-        "marginBottom": 20,
-        "shadowColor": "#00BFA5",
-        "shadowOffset": { "width": 0, "height": 10 },
-        "shadowOpacity": 0.2,
-        "shadowRadius": 20,
-        "elevation": 10
-      },
-      "avatar": {
-        "width": 120,
-        "height": 120,
-        "borderRadius": 60,
-        "borderWidth": 3,
-        "borderColor": "#00BFA5"
-      },
-      "verifiedBadge": {
-        "position": "absolute",
-        "bottom": 4,
-        "right": 4,
-        "width": 28,
-        "height": 28,
-        "borderRadius": 14,
-        "backgroundColor": "#00BFA5",
-        "borderWidth": 3,
-        "borderColor": "#0A0A0A",
-        "alignItems": "center",
-        "justifyContent": "center"
-      },
-      "heroName": {
-        "fontSize": 28,
-        "fontWeight": "800",
-        "color": "#FFFFFF",
-        "marginBottom": 8,
-        "letterSpacing": -0.5,
-        "textAlign": "center"
-      },
-      "ratingPill": {
-        "flexDirection": "row",
-        "alignItems": "center",
-        "gap": 6,
-        "backgroundColor": "rgba(255, 215, 0, 0.1)",
-        "paddingHorizontal": 12,
-        "paddingVertical": 6,
-        "borderRadius": 100,
-        "marginBottom": 16,
-        "borderWidth": 1,
-        "borderColor": "rgba(255, 215, 0, 0.2)"
-      },
-      "ratingText": { "fontSize": 14, "fontWeight": "700", "color": "#FFD700" },
-      "roleBadge": {
-        "flexDirection": "row",
-        "alignItems": "center",
-        "gap": 6,
-        "paddingHorizontal": 14,
-        "paddingVertical": 6,
-        "borderRadius": 8,
-        "backgroundColor": "#1A1A1A",
-        "borderWidth": 1,
-        "borderColor": "#27272A",
-        "marginBottom": 16
-      },
-      "roleBadgeCoach": {
-        "backgroundColor": "rgba(0, 191, 165, 0.1)",
-        "borderColor": "rgba(0, 191, 165, 0.3)"
-      },
-      "roleText": { "fontSize": 12, "fontWeight": "600", "color": "#A1A1AA", "textTransform": "uppercase", "letterSpacing": 0.5 },
-      "roleTextCoach": { "color": "#00BFA5" },
-      "bio": {
-        "fontSize": 15,
-        "color": "#A1A1AA",
-        "textAlign": "center",
-        "lineHeight": 24,
-        "maxWidth": "85%",
-        "marginTop": 8
-      },
-      "section": {
-        "marginBottom": 32,
-        "paddingHorizontal": 20
-      },
-      "sectionHeader": {
-        "flexDirection": "row",
-        "alignItems": "center",
-        "justifyContent": "space-between",
-        "marginBottom": 20
-      },
-      "sectionTitle": {
-        "fontSize": 13,
-        "fontWeight": "700",
-        "color": "#00BFA5",
-        "textTransform": "uppercase",
-        "letterSpacing": 1.5
-      },
-      "sectionLine": {
-        "height": 1,
-        "flex": 1,
-        "backgroundColor": "#27272A",
-        "marginLeft": 16
-      },
-      "serviceCard": {
-        "backgroundColor": "#161616",
-        "borderRadius": 24,
-        "padding": 24,
-        "marginBottom": 16,
-        "borderWidth": 1,
-        "borderColor": "#27272A",
-        "shadowColor": "#000",
-        "shadowOffset": { "width": 0, "height": 4 },
-        "shadowOpacity": 0.3,
-        "shadowRadius": 10,
-        "elevation": 4
-      },
-      "serviceHeader": {
-        "flexDirection": "row",
-        "justifyContent": "space-between",
-        "alignItems": "flex-start",
-        "marginBottom": 12
-      },
-      "serviceTitle": {
-        "fontSize": 18,
-        "fontWeight": "700",
-        "color": "#FFFFFF",
-        "flex": 1,
-        "marginRight": 12
-      },
-      "priceBadge": {
-        "backgroundColor": "rgba(0, 191, 165, 0.1)",
-        "paddingHorizontal": 10,
-        "paddingVertical": 6,
-        "borderRadius": 8
-      },
-      "priceText": { "fontSize": 16, "fontWeight": "800", "color": "#00BFA5" },
-      "serviceDesc": {
-        "fontSize": 14,
-        "color": "#A1A1AA",
-        "lineHeight": 22,
-        "marginBottom": 20
-      },
-      "metaRow": {
-        "flexDirection": "row",
-        "gap": 12,
-        "marginBottom": 20
-      },
-      "metaPill": {
-        "flexDirection": "row",
-        "alignItems": "center",
-        "gap": 6,
-        "backgroundColor": "#0A0A0A",
-        "paddingHorizontal": 10,
-        "paddingVertical": 6,
-        "borderRadius": 8,
-        "borderWidth": 1,
-        "borderColor": "#27272A"
-      },
-      "metaText": { "fontSize": 12, "color": "#D4D4D8", "fontWeight": "500" },
-      "reserveBtn": {
-        "backgroundColor": "#00BFA5",
-        "borderRadius": 16,
-        "paddingVertical": 16,
-        "flexDirection": "row",
-        "alignItems": "center",
-        "justifyContent": "center",
-        "gap": 8
-      },
-      "reserveBtnText": {
-        "fontSize": 15,
-        "fontWeight": "800",
-        "color": "#0A0A0A",
-        "textTransform": "uppercase",
-        "letterSpacing": 0.5
-      },
-      "spotYouCard": {
-        "flexDirection": "row",
-        "backgroundColor": "#161616",
-        "borderRadius": 16,
-        "padding": 12,
-        "marginBottom": 12,
-        "borderWidth": 1,
-        "borderColor": "#27272A",
-        "alignItems": "center"
-      },
-      "spotYouThumb": {
-        "width": 80,
-        "height": 80,
-        "borderRadius": 12,
-        "backgroundColor": "#27272A"
-      },
-      "spotYouContent": {
-        "flex": 1,
-        "marginLeft": 16,
-        "justifyContent": "center"
-      },
-      "spotYouTitle": {
-        "fontSize": 16,
-        "fontWeight": "700",
-        "color": "#FFFFFF",
-        "marginBottom": 6
-      },
-      "spotYouDate": {
-        "fontSize": 13,
-        "fontWeight": "700",
-        "color": "#00BFA5",
-        "textTransform": "uppercase",
-        "letterSpacing": 0.5
-      },
-      "tagChip": {
-        "backgroundColor": "#161616",
-        "paddingHorizontal": 16,
-        "paddingVertical": 10,
-        "borderRadius": 100,
-        "borderWidth": 1,
-        "borderColor": "#27272A",
-        "marginRight": 8,
-        "marginBottom": 8
-      },
-      "tagText": { "fontSize": 13, "color": "#FFFFFF", "fontWeight": "600" }
+    "implementation_steps": [
+      "1. Update the 'profile' state to include 'cover_url', 'followers_count', 'following_count' (mock if missing).",
+      "2. Create 'isFollowing' state for visitor interaction.",
+      "3. Replace the existing 'st.hero' View with the new layout.",
+      "4. Update StyleSheet 'st' with new classes provided below.",
+      "5. Ensure all data-testids are preserved."
+    ],
+    "image_assets": {
+      "default_cover": "https://images.unsplash.com/photo-1574505371939-de03b2e174f4?ixlib=rb-4.1.0&q=85&fm=jpg&crop=entropy&cs=srgb",
+      "placeholder_avatar": "https://ui-avatars.com/api/?background=0D8ABC&color=fff&size=128"
+    },
+    "code_snippets": {
+      "hero_jsx": "<View style={st.hero} testID=\"user-profile-hero\">\n          {/* COVER PHOTO */}\n          <View style={st.coverContainer}>\n            {profile.cover_url ? (\n              <Image source={{ uri: profile.cover_url }} style={st.coverImage} />\n            ) : (\n              <View style={st.coverPlaceholder} />\n            )}\n            {isOwnProfile && (\n              <TouchableOpacity style={st.coverUploadBtn} testID=\"cover-upload-btn\">\n                <Ionicons name=\"camera\" size={20} color=\"#FFF\" />\n              </TouchableOpacity>\n            )}\n          </View>\n\n          {/* AVATAR (Absolute) */}\n          <View style={st.avatarAbsoluteWrap}>\n            <Image \n              source={{ uri: profile.picture || 'https://ui-avatars.com/api/?background=0D8ABC&color=fff&size=128' }} \n              style={st.avatarImage} \n            />\n            {profile.is_coach_verified && (\n              <View style={st.verifiedBadge}>\n                <Ionicons name=\"checkmark\" size={16} color=\"#0A0A0A\" />\n              </View>\n            )}\n          </View>\n\n          {/* CONTENT BELOW COVER */}\n          <View style={st.profileContent}>\n            {/* Name */}\n            <Text style={st.profileName} testID=\"user-profile-name\">{profile.name}</Text>\n\n            {/* Badges */}\n            <View style={st.badgesRow}>\n              {isCoach && (\n                <View style={st.badgeCoach}>\n                  <Ionicons name=\"trophy\" size={12} color=\"#00BFA5\" />\n                  <Text style={st.badgeCoachText}>Coach</Text>\n                </View>\n              )}\n              {avgRating != null && (\n                <View style={st.badgeRating} testID=\"rating-badge\">\n                  <Ionicons name=\"star\" size={12} color=\"#FFD700\" />\n                  <Text style={st.badgeRatingText}>{avgRating} ({reviews.length})</Text>\n                </View>\n              )}\n            </View>\n\n            {/* Bio */}\n            {profile.bio ? <Text style={st.profileBio}>{profile.bio}</Text> : null}\n\n            {/* Follow Button (Visitor) */}\n            {!isOwnProfile && (\n              <TouchableOpacity \n                style={[st.followBtn, isFollowing ? st.followBtnActive : {}]} \n                onPress={() => setIsFollowing(!isFollowing)}\n                testID=\"follow-btn\"\n              >\n                <Text style={[st.followBtnText, isFollowing ? st.followBtnTextActive : {}]}>\n                  {isFollowing ? 'Abonné' : 'Suivre'}\n                </Text>\n                {isFollowing && <Ionicons name=\"checkmark\" size={16} color=\"#00BFA5\" />}\n              </TouchableOpacity>\n            )}\n\n            {/* Stats Row */}\n            <View style={st.statsCard}>\n              <View style={st.statCol}>\n                <Text style={st.statVal}>{SpotYou.length}</Text>\n                <Text style={st.statLabel}>SpotYou</Text>\n              </View>\n              <View style={st.statDivider} />\n              <View style={st.statCol}>\n                <Text style={st.statVal}>{reviews.length}</Text>\n                <Text style={st.statLabel}>Avis</Text>\n              </View>\n              <View style={st.statDivider} />\n              <View style={st.statCol}>\n                <Text style={st.statVal}>{services.length}</Text>\n                <Text style={st.statLabel}>Services</Text>\n              </View>\n              <View style={st.statDivider} />\n              <View style={st.statCol}>\n                <Text style={st.statVal}>{profile.followers_count || 0}</Text>\n                <Text style={st.statLabel}>Abonnés</Text>\n              </View>\n            </View>\n          </View>\n        </View>",
+      "stylesheet": "const st = StyleSheet.create({\n  hero: {\n    backgroundColor: '#0A0A0A',\n    marginBottom: 24,\n    paddingBottom: 16,\n    position: 'relative',\n    alignItems: 'center',\n    borderBottomWidth: 1,\n    borderBottomColor: '#1A1A1A',\n  },\n  coverContainer: {\n    height: 180,\n    width: '100%',\n    position: 'relative',\n    backgroundColor: '#0D2420',\n  },\n  coverImage: {\n    width: '100%',\n    height: '100%',\n    resizeMode: 'cover',\n  },\n  coverPlaceholder: {\n    width: '100%',\n    height: '100%',\n    backgroundColor: '#0D2420',\n    opacity: 0.8,\n  },\n  coverUploadBtn: {\n    position: 'absolute',\n    bottom: 12,\n    right: 12,\n    backgroundColor: 'rgba(0,0,0,0.6)',\n    padding: 8,\n    borderRadius: 20,\n    borderWidth: 1,\n    borderColor: 'rgba(255,255,255,0.2)',\n  },\n  avatarAbsoluteWrap: {\n    position: 'absolute',\n    top: 127, // 180 - 53\n    alignSelf: 'center',\n    zIndex: 10,\n  },\n  avatarImage: {\n    width: 106,\n    height: 106,\n    borderRadius: 53,\n    borderWidth: 3,\n    borderColor: '#00BFA5',\n    backgroundColor: '#1A1A1A',\n  },\n  verifiedBadge: {\n    position: 'absolute',\n    bottom: 0,\n    right: 0,\n    backgroundColor: '#00BFA5',\n    width: 24,\n    height: 24,\n    borderRadius: 12,\n    alignItems: 'center',\n    justifyContent: 'center',\n    borderWidth: 2,\n    borderColor: '#0A0A0A',\n  },\n  profileContent: {\n    marginTop: 60,\n    alignItems: 'center',\n    paddingHorizontal: 16,\n    width: '100%',\n  },\n  profileName: {\n    fontSize: 26,\n    fontWeight: 'bold',\n    color: '#FFFFFF',\n    letterSpacing: -0.5,\n    marginBottom: 8,\n  },\n  badgesRow: {\n    flexDirection: 'row',\n    gap: 8,\n    marginBottom: 12,\n  },\n  badgeCoach: {\n    flexDirection: 'row',\n    alignItems: 'center',\n    gap: 4,\n    backgroundColor: '#0D2420',\n    paddingHorizontal: 10,\n    paddingVertical: 4,\n    borderRadius: 12,\n    borderWidth: 1,\n    borderColor: '#00BFA5',\n  },\n  badgeCoachText: {\n    color: '#00BFA5',\n    fontSize: 12,\n    fontWeight: '600',\n  },\n  badgeRating: {\n    flexDirection: 'row',\n    alignItems: 'center',\n    gap: 4,\n    backgroundColor: 'rgba(255, 215, 0, 0.15)',\n    paddingHorizontal: 10,\n    paddingVertical: 4,\n    borderRadius: 12,\n    borderWidth: 1,\n    borderColor: '#FFD700',\n  },\n  badgeRatingText: {\n    color: '#FFD700',\n    fontSize: 12,\n    fontWeight: '600',\n  },\n  profileBio: {\n    fontSize: 14,\n    color: '#A1A1AA',\n    textAlign: 'center',\n    maxWidth: 300,\n    lineHeight: 20,\n    marginBottom: 16,\n  },\n  followBtn: {\n    flexDirection: 'row',\n    alignItems: 'center',\n    gap: 6,\n    backgroundColor: '#00BFA5',\n    paddingHorizontal: 24,\n    paddingVertical: 10,\n    borderRadius: 50,\n    marginBottom: 24,\n  },\n  followBtnActive: {\n    backgroundColor: 'transparent',\n    borderWidth: 1,\n    borderColor: '#00BFA5',\n  },\n  followBtnText: {\n    color: '#0A0A0A',\n    fontWeight: 'bold',\n    fontSize: 14,\n  },\n  followBtnTextActive: {\n    color: '#00BFA5',\n  },\n  statsCard: {\n    flexDirection: 'row',\n    backgroundColor: '#1A1A1A',\n    borderRadius: 16,\n    paddingVertical: 16,\n    paddingHorizontal: 12,\n    width: '100%',\n    borderWidth: 1,\n    borderColor: '#333',\n    justifyContent: 'space-around',\n  },\n  statCol: {\n    alignItems: 'center',\n    flex: 1,\n  },\n  statVal: {\n    fontSize: 20,\n    fontWeight: 'bold',\n    color: '#FFFFFF',\n    marginBottom: 2,\n  },\n  statLabel: {\n    fontSize: 11,\n    color: '#A1A1AA',\n    textTransform: 'uppercase',\n    fontWeight: '600',\n    letterSpacing: 0.5,\n  },\n  statDivider: {\n    width: 1,\n    height: '60%',\n    backgroundColor: '#333',\n    alignSelf: 'center',\n  }\n});"
     }
   }
 }
