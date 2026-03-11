@@ -14,7 +14,7 @@ import httpx
 from datetime import datetime, timezone
 
 # URL de l'API
-API_BASE = "https://connectivity-guard.preview.emergentagent.com/api"
+API_BASE = "https://connection-shield-1.preview.emergentagent.com/api"
 
 # Credentials
 USER_EMAIL = "user@winek.app"

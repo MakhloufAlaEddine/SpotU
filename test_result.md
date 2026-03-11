@@ -325,7 +325,7 @@ agent_communication:
       - Coach: coach@winek.app / WinekCoach2024!
       - User: user@winek.app / WinekUser2024!
       
-      FRONTEND URL: https://connectivity-guard.preview.emergentagent.com
-      BACKEND URL: https://connectivity-guard.preview.emergentagent.com/api
+      FRONTEND URL: https://connection-shield-1.preview.emergentagent.com
+      BACKEND URL: https://connection-shield-1.preview.emergentagent.com/api
       
       Test all high priority features. Note: Stripe payment test not critical for MVP verification.

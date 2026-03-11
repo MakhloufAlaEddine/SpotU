@@ -1,172 +1,139 @@
-<analysis>**original_problem_statement**: The user initiated a series of requests, starting with adding sound and haptic feedback to primary buttons. This led to requests for running e2e tests, documenting existing notification rules, analyzing code for duplication, and assessing the application's behavior under poor network conditions.
+<analysis>**original_problem_statement**: The user is continuing to refine the application's network protection and caching layer. The initial implementation from the previous session had several gaps and silent failures in offline scenarios.
 
-The main and final requirement was to implement an advanced, robust network protection and caching layer to handle offline and low-connectivity scenarios gracefully. The user provided a detailed 9-point specification for this feature, demanding:
-1.  Structured cache keys.
-2.  Rich metadata in cache entries.
-3.  Clear distinction between error types (offline, timeout, 5xx, 401/403).
-4.  Handling of stale vs. fresh cache with clear UI indicators.
-5.  A clear screen state model to avoid infinite loaders.
-6.  Progressive refresh of data upon network reconnection.
-7.  Targeted cache invalidation after mutations.
-8.  Explicit error messages for unsupported offline actions.
-9.  A phased implementation, starting with read-only caching on critical screens.
+The user's explicit requests during this session were to fix these gaps:
+1.  ****: Implement explicit offline guards for actions, add clear user messages, manage stale/fresh data, and use targeted cache invalidation.
+2.  ****: Explicitly block the send action when offline with a clear user message, ensuring no silent message loss. It was later also requested to cache the chat history for offline viewing.
+3.  ****: Fully migrate the screen to the robust state model (, , , ) to prevent infinite spinners and handle errors gracefully.
+4.  ****: Implement caching so the screen is viewable offline.
+5.  **General UX**: Replace brutal blank or error text screens with a consistent, shared No Data component (), and add a Back button to this component for better navigation.
+
+A critical underlying bug was discovered and fixed: the  was incorrectly treating network errors as authentication failures, logging the user out when offline.
 
 **User's preferred language**: French
 
 **what currently exists?**
-The application now includes an advanced, though partially integrated, network protection and caching layer.
--   **Core Infrastructure**: A new caching library () using  with TTLs, structured keys, and metadata has been created. A centralized error classification system () and a real-time connectivity hook () are in place. A new data-fetching hook, , implements a stale-while-revalidate pattern.
--   **UI Components**: A global  and a  have been created to provide users with network and data freshness status.
--   **Integration**: This new system is integrated into the main layout () and four critical screens: , , , and the SpotYou detail page ().
--   **Mutation Guards**: The SpotYou detail page now includes guards to prevent offline actions (like joining/participating) and uses targeted cache invalidation upon successful mutations.
--   **Sound Feedback**: A  hook has been implemented and attached to the Join SpotYou and Participate buttons, using the newly installed  dependency.
--   **Testing & Documentation**: The testing agent was run, and a detailed breakdown of all application notification rules was produced.
+The application's advanced caching and network protection layer has been significantly hardened and expanded.
+-   **Core Auth Fix**:  has been modified to distinguish between network errors and actual authentication failures, preserving the user's session when offline. This was a critical fix that resolved several cascading UI issues.
+-   **Screen Migrations**: The , , , and  screens now all use a consistent and robust data fetching and state management pattern for handling online, offline, stale data, and error states.
+-   **Offline Guards**: Actions that cannot be performed offline (e.g., sending a chat message, joining a SpotYou) are now explicitly disabled with clear alerts to the user. Silent failures have been eliminated on these screens.
+-   **Offline Data Caching**: Chat history () and SpotYou details () are now cached, allowing users to view this information when offline.
+-   **Improved UI**: The shared  component has been enhanced with better styling and an optional  prop to allow users to navigate back, improving the experience on error screens.
 
 **Last working item**:
--   **Last item agent was working**: The agent just finished a massive implementation of the advanced network protection and caching layer and provided a highly detailed, verifiable report to the user as requested.
+-   **Last item agent was working**: Implementing caching for the chat history in  and . This allows users to view past messages when offline and displays the shared  component if the device is offline and no history has been cached.
 -   **Status**: USER VERIFICATION PENDING
--   **Agent Testing Done**: Y
--   **Which testing method agent to use?**: testing_agent_v4_fork. The next agent must run a full regression test to validate the deep changes made. New tests should be created for the offline behavior on screens like  and .
+-   **Agent Testing Done**: Y (Testing agent passed 21/21 tests)
+-   **Which testing method agent to use?**: testing_agent_v4_fork
 -   **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
--   Issue 1: Incomplete Network Protection Integration (P0)
--   Issue 2: Expo Hot-Reload Instability (P1 - RECURRING)
--   Issue 3: Update SpotYou flow not fully verified (P2)
--   Issue 4: Old e2e test suites are failing (P3)
+-   Issue 1: Expo Hot-Reload Instability (P1)
+-   Issue 2: Update SpotYou flow not fully verified (P2)
+-   Issue 3: Old e2e test suites are failing (P3)
 
 Issues Detail:
--   **Issue 1: Incomplete Network Protection Integration**
-    -   Attempted fixes: The agent successfully integrated the new system into 4 main screens but did not have time to cover all of them.
-    -   Next debug checklist:
-        1.  Integrate the  hook into , replacing the old data fetching logic.
-        2.  Integrate the  hook into .
-        3.  Add the  to  and .
-        4.  Add offline guards and targeted cache invalidation to mutations in  (e.g., ).
-    -   Why fix this issue and what will be achieved with the fix?: To complete the user's primary request for robust network handling across the entire application, providing a consistent, reliable user experience.
-    -   Status: IN PROGRESS
-    -   Is recurring issue?: N
-    -   Should Test frontend/backend/both after fix?: frontend
-    -   Blocked on other issue: None
-
--   **Issue 2: Expo Hot-Reload Instability**
-    -   Attempted fixes: None in this session beyond workarounds (restarting services). The issue persists and was confirmed when e2e tests failed to start.
-    -   Next debug checklist: Investigate , Metro bundler cache, and potential memory leaks.
-    -   Why fix this issue and what will be achieved with the fix?: Dramatically improves development velocity.
+-   **Issue 1: Expo Hot-Reload Instability**
+    -   Attempted fixes: None. This is a recurring issue from the previous fork. The workaround is to restart the frontend service.
+    -   Next debug checklist: Investigate , clear the Metro bundler cache, and check for potential memory leaks.
+    -   Why fix this issue and what will be achieved with the fix?: Would significantly improve development speed and testing reliability.
     -   Status: NOT STARTED
     -   Is recurring issue?: Y
     -   Should Test frontend/backend/both after fix?: frontend
     -   Blocked on other issue: None
 
--   **Issue 3: Update SpotYou flow not fully verified**
+-   **Issue 2: Update SpotYou flow not fully verified**
     -   Attempted fixes: None.
-    -   Next debug checklist: Create a test plan for the Update SpotYou feature to check for regressions.
-    -   Why fix this issue and what will be achieved with the fix?: Ensures core functionality remains stable after major refactors.
+    -   Next debug checklist: Manually test or create an e2e test plan for the Update SpotYou feature to check for regressions after the recent data-fetching changes.
+    -   Why fix this issue and what will be achieved with the fix?: Ensures a core feature remains stable.
     -   Status: NOT STARTED
     -   Is recurring issue?: N
     -   Should Test frontend/backend/both after fix?: both
     -   Blocked on other issue: None
 
--   **Issue 4: Old e2e test suites are failing**
-    -   Attempted fixes: The agent ran the tests and confirmed a  failure, noting it was pre-existing and likely related to the Expo instability or a stale URL in .
-    -   Next debug checklist: Debug . Check the  file for incorrect URLs. Fix or update the test.
-    -   Why fix this issue and what will be achieved with the fix?: Restores confidence in the automated testing pipeline.
+-   **Issue 3: Old e2e test suites are failing**
+    -   Attempted fixes: None in this session.
+    -   Next debug checklist: Debug the  failure. It is likely caused by the Expo Instability (Issue 1) or a stale configuration in the test setup.
+    -   Why fix this issue and what will be achieved with the fix?: Restores the integrity of the automated testing pipeline.
     -   Status: NOT STARTED
     -   Is recurring issue?: Y
     -   Should Test frontend/backend/both after fix?: frontend
-    -   Blocked on other issue: Issue 2 (Expo Instability) might be the root cause.
+    -   Blocked on other issue: Issue 1
 
 **In progress Task List**:
-- NONE
+-   NONE
 
 **Upcoming and Future Tasks**
 -   **Upcoming Tasks**:
-    -   (P1) **Code Refactoring**: Create shared components for , , and  to reduce code duplication as identified in the agent's analysis.
+    -   (P1) **Code Refactoring**: Create shared components for , , and  to reduce code duplication.
     -   (P1) **Bilingual Support (i18n)**: Fully implement French/English translations across the application.
 -   **Future Tasks**:
     -   (P2) **Offline Mutations**: Implement a queueing system for offline actions (chat messages, joining SpotYous) that syncs when connectivity is restored.
-    -   (P2) **Enhance Notifications**: Implement the missing notifications identified by the agent (e.g., when a user joins a session, a SpotYou is full, etc.).
+    -   (P2) **Enhance Notifications**: Implement the missing notifications identified in previous analyses.
     -   (P2) **Finalize Push Notifications**: Use EAS Build for production deployment.
 
 **Completed work in this session**
--   **Advanced Network Protection & Caching (PARTIAL)**:
-    -   Created core infrastructure (, , , , ).
-    -   Integrated the system into , , , and .
--   **Sound & Haptic Feedback (DONE)**:
-    -   Installed .
-    -   Integrated  hook into  and .
--   **Analysis & Documentation (DONE)**:
-    -   Performed detailed analysis of code duplication and network handling.
-    -   Generated a comprehensive document outlining all notification rules.
--   **Testing (DONE)**:
-    -   Executed the testing agent, which passed 68 tests after applying fixes.
+-   **Critical AuthContext Fix**: Prevented incorrect user logout on network errors by updating .
+-   **Robust Offline Handling in **: Implemented full  pattern, offline guards, and cache invalidation.
+-   **Robust Offline Handling in **: Migrated to the 4-state model and fixed infinite spinner risk.
+-   **Offline Chat Guard**: Blocked message sending when offline in .
+-   **Chat History Caching**: Implemented caching for chat history for offline viewing in  and .
+-   **SpotYou Detail Caching**: Implemented caching for  to allow offline viewing.
+-   **Enhanced Error Component**: Added a Back button and improved the shared  component in .
 
 **Earlier issues found/mentioned but not fixed**
 -   Same as **All Pending/In progress Issue list**.
 
 **Known issue recurrence from previous fork**
 -   **Issue recurrence in previous fork**: Expo Metro Bundler Instability.
--   **Recurrence count**: High. Encountered again in this session, blocking e2e tests.
--   **Status**: NOT STARTED (workaround is to restart services).
+-   **Recurrence count**: High.
+-   **Status**: NOT STARTED.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Advanced Caching Strategy**: Implemented a sophisticated caching layer using  with TTLs, structured keys (user-specific, normalized params, schema version), and rich metadata.
--   **Stale-While-Revalidate (SWR)**: The new  hook shows cached/stale data instantly while fetching a fresh version in the background, preventing empty loading screens.
--   **Offline-First UI**: Screens now have defined states (, , , ) to handle network unavailability gracefully.
--   **Centralized API Error Handling**:  and  work together to classify all fetch errors (timeout, offline, 401/403, 5xx), ensuring consistent behavior and preventing fallback to cache on authentication errors.
--   **Progressive Refresh**: The  hook triggers a prioritized, staggered refresh of on-screen data when the network connection is restored.
--   **Expo AV & Haptics**: Used for providing audio-visual feedback on user interactions.
+-   **Resilient Authentication**: The auth context now distinguishes between authentication failures (401/403) and network failures, preserving the user session and cached data when offline.
+-   **State-driven Error UI**: Consistently using the shared  component across screens to provide a uniform and user-friendly experience when data cannot be loaded, preventing brutal blank screens.
+-   **Progressive Caching**: Iteratively adding caching to screens (, ) that were previously online-only, enabling offline functionality based on user feedback.
 
 **key DB schema**
 -   No changes made to the database schema in this session.
 
 **All files of reference**
--   : The core caching logic.
--   : The new standard for fetching and displaying data on screens.
--   : Modified to integrate caching, timeouts, and error classification.
--   : The most complete example of the new system, including mutation guards and cache invalidation.
--   , , : Screens updated to the new data-fetching pattern.
--   , : Screens that **still need to be migrated** to the new system.
--   : Updated with  and .
+-   : Core file for the critical session persistence fix.
+-   : The shared UI component for displaying offline/error states.
+-   : The hook managing chat state, now with caching logic.
+-   : The chat UI, now consuming the cached history.
+-   : The SpotYou detail screen, now with offline viewing capabilities.
+-   : Example of a screen migrated to the robust offline state model.
 
 **Areas that need refactoring**:
--   **Network Layer Rollout**: The new caching/network system must be implemented in the remaining screens (, , etc.) to ensure a consistent UX.
--   **Component Duplication**: The agent's analysis identified repeated patterns for Avatars, Loaders, and Empty States that should be extracted into shared components (, , ).
+-   **Component Duplication**: Code for Avatars, Loaders, and Empty States is repeated across screens and should be extracted into shared, reusable components.
 
 **key api endpoints**
--   No new API endpoints were created. The existing endpoints are now consumed through the new caching layer in .
+-   No new API endpoints were created.
 
 **Critical Info for New Agent**
--   The user is highly technical and expects detailed, verifiable proof of work, not just summaries. When you finish a task, be prepared to provide , command outputs, and code snippets demonstrating you met every requirement.
--   Your immediate priority (P0) is to **complete the network protection integration**. This means migrating  and  to use the  hook and implementing the same offline guards and cache invalidation patterns seen in .
--   The Expo hot-reload environment is unstable and is the likely cause of the failing e2e tests. Do not waste too much time on a failing test without first trying frontend: ERROR (no such process)
+-   Your immediate priority is to get the user's validation for the latest set of fixes, particularly the offline chat history. The user is highly technical and will test the changes thoroughly.
+-   The most critical change this session was in . You must understand that network errors **no longer clear the user session**. This prevents the app from logging users out when they go offline.
+-   The  component in  now has an optional  prop. When implementing it on new screens, consider if adding a back button would improve the user experience.
+-   The underlying Expo instability issue remains unresolved. If you encounter strange build failures or non-responsive UI during development, your first step should be frontend: ERROR (no such process)
 frontend: ERROR (no such process).
--   All new data-fetching logic should use the  hook. Do not use  directly in components.
 
 **documents and test reports created in this job**
--   
--   , , etc.
--    (updated)
+-    (multiple created)
+-    (created by testing agent)
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User**: Asked for a full, verifiable report on the network implementation, providing a detailed 9-point checklist. **Status**: . The agent provided the report.
-2.  **User**: Validated the 5-point plan for advanced network protection but provided a more detailed 9-point specification to follow. **Status**: . The agent used this as the blueprint.
-3.  **User**: Asked for a proposal for advanced network protection to avoid empty/infinite loading screens. **Status**: .
-4.  **User**: Asked how the app behaves with network loss or a weak connection. **Status**: . The agent provided a detailed analysis.
-5.  **User**: Asked if the code is optimized using shared components to avoid duplication. **Status**: . The agent analyzed the code and confirmed it was not, proposing a refactoring plan.
-6.  **User**: Asked for the rules governing notifications (when, who, what trigger). **Status**: . The agent provided a comprehensive summary.
-7.  **User**: Requested the agent to run e2e tests, fix bugs, and add missing tests for all buttons. **Status**: .
-8.  **User**: Finished the sound feedback implementation. **Status**: .
-9.  **User**: Asked to add light sound and haptic feedback to main buttons. **Status**: .
-10. **Agent**: Proposed initial plan to explore codebase. **Status**: .
+1.  **User**: Reported that chat history is not visible offline. **Status**: . Agent implemented caching for chat history.
+2.  **User**: Reported that the  screen shows a brutal error when viewed offline. Also requested a back button on the generic error screen. **Status**: . Agent implemented caching for the spot-you screen and added the  feature to .
+3.  **User**: Reported a bug on the profile page when viewed offline after an online session, showing a profile not found error. **Status**: . Agent diagnosed this as a critical issue in  and fixed it.
+4.  **User**: Provided detailed feedback on the initial network protection implementation, pointing out silent failures in  and , and an infinite spinner in . Demanded a full  and report. **Status**: . The agent addressed all points and provided the requested report.
 
 **Project Health Check:**
 -   **Broken**:
     -   Expo hot-reload environment remains unstable.
-    -   Older e2e test suite () is failing, likely due to the environment instability.
+    -   The older e2e test suite  is still failing.
 -   **Mocked**:
     -   None.
 
@@ -174,14 +141,14 @@ frontend: ERROR (no such process).
 -   Stripe (Payments)
 -   EAS (Expo Application Services)
 -   Google Places API
--    (NEW)
--    (NEW)
+-   
+-   
 
 **Testing status**
--   **Testing agent used after significant changes**: YES.
+-   **Testing agent used after significant changes**: YES. Multiple runs were executed successfully after each major fix.
 -   **Troubleshoot agent used after agent stuck in loop**: NO.
--   **Test files created**: Yes, the testing agent created new test files (, ).
--   **Known regressions**: The  e2e test continues to fail due to a pre-existing environment issue.
+-   **Test files created**: Yes, the testing agent created/updated e2e test files, including .
+-   **Known regressions**: The  failure persists from a previous session, likely due to environment instability.
 
 **Credentials to test flow:**
 -   **Admin**:  / 
@@ -189,4 +156,4 @@ frontend: ERROR (no such process).
 -   **User**:  / 
 
 **What agent forgot to execute**
--   The agent did not complete the full rollout of the new network protection layer.  and  are known to be missing the new  implementation and associated UI/logic (StaleBanner, offline guards).</analysis>
+-   The agent did not address the long-standing, lower-priority issues from the backlog: Expo instability, verifying the Update SpotYou flow, and fixing the old failing e2e tests. It also has not yet started on the planned refactoring or i18n tasks, correctly prioritizing the user's more urgent bug reports.</analysis>
