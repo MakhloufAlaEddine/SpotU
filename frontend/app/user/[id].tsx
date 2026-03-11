@@ -192,6 +192,8 @@ export default function UserProfileScreen() {
   const [isCommunityMember, setIsCommunityMember] = useState(false);
   const [hasParticipation, setHasParticipation] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [spotYouIndex, setSpotYouIndex] = useState(0);
+  const [serviceIndex, setServiceIndex] = useState(0);
 
   // Reload every time the screen comes into focus (fix: data not updating after edit)
   useFocusEffect(
@@ -485,45 +487,84 @@ export default function UserProfileScreen() {
           />
         )}
 
-        {/* ── SERVICES (coach) — en priorité avant SpotYou ── */}
+        {/* ── SERVICES (coach) — Carrousel avec photo ── */}
         {isCoach && services.length > 0 && (
           <View style={st.section}>
             <View style={st.sectionHeader}>
               <View style={st.sectionAccent} />
               <Ionicons name="briefcase-outline" size={14} color={Colors.primary} />
               <Text style={st.sectionTitle}>Services proposés</Text>
+              {services.length > 1 && <Text style={st.carouselCount}>{services.length}</Text>}
             </View>
-            {services.map((svc: any) => (
-              <TouchableOpacity key={svc.service_id} style={st.serviceCard}
-                onPress={() => router.push(`/service/${svc.service_id}` as any)}
-                activeOpacity={0.9} testID={`service-card-${svc.service_id}`}>
-                <View style={st.serviceHeader}>
-                  <Text style={st.serviceTitle}>{svc.title}</Text>
-                  <View style={st.servicePriceBadge}>
-                    <Text style={st.servicePriceText}>{svc.price}€</Text>
-                  </View>
-                </View>
-                {svc.description && (
-                  <Text style={st.serviceDesc} numberOfLines={3}>{svc.description}</Text>
-                )}
-                <View style={st.serviceMetaRow}>
-                  <View style={st.metaPill}>
-                    <Ionicons name="time-outline" size={14} color="#A1A1AA" />
-                    <Text style={st.metaText}>{svc.duration_min} min</Text>
-                  </View>
-                  <View style={st.metaPill}>
-                    <Ionicons name="people-outline" size={14} color="#A1A1AA" />
-                    <Text style={st.metaText}>{svc.max_participants} max</Text>
-                  </View>
-                </View>
-                {me && me.user_id !== profile.user_id && (
-                  <View style={st.reserveBtn} testID={`reserve-btn-${svc.service_id}`}>
-                    <Text style={st.reserveBtnText}>Réserver</Text>
-                    <Ionicons name="arrow-forward" size={16} color="#0A0A0A" />
-                  </View>
-                )}
-              </TouchableOpacity>
-            ))}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={st.carouselContent}
+              decelerationRate="fast"
+              snapToInterval={CARD_WIDTH + 16}
+              snapToAlignment="start"
+              onScroll={(e) => {
+                const idx = Math.round(e.nativeEvent.contentOffset.x / (CARD_WIDTH + 16));
+                setServiceIndex(Math.max(0, Math.min(idx, services.length - 1)));
+              }}
+              scrollEventThrottle={16}
+            >
+              {services.map((svc: any) => {
+                const rawImages = svc.images;
+                const parsedImages = Array.isArray(rawImages)
+                  ? rawImages
+                  : (typeof rawImages === 'string' ? JSON.parse(rawImages || '[]') : []);
+                const svcImage = parsedImages[0] || null;
+                return (
+                  <TouchableOpacity key={svc.service_id}
+                    style={[st.serviceCard, { width: CARD_WIDTH }]}
+                    onPress={() => router.push(`/service/${svc.service_id}` as any)}
+                    activeOpacity={0.9} testID={`service-card-${svc.service_id}`}>
+                    {/* Photo */}
+                    {svcImage
+                      ? <Image source={{ uri: svcImage }} style={st.serviceImage} />
+                      : <View style={st.serviceImagePlaceholder}>
+                          <Ionicons name="barbell-outline" size={36} color={Colors.primary} />
+                        </View>
+                    }
+                    {/* Badge prix flottant */}
+                    <View style={st.servicePriceBadge}>
+                      <Text style={st.servicePriceText}>{svc.price}€</Text>
+                    </View>
+                    {/* Contenu */}
+                    <View style={st.serviceBody}>
+                      <Text style={st.serviceTitle}>{svc.title}</Text>
+                      {svc.description && (
+                        <Text style={st.serviceDesc} numberOfLines={2}>{svc.description}</Text>
+                      )}
+                      <View style={st.serviceMetaRow}>
+                        <View style={st.metaPill}>
+                          <Ionicons name="time-outline" size={14} color="#A1A1AA" />
+                          <Text style={st.metaText}>{svc.duration_min} min</Text>
+                        </View>
+                        <View style={st.metaPill}>
+                          <Ionicons name="people-outline" size={14} color="#A1A1AA" />
+                          <Text style={st.metaText}>{svc.max_participants} max</Text>
+                        </View>
+                      </View>
+                      {me && me.user_id !== profile.user_id && (
+                        <View style={st.reserveBtn} testID={`reserve-btn-${svc.service_id}`}>
+                          <Text style={st.reserveBtnText}>Réserver</Text>
+                          <Ionicons name="arrow-forward" size={16} color="#0A0A0A" />
+                        </View>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+            {services.length > 1 && (
+              <View style={st.dotsRow}>
+                {services.map((_: any, i: number) => (
+                  <View key={i} style={[st.dot, i === serviceIndex && st.dotActive]} />
+                ))}
+              </View>
+            )}
           </View>
         )}
 
@@ -543,12 +584,17 @@ export default function UserProfileScreen() {
               decelerationRate="fast"
               snapToInterval={CARD_WIDTH + 16}
               snapToAlignment="start"
+              onScroll={(e) => {
+                const idx = Math.round(e.nativeEvent.contentOffset.x / (CARD_WIDTH + 16));
+                setSpotYouIndex(Math.max(0, Math.min(idx, SpotYou.length - 1)));
+              }}
+              scrollEventThrottle={16}
             >
               {SpotYou.map((tp: any) => (
                 <View key={tp.point_id} style={[st.carouselCard, { width: CARD_WIDTH }]}>
                   <SpotYouCard
                     item={tp}
-                    onPress={() => router.push(`/spot-you/${tp.point_id}` as any)}
+                    onNavigate={(id) => router.push(`/spot-you/${id}` as any)}
                     onToggleGoing={() => handleToggleGoing(tp)}
                     togglingId={togglingId}
                     testID={`carousel-tp-${tp.point_id}`}
@@ -556,6 +602,13 @@ export default function UserProfileScreen() {
                 </View>
               ))}
             </ScrollView>
+            {SpotYou.length > 1 && (
+              <View style={st.dotsRow}>
+                {SpotYou.map((_: any, i: number) => (
+                  <View key={i} style={[st.dot, i === spotYouIndex && st.dotActive]} />
+                ))}
+              </View>
+            )}
           </View>
         )}
 
@@ -938,17 +991,18 @@ const st = StyleSheet.create({
   // Services
   serviceCard: {
     backgroundColor: '#181A1B',
-    borderRadius: 24,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: 'rgba(0,191,165,0.15)',
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: '#00BFA5',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3,
+    overflow: 'hidden',
+    marginBottom: 4,
   },
+  serviceImage: { width: '100%' as any, height: 180, resizeMode: 'cover' },
+  serviceImagePlaceholder: {
+    width: '100%' as any, height: 140, backgroundColor: 'rgba(0,191,165,0.08)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  serviceBody: { padding: 16 },
   serviceHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -956,7 +1010,7 @@ const st = StyleSheet.create({
     marginBottom: 12,
   },
   serviceTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     color: '#FFFFFF',
     flex: 1,
@@ -964,30 +1018,30 @@ const st = StyleSheet.create({
     letterSpacing: -0.2,
   },
   servicePriceBadge: {
-    backgroundColor: 'rgba(0,191,165,0.1)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(0,191,165,0.2)',
+    position: 'absolute' as any,
+    top: 12, right: 12,
+    backgroundColor: '#00BFA5',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
   },
   servicePriceText: {
-    color: '#00BFA5',
+    color: '#0A0A0A',
     fontWeight: '900',
-    fontSize: 16,
+    fontSize: 15,
   },
   serviceDesc: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#A1A1AA',
-    lineHeight: 22,
-    marginBottom: 20,
+    lineHeight: 20,
+    marginBottom: 14,
   },
   serviceMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: 10,
-    marginBottom: 20,
+    marginBottom: 14,
   },
   metaPill: {
     flexDirection: 'row',
@@ -1003,6 +1057,11 @@ const st = StyleSheet.create({
     fontWeight: '600',
     color: '#E4E4E7',
   },
+
+  // Dots indicator
+  dotsRow: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 12 },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.muted, opacity: 0.4 },
+  dotActive: { width: 18, borderRadius: 3, backgroundColor: Colors.primary, opacity: 1 },
   reserveBtn: {
     flexDirection: 'row',
     alignItems: 'center',

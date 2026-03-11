@@ -136,7 +136,7 @@ async def get_public_profile(user_id: str):
         # Services if coach
         if user.get("role") == "coach":
             svcs = await conn.fetch(
-                "SELECT service_id, title, description, price, duration_min, location_description, max_participants, tag_ids, domain_id FROM services WHERE coach_id = $1 AND active = TRUE",
+                "SELECT service_id, title, description, price, duration_min, location_description, max_participants, tag_ids, domain_id, images FROM services WHERE coach_id = $1 AND active = TRUE",
                 user_id
             )
             user["services"] = rows_to_list(svcs)
