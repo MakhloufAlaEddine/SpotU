@@ -1,166 +1,104 @@
 {
   "design_system": {
-    "identity": {
-      "name": "SpotU",
-      "tone": "Performance Pro (Archetype 2)",
-      "language": "fr-FR",
-      "theme": "dark"
-    },
     "colors": {
-      "base": {
-        "background": "#000000",
-        "surface": "#1C1C1E",
-        "surface_highlight": "#2C2C2E",
-        "text_primary": "#FFFFFF",
-        "text_secondary": "#8E8E93",
-        "border": "#2C2C2E"
-      },
-      "brand": {
-        "primary": "#00BFA5",
-        "secondary": "#0D1F1F",
-        "accent_orange": "#FF9500",
-        "accent_blue": "#4A90E2",
-        "accent_red": "#FF3B30"
-      },
-      "status": {
-        "pending": "#FF9500",
-        "accepted": "#00BFA5",
-        "refused": "#FF3B30",
-        "cancelled": "#8E8E93"
-      }
+      "background": "#0A0A0A",
+      "surface": "#181A1B",
+      "surface_highlight": "#202223",
+      "primary": "#00BFA5",
+      "primary_dim": "rgba(0,191,165,0.1)",
+      "text_primary": "#FFFFFF",
+      "text_secondary": "#A1A1AA",
+      "border": "rgba(255,255,255,0.1)",
+      "border_highlight": "rgba(0,191,165,0.3)"
     },
     "typography": {
       "headings": {
-        "fontFamily": "System",
-        "weights": "Bold (700)"
+        "service_title": {
+          "fontSize": 18,
+          "fontWeight": "800",
+          "color": "#FFFFFF",
+          "letterSpacing": -0.2
+        },
+        "section_title": {
+          "fontSize": 14,
+          "fontWeight": "700",
+          "textTransform": "uppercase",
+          "letterSpacing": 1.2,
+          "color": "#00BFA5"
+        }
       },
       "body": {
-        "fontFamily": "System",
-        "weights": "Regular (400), Medium (500)"
+        "description": {
+          "fontSize": 14,
+          "color": "#A1A1AA",
+          "lineHeight": 22
+        },
+        "meta": {
+          "fontSize": 12,
+          "fontWeight": "600",
+          "color": "#E4E4E7"
+        }
+      },
+      "cta": {
+        "label": {
+          "fontSize": 15,
+          "fontWeight": "800",
+          "color": "#0A0A0A",
+          "textTransform": "uppercase",
+          "letterSpacing": 0.5
+        }
       }
     },
-    "spacing": {
-      "page_padding": 16,
-      "card_padding": 16,
-      "gap_sm": 8,
-      "gap_md": 16,
-      "gap_lg": 24
-    },
-    "visual_enhancers": {
-      "borders": "1px solid #2C2C2E",
-      "radius": {
-        "card": 16,
-        "button": 9999
-      },
-      "shadows": "None (Flat Dark) or Subtle Glow for active states"
-    }
-  },
-  "components": {
-    "WeekCalendar": {
-      "description": "Horizontal scrollable strip showing days of the week.",
-      "path": "/app/frontend/components/WeekCalendar.tsx",
-      "props": {
-        "selectedDate": "Date",
-        "onSelectDate": "(date: Date) => void"
-      },
-      "styling": {
-        "container": "Horizontal ScrollView, h-24, bg-background",
-        "day_item": "w-14, h-20, rounded-full, items-center, justify-center, mr-3, border-1 border-border",
-        "day_item_active": "bg-primary, border-primary",
-        "text_day": "text-xs, uppercase, text-muted (active: text-black)",
-        "text_date": "text-lg, bold, text-white (active: text-black)"
+    "components": {
+      "service_card": {
+        "container": {
+          "backgroundColor": "#181A1B",
+          "borderRadius": 24,
+          "borderWidth": 1,
+          "borderColor": "rgba(0,191,165,0.15)",
+          "padding": 20,
+          "marginBottom": 16,
+          "shadowColor": "#00BFA5",
+          "shadowOffset": { "width": 0, "height": 4 },
+          "shadowOpacity": 0.08,
+          "shadowRadius": 12,
+          "elevation": 3
+        },
+        "price_badge": {
+          "backgroundColor": "rgba(0,191,165,0.1)",
+          "borderRadius": 12,
+          "paddingHorizontal": 12,
+          "paddingVertical": 6,
+          "borderWidth": 1,
+          "borderColor": "rgba(0,191,165,0.2)"
+        },
+        "meta_pill": {
+          "backgroundColor": "#27272A",
+          "borderRadius": 8,
+          "paddingHorizontal": 10,
+          "paddingVertical": 6,
+          "flexDirection": "row",
+          "alignItems": "center",
+          "gap": 6
+        },
+        "cta_button": {
+          "backgroundColor": "#00BFA5",
+          "borderRadius": 16,
+          "paddingVertical": 14,
+          "flexDirection": "row",
+          "alignItems": "center",
+          "justifyContent": "center",
+          "gap": 8
+        }
       }
-    },
-    "SegmentedControl": {
-      "description": "Tab switcher for 'À venir' vs 'Historique'.",
-      "path": "/app/frontend/components/SegmentedControl.tsx",
-      "props": {
-        "tabs": "['À venir', 'Historique']",
-        "selectedIndex": "number",
-        "onChange": "(index: number) => void"
-      },
-      "styling": {
-        "container": "flex-row, bg-surface, p-1, rounded-full, mb-4",
-        "tab": "flex-1, py-2, items-center, justify-center, rounded-full",
-        "tab_active": "bg-primary",
-        "text": "text-sm, font-medium, text-muted",
-        "text_active": "text-black, font-bold"
-      }
-    },
-    "BookingCard": {
-      "description": "Timeline card representing a session.",
-      "path": "/app/frontend/components/BookingCard.tsx",
-      "props": {
-        "booking": "Object"
-      },
-      "styling": {
-        "layout": "flex-row, mb-4",
-        "time_column": "w-16, items-end, pr-3, pt-2",
-        "time_text": "text-primary, font-bold, text-xs",
-        "card_container": "flex-1, bg-surface, rounded-xl, p-4, border-l-4",
-        "card_pending": "border-l-warning",
-        "card_accepted": "border-l-primary",
-        "card_refused": "border-l-destructive",
-        "content_row": "flex-row, gap-3",
-        "image": "w-12, h-12, rounded-full, bg-surface_highlight",
-        "details": "flex-1, justify-center"
-      }
-    },
-    "NotificationItem": {
-      "description": "Row item for the notification feed.",
-      "path": "/app/frontend/components/NotificationItem.tsx",
-      "props": {
-        "notification": "Object (type, title, message, time, read)"
-      },
-      "styling": {
-        "container": "flex-row, p-4, border-b, border-border, bg-background",
-        "container_unread": "bg-surface_highlight/30",
-        "icon_box": "w-10, h-10, rounded-full, items-center, justify-center, bg-surface_highlight",
-        "content": "flex-1, ml-3",
-        "title": "text-white, font-bold, text-sm",
-        "message": "text-muted, text-xs, mt-1",
-        "time": "text-muted, text-[10px], mt-2",
-        "dot": "w-2, h-2, rounded-full, bg-primary, absolute, top-4, right-4"
-      }
-    }
-  },
-  "screens": {
-    "PlanningScreen": {
-      "path": "/app/frontend/app/(tabs)/bookings.tsx",
-      "structure": [
-        "SafeAreaView (edges top)",
-        "Header (Title: 'Planning', RightIcon: Notifications -> router.push('/notifications'))",
-        "SegmentedControl (Upcoming/History)",
-        "WeekCalendar (Strip)",
-        "ScrollView/FlatList (Timeline)",
-        "EmptyState (if no bookings)"
-      ],
-      "logic": "Fetch bookings from /bookings/mine. Filter by selected date and status (upcoming/history)."
-    },
-    "NotificationsScreen": {
-      "path": "/app/frontend/app/notifications.tsx",
-      "structure": [
-        "SafeAreaView",
-        "Header (Back Button, Title: 'Notifications')",
-        "FlatList (Data: Mocked or Fetch)",
-        "RenderItem: NotificationItem"
-      ],
-      "logic": "Mock data initially: [{id: 1, type: 'booking_accepted', title: 'Séance confirmée', message: 'Votre séance avec Coach Mike est confirmée.', time: 'Il y a 2h', read: false}, ...]"
     }
   },
   "instructions_to_main_agent": [
-    "1. Do not delete existing logic in bookings.tsx, refactor it to match the new design.",
-    "2. Create reusable components in /components/ folder.",
-    "3. Ensure strictly Dark Mode (bg #000000).",
-    "4. Use Ionicons for icons.",
-    "5. For the calendar logic, ensure it defaults to today and allows scrolling back/forward (simple implementation: +/- 3 days from selected).",
-    "6. Add 'notifications.tsx' to the app root or appropriate route to be accessible.",
-    "7. Update tab bar icon for bookings to 'calendar' in _layout.tsx if possible (optional but recommended)."
-  ],
-  "universal_guidelines": [
-    "Use 2-3x more spacing than feels comfortable.",
-    "Every interaction needs micro-animations (TouchableOpacity activeOpacity).",
-    "Subtle grain textures or noise overlays are a plus if performance allows (optional).",
-    "Never use 'Inter' for headings if possible (System font is fine, just use weights)."
+    "Replace the existing 'Services proposés' map rendering with the new premium card design.",
+    "Use the color palette strictly: #00BFA5 for primary accents.",
+    "Ensure the 'Réserver' button is high-contrast (Black text on Teal background).",
+    "Use Ionicons for icons (time-outline, people-outline, arrow-forward).",
+    "Maintain the dark mode theme (#0A0A0A background).",
+    "Add 'data-testid' attributes to the new 'Réserver' button for testing."
   ]
 }

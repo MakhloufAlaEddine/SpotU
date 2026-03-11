@@ -517,20 +517,40 @@ export default function UserProfileScreen() {
             {services.map((svc: any) => (
               <TouchableOpacity key={svc.service_id} style={st.serviceCard}
                 onPress={() => router.push(`/service/${svc.service_id}` as any)}
-                activeOpacity={0.8} testID={`service-card-${svc.service_id}`}>
-                <Text style={st.serviceTitle}>{svc.title}</Text>
-                {svc.description && <Text style={st.serviceDesc} numberOfLines={2}>{svc.description}</Text>}
-                <View style={st.serviceStats}>
-                  <View style={st.stat}><Text style={st.statVal}>{svc.price}€</Text><Text style={st.statLbl}>Prix</Text></View>
-                  <View style={st.statDivider} />
-                  <View style={st.stat}><Text style={st.statVal}>{svc.duration_min}min</Text><Text style={st.statLbl}>Durée</Text></View>
-                  <View style={st.statDivider} />
-                  <View style={st.stat}><Text style={st.statVal}>{svc.max_participants}</Text><Text style={st.statLbl}>Places</Text></View>
+                activeOpacity={0.9} testID={`service-card-${svc.service_id}`}>
+                
+                {/* Header: Title + Price Badge */}
+                <View style={st.serviceHeader}>
+                  <Text style={st.serviceTitle}>{svc.title}</Text>
+                  <View style={st.servicePriceBadge}>
+                    <Text style={st.servicePriceText}>{svc.price}€</Text>
+                  </View>
                 </View>
+
+                {/* Description */}
+                {svc.description && (
+                  <Text style={st.serviceDesc} numberOfLines={3}>
+                    {svc.description}
+                  </Text>
+                )}
+
+                {/* Meta Pills */}
+                <View style={st.serviceMetaRow}>
+                  <View style={st.metaPill}>
+                    <Ionicons name="time-outline" size={14} color="#A1A1AA" />
+                    <Text style={st.metaText}>{svc.duration_min} min</Text>
+                  </View>
+                  <View style={st.metaPill}>
+                    <Ionicons name="people-outline" size={14} color="#A1A1AA" />
+                    <Text style={st.metaText}>{svc.max_participants} max</Text>
+                  </View>
+                </View>
+
+                {/* CTA Button - Only for visitors */}
                 {me && me.user_id !== profile.user_id && (
-                  <View style={st.bookBtn}>
-                    <Ionicons name="calendar" size={16} color={Colors.background} />
-                    <Text style={st.bookBtnText}>Voir & Réserver · {svc.price}€</Text>
+                  <View style={st.reserveBtn} testID={`reserve-btn-${svc.service_id}`}>
+                    <Text style={st.reserveBtnText}>Réserver</Text>
+                    <Ionicons name="arrow-forward" size={16} color="#0A0A0A" />
                   </View>
                 )}
               </TouchableOpacity>
@@ -841,19 +861,94 @@ const st = StyleSheet.create({
   noReviewsText: { fontSize: 13, color: Colors.muted },
 
   // Services
-  serviceCard: { backgroundColor: Colors.secondary, borderRadius: Radius.xl, padding: Spacing.md, marginBottom: Spacing.sm },
-  serviceTitle: { fontSize: 16, fontWeight: '800', color: Colors.foreground, marginBottom: 4 },
-  serviceDesc: { fontSize: 13, color: Colors.muted, marginBottom: Spacing.sm, lineHeight: 18 },
-  serviceStats: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.sm },
-  stat: { flex: 1, alignItems: 'center' },
-  statVal: { fontSize: 20, fontWeight: '800', color: Colors.primary },
-  statLbl: { fontSize: 11, color: Colors.muted, marginTop: 2 },
-  statDivider: { width: 1, height: 36, backgroundColor: Colors.border },
-  bookBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: Colors.primary, borderRadius: Radius.full, paddingVertical: 12, marginTop: 6,
+  serviceCard: {
+    backgroundColor: '#181A1B',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(0,191,165,0.15)',
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#00BFA5',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
   },
-  bookBtnText: { fontSize: 15, fontWeight: '700', color: Colors.background },
+  serviceHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  serviceTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    flex: 1,
+    marginRight: 12,
+    letterSpacing: -0.2,
+  },
+  servicePriceBadge: {
+    backgroundColor: 'rgba(0,191,165,0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,191,165,0.2)',
+  },
+  servicePriceText: {
+    color: '#00BFA5',
+    fontWeight: '900',
+    fontSize: 16,
+  },
+  serviceDesc: {
+    fontSize: 14,
+    color: '#A1A1AA',
+    lineHeight: 22,
+    marginBottom: 20,
+  },
+  serviceMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 20,
+  },
+  metaPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#27272A',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  metaText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#E4E4E7',
+  },
+  reserveBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#00BFA5',
+    borderRadius: 16,
+    paddingVertical: 14,
+    shadowColor: '#00BFA5',
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  reserveBtnText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0A0A0A',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
 
   // Reviews
   reviewsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
