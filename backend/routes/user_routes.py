@@ -520,7 +520,14 @@ async def update_cover(user_id: str, request: Request):
     cover_url = body.get("cover_picture", "")
     cover_offset_y = body.get("cover_offset_y")
     cover_scale = body.get("cover_scale")
+
     async with pool.acquire() as conn:
+        # Récupérer l'ancienne cover avant mise à jour (pour suppression)
+        old_row = await conn.fetchrow(
+            "SELECT cover_picture FROM users WHERE user_id=$1", user_id
+        )
+        old_cover = old_row["cover_picture"] if old_row else None
+
         if cover_offset_y is not None or cover_scale is not None:
             offset_val = float(cover_offset_y) if cover_offset_y is not None else 0.5
             scale_val = float(cover_scale) if cover_scale is not None else 1.0
@@ -533,4 +540,11 @@ async def update_cover(user_id: str, request: Request):
                 "UPDATE users SET cover_picture=$1, updated_at=NOW() WHERE user_id=$2",
                 cover_url or None, user_id
             )
+
+    # Supprimer l'ancienne photo si elle est remplacée et c'est un upload local
+    # (les URLs externes Pexels/Unsplash ne sont pas concernées — delete_upload_file vérifie /api/uploads/)
+    if old_cover and old_cover != (cover_url or None):
+        from routes.upload_routes import delete_upload_file
+        delete_upload_file(old_cover)
+
     return {"cover_picture": cover_url or None, "cover_offset_y": cover_offset_y, "cover_scale": cover_scale}
