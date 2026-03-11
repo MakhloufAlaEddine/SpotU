@@ -334,9 +334,46 @@ export default function UserProfileScreen() {
         )}
 
         {SpotYou.length === 0 && (
-          <View style={st.emptyState}>
-            <Ionicons name="location-outline" size={32} color={Colors.muted} />
-            <Text style={st.emptyText}>Aucun SpotMe public</Text>
+          <View style={st.emptySection} testID="empty-spotyou">
+            {isOwnProfile ? (
+              /* ── Propriétaire : CTA motivant ── */
+              <View style={st.emptyCTA}>
+                <View style={st.emptyCTAIconWrap}>
+                  <View style={st.emptyCTAIconRing}>
+                    <Ionicons name="location" size={28} color={Colors.primary} />
+                  </View>
+                  {/* Dots décoration */}
+                  <View style={[st.emptyCTADot, { top: 6, left: 8 }]} />
+                  <View style={[st.emptyCTADot, { top: 14, right: 4, width: 5, height: 5 }]} />
+                  <View style={[st.emptyCTADot, { bottom: 4, left: 18, width: 4, height: 4 }]} />
+                </View>
+                <Text style={st.emptyCTATitle}>Partagez vos activités sportives</Text>
+                <Text style={st.emptyCTADesc}>
+                  Créez un SpotYou et invitez la communauté à vous rejoindre pour vos entraînements, sorties ou séances.
+                </Text>
+                <TouchableOpacity
+                  style={st.emptyCTABtn}
+                  onPress={() => router.push('/(tabs)/create' as any)}
+                  activeOpacity={0.88}
+                  testID="create-spotyou-cta-btn"
+                >
+                  <Ionicons name="add-circle" size={17} color={Colors.background} />
+                  <Text style={st.emptyCTABtnText}>Créer un SpotYou</Text>
+                </TouchableOpacity>
+                <Text style={st.emptyCTAHint}>Gratuit · Visible par toute la communauté</Text>
+              </View>
+            ) : (
+              /* ── Visiteur : message doux ── */
+              <View style={st.emptyVisitor}>
+                <View style={st.emptyVisitorIcon}>
+                  <Ionicons name="location-outline" size={26} color={Colors.muted} />
+                </View>
+                <Text style={st.emptyVisitorTitle}>Aucun SpotYou public</Text>
+                <Text style={st.emptyVisitorDesc}>
+                  Cet utilisateur n'a pas encore partagé d'activités.
+                </Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -454,8 +491,21 @@ export default function UserProfileScreen() {
               <ActivityIndicator size="small" color={Colors.primary} style={{ marginTop: 12 }} />
             ) : reviews.length === 0 ? (
               <View style={st.noReviews} testID="no-reviews">
-                <Ionicons name="chatbubble-outline" size={24} color={Colors.muted} />
-                <Text style={st.noReviewsText}>Aucun avis pour l'instant</Text>
+                {/* Stars décoratives */}
+                <View style={st.noReviewsStars}>
+                  {[1,2,3,4,5].map(i => (
+                    <Ionicons key={i} name="star-outline" size={18} color={Colors.border} />
+                  ))}
+                </View>
+                <Text style={st.noReviewsTitle}>
+                  {isOwnProfile ? "Pas encore d'avis" : "Soyez le premier à laisser un avis"}
+                </Text>
+                <Text style={st.noReviewsDesc}>
+                  {isOwnProfile
+                    ? "Participez à des activités et échangez avec la communauté pour recevoir vos premiers avis."
+                    : "Rejoignez une session et partagez votre expérience avec la communauté."
+                  }
+                </Text>
               </View>
             ) : (
               <>
@@ -606,8 +656,59 @@ const st = StyleSheet.create({
   tpInfo: { flex: 1 },
   tpTitle: { fontSize: 14, fontWeight: '700', color: Colors.foreground, marginBottom: 3 },
   tpDate: { fontSize: 12, color: Colors.primary },
+  // ── Empty states ─────────────────────────────────────────────────────────
+  emptySection: {
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  // CTA pour le propriétaire (profil vide)
+  emptyCTA: {
+    backgroundColor: Colors.card,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 24,
+    alignItems: 'center',
+  },
+  emptyCTAIconWrap: { position: 'relative', width: 64, height: 64, marginBottom: 16, alignItems: 'center', justifyContent: 'center' },
+  emptyCTAIconRing: {
+    width: 64, height: 64, borderRadius: 32,
+    backgroundColor: Colors.primary + '15',
+    borderWidth: 1.5, borderColor: Colors.primary + '30',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  emptyCTADot: { position: 'absolute', width: 7, height: 7, borderRadius: 4, backgroundColor: Colors.primary + '40' },
+  emptyCTATitle: { fontSize: 16, fontWeight: '700', color: Colors.foreground, textAlign: 'center', marginBottom: 8 },
+  emptyCTADesc: { fontSize: 13, color: Colors.muted, textAlign: 'center', lineHeight: 19, marginBottom: 20 },
+  emptyCTABtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 7,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 22, paddingVertical: 11,
+    borderRadius: Radius.full, marginBottom: 10,
+  },
+  emptyCTABtnText: { fontSize: 14, fontWeight: '700', color: Colors.background },
+  emptyCTAHint: { fontSize: 11, color: Colors.muted },
+  // Message doux pour visiteur
+  emptyVisitor: {
+    backgroundColor: Colors.card,
+    borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border,
+    padding: 24, alignItems: 'center', gap: 8,
+  },
+  emptyVisitorIcon: {
+    width: 48, height: 48, borderRadius: 24,
+    backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center', marginBottom: 4,
+  },
+  emptyVisitorTitle: { fontSize: 15, fontWeight: '700', color: Colors.foreground, textAlign: 'center' },
+  emptyVisitorDesc: { fontSize: 13, color: Colors.muted, textAlign: 'center', lineHeight: 18 },
+  // Legacy (inutilisés mais gardés pour sécurité)
   emptyState: { alignItems: 'center', paddingVertical: Spacing.xl, gap: 8 },
   emptyText: { fontSize: 14, color: Colors.muted },
+  // Reviews vides
+  noReviews: { paddingVertical: 24, alignItems: 'center', gap: 10 },
+  noReviewsStars: { flexDirection: 'row', gap: 5, marginBottom: 4 },
+  noReviewsTitle: { fontSize: 15, fontWeight: '700', color: Colors.foreground, textAlign: 'center' },
+  noReviewsDesc: { fontSize: 13, color: Colors.muted, textAlign: 'center', lineHeight: 19, maxWidth: 280 },
+  noReviewsText: { fontSize: 13, color: Colors.muted },
 
   // Services
   serviceCard: { backgroundColor: Colors.secondary, borderRadius: Radius.xl, padding: Spacing.md, marginBottom: Spacing.sm },
@@ -667,8 +768,6 @@ const st = StyleSheet.create({
   },
   editReviewBtnText: { fontSize: 12, fontWeight: '700', color: Colors.primary },
 
-  noReviews: { alignItems: 'center', paddingVertical: 24, gap: 8 },
-  noReviewsText: { fontSize: 13, color: Colors.muted },
   reviewCard: {
     backgroundColor: Colors.card, borderRadius: Radius.xl, padding: Spacing.md,
     marginBottom: Spacing.sm, borderWidth: 1, borderColor: Colors.border,
