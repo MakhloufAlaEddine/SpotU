@@ -183,15 +183,6 @@ export default function UserProfileScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [hasBooking, setHasBooking] = useState(false);
 
-  // Fetch bookings count pour la barre de complétion (uniquement sur son propre profil)
-  React.useEffect(() => {
-    if (me?.user_id && me.user_id === id) {
-      api.get<any[]>('/bookings/me').then(b => {
-        setHasBooking(Array.isArray(b) && b.length > 0);
-      }).catch(() => {});
-    }
-  }, [me?.user_id, id]);
-
   // Reload every time the screen comes into focus (fix: data not updating after edit)
   useFocusEffect(
     useCallback(() => {
@@ -199,7 +190,13 @@ export default function UserProfileScreen() {
         setLoading(true);
         load();
       }
-    }, [id])
+      // Refresh bookings on every focus so the completion bar stays up to date
+      if (me?.user_id && me.user_id === id) {
+        api.get<any[]>('/bookings/me').then(b => {
+          setHasBooking(Array.isArray(b) && b.length > 0);
+        }).catch(() => {});
+      }
+    }, [id, me?.user_id])
   );
 
   // Re-detect myReview when me loads after reviews are already fetched
