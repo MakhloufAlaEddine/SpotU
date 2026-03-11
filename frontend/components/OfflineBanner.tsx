@@ -122,11 +122,12 @@ const sst = StyleSheet.create({
 
 interface ErrorNoDataProps {
   onRetry: () => void;
+  onBack?: () => void;
   message?: string;
   testID?: string;
 }
 
-export function ErrorNoData({ onRetry, message, testID }: ErrorNoDataProps) {
+export function ErrorNoData({ onRetry, onBack, message, testID }: ErrorNoDataProps) {
   return (
     <View style={est.wrap} testID={testID || 'error-no-data'}>
       <Ionicons name="wifi-outline" size={64} color="rgba(255,255,255,0.35)" />
@@ -136,6 +137,12 @@ export function ErrorNoData({ onRetry, message, testID }: ErrorNoDataProps) {
         <Ionicons name="refresh-outline" size={15} color="#0D1117" />
         <Text style={est.btnText}>Réessayer</Text>
       </TouchableOpacity>
+      {onBack && (
+        <TouchableOpacity style={est.backBtn} onPress={onBack} testID="back-nav-btn">
+          <Ionicons name="chevron-back" size={15} color="rgba(255,255,255,0.6)" />
+          <Text style={est.backBtnText}>Retour</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -161,4 +168,12 @@ const est = StyleSheet.create({
     paddingVertical: 11,
   },
   btnText: { fontSize: 14, fontWeight: '700', color: '#0D1117' },
+  backBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  backBtnText: { fontSize: 14, color: 'rgba(255,255,255,0.6)' },
 });

@@ -1,0 +1,63 @@
+{
+  "summary": "Iteration 72 — Tests: spot-you/[id].tsx cache logic + screenState 4-states + ErrorNoData (spotyou-not-found + onBack) + StaleBanner + cacheInvalidate + OfflineBanner ErrorNoData onBack/back-nav-btn + user/[id].tsx onBack + régression SpotYou pt_demo015 + SpotMe. 57/58 statiques PASS + 3 Playwright PASS. 1 FAIL critique: user/[id].tsx manque onBack sur ErrorNoData.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "user/[id].tsx — ErrorNoData sans onBack",
+        "issue": "CRITICAL: user/[id].tsx ErrorNoData (line 179) is MISSING onBack prop. The !profile block renders <ErrorNoData onRetry={load} testID='user-profile-not-found' /> WITHOUT onBack={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/map')}. The 'Retour' button inside ErrorNoData will never render because onBack is undefined.",
+        "affected_selectors": ["[data-testid='user-profile-not-found']", "[data-testid='back-nav-btn']"],
+        "priority": "HIGH"
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/frontend/e2e/test_16_spotyou_cache_onback.py",
+    "/app/test_reports/pytest/iter72_spotyou_cache_onback.xml"
+  ],
+  "action_items": [
+    "FIX user/[id].tsx line ~179: Add onBack prop to ErrorNoData — <ErrorNoData onRetry={load} testID='user-profile-not-found' onBack={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/map' as any)} />"
+  ],
+  "critical_code_review_comments": [
+    "PASS: spot-you/[id].tsx — loadPoint utilise buildCacheKey/cacheGet/cacheSet/isFresh/cacheAgeMinutes/getTtl/SCHEMA_VERSION ✓",
+    "PASS: spot-you/[id].tsx — screenState 4-états: loading_initial/ready_fresh/ready_cached/error_no_data ✓",
+    "PASS: spot-you/[id].tsx — ErrorNoData testID='spotyou-not-found' + onBack={() => router.canGoBack() ? router.back() : router.replace} ✓",
+    "PASS: spot-you/[id].tsx — StaleBanner affiché conditionnellement quand screenState === 'ready_cached' ✓",
+    "PASS: spot-you/[id].tsx — cacheInvalidate inclut /tag-points/${id} dans doRSVP et doGoing ✓",
+    "PASS: OfflineBanner.tsx ErrorNoData — onBack? prop optionnelle ✓, testID='back-nav-btn' ✓, styles backBtn/backBtnText ✓, onPress={onBack} ✓, chevron-back icône ✓",
+    "PASS: SpotYouSkeleton — composant présent et affiché pendant loading ✓",
+    "FAIL: user/[id].tsx — if (!profile) return ErrorNoData MANQUE onBack prop — bouton Retour ne s'affichera jamais",
+    "PASS Playwright: SpotYou detail pt_demo015 charge normalement (titre + distance visibles) ✓",
+    "PASS Playwright: ErrorNoData pour point inexistant montre back-nav-btn='Retour' + retry-btn ✓",
+    "PASS Playwright: SpotMe liste visible (régression) ✓"
+  ],
+  "updated_files": [
+    "/app/frontend/e2e/test_16_spotyou_cache_onback.py"
+  ],
+  "success_rate": {
+    "backend": "N/A (frontend only)",
+    "frontend": "97.5% (57/58 statiques PASS + 3/3 Playwright PASS = 60/61 PASS total)"
+  },
+  "test_credentials": {
+    "user": "user@winek.app / WinekUser2024!",
+    "coach": "coach@winek.app / WinekCoach2024!",
+    "admin": "admin@winek.app / WinekAdmin2024!"
+  },
+  "seed_data_creation": "Aucune.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iteration 72: 60/61 PASS. Seul échec: user/[id].tsx ligne 179 manque onBack sur ErrorNoData. Fix attendu: ajouter onBack={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/map' as any)} à l'ErrorNoData dans le bloc if (!profile). Après fix, relancer: cd /app/frontend/e2e && python -m pytest test_16_spotyou_cache_onback.py -v -k 'not TestRegressionOnline'. Playwright tests: SpotYou pt_demo015 PASS, ErrorNoData back-nav-btn PASS (spot-you), SpotMe PASS. APP_URL=https://connectivity-guard.preview.emergentagent.com",
+  "rca_of_the_issue": {
+    "bug": "user/[id].tsx ErrorNoData missing onBack prop",
+    "location": "/app/frontend/app/user/[id].tsx line ~179",
+    "current_code": "<ErrorNoData onRetry={load} testID=\"user-profile-not-found\" />",
+    "expected_code": "<ErrorNoData onRetry={load} testID=\"user-profile-not-found\" onBack={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/map' as any)} />",
+    "impact": "When a user profile cannot be loaded (offline or 404), the 'Retour' back button is never shown because onBack is undefined and ErrorNoData conditionally renders the back button only when onBack is provided (line 140 in OfflineBanner.tsx: {onBack && (...)}).",
+    "reproduction": "Navigate to /user/<any_id> while offline or with an invalid user ID — ErrorNoData shows but no Retour button appears."
+  }
+}

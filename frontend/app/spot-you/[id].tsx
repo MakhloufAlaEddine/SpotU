@@ -20,7 +20,8 @@ import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { haversineDistance, formatDistance } from '../../utils/distance';
 import { useClickSound } from '../../hooks/useClickSound';
 import { useNetwork } from '../../hooks/useNetwork';
-import { cacheInvalidate } from '../../lib/cache';
+import { StaleBanner, ErrorNoData } from '../../components/OfflineBanner';
+import { buildCacheKey, cacheGet, cacheSet, isFresh, cacheAgeMinutes, getTtl, SCHEMA_VERSION, cacheInvalidate } from '../../lib/cache';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -344,6 +345,8 @@ export default function SpotYouDetail() {
 
   const [point, setPoint] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [screenState, setScreenState] = useState<'loading_initial' | 'ready_fresh' | 'ready_cached' | 'error_no_data'>('loading_initial');
+  const [staleMinutes, setStaleMinutes] = useState<number | null>(null);
   const [showFullDesc, setShowFullDesc] = useState(false);
   const [votes, setVotes] = useState<any[]>([]);
   const [showVoteModal, setShowVoteModal] = useState(false);
@@ -393,9 +396,13 @@ export default function SpotYouDetail() {
     }, [id, user])
   );
 
-  const loadPoint = async () => {
-    try {
-      const data = await api.get(`/tag-points/${id}`);
+  const loadPoint = async (isRefresh = false) => {
+    const userId = user?.user_id;
+    const cacheKey = buildCacheKey({ path: `/tag-points/${id}`, userId, schemaVersion: SCHEMA_VERSION });
+    const ttl = getTtl(`/tag-points/${id}`) ?? 5 * 60_000;
+
+    // Helper local pour appliquer les données du point
+    const applyData = (data: any) => {
       setPoint(data);
       setCurrentRating(data.rating || 0);
       setCurrentVotes(data.votes || 0);
@@ -410,11 +417,40 @@ export default function SpotYouDetail() {
       setIsSaved(data.is_saved || false);
       setIsPublic(data.is_public !== false);
       setIsCancelled(!!data.cancelled);
-      // Charger le fil d'activité si membre
+    };
+
+    // Étape 1 : lecture cache sur le premier chargement
+    if (!isRefresh) {
+      const cached = await cacheGet<any>(cacheKey);
+      if (cached?.data) {
+        applyData(cached.data);
+        setLoading(false);
+        const fresh = isFresh(cached);
+        setScreenState(fresh ? 'ready_fresh' : 'ready_cached');
+        setStaleMinutes(fresh ? null : cacheAgeMinutes(cached));
+        if (fresh) return;
+        // Stale : continuer le fetch en arrière-plan
+      }
+    }
+
+    // Étape 2 : fetch réseau
+    try {
+      const data = await api.get(`/tag-points/${id}`);
+      applyData(data);
+      setScreenState('ready_fresh');
+      setStaleMinutes(null);
+      await cacheSet(cacheKey, data, ttl);
       const member = data.is_member || data.is_participant;
       if (member) loadActivity();
-    } catch (e: any) { Alert.alert('Erreur', e.message); }
-    finally { setLoading(false); }
+    } catch {
+      setPoint(prev => {
+        if (prev !== null) setScreenState('ready_cached');
+        else setScreenState('error_no_data');
+        return prev;
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   // ─── Helpers de date relative ─────────────────────────────────────────────
@@ -590,7 +626,7 @@ export default function SpotYouDetail() {
       setCurrentRating(res.avg_rating); setCurrentVotes(res.vote_count);
       setMyVote({ rating: pendingStar, comment: comment.trim() || null });
       setVoteSuccess(true); setComment(''); setPendingStar(0);
-      loadVotes(); loadPoint();
+      loadVotes(); loadPoint(true);
       setTimeout(() => { setVoteSuccess(false); setShowVoteModal(false); }, 1500);
     } catch (e: any) { Alert.alert('Erreur', e.message || "Impossible d'envoyer"); }
     finally { setSubmitting(false); }
@@ -616,7 +652,7 @@ export default function SpotYouDetail() {
       loadParticipants();
       if (res.is_member) loadActivity();
       // Invalidation ciblée des caches impactés par ce changement de membership
-      await cacheInvalidate(['/tag-points', '/planning', '/conversations']);
+      await cacheInvalidate([`/tag-points/${id}`, '/tag-points', '/planning', '/conversations']);
     } catch (e: any) { Alert.alert('Erreur', e.message); }
     finally { setRsvpLoading(false); }
   };
@@ -681,7 +717,7 @@ export default function SpotYouDetail() {
       loadGoingList();
       loadParticipants();
       // Invalidation ciblée : la participation impacte planning et tag-points/mine
-      await cacheInvalidate(['/planning', '/tag-points/mine']);
+      await cacheInvalidate([`/tag-points/${id}`, '/planning', '/tag-points/mine']);
     } catch (e: any) { Alert.alert('Erreur', e.message); }
     finally { setGoingLoading(false); }
   };
@@ -787,10 +823,13 @@ export default function SpotYouDetail() {
     <View style={st.screen}><Stack.Screen options={{ headerShown: false }} /><SpotYouSkeleton /></View>
   );
   if (!point) return (
-    <View style={[st.screen, { alignItems: 'center', justifyContent: 'center' }]}>
+    <View style={st.screen}>
       <Stack.Screen options={{ headerShown: false }} />
-      <Ionicons name="alert-circle-outline" size={48} color={Colors.muted} />
-      <Text style={{ color: Colors.muted, marginTop: 8 }}>SpotYou introuvable</Text>
+      <ErrorNoData
+        onRetry={() => loadPoint(true)}
+        onBack={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/map' as any)}
+        testID="spotyou-not-found"
+      />
     </View>
   );
 
@@ -809,6 +848,9 @@ export default function SpotYouDetail() {
   return (
     <View style={st.screen}>
       <Stack.Screen options={{ headerShown: false }} />
+
+      {/* Bannière données périmées */}
+      {screenState === 'ready_cached' && <StaleBanner staleMinutes={staleMinutes} />}
 
       {/* Header */}
       <SafeAreaView edges={['top']} style={{ backgroundColor: Colors.header }}>
