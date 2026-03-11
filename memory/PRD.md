@@ -47,10 +47,12 @@ Fonctionnalités : création/découverte de services et SpotYous, système de r�
 | 2026-03 | `app/(tabs)/profile.tsx` — 4-états dataScreenState + StaleBanner + timeout anti-spinner | UPDATED |
 | 2026-03 | `@react-native-community/netinfo@12.0.1` installé | package.json |
 ### Phase 5 — Correctifs offline screen SpotYou + ErrorNoData (2026-03)
-- **spot-you/[id].tsx** : loadPoint avec cache (buildCacheKey/cacheGet/cacheSet/isFresh/cacheAgeMinutes/getTtl/SCHEMA_VERSION), screenState 4-états, StaleBanner, ErrorNoData (testID=`spotyou-not-found` + onBack), cacheInvalidate ciblé avec `/tag-points/${id}` après mutations
-- **ErrorNoData** : prop `onBack?` optionnelle + bouton "Retour" (testID=`back-nav-btn`) → présent sur tous les écrans d'erreur offline
-- **user/[id].tsx** : ErrorNoData avec `onBack={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/map')}`
-- **61/61 tests PASS** — `/app/frontend/e2e/test_16_spotyou_cache_onback.py`
+- **spot-you/[id].tsx** : loadPoint avec cache, screenState 4-états, StaleBanner, ErrorNoData (onBack), cacheInvalidate ciblé
+- **ErrorNoData** : prop `onBack?` + bouton "Retour" (testID=`back-nav-btn`)
+- **user/[id].tsx** : ErrorNoData avec onBack
+- **lib/chat.ts** : `loadHistory` avec cache (buildCacheKey/cacheGet/cacheSet/isFresh), `historyState` ('loading'|'loaded'|'error'), `ws.onmessage` met à jour le cache après chaque nouveau message
+- **chat/[id].tsx** : `currentUserId` depuis `storage.get('spotu_user')` (offline-safe), `convInfo` depuis `storage.get('spotu_conv_${id}')` en premier, `ErrorNoData` conditionnel quand `historyState==='error' && messages.length===0`
+- **21/21 tests PASS** — `/app/frontend/e2e/test_17_chat_cache_errornodata.py`
 
 **Détails**:
 - Clé cache = méthode + path + params normalisés + userId + schemaVersion
