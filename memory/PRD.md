@@ -28,7 +28,7 @@ Fonctionnalités : création/découverte de services et SpotYous, système de r�
 
 ## What's Been Implemented
 
-### Phase 5 - Protection réseau avancée (2026-03)
+### Phase 5 - Protection réseau avancée — COMPLÈTE (2026-03)
 | Date | Composant | Fichiers |
 |------|-----------|---------|
 | 2026-03 | `lib/cache.ts` — cache persistant (AsyncStorage + TTL + metadata) | NEW |
@@ -42,14 +42,20 @@ Fonctionnalités : création/découverte de services et SpotYous, système de r�
 | 2026-03 | `app/(tabs)/chat.tsx` — cache + screenState + registerScreenRefresh | UPDATED |
 | 2026-03 | `app/(tabs)/notifications.tsx` — cache + screenState + registerScreenRefresh | UPDATED |
 | 2026-03 | `app/spot-you/[id].tsx` — guard offline mutations + cacheInvalidate ciblée | UPDATED |
+| 2026-03 | `app/spot-me.tsx` — 4-états + StaleBanner + guard offline toggleGoing + cacheInvalidate | UPDATED |
+| 2026-03 | `app/chat/[id].tsx` — guard offline envoi (isConnected check + Alert explicite) | UPDATED |
+| 2026-03 | `app/(tabs)/profile.tsx` — 4-états dataScreenState + StaleBanner + timeout anti-spinner | UPDATED |
 | 2026-03 | `@react-native-community/netinfo@12.0.1` installé | package.json |
+| 2026-03 | `frontend/e2e/test_14_offline_guards.py` — 31/31 tests guards offline | NEW |
 
 **Détails**:
 - Clé cache = méthode + path + params normalisés + userId + schemaVersion
 - Fallback cache JAMAIS pour 401/403 (erreurs auth toujours propagées)
 - Refresh progressif au retour réseau (écrans prioritaires d'abord, délai 350ms entre chaque)
 - Invalidation ciblée: join/leave → `/tag-points,/planning,/conversations` | going → `/planning,/tag-points/mine`
-- Actions offline (join, going) → message explicite, pas d'échec silencieux
+- Actions offline (join, going, send chat) → message explicite, **zéro échec silencieux**
+- Garde-fou anti-spinner infini: timeout 8s sur refreshUser() dans profile.tsx
+- 4 cas aucun échec silencieux validés: toggleGoing, sendMessage WS, loadData profile, loadPoints spot-me
 
 
 | Date | Fonctionnalité | Fichiers modifiés |
