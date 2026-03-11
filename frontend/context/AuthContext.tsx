@@ -5,6 +5,7 @@ import * as Linking from 'expo-linking';
 import { storage } from '../lib/storage';
 import { api } from '../lib/api';
 import { setLang, Lang } from '../lib/i18n';
+import { isOfflineOrTimeout } from '../lib/network-error';
 
 interface User {
   user_id: string;
@@ -52,11 +53,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const saved = await storage.get('spotu_token');
       if (saved) {
         setToken(saved);
-        const me = await api.get<User>('/auth/me');
-        applyUser(me);
+        try {
+          const me = await api.get<User>('/auth/me');
+          applyUser(me);
+          // Mise en cache pour la résilience hors ligne
+          await storage.set('spotu_user', JSON.stringify(me));
+        } catch (fetchErr: unknown) {
+          if (isOfflineOrTimeout(fetchErr)) {
+            // Réseau indisponible → essayer les données en cache
+            const cached = await storage.get('spotu_user');
+            if (cached) {
+              try { applyUser(JSON.parse(cached)); } catch {}
+            } else {
+              // Pas de données en cache → impossible d'authentifier hors ligne
+              setToken(null);
+              setUser(null);
+            }
+          } else {
+            // Erreur auth réelle (401/403) → supprimer la session
+            await storage.remove('spotu_token');
+            await storage.remove('spotu_user');
+            setToken(null);
+            setUser(null);
+          }
+        }
       }
     } catch {
-      await storage.remove('spotu_token');
       setToken(null);
       setUser(null);
     } finally {
@@ -85,6 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     const data = await api.post<{ user: User; token: string }>('/auth/login', { email, password });
     await storage.set('spotu_token', data.token);
+    await storage.set('spotu_user', JSON.stringify(data.user));
     setToken(data.token);
     applyUser(data.user);
   };
@@ -92,6 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = async (email: string, password: string, name: string, language: Lang = 'fr') => {
     const data = await api.post<{ user: User; token: string }>('/auth/register', { email, password, name, language });
     await storage.set('spotu_token', data.token);
+    await storage.set('spotu_user', JSON.stringify(data.user));
     setToken(data.token);
     applyUser(data.user);
   };
@@ -101,6 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const data = await api.post<{ user: User; token: string }>('/auth/google', { session_id: sessionId });
       await storage.set('spotu_token', data.token);
+      await storage.set('spotu_user', JSON.stringify(data.user));
       setToken(data.token);
       applyUser(data.user);
     } finally {
@@ -175,6 +200,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     await storage.remove('spotu_token');
+    await storage.remove('spotu_user');
     setToken(null);
     setUser(null);
   };
@@ -184,6 +210,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const updated = { ...user, ...data };
       setUser(updated);
       if (data.language) setLang(data.language as Lang);
+      // Synchroniser le cache utilisateur
+      storage.set('spotu_user', JSON.stringify(updated)).catch(() => {});
     }
   };
 
@@ -191,6 +219,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const me = await api.get<User>('/auth/me');
       applyUser(me);
+      await storage.set('spotu_user', JSON.stringify(me));
     } catch {}
   }, []);
 

@@ -12,7 +12,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/LanguageContext';
 import { api } from '../../lib/api';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
-import { StaleBanner } from '../../components/OfflineBanner';
+import { StaleBanner, ErrorNoData } from '../../components/OfflineBanner';
 import { buildCacheKey, cacheGet, cacheSet, isFresh, getTtl, SCHEMA_VERSION } from '../../lib/cache';
 
 export default function MenuScreen() {
@@ -136,10 +136,11 @@ export default function MenuScreen() {
   if (!user) {
     return (
       <SafeAreaView style={st.safe}>
-        <View style={st.center}>
-          <Ionicons name="person-outline" size={48} color={Colors.muted} />
-          <Text style={st.emptyText}>Veuillez vous connecter</Text>
-        </View>
+        <ErrorNoData
+          onRetry={() => refreshUser()}
+          message="Session introuvable. Vérifiez votre connexion et réessayez."
+          testID="profile-no-user"
+        />
       </SafeAreaView>
     );
   }

@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { Colors, Spacing, Radius, Shadow } from '../../constants/Colors';
+import { ErrorNoData } from '../../components/OfflineBanner';
 
 const TEAL_DIM = 'rgba(0,191,165,0.12)';
 const TEAL_BORDER = 'rgba(0,191,165,0.3)';
@@ -173,7 +174,11 @@ export default function UserProfileScreen() {
     return <View style={st.center}><ActivityIndicator size="large" color={Colors.primary} /></View>;
   }
   if (!profile) {
-    return <View style={st.center}><Text style={st.notFound}>Profil introuvable</Text></View>;
+    return (
+      <SafeAreaView style={[st.safe, { backgroundColor: '#0D1117' }]} edges={['top', 'bottom']}>
+        <ErrorNoData onRetry={load} testID="user-profile-not-found" />
+      </SafeAreaView>
+    );
   }
 
   const isCoach = profile.role === 'coach';

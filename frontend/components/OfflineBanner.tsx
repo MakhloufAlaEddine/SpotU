@@ -7,7 +7,7 @@
  */
 
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import { View, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNetwork } from '../hooks/useNetwork';
 
@@ -127,16 +127,15 @@ interface ErrorNoDataProps {
 }
 
 export function ErrorNoData({ onRetry, message, testID }: ErrorNoDataProps) {
-  const { Pressable } = require('react-native');
   return (
     <View style={est.wrap} testID={testID || 'error-no-data'}>
-      <Ionicons name="wifi-outline" size={52} color="rgba(255,255,255,0.2)" />
+      <Ionicons name="wifi-outline" size={64} color="rgba(255,255,255,0.35)" />
       <Text style={est.title}>Pas de connexion</Text>
       <Text style={est.sub}>{message || 'Vérifiez votre réseau et réessayez.'}</Text>
-      <Pressable style={est.btn} onPress={onRetry} testID="retry-btn">
+      <TouchableOpacity style={est.btn} onPress={onRetry} testID="retry-btn">
         <Ionicons name="refresh-outline" size={15} color="#0D1117" />
         <Text style={est.btnText}>Réessayer</Text>
-      </Pressable>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -146,11 +145,11 @@ const est = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
+    gap: 14,
     padding: 32,
   },
-  title: { fontSize: 17, fontWeight: '700', color: 'rgba(255,255,255,0.7)' },
-  sub: { fontSize: 14, color: 'rgba(255,255,255,0.4)', textAlign: 'center', lineHeight: 20 },
+  title: { fontSize: 18, fontWeight: '700', color: 'rgba(255,255,255,0.9)' },
+  sub: { fontSize: 14, color: 'rgba(255,255,255,0.45)', textAlign: 'center', lineHeight: 20 },
   btn: {
     marginTop: 8,
     flexDirection: 'row',
@@ -158,8 +157,8 @@ const est = StyleSheet.create({
     gap: 6,
     backgroundColor: '#1DBF73',
     borderRadius: 20,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingHorizontal: 22,
+    paddingVertical: 11,
   },
   btnText: { fontSize: 14, fontWeight: '700', color: '#0D1117' },
 });
