@@ -84,11 +84,18 @@ async def become_coach(request: Request):
 
 
 @router.get("/{user_id}/public")
-async def get_public_profile(user_id: str):
+async def get_public_profile(user_id: str, request: Request):
     pool = get_pool()
+    # Try to get current user (optional auth)
+    try:
+        me = await require_auth(request, pool)
+        me_id = me["user_id"]
+    except Exception:
+        me_id = None
+
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            """SELECT user_id, name, picture, role, bio, is_coach_verified, coach_tags,
+            """SELECT user_id, name, picture, cover_picture, role, bio, is_coach_verified, coach_tags,
                       show_phone, show_reviews, phone
                FROM users WHERE user_id = $1""",
             user_id
@@ -100,6 +107,26 @@ async def get_public_profile(user_id: str):
         # Phone: only expose if user opted in
         if not user.get("show_phone"):
             user["phone"] = None
+
+        # Followers / Following counts
+        followers_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM user_follows WHERE following_id = $1", user_id
+        )
+        following_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM user_follows WHERE follower_id = $1", user_id
+        )
+        user["followers_count"] = int(followers_count or 0)
+        user["following_count"] = int(following_count or 0)
+
+        # Is current user following this profile?
+        if me_id and me_id != user_id:
+            is_following = await conn.fetchval(
+                "SELECT EXISTS(SELECT 1 FROM user_follows WHERE follower_id=$1 AND following_id=$2)",
+                me_id, user_id
+            )
+            user["is_following"] = bool(is_following)
+        else:
+            user["is_following"] = False
 
         # Fetch tag details for interests (coach_tags)
         tag_ids = user.get("coach_tags") or []
@@ -447,3 +474,53 @@ async def get_activity_feed(request: Request):
         unique.sort(key=lambda x: x["timestamp"], reverse=True)
 
     return {"activities": unique[:30]}
+
+
+# ── FOLLOW SYSTEM ──────────────────────────────────────────────────────────
+
+@router.post("/{user_id}/follow")
+async def follow_user(user_id: str, request: Request):
+    pool = get_pool()
+    me = await require_auth(request, pool)
+    if me["user_id"] == user_id:
+        raise HTTPException(status_code=400, detail="Vous ne pouvez pas vous suivre vous-même.")
+    async with pool.acquire() as conn:
+        target = await conn.fetchval("SELECT user_id FROM users WHERE user_id=$1", user_id)
+        if not target:
+            raise HTTPException(status_code=404, detail="Utilisateur introuvable.")
+        await conn.execute(
+            "INSERT INTO user_follows(follower_id, following_id) VALUES($1,$2) ON CONFLICT DO NOTHING",
+            me["user_id"], user_id
+        )
+        followers = await conn.fetchval("SELECT COUNT(*) FROM user_follows WHERE following_id=$1", user_id)
+    return {"is_following": True, "followers_count": int(followers)}
+
+
+@router.delete("/{user_id}/follow")
+async def unfollow_user(user_id: str, request: Request):
+    pool = get_pool()
+    me = await require_auth(request, pool)
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "DELETE FROM user_follows WHERE follower_id=$1 AND following_id=$2",
+            me["user_id"], user_id
+        )
+        followers = await conn.fetchval("SELECT COUNT(*) FROM user_follows WHERE following_id=$1", user_id)
+    return {"is_following": False, "followers_count": int(followers)}
+
+
+@router.patch("/{user_id}/cover")
+async def update_cover(user_id: str, request: Request):
+    """Met à jour la photo de couverture du profil."""
+    pool = get_pool()
+    me = await require_auth(request, pool)
+    if me["user_id"] != user_id:
+        raise HTTPException(status_code=403, detail="Accès refusé.")
+    body = await request.json()
+    cover_url = body.get("cover_picture", "")
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE users SET cover_picture=$1, updated_at=NOW() WHERE user_id=$2",
+            cover_url or None, user_id
+        )
+    return {"cover_picture": cover_url or None}

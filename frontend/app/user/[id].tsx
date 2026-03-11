@@ -194,6 +194,9 @@ export default function UserProfileScreen() {
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [spotYouIndex, setSpotYouIndex] = useState(0);
   const [serviceIndex, setServiceIndex] = useState(0);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followersCount, setFollowersCount] = useState(0);
+  const [followLoading, setFollowLoading] = useState(false);
 
   // Reload every time the screen comes into focus (fix: data not updating after edit)
   useFocusEffect(
@@ -232,9 +235,31 @@ export default function UserProfileScreen() {
     try {
       const data = await api.get(`/users/${id}/public`);
       setProfile(data);
+      setIsFollowing(data.is_following ?? false);
+      setFollowersCount(data.followers_count ?? 0);
       if (data.show_reviews) await loadReviews();
     } catch {}
     finally { setLoading(false); }
+  };
+
+  const handleFollow = async () => {
+    if (!me || followLoading) return;
+    setFollowLoading(true);
+    try {
+      if (isFollowing) {
+        const r = await api.delete(`/users/${id}/follow`);
+        setIsFollowing(false);
+        setFollowersCount(r.followers_count ?? Math.max(0, followersCount - 1));
+      } else {
+        const r = await api.post(`/users/${id}/follow`, {});
+        setIsFollowing(true);
+        setFollowersCount(r.followers_count ?? followersCount + 1);
+      }
+    } catch (e: any) {
+      Alert.alert('Erreur', e.message || 'Impossible de mettre à jour le suivi.');
+    } finally {
+      setFollowLoading(false);
+    }
   };
 
   const loadReviews = async () => {
@@ -373,7 +398,23 @@ export default function UserProfileScreen() {
       <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false}>
         {/* ── HERO ─────────────────────────────── */}
         <View style={st.hero} testID="user-profile-hero">
-          {/* Avatar avec glow teal */}
+          {/* COVER PHOTO */}
+          <View style={st.coverWrap}>
+            {profile.cover_picture
+              ? <Image source={{ uri: profile.cover_picture }} style={st.coverImg} />
+              : <View style={st.coverPlaceholder} />
+            }
+            {/* Bouton upload cover (propriétaire) */}
+            {isOwnProfile && (
+              <TouchableOpacity style={st.coverEditBtn}
+                onPress={() => router.push('/edit-profile' as any)}
+                testID="cover-edit-btn" activeOpacity={0.8}>
+                <Ionicons name="camera" size={16} color="#fff" />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* AVATAR — chevauche la cover */}
           <View style={st.avatarWrap}>
             {profile.picture
               ? <Image source={{ uri: profile.picture }} style={st.avatarImg} />
@@ -382,62 +423,91 @@ export default function UserProfileScreen() {
                 </View>
             }
             {isCoach && profile.is_coach_verified && (
-              <View style={st.verifiedDot}>
+              <View style={st.verifiedDot} testID="verified-badge">
                 <Ionicons name="checkmark" size={11} color="#0A0A0A" />
               </View>
             )}
           </View>
 
-          <Text style={st.name} testID="user-profile-name">{profile.name}</Text>
+          {/* INFOS SOUS AVATAR */}
+          <View style={st.heroInfo}>
+            <Text style={st.name} testID="user-profile-name">{profile.name}</Text>
 
-          {/* Badges : rôle + note */}
-          <View style={st.badgeRow}>
-            <View style={[st.roleBadge, isCoach && st.roleBadgeCoach]}>
-              <Ionicons name={isCoach ? 'trophy-outline' : 'person-outline'} size={12}
-                color={isCoach ? Colors.primary : Colors.muted} />
-              <Text style={[st.roleBadgeText, isCoach && { color: Colors.primary }]}>
-                {isCoach ? 'Coach' : 'Membre'}
-              </Text>
+            <View style={st.badgeRow}>
+              <View style={[st.roleBadge, isCoach && st.roleBadgeCoach]}>
+                <Ionicons name={isCoach ? 'trophy-outline' : 'person-outline'} size={12}
+                  color={isCoach ? Colors.primary : Colors.muted} />
+                <Text style={[st.roleBadgeText, isCoach && { color: Colors.primary }]}>
+                  {isCoach ? 'Coach' : 'Membre'}
+                </Text>
+              </View>
+              {avgRating != null && (
+                <View style={st.ratingBadge} testID="rating-badge">
+                  <Ionicons name="star" size={12} color="#FFD700" />
+                  <Text style={st.ratingText}>{avgRating} ({reviews.length})</Text>
+                </View>
+              )}
             </View>
-            {avgRating != null && (
-              <View style={st.ratingBadge} testID="rating-badge">
-                <Ionicons name="star" size={12} color="#FFD700" />
-                <Text style={st.ratingText}>{avgRating} ({reviews.length})</Text>
+
+            {badge && (
+              <View style={[st.achievementBadge, { backgroundColor: badge.bg, borderColor: badge.color + '44' }]}
+                testID="achievement-badge">
+                <Ionicons name={badge.icon as any} size={13} color={badge.color} />
+                <Text style={[st.achievementText, { color: badge.color }]}>{badge.label}</Text>
               </View>
             )}
-          </View>
 
-          {/* Achievement badge */}
-          {badge && (
-            <View style={[st.achievementBadge, { backgroundColor: badge.bg, borderColor: badge.color + '44' }]}
-              testID="achievement-badge">
-              <Ionicons name={badge.icon as any} size={13} color={badge.color} />
-              <Text style={[st.achievementText, { color: badge.color }]}>{badge.label}</Text>
-            </View>
-          )}
+            {profile.bio ? <Text style={st.bio}>{profile.bio}</Text> : null}
 
-          {profile.bio ? <Text style={st.bio}>{profile.bio}</Text> : null}
-
-          {/* Stats row */}
-          <View style={st.statsRow}>
-            <View style={st.statItem}>
-              <Text style={st.statNum}>{SpotYou.length}</Text>
-              <Text style={st.statDesc}>SpotYou</Text>
-            </View>
-            <View style={st.statSep} />
-            <View style={st.statItem}>
-              <Text style={st.statNum}>{reviews.length}</Text>
-              <Text style={st.statDesc}>Avis</Text>
-            </View>
-            {isCoach && (
-              <>
-                <View style={st.statSep} />
-                <View style={st.statItem}>
-                  <Text style={st.statNum}>{services.length}</Text>
-                  <Text style={st.statDesc}>Services</Text>
-                </View>
-              </>
+            {/* BOUTON SUIVRE (visiteur connecté uniquement) */}
+            {me && !isOwnProfile && (
+              <TouchableOpacity
+                style={[st.followBtn, isFollowing && st.followBtnActive]}
+                onPress={handleFollow}
+                disabled={followLoading}
+                testID="follow-btn"
+                activeOpacity={0.8}>
+                {followLoading
+                  ? <ActivityIndicator size="small" color={isFollowing ? Colors.primary : '#0A0A0A'} />
+                  : <>
+                      <Ionicons
+                        name={isFollowing ? 'checkmark-circle' : 'person-add-outline'}
+                        size={15}
+                        color={isFollowing ? Colors.primary : '#0A0A0A'} />
+                      <Text style={[st.followBtnText, isFollowing && st.followBtnTextActive]}>
+                        {isFollowing ? 'Abonné' : 'Suivre'}
+                      </Text>
+                    </>
+                }
+              </TouchableOpacity>
             )}
+
+            {/* STATS ROW */}
+            <View style={st.statsRow}>
+              <View style={st.statItem}>
+                <Text style={st.statNum}>{SpotYou.length}</Text>
+                <Text style={st.statDesc}>SpotYou</Text>
+              </View>
+              <View style={st.statSep} />
+              <View style={st.statItem}>
+                <Text style={st.statNum}>{reviews.length}</Text>
+                <Text style={st.statDesc}>Avis</Text>
+              </View>
+              <View style={st.statSep} />
+              <View style={st.statItem}>
+                <Text style={st.statNum}>{followersCount}</Text>
+                <Text style={st.statDesc}>Abonnés</Text>
+              </View>
+              {isCoach && (
+                <>
+                  <View style={st.statSep} />
+                  <View style={st.statItem}>
+                    <Text style={st.statNum}>{services.length}</Text>
+                    <Text style={st.statDesc}>Services</Text>
+                  </View>
+                </>
+              )}
+            </View>
           </View>
         </View>
 
@@ -819,30 +889,48 @@ const st = StyleSheet.create({
   scroll: { paddingBottom: 40 },
 
   // Hero
-  hero: {
-    alignItems: 'center', paddingTop: 32, paddingBottom: 32, paddingHorizontal: Spacing.lg,
-    borderBottomWidth: 1, borderBottomColor: Colors.secondary, marginBottom: 8,
+  hero: { marginBottom: 8 },
+
+  // Cover photo
+  coverWrap: { width: '100%' as any, height: 180, position: 'relative' as any },
+  coverImg: { width: '100%' as any, height: 180, resizeMode: 'cover' },
+  coverPlaceholder: { width: '100%' as any, height: 180, backgroundColor: '#0D2420' },
+  coverEditBtn: {
+    position: 'absolute' as any, bottom: 12, right: 14,
+    backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 20,
+    padding: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)',
   },
-  avatarWrap: { position: 'relative', marginBottom: 16 },
+
+  // Avatar (chevauche la cover)
+  avatarWrap: {
+    position: 'relative' as any,
+    alignSelf: 'center',
+    marginTop: -48,
+    marginBottom: 12,
+    zIndex: 10,
+  },
   avatarImg: {
-    width: 120, height: 120, borderRadius: 60,
+    width: 96, height: 96, borderRadius: 48,
     borderWidth: 3, borderColor: Colors.primary,
-    shadowColor: Colors.primary, shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35, shadowRadius: 16,
+    shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4, shadowRadius: 12,
   },
   avatarPlaceholder: {
-    width: 120, height: 120, borderRadius: 60, backgroundColor: TEAL_DIM,
+    width: 96, height: 96, borderRadius: 48, backgroundColor: TEAL_DIM,
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 3, borderColor: Colors.primary,
-    shadowColor: Colors.primary, shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35, shadowRadius: 16,
+    shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4, shadowRadius: 12,
   },
-  avatarInitial: { fontSize: 46, fontWeight: '800', color: Colors.primary },
+  avatarInitial: { fontSize: 38, fontWeight: '800', color: Colors.primary },
   verifiedDot: {
-    position: 'absolute', bottom: 4, right: 4, width: 26, height: 26, borderRadius: 13,
+    position: 'absolute' as any, bottom: 2, right: 2, width: 24, height: 24, borderRadius: 12,
     backgroundColor: Colors.primary, borderWidth: 2.5, borderColor: Colors.background,
     alignItems: 'center', justifyContent: 'center',
   },
+
+  // Infos sous avatar
+  heroInfo: { alignItems: 'center', paddingHorizontal: Spacing.lg, paddingBottom: 24 },
   name: { fontSize: 26, fontWeight: '800', color: Colors.foreground, marginBottom: 10, letterSpacing: -0.5 },
   badgeRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
   roleBadge: {
@@ -865,20 +953,33 @@ const st = StyleSheet.create({
     borderWidth: 1, marginBottom: 12,
   },
   achievementText: { fontSize: 13, fontWeight: '700' },
-  bio: { fontSize: 14, color: Colors.muted, textAlign: 'center', lineHeight: 21, maxWidth: 300, marginTop: 6, marginBottom: 20 },
+  bio: { fontSize: 14, color: Colors.muted, textAlign: 'center', lineHeight: 21, maxWidth: 300, marginTop: 6, marginBottom: 16 },
+
+  // Bouton Suivre
+  followBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: Colors.primary, borderRadius: 24,
+    paddingHorizontal: 28, paddingVertical: 11, marginBottom: 20,
+    minWidth: 120, justifyContent: 'center',
+  },
+  followBtnActive: {
+    backgroundColor: 'transparent', borderWidth: 1.5, borderColor: Colors.primary,
+  },
+  followBtnText: { fontSize: 14, fontWeight: '800', color: '#0A0A0A' },
+  followBtnTextActive: { color: Colors.primary },
 
   // Stats row sous le bio
   statsRow: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: Colors.secondary, borderRadius: Radius.lg,
-    paddingVertical: 16, paddingHorizontal: 24,
+    paddingVertical: 16, paddingHorizontal: 16,
     borderWidth: 1, borderColor: Colors.border,
-    gap: 0, marginTop: 4,
+    alignSelf: 'stretch',
   },
   statItem: { flex: 1, alignItems: 'center', gap: 2 },
-  statNum: { fontSize: 20, fontWeight: '800', color: Colors.foreground },
-  statDesc: { fontSize: 11, color: Colors.muted, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-  statSep: { width: 1, height: 28, backgroundColor: Colors.border },
+  statNum: { fontSize: 18, fontWeight: '800', color: Colors.foreground },
+  statDesc: { fontSize: 10, color: Colors.muted, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  statSep: { width: 1, height: 24, backgroundColor: Colors.border },
 
   // Info row (phone)
   infoRow: {

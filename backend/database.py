@@ -714,6 +714,20 @@ async def connect_to_db():
             ON CONFLICT (point_id, user_id) DO NOTHING;
         """)
 
+        # [PROFILE-V2] Cover photo + système de suivi (follow/abonnements)
+        await conn.execute("""
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS cover_picture TEXT;
+
+            CREATE TABLE IF NOT EXISTS user_follows (
+                follower_id TEXT REFERENCES users(user_id) ON DELETE CASCADE,
+                following_id TEXT REFERENCES users(user_id) ON DELETE CASCADE,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                PRIMARY KEY (follower_id, following_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_follows_following ON user_follows(following_id);
+            CREATE INDEX IF NOT EXISTS idx_follows_follower ON user_follows(follower_id);
+        """)
+
     logger.info("Connected to PostgreSQL with PostGIS + seed data loaded")
 
 
