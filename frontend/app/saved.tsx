@@ -1,30 +1,21 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  Image, ActivityIndicator, RefreshControl,
+  Image, ActivityIndicator, RefreshControl, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { api } from '../lib/api';
-import { useLocation } from '../context/LocationContext';
-import { haversineDistance, formatDistance } from '../utils/distance';
 import { Colors, Spacing, Radius } from '../constants/Colors';
+import { SpotYouCard } from '../components/SpotYouCard';
+import ConfirmActionModal, { ConfirmAction } from '../components/ConfirmActionModal';
+import { useNetwork } from '../hooks/useNetwork';
+import { useClickSound } from '../hooks/useClickSound';
+import { cacheInvalidate } from '../lib/cache';
 
 const ORANGE = '#FF9500';
-
-interface SavedPoint {
-  point_id: string;
-  title: string;
-  image_url?: string;
-  images?: string[];
-  domain_id?: string;
-  tags?: any[];
-  latitude?: number;
-  longitude?: number;
-  saved_at?: string;
-}
 
 interface SavedService {
   service_id: string;
@@ -44,43 +35,6 @@ function timeAgo(d?: string) {
   if (diff < 7) return `Il y a ${diff}j`;
   if (diff < 30) return `Il y a ${Math.floor(diff / 7)} sem`;
   return `Il y a ${Math.floor(diff / 30)} mois`;
-}
-
-function SavedCard({ item, onPress, onUnsave }: { item: SavedPoint; onPress: () => void; onUnsave: () => void }) {
-  const { location } = useLocation();
-  const dist = item.latitude != null && item.longitude != null
-    ? formatDistance(haversineDistance(location.lat, location.lng, item.latitude, item.longitude))
-    : null;
-
-  return (
-    <TouchableOpacity style={card.container} onPress={onPress} activeOpacity={0.8} testID={`saved-card-${item.point_id}`}>
-      <View style={card.imageWrap}>
-        {item.images?.[0]
-          ? <Image source={{ uri: item.images[0] }} style={card.image} resizeMode="cover" />
-          : <View style={card.imageFallback}><Ionicons name="image-outline" size={28} color={Colors.muted} /></View>}
-      </View>
-      <View style={card.info}>
-        <Text style={card.title} numberOfLines={2}>{item.title}</Text>
-        <View style={card.metaRow}>
-          {dist && (
-            <View style={card.pill}>
-              <Ionicons name="location-outline" size={11} color={Colors.primary} />
-              <Text style={card.pillText}>{dist}</Text>
-            </View>
-          )}
-          {item.saved_at && (
-            <View style={card.pill}>
-              <Ionicons name="bookmark-outline" size={11} color={Colors.muted} />
-              <Text style={[card.pillText, { color: Colors.muted }]}>{timeAgo(item.saved_at)}</Text>
-            </View>
-          )}
-        </View>
-      </View>
-      <TouchableOpacity style={card.unsaveBtn} onPress={onUnsave} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} testID={`unsave-btn-${item.point_id}`}>
-        <Ionicons name="bookmark" size={22} color={Colors.primary} />
-      </TouchableOpacity>
-    </TouchableOpacity>
-  );
 }
 
 function SavedServiceCard({ item, onPress, onUnsave }: { item: SavedService; onPress: () => void; onUnsave: () => void }) {
@@ -155,11 +109,20 @@ type Tab = 'spotyou' | 'services';
 
 export default function SavedScreen() {
   const router = useRouter();
+  const { isOnline } = useNetwork();
+  const { playClickSound } = useClickSound();
+
   const [activeTab, setActiveTab] = useState<Tab>('spotyou');
-  const [SpotYou, setSpotYou] = useState<SavedPoint[]>([]);
+  const [SpotYou, setSpotYou] = useState<any[]>([]);
   const [services, setServices] = useState<SavedService[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+
+  // Modal de confirmation (Je participe)
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
+  const [pendingCallback, setPendingCallback] = useState<(() => void) | null>(null);
 
   const load = async () => {
     try {
@@ -195,6 +158,66 @@ export default function SavedScreen() {
       await api.delete(`/services/${serviceId}/unsave`);
       setServices(prev => prev.filter(s => s.service_id !== serviceId));
     } catch {}
+  };
+
+  const toggleGoing = (item: any) => {
+    if (!isOnline) {
+      Alert.alert(
+        'Action impossible hors ligne',
+        'Impossible de modifier votre participation sans connexion réseau.',
+      );
+      return;
+    }
+    playClickSound();
+    if (item.is_going) {
+      setConfirmAction({
+        title: 'Annuler votre participation ?',
+        description: 'Vous vous désinscrivez de la prochaine séance.',
+        icon: 'close-circle-outline',
+        iconColor: '#F59E0B',
+        iconBg: '#FFFBEB',
+        confirmLabel: 'Annuler ma participation',
+        confirmStyle: 'danger',
+        cancelLabel: 'Garder ma place',
+        bullets: [
+          'Vous restez membre de la communauté',
+          'Le coach sera informé de votre désistement',
+        ],
+      });
+    } else {
+      setConfirmAction({
+        title: 'Confirmer votre présence ?',
+        description: `Vous vous inscrivez à la prochaine séance «${item.title}».`,
+        icon: 'calendar-number-outline',
+        iconColor: Colors.primary,
+        iconBg: Colors.primaryLight,
+        confirmLabel: 'Je participe',
+        confirmStyle: 'primary',
+        bullets: [
+          'Les membres seront notifiés de votre présence',
+          'Vous recevrez un rappel avant la séance',
+        ],
+      });
+    }
+    setPendingCallback(() => async () => {
+      setTogglingId(item.point_id);
+      try {
+        const res = item.is_going
+          ? await api.delete(`/spot-you/${item.point_id}/going`)
+          : await api.post(`/spot-you/${item.point_id}/going`, {});
+        setSpotYou(prev => prev.map(p =>
+          p.point_id === item.point_id
+            ? { ...p, is_going: res.is_going, going_count: res.going_count ?? p.going_count, is_full: res.is_full || false }
+            : p
+        ));
+        await cacheInvalidate(['/tag-points/saved', '/planning']);
+      } catch (e: any) {
+        Alert.alert('Erreur', e.message || 'Une erreur est survenue');
+      } finally {
+        setTogglingId(null);
+      }
+    });
+    setConfirmVisible(true);
   };
 
   const totalCount = SpotYou.length + services.length;
@@ -268,13 +291,24 @@ export default function SavedScreen() {
                 />
               );
             }
-            const pt = item as SavedPoint;
+            const pt = item as any;
             return (
-              <SavedCard
-                item={pt}
-                onPress={() => router.push(`/spot-you/${pt.point_id}` as any)}
-                onUnsave={() => handleUnsavePoint(pt.point_id)}
-              />
+              <View style={s.spotYouCardWrap} testID={`saved-card-${pt.point_id}`}>
+                <SpotYouCard
+                  item={pt}
+                  onNavigate={id => router.push(`/spot-you/${id}` as any)}
+                  onToggleGoing={toggleGoing}
+                  togglingId={togglingId}
+                />
+                <TouchableOpacity
+                  style={s.unsaveOverlay}
+                  onPress={() => handleUnsavePoint(pt.point_id)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  testID={`unsave-btn-${pt.point_id}`}
+                >
+                  <Ionicons name="bookmark" size={18} color={Colors.primary} />
+                </TouchableOpacity>
+              </View>
             );
           }}
           ListHeaderComponent={
@@ -284,6 +318,17 @@ export default function SavedScreen() {
           }
         />
       )}
+
+      {/* Modal de confirmation */}
+      <ConfirmActionModal
+        visible={confirmVisible}
+        action={confirmAction}
+        onConfirm={() => {
+          setConfirmVisible(false);
+          if (pendingCallback) pendingCallback();
+        }}
+        onCancel={() => setConfirmVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -328,4 +373,17 @@ const s = StyleSheet.create({
   tabActive: { borderBottomColor: Colors.primary },
   tabText: { fontSize: 14, fontWeight: '600', color: Colors.muted },
   tabTextActive: { color: Colors.primary },
+  // SpotYou card wrapper avec bouton de désave
+  spotYouCardWrap: { position: 'relative' },
+  unsaveOverlay: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: Colors.card,
+    borderRadius: 20,
+    padding: 6,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    zIndex: 10,
+  },
 });

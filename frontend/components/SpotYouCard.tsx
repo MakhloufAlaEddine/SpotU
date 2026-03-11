@@ -65,6 +65,10 @@ export interface SpotYouCardProps {
   togglingId: string | null;
   /** Si absent, le chip membres navigue vers le détail du spot */
   onViewMembers?: (id: string, title: string) => void;
+  /** Remplace le testID par défaut spot-card-{id} */
+  testID?: string;
+  /** Élément extra affiché en overlay haut-droite (ex: bouton désave) */
+  headerAction?: React.ReactNode;
 }
 
 export function SpotYouCard({
@@ -73,6 +77,8 @@ export function SpotYouCard({
   onToggleGoing,
   togglingId,
   onViewMembers,
+  testID,
+  headerAction,
 }: SpotYouCardProps) {
   const isRecurring = !!item.event_schedule;
   const past = isPastDate(item.event_date, item.event_schedule);
@@ -98,10 +104,13 @@ export function SpotYouCard({
       style={sc.card}
       onPress={() => onNavigate(item.point_id)}
       activeOpacity={0.9}
-      testID={`spot-card-${item.point_id}`}
+      testID={testID || `spot-card-${item.point_id}`}
     >
       {/* Header: image + titre + badge */}
       <View style={sc.cardHeader}>
+        {headerAction && (
+          <View style={sc.headerActionOverlay}>{headerAction}</View>
+        )}
         <View style={sc.thumbWrap}>
           {item.images?.[0] ? (
             <Image source={{ uri: item.images[0] }} style={sc.thumb} />
@@ -254,6 +263,12 @@ export const sc = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
     overflow: 'hidden',
+  },
+  headerActionOverlay: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    zIndex: 10,
   },
   cardHeader: {
     flexDirection: 'row',

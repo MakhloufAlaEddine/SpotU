@@ -54,6 +54,12 @@ Fonctionnalités : création/découverte de services et SpotYous, système de r�
 - **chat/[id].tsx** : `currentUserId` depuis `storage.get('spotu_user')` (offline-safe), `convInfo` depuis `storage.get('spotu_conv_${id}')` en premier, `ErrorNoData` conditionnel quand `historyState==='error' && messages.length===0`
 - **21/21 tests PASS** — `/app/frontend/e2e/test_17_chat_cache_errornodata.py`
 
+### Phase 6 — Composant partagé SpotYouCard + Écran Enregistrés (2026-03-11)
+- **SpotYouCard.tsx** : props `testID?` + `headerAction?` ajoutés
+- **spot-me.tsx** : `SpotCard` local supprimé → `SpotYouCard` partagé utilisé (testID `my-tp-*` préservé), ~170 lignes dupliquées supprimées
+- **saved.tsx** : onglet SpotYou remplace `SavedCard` basique → `SpotYouCard` complet avec `toggleGoing`, modal de confirmation, guard offline ; bookmark unsave en overlay
+- **Backend `/tag-points/saved`** : enrichi avec `going_count`, `is_going`, `next_session_date`, `participants_count`, `rating`, `vote_count`
+
 **Détails**:
 - Clé cache = méthode + path + params normalisés + userId + schemaVersion
 - Fallback cache JAMAIS pour 401/403 (erreurs auth toujours propagées)

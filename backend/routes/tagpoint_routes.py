@@ -268,6 +268,7 @@ async def my_tag_points(request: Request):
 async def get_saved_tag_points(request: Request):
     pool = get_pool()
     user = await require_auth(request, pool)
+    from routes.spot_you_routes import get_next_session_date as _get_next
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             f"""SELECT {TP_FIELDS}, s.saved_at
@@ -278,7 +279,54 @@ async def get_saved_tag_points(request: Request):
                 ORDER BY s.saved_at DESC""",
             user["user_id"]
         )
-    return [build_point_response(row_to_dict(r)) for r in rows]
+        points = [build_point_response(row_to_dict(r)) for r in rows]
+        if not points:
+            return []
+
+        point_ids = [pt["point_id"] for pt in points]
+
+        # Batch: participants count
+        part_rows = await conn.fetch(
+            """SELECT spot_you_id, COUNT(*) AS cnt
+               FROM spot_you_participants WHERE spot_you_id = ANY($1::text[])
+               GROUP BY spot_you_id""", point_ids)
+        part_map = {r["spot_you_id"]: int(r["cnt"]) for r in part_rows}
+
+        # Batch: rating & vote count
+        vote_rows = await conn.fetch(
+            """SELECT point_id, ROUND(AVG(rating)::numeric,1) as avg_r, COUNT(*) as vcnt
+               FROM tag_point_votes WHERE point_id = ANY($1::text[])
+               GROUP BY point_id""", point_ids)
+        rating_map = {r["point_id"]: (float(r["avg_r"]), int(r["vcnt"])) for r in vote_rows}
+
+        for pt in points:
+            pid = pt["point_id"]
+            pt["participants_count"] = part_map.get(pid, 0)
+            r_v = rating_map.get(pid)
+            pt["rating"] = r_v[0] if r_v else 0
+            pt["vote_count"] = r_v[1] if r_v else 0
+            pt["is_saved"] = True  # by definition (in saved list)
+
+            nd = _get_next(pt)
+            pt["next_session_date"] = nd.isoformat() if nd else None
+            if nd:
+                going_count = await conn.fetchval(
+                    """SELECT COUNT(*) FROM spot_you_attendance
+                       WHERE spot_you_id=$1 AND session_date=$2 AND status='going'""",
+                    pid, nd) or 0
+                pt["going_count"] = int(going_count)
+                pt["is_going"] = bool(await conn.fetchval(
+                    """SELECT EXISTS(SELECT 1 FROM spot_you_attendance
+                       WHERE spot_you_id=$1 AND user_id=$2 AND session_date=$3 AND status='going')""",
+                    pid, user["user_id"], nd))
+                max_p = pt.get("maximum_participants")
+                pt["is_full"] = max_p is not None and going_count >= max_p
+            else:
+                pt["going_count"] = 0
+                pt["is_going"] = False
+                pt["is_full"] = False
+
+    return points
 
 
 @router.get("/tag-points/{point_id}")
