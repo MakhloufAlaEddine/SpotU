@@ -511,14 +511,16 @@ async def pay_booking(booking_id: str, request: Request):
 
     async with pool.acquire() as conn:
         bk_row = await conn.fetchrow(
-            "SELECT booking_id, status, payer_user_id, expires_at, payment_mode FROM bookings WHERE booking_id=$1",
+            "SELECT booking_id, status, payer_user_id, user_id, expires_at, payment_mode FROM bookings WHERE booking_id=$1",
             booking_id,
         )
         if not bk_row:
             raise HTTPException(404, "Réservation introuvable")
 
         bk = dict(bk_row)
-        if bk["payer_user_id"] != user["user_id"] and user.get("role") != "admin":
+        # Support bookings seedés (payer_user_id NULL → fallback sur user_id)
+        effective_payer = bk["payer_user_id"] or bk.get("user_id")
+        if effective_payer != user["user_id"] and user.get("role") != "admin":
             raise HTTPException(403, "Seul le payeur peut initier le paiement")
 
         bk_payment_mode = bk.get("payment_mode") or "pay_now"
@@ -978,7 +980,7 @@ async def my_bookings(request: Request):
                     u_recv.name AS receiver_name
                 FROM bookings b
                 LEFT JOIN services s ON s.service_id = b.service_id
-                LEFT JOIN users u_recv ON u_recv.user_id = b.receiver_user_id
+                LEFT JOIN users u_recv ON u_recv.user_id = COALESCE(b.receiver_user_id, b.coach_id)
                 WHERE b.user_id = $1
                 ORDER BY b.created_at DESC""",
             user["user_id"],

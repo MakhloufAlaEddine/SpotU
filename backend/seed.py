@@ -579,6 +579,21 @@ async def seed_initial_data():
 
             logger.info("Seeded 10 demo bookings for planning (5 upcoming + 5 history)")
 
+        # Toujours corriger les bookings demo (payer_user_id + receiver_user_id + payment_status)
+        await conn.execute("""
+            UPDATE bookings
+               SET payer_user_id   = COALESCE(payer_user_id, user_id),
+                   receiver_user_id = COALESCE(receiver_user_id, coach_id),
+                   payment_status   = CASE
+                       WHEN status = 'refused'   THEN 'not_required'
+                       WHEN status = 'cancelled' THEN 'not_required'
+                       WHEN status = 'completed' THEN 'paid'
+                       ELSE COALESCE(payment_status, 'pending')
+                   END
+             WHERE booking_id LIKE 'bkg_demo%'
+               AND (payer_user_id IS NULL OR receiver_user_id IS NULL OR payment_status IS NULL)
+        """)
+
         demo_conv_count = await conn.fetchval(
             "SELECT COUNT(*) FROM conversations WHERE conversation_id LIKE 'conv_demo%'"
         )
