@@ -65,6 +65,103 @@ function StarRow({ rating, size = 16, onPress }: { rating: number; size?: number
   );
 }
 
+// ─── Barre de complétion de profil ─────────────────────────────────────────
+
+interface CompletionStep {
+  id: string;
+  label: string;
+  icon: string;
+  done: boolean;
+  onPress: () => void;
+}
+
+function ProfileCompletionBar({ profile, spotYouCount, interests, onEditProfile, onCreateSpotYou }: {
+  profile: any; spotYouCount: number; interests: any[];
+  onEditProfile: () => void; onCreateSpotYou: () => void;
+}) {
+  const steps: CompletionStep[] = [
+    { id: 'photo',     label: 'Photo',             icon: 'camera-outline',   done: !!profile.picture,           onPress: onEditProfile },
+    { id: 'bio',       label: 'Bio',               icon: 'text-outline',     done: !!profile.bio?.trim(),       onPress: onEditProfile },
+    { id: 'interests', label: "Centres d'intérêt", icon: 'heart-outline',    done: interests.length > 0,        onPress: onEditProfile },
+    { id: 'spotyou',   label: 'SpotYou',           icon: 'location-outline', done: spotYouCount > 0,            onPress: onCreateSpotYou },
+  ];
+  const doneCount = steps.filter(s => s.done).length;
+  const pct = Math.round((doneCount / steps.length) * 100);
+
+  if (pct === 100) return null;
+
+  return (
+    <View style={pb.card} testID="profile-completion-bar">
+      <View style={pb.headerRow}>
+        <View style={pb.headerLeft}>
+          <Ionicons name="ribbon-outline" size={15} color={Colors.primary} />
+          <Text style={pb.title}>
+            Profil complété à <Text style={pb.pct}>{pct}%</Text>
+          </Text>
+        </View>
+        <Text style={pb.remaining}>
+          {steps.length - doneCount} restant{steps.length - doneCount > 1 ? 's' : ''}
+        </Text>
+      </View>
+      <View style={pb.track}>
+        <View style={[pb.fill, { width: `${pct}%` as any }]} />
+      </View>
+      <View style={pb.grid}>
+        {steps.map(step => (
+          <TouchableOpacity
+            key={step.id}
+            style={[pb.step, step.done && pb.stepDone]}
+            onPress={step.done ? undefined : step.onPress}
+            activeOpacity={step.done ? 1 : 0.75}
+            testID={`completion-step-${step.id}`}
+          >
+            <View style={[pb.stepIconWrap, step.done && pb.stepIconWrapDone]}>
+              <Ionicons
+                name={step.done ? 'checkmark' : step.icon as any}
+                size={13}
+                color={step.done ? Colors.primary : Colors.muted}
+              />
+            </View>
+            <Text style={[pb.stepLabel, step.done && pb.stepLabelDone]} numberOfLines={1}>
+              {step.label}
+            </Text>
+            {!step.done && <Ionicons name="chevron-forward" size={11} color={Colors.muted} />}
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+const pb = StyleSheet.create({
+  card: {
+    marginHorizontal: Spacing.md, marginBottom: Spacing.md,
+    backgroundColor: Colors.card,
+    borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.primary + '35',
+    padding: 14, gap: 10,
+  },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  title: { fontSize: 13, fontWeight: '600', color: Colors.foreground },
+  pct: { color: Colors.primary, fontWeight: '800' },
+  remaining: { fontSize: 11, color: Colors.muted },
+  track: { height: 5, backgroundColor: Colors.border, borderRadius: 3, overflow: 'hidden' },
+  fill: { height: '100%', backgroundColor: Colors.primary, borderRadius: 3 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  step: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: Colors.background,
+    borderRadius: Radius.md, paddingHorizontal: 10, paddingVertical: 7,
+    borderWidth: 1, borderColor: Colors.border,
+    flex: 1, minWidth: '45%',
+  },
+  stepDone: { borderColor: Colors.primary + '40', backgroundColor: Colors.primary + '08' },
+  stepIconWrap: { width: 22, height: 22, borderRadius: 11, backgroundColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
+  stepIconWrapDone: { backgroundColor: Colors.primary + '25' },
+  stepLabel: { flex: 1, fontSize: 12, fontWeight: '600', color: Colors.muted },
+  stepLabelDone: { color: Colors.foreground },
+});
+
 // ── Main Screen ───────────────────────────────────────────────────────────────
 export default function UserProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -299,6 +396,17 @@ export default function UserProfileScreen() {
               ))}
             </View>
           </View>
+        )}
+
+        {/* ── BARRE DE COMPLÉTION (propriétaire uniquement) ─── */}
+        {isOwnProfile && (
+          <ProfileCompletionBar
+            profile={profile}
+            spotYouCount={SpotYou.length}
+            interests={interests}
+            onEditProfile={() => router.push('/edit-profile' as any)}
+            onCreateSpotYou={() => router.push('/(tabs)/create' as any)}
+          />
         )}
 
         {/* ── TAGPOINTS ──────────────────────────── */}
