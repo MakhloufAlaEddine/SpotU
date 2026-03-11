@@ -142,9 +142,11 @@ export default function NotificationsScreen() {
     const notifTtl = getTtl('/users/me/notifications') ?? 60_000;
 
     // 1. Cache immédiat
+    let loadedFromCache = false;
     if (!isRefresh) {
       const cached = await cacheGet(notifKey);
       if (cached) {
+        loadedFromCache = true;
         const parsed = parseNotifs(cached.data as any[]);
         setNotifs(parsed);
         setUnreadCount(parsed.filter((n: any) => !n.read).length);
@@ -167,7 +169,8 @@ export default function NotificationsScreen() {
       setStaleMinutes(null);
       await cacheSet(notifKey, dbNotifs, notifTtl);
     } catch {
-      if (notifs.length === 0) setScreenState('error_no_data');
+      // Utilise loadedFromCache (variable locale) pour éviter le bug de closure sur notifs
+      if (!loadedFromCache) setScreenState('error_no_data');
       else setScreenState('ready_cached');
     } finally {
       setRefreshing(false);
