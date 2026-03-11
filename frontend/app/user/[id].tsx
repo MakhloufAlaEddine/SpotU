@@ -176,7 +176,11 @@ export default function UserProfileScreen() {
   if (!profile) {
     return (
       <SafeAreaView style={[st.safe, { backgroundColor: '#0D1117' }]} edges={['top', 'bottom']}>
-        <ErrorNoData onRetry={load} testID="user-profile-not-found" />
+        <ErrorNoData
+          onRetry={load}
+          onBack={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/map' as any)}
+          testID="user-profile-not-found"
+        />
       </SafeAreaView>
     );
   }

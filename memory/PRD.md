@@ -46,12 +46,11 @@ Fonctionnalités : création/découverte de services et SpotYous, système de r�
 | 2026-03 | `app/chat/[id].tsx` — guard offline envoi (isConnected check + Alert explicite) | UPDATED |
 | 2026-03 | `app/(tabs)/profile.tsx` — 4-états dataScreenState + StaleBanner + timeout anti-spinner | UPDATED |
 | 2026-03 | `@react-native-community/netinfo@12.0.1` installé | package.json |
-### Phase 5 — Correctifs offline (2026-03)
-- **AuthContext offline resilience**: token préservé sur erreur réseau (isOfflineOrTimeout), user caché dans `spotu_user` (login/register/Google/refresh/update/logout), distingue erreur auth (401/403) vs réseau
-- **ErrorNoData redesigné**: TouchableOpacity (Pressable dynamique supprimé), icône 64px/0.35 opacity, titre 18px bold 90% white — design unifié ci-joint2
-- **user/[id].tsx**: remplace "Profil introuvable" brut par ErrorNoData (testID=`user-profile-not-found`)
-- **profile.tsx !user**: remplace "Veuillez vous connecter" brut par ErrorNoData (testID=`profile-no-user`)
-- **36/36 tests PASS** — `/app/frontend/e2e/test_15_authcontext_errornodata.py`
+### Phase 5 — Correctifs offline screen SpotYou + ErrorNoData (2026-03)
+- **spot-you/[id].tsx** : loadPoint avec cache (buildCacheKey/cacheGet/cacheSet/isFresh/cacheAgeMinutes/getTtl/SCHEMA_VERSION), screenState 4-états, StaleBanner, ErrorNoData (testID=`spotyou-not-found` + onBack), cacheInvalidate ciblé avec `/tag-points/${id}` après mutations
+- **ErrorNoData** : prop `onBack?` optionnelle + bouton "Retour" (testID=`back-nav-btn`) → présent sur tous les écrans d'erreur offline
+- **user/[id].tsx** : ErrorNoData avec `onBack={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/map')}`
+- **61/61 tests PASS** — `/app/frontend/e2e/test_16_spotyou_cache_onback.py`
 
 **Détails**:
 - Clé cache = méthode + path + params normalisés + userId + schemaVersion
