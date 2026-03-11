@@ -14,6 +14,7 @@ import { api } from '../../lib/api';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { StaleBanner, ErrorNoData } from '../../components/OfflineBanner';
 import { buildCacheKey, cacheGet, cacheSet, isFresh, getTtl, SCHEMA_VERSION } from '../../lib/cache';
+import { ScreenLoader } from '../../components/ScreenLoader';
 
 export default function MenuScreen() {
   const router = useRouter();
@@ -128,7 +129,7 @@ export default function MenuScreen() {
   if (loading || isRefreshingUser) {
     return (
       <SafeAreaView style={st.safe}>
-        <View style={st.center}><ActivityIndicator size="large" color={Colors.primary} /></View>
+        <View style={st.center}><ScreenLoader /></View>
       </SafeAreaView>
     );
   }

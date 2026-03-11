@@ -16,6 +16,8 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
+import { ScreenLoader } from '../../components/ScreenLoader';
+import { EmptyState } from '../../components/EmptyState';
 
 // ── Statuts booking ────────────────────────────────────────────────────────────
 
@@ -274,17 +276,14 @@ export default function MyBookingsScreen() {
       </SafeAreaView>
 
       {loading ? (
-        <View style={s.center}><ActivityIndicator size="large" color={Colors.primary} /></View>
+        <ScreenLoader />
       ) : filtered.length === 0 ? (
-        <View style={s.center}>
-          <Ionicons name="calendar-outline" size={52} color={Colors.muted} />
-          <Text style={s.emptyTitle}>Aucune réservation</Text>
-          <Text style={s.emptyText}>
-            {filter === 'all'
-              ? 'Vos réservations apparaîtront ici.'
-              : 'Aucune réservation dans cette catégorie.'}
-          </Text>
-        </View>
+        <EmptyState
+          icon="calendar-outline"
+          title="Aucune réservation"
+          subtitle={filter === 'all' ? 'Vos réservations apparaîtront ici.' : 'Aucune réservation dans cette catégorie.'}
+          testID="empty-bookings"
+        />
       ) : (
         <FlatList
           data={filtered}

@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity,
-  StyleSheet, Image, RefreshControl, ActivityIndicator,
+  StyleSheet, Image, RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -13,6 +13,9 @@ import { buildCacheKey, cacheGet, cacheSet, isFresh, cacheAgeMinutes, getTtl, SC
 import { useAuth } from '../../context/AuthContext';
 import { StaleBanner, ErrorNoData } from '../../components/OfflineBanner';
 import { registerScreenRefresh } from '../../hooks/useNetwork';
+import { UserAvatar } from '../../components/UserAvatar';
+import { ScreenLoader } from '../../components/ScreenLoader';
+import { EmptyState } from '../../components/EmptyState';
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -72,12 +75,8 @@ function ConvItem({ item, currentUserId }: { item: Conversation; currentUserId: 
               <Ionicons name="people" size={22} color={Colors.primary} />
             </View>
           )
-        ) : other?.picture ? (
-          <Image source={{ uri: other.picture }} style={st.avatar} />
         ) : (
-          <View style={[st.avatar, { backgroundColor: Colors.card }]}>
-            <Text style={st.avatarInitial}>{(other?.name ?? '?').charAt(0).toUpperCase()}</Text>
-          </View>
+          <UserAvatar uri={other?.picture} name={other?.name} size={48} bgColor={Colors.card} />
         )}
         {item.unread_count > 0 && (
           <View style={st.unreadDot}>
@@ -201,19 +200,16 @@ export default function ChatListScreen() {
       {screenState === 'ready_cached' && <StaleBanner staleMinutes={staleMinutes} />}
 
       {screenState === 'loading_initial' ? (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-        </View>
+        <ScreenLoader />
       ) : screenState === 'error_no_data' ? (
         <ErrorNoData onRetry={() => load(true)} testID="chat-error-no-data" />
       ) : conversations.length === 0 ? (
-        <View style={st.empty}>
-          <Ionicons name="chatbubbles-outline" size={56} color={Colors.muted} />
-          <Text style={st.emptyTitle}>Aucune conversation</Text>
-          <Text style={st.emptyDesc}>
-            Contacte un coach ou rejoins un SpotYou pour commencer à discuter.
-          </Text>
-        </View>
+        <EmptyState
+          icon="chatbubbles-outline"
+          title="Aucune conversation"
+          subtitle="Contacte un coach ou rejoins un SpotYou pour commencer à discuter."
+          testID="empty-conversations"
+        />
       ) : (
         <FlatList
           data={conversations}

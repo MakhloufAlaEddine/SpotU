@@ -10,6 +10,8 @@ import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { Colors, Spacing, Radius, Shadow } from '../../constants/Colors';
 import { ErrorNoData } from '../../components/OfflineBanner';
+import { UserAvatar } from '../../components/UserAvatar';
+import { ScreenLoader } from '../../components/ScreenLoader';
 
 const TEAL_DIM = 'rgba(0,191,165,0.12)';
 const TEAL_BORDER = 'rgba(0,191,165,0.3)';
@@ -171,7 +173,7 @@ export default function UserProfileScreen() {
   };
 
   if (loading) {
-    return <View style={st.center}><ActivityIndicator size="large" color={Colors.primary} /></View>;
+    return <ScreenLoader />;
   }
   if (!profile) {
     return (
@@ -463,12 +465,11 @@ export default function UserProfileScreen() {
                     <View key={r.review_id} style={st.reviewCard} testID={`review-${r.review_id}`}>
                       <View style={st.reviewHeader}>
                         <View style={st.reviewerInfo}>
-                          {r.reviewer_picture
-                            ? <Image source={{ uri: r.reviewer_picture }} style={st.reviewerAvatar} />
-                            : <View style={st.reviewerAvatarPlaceholder}>
-                                <Text style={st.reviewerInitial}>{r.reviewer_name?.charAt(0)?.toUpperCase() || '?'}</Text>
-                              </View>
-                          }
+                          <UserAvatar
+                            uri={r.reviewer_picture}
+                            name={r.reviewer_name}
+                            size={36}
+                          />
                           <View>
                             <Text style={st.reviewerName}>{r.reviewer_name}</Text>
                             <Text style={st.reviewDate}>

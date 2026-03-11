@@ -13,6 +13,9 @@ import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { useAuth } from '../../context/AuthContext';
 import { StaleBanner, ErrorNoData } from '../../components/OfflineBanner';
 import { registerScreenRefresh } from '../../hooks/useNetwork';
+import { UserAvatar } from '../../components/UserAvatar';
+import { ScreenLoader } from '../../components/ScreenLoader';
+import { EmptyState } from '../../components/EmptyState';
 
 // ── Config visuelle par type ──────────────────────────────────────────────────
 const NOTIF_CFG: Record<string, { icon: any; color: string; bg: string; label: string }> = {
@@ -57,15 +60,7 @@ function NotifItem({ item, onPress }: { item: any; onPress: () => void }) {
       {/* Avatar ou icône */}
       {hasSender ? (
         <View style={ni.avatarWrap}>
-          {item.sender_picture ? (
-            <Image source={{ uri: item.sender_picture }} style={ni.avatar} />
-          ) : (
-            <View style={[ni.avatarFallback, { backgroundColor: cfg.bg }]}>
-              <Text style={[ni.avatarInitial, { color: cfg.color }]}>
-                {item.sender_name.charAt(0).toUpperCase()}
-              </Text>
-            </View>
-          )}
+          <UserAvatar uri={item.sender_picture} name={item.sender_name} size={46} bgColor={cfg.bg} color={cfg.color} />
           {/* Badge type */}
           <View style={[ni.typeBadge, { backgroundColor: cfg.color }]}>
             <Ionicons name={cfg.icon} size={9} color="#fff" />
@@ -223,19 +218,16 @@ export default function NotificationsScreen() {
       {screenState === 'ready_cached' && <StaleBanner staleMinutes={staleMinutes} />}
 
       {screenState === 'loading_initial' ? (
-        <View style={s.center}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-        </View>
+        <ScreenLoader />
       ) : screenState === 'error_no_data' ? (
         <ErrorNoData onRetry={() => load(true)} testID="notif-error-no-data" />
       ) : notifs.length === 0 ? (
-        <View style={s.center} testID="empty-notifs">
-          <Ionicons name="notifications-outline" size={56} color={Colors.muted} />
-          <Text style={s.emptyTitle}>Aucune notification</Text>
-          <Text style={s.emptySub}>
-            Vos activités (réservations, SpotYou, évaluations) apparaîtront ici.
-          </Text>
-        </View>
+        <EmptyState
+          icon="notifications-outline"
+          title="Aucune notification"
+          subtitle="Vos activités (réservations, SpotYou, évaluations) apparaîtront ici."
+          testID="empty-notifs"
+        />
       ) : (
         <FlatList
           data={notifs}

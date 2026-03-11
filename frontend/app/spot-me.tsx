@@ -15,6 +15,9 @@ import { useNetwork, registerScreenRefresh } from '../hooks/useNetwork';
 import { StaleBanner, ErrorNoData } from '../components/OfflineBanner';
 import { buildCacheKey, cacheGet, cacheSet, isFresh, cacheAgeMinutes, getTtl, SCHEMA_VERSION, cacheInvalidate } from '../lib/cache';
 import { SpotYouCard } from '../components/SpotYouCard';
+import { UserAvatar } from '../components/UserAvatar';
+import { ScreenLoader } from '../components/ScreenLoader';
+import { EmptyState } from '../components/EmptyState';
 
 // ─── Screen ─────────────────────────────────────────────────────────────────
 
@@ -173,7 +176,7 @@ export default function MySpotYouScreen() {
       {screenState === 'ready_cached' && <StaleBanner staleMinutes={staleMinutes} />}
 
       {screenState === 'loading_initial' ? (
-        <ActivityIndicator style={{ marginTop: 40 }} color={Colors.primary} />
+        <ScreenLoader />
       ) : screenState === 'error_no_data' ? (
         <ErrorNoData onRetry={() => loadPoints(true)} testID="spotme-error-no-data" />
       ) : (
@@ -234,12 +237,7 @@ export default function MySpotYouScreen() {
                     onPress={() => { setMembersModal(false); router.push(`/user/${m.user_id}` as any); }}
                     testID={`member-row-${m.user_id}`}
                   >
-                    <View style={st.memberAvatar}>
-                      {m.picture
-                        ? <Image source={{ uri: m.picture }} style={{ width: '100%', height: '100%', borderRadius: 20 }} />
-                        : <Text style={st.memberAvatarLetter}>{m.name?.charAt(0)?.toUpperCase() || '?'}</Text>
-                      }
-                    </View>
+                    <UserAvatar uri={m.picture} name={m.name} size={40} />
                     <Text style={st.memberName} numberOfLines={1}>{m.name}</Text>
                     {m.role === 'coach' && (
                       <View style={st.coachBadge}>
