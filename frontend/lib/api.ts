@@ -36,7 +36,7 @@ async function request<T = any>(
     }
 
     const text = await res.text();
-    return text ? JSON.parse(text) : null;
+    return (text ? JSON.parse(text) : null) as T;
   } catch (err: unknown) {
     clearTimeout(timeoutId);
     // Re-lancer les AppNetworkError telles quelles (HTTP 4xx/5xx)
