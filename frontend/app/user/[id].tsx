@@ -340,6 +340,7 @@ export default function UserProfileScreen() {
       <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false}>
         {/* ── HERO ─────────────────────────────── */}
         <View style={st.hero} testID="user-profile-hero">
+          {/* Avatar avec glow teal */}
           <View style={st.avatarWrap}>
             {profile.picture
               ? <Image source={{ uri: profile.picture }} style={st.avatarImg} />
@@ -349,13 +350,14 @@ export default function UserProfileScreen() {
             }
             {isCoach && profile.is_coach_verified && (
               <View style={st.verifiedDot}>
-                <Ionicons name="checkmark" size={10} color={Colors.background} />
+                <Ionicons name="checkmark" size={11} color="#0A0A0A" />
               </View>
             )}
           </View>
 
           <Text style={st.name} testID="user-profile-name">{profile.name}</Text>
 
+          {/* Badges : rôle + note */}
           <View style={st.badgeRow}>
             <View style={[st.roleBadge, isCoach && st.roleBadgeCoach]}>
               <Ionicons name={isCoach ? 'trophy-outline' : 'person-outline'} size={12}
@@ -364,8 +366,6 @@ export default function UserProfileScreen() {
                 {isCoach ? 'Coach' : 'Membre'}
               </Text>
             </View>
-
-            {/* ── Rating badge ── */}
             {avgRating != null && (
               <View style={st.ratingBadge} testID="rating-badge">
                 <Ionicons name="star" size={12} color="#FFD700" />
@@ -374,7 +374,7 @@ export default function UserProfileScreen() {
             )}
           </View>
 
-          {/* ── Achievement badge (only when positive) ── */}
+          {/* Achievement badge */}
           {badge && (
             <View style={[st.achievementBadge, { backgroundColor: badge.bg, borderColor: badge.color + '44' }]}
               testID="achievement-badge">
@@ -384,6 +384,28 @@ export default function UserProfileScreen() {
           )}
 
           {profile.bio ? <Text style={st.bio}>{profile.bio}</Text> : null}
+
+          {/* Stats row */}
+          <View style={st.statsRow}>
+            <View style={st.statItem}>
+              <Text style={st.statNum}>{SpotYou.length}</Text>
+              <Text style={st.statDesc}>SpotYou</Text>
+            </View>
+            <View style={st.statSep} />
+            <View style={st.statItem}>
+              <Text style={st.statNum}>{reviews.length}</Text>
+              <Text style={st.statDesc}>Avis</Text>
+            </View>
+            {isCoach && (
+              <>
+                <View style={st.statSep} />
+                <View style={st.statItem}>
+                  <Text style={st.statNum}>{services.length}</Text>
+                  <Text style={st.statDesc}>Services</Text>
+                </View>
+              </>
+            )}
+          </View>
         </View>
 
         {/* ── TÉLÉPHONE ──────────────────────────── */}
@@ -398,13 +420,14 @@ export default function UserProfileScreen() {
           </TouchableOpacity>
         ) : null}
 
-        {/* ── INTÉRÊTS ─────────────────────────── */}
+        {/* ── INTÉRÊTS / SPÉCIALISATIONS ─────────── */}
         {interests.length > 0 && (
           <View style={st.section} testID="interests-section">
-            <Text style={st.sectionTitle}>
-              <Ionicons name="heart-outline" size={13} color={Colors.primary} />
-              {'  '}{isCoach ? 'Spécialisations' : "Centres d'intérêt"}
-            </Text>
+            <View style={st.sectionHeader}>
+              <View style={st.sectionAccent} />
+              <Ionicons name="heart-outline" size={14} color={Colors.primary} />
+              <Text style={st.sectionTitle}>{isCoach ? 'Spécialisations' : "Centres d'intérêt"}</Text>
+            </View>
             <View style={st.tagsRow}>
               {interests.map((tag: any) => (
                 <View key={tag.tag_id} style={st.tagChip} testID={`interest-${tag.tag_id}`}>
@@ -431,13 +454,56 @@ export default function UserProfileScreen() {
           />
         )}
 
-        {/* ── TAGPOINTS ──────────────────────────── */}
+        {/* ── SERVICES (coach) — en priorité avant SpotYou ── */}
+        {isCoach && services.length > 0 && (
+          <View style={st.section}>
+            <View style={st.sectionHeader}>
+              <View style={st.sectionAccent} />
+              <Ionicons name="briefcase-outline" size={14} color={Colors.primary} />
+              <Text style={st.sectionTitle}>Services proposés</Text>
+            </View>
+            {services.map((svc: any) => (
+              <TouchableOpacity key={svc.service_id} style={st.serviceCard}
+                onPress={() => router.push(`/service/${svc.service_id}` as any)}
+                activeOpacity={0.9} testID={`service-card-${svc.service_id}`}>
+                <View style={st.serviceHeader}>
+                  <Text style={st.serviceTitle}>{svc.title}</Text>
+                  <View style={st.servicePriceBadge}>
+                    <Text style={st.servicePriceText}>{svc.price}€</Text>
+                  </View>
+                </View>
+                {svc.description && (
+                  <Text style={st.serviceDesc} numberOfLines={3}>{svc.description}</Text>
+                )}
+                <View style={st.serviceMetaRow}>
+                  <View style={st.metaPill}>
+                    <Ionicons name="time-outline" size={14} color="#A1A1AA" />
+                    <Text style={st.metaText}>{svc.duration_min} min</Text>
+                  </View>
+                  <View style={st.metaPill}>
+                    <Ionicons name="people-outline" size={14} color="#A1A1AA" />
+                    <Text style={st.metaText}>{svc.max_participants} max</Text>
+                  </View>
+                </View>
+                {me && me.user_id !== profile.user_id && (
+                  <View style={st.reserveBtn} testID={`reserve-btn-${svc.service_id}`}>
+                    <Text style={st.reserveBtnText}>Réserver</Text>
+                    <Ionicons name="arrow-forward" size={16} color="#0A0A0A" />
+                  </View>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {/* ── SPOTYOU PUBLIÉS ─────────────────────── */}
         {SpotYou.length > 0 && (
           <View style={st.section}>
-            <Text style={st.sectionTitle}>
-              <Ionicons name="location-outline" size={13} color={Colors.primary} />
-              {'  '}SpotYou publiés
-            </Text>
+            <View style={st.sectionHeader}>
+              <View style={st.sectionAccent} />
+              <Ionicons name="location-outline" size={14} color={Colors.primary} />
+              <Text style={st.sectionTitle}>SpotYou publiés</Text>
+            </View>
             <View style={st.tpList}>
               {SpotYou.map((tp: any) => {
                 const thumb = (tp.images as string[] | null)?.[0];
@@ -448,12 +514,15 @@ export default function UserProfileScreen() {
                     {thumb
                       ? <Image source={{ uri: thumb }} style={st.tpThumb} />
                       : <View style={[st.tpThumb, st.tpThumbPlaceholder]}>
-                          <Ionicons name="image-outline" size={22} color={Colors.muted} />
+                          <Ionicons name="location-outline" size={24} color={Colors.muted} />
                         </View>
                     }
                     <View style={st.tpInfo}>
-                      <Text style={st.tpTitle} numberOfLines={1}>{tp.title}</Text>
-                      <Text style={st.tpDate} numberOfLines={1}>{formatScheduleShort(tp)}</Text>
+                      <Text style={st.tpTitle} numberOfLines={2}>{tp.title}</Text>
+                      <View style={st.tpMeta}>
+                        <Ionicons name="time-outline" size={11} color={Colors.primary} />
+                        <Text style={st.tpDate} numberOfLines={1}>{formatScheduleShort(tp)}</Text>
+                      </View>
                     </View>
                     <Ionicons name="chevron-forward" size={16} color={Colors.muted} />
                   </TouchableOpacity>
@@ -466,13 +535,11 @@ export default function UserProfileScreen() {
         {SpotYou.length === 0 && (
           <View style={st.emptySection} testID="empty-spotyou">
             {isOwnProfile ? (
-              /* ── Propriétaire : CTA motivant ── */
               <View style={st.emptyCTA}>
                 <View style={st.emptyCTAIconWrap}>
                   <View style={st.emptyCTAIconRing}>
                     <Ionicons name="location" size={28} color={Colors.primary} />
                   </View>
-                  {/* Dots décoration */}
                   <View style={[st.emptyCTADot, { top: 6, left: 8 }]} />
                   <View style={[st.emptyCTADot, { top: 14, right: 4, width: 5, height: 5 }]} />
                   <View style={[st.emptyCTADot, { bottom: 4, left: 18, width: 4, height: 4 }]} />
@@ -481,80 +548,22 @@ export default function UserProfileScreen() {
                 <Text style={st.emptyCTADesc}>
                   Créez un SpotYou et invitez la communauté à vous rejoindre pour vos entraînements, sorties ou séances.
                 </Text>
-                <TouchableOpacity
-                  style={st.emptyCTABtn}
-                  onPress={() => router.push('/(tabs)/create' as any)}
-                  activeOpacity={0.88}
-                  testID="create-spotyou-cta-btn"
-                >
+                <TouchableOpacity style={st.emptyCTABtn} onPress={() => router.push('/(tabs)/create' as any)}
+                  activeOpacity={0.88} testID="create-spotyou-cta-btn">
                   <Ionicons name="add-circle" size={17} color={Colors.background} />
                   <Text style={st.emptyCTABtnText}>Créer un SpotYou</Text>
                 </TouchableOpacity>
                 <Text style={st.emptyCTAHint}>Gratuit · Visible par toute la communauté</Text>
               </View>
             ) : (
-              /* ── Visiteur : message doux ── */
               <View style={st.emptyVisitor}>
                 <View style={st.emptyVisitorIcon}>
                   <Ionicons name="location-outline" size={26} color={Colors.muted} />
                 </View>
                 <Text style={st.emptyVisitorTitle}>Aucun SpotYou public</Text>
-                <Text style={st.emptyVisitorDesc}>
-                  Cet utilisateur n'a pas encore partagé d'activités.
-                </Text>
+                <Text style={st.emptyVisitorDesc}>Cet utilisateur n'a pas encore partagé d'activités.</Text>
               </View>
             )}
-          </View>
-        )}
-
-        {/* ── SERVICES (coach) ──────────────────── */}
-        {isCoach && services.length > 0 && (
-          <View style={st.section}>
-            <Text style={st.sectionTitle}>
-              <Ionicons name="briefcase-outline" size={13} color={Colors.primary} />
-              {'  '}Services proposés
-            </Text>
-            {services.map((svc: any) => (
-              <TouchableOpacity key={svc.service_id} style={st.serviceCard}
-                onPress={() => router.push(`/service/${svc.service_id}` as any)}
-                activeOpacity={0.9} testID={`service-card-${svc.service_id}`}>
-                
-                {/* Header: Title + Price Badge */}
-                <View style={st.serviceHeader}>
-                  <Text style={st.serviceTitle}>{svc.title}</Text>
-                  <View style={st.servicePriceBadge}>
-                    <Text style={st.servicePriceText}>{svc.price}€</Text>
-                  </View>
-                </View>
-
-                {/* Description */}
-                {svc.description && (
-                  <Text style={st.serviceDesc} numberOfLines={3}>
-                    {svc.description}
-                  </Text>
-                )}
-
-                {/* Meta Pills */}
-                <View style={st.serviceMetaRow}>
-                  <View style={st.metaPill}>
-                    <Ionicons name="time-outline" size={14} color="#A1A1AA" />
-                    <Text style={st.metaText}>{svc.duration_min} min</Text>
-                  </View>
-                  <View style={st.metaPill}>
-                    <Ionicons name="people-outline" size={14} color="#A1A1AA" />
-                    <Text style={st.metaText}>{svc.max_participants} max</Text>
-                  </View>
-                </View>
-
-                {/* CTA Button - Only for visitors */}
-                {me && me.user_id !== profile.user_id && (
-                  <View style={st.reserveBtn} testID={`reserve-btn-${svc.service_id}`}>
-                    <Text style={st.reserveBtnText}>Réserver</Text>
-                    <Ionicons name="arrow-forward" size={16} color="#0A0A0A" />
-                  </View>
-                )}
-              </TouchableOpacity>
-            ))}
           </View>
         )}
 
@@ -562,11 +571,12 @@ export default function UserProfileScreen() {
         {profile.show_reviews && (
           <View style={st.section} testID="reviews-section">
             {/* Header */}
-            <View style={st.reviewsHeader}>
-              <Text style={st.sectionTitle}>
-                <Ionicons name="star-outline" size={13} color={Colors.primary} />
-                {'  '}Avis{reviews.length > 0 ? ` (${reviews.length})` : ''}
-              </Text>
+            <View style={[st.reviewsHeader, { marginBottom: 14 }]}>
+              <View style={st.sectionHeader}>
+                <View style={st.sectionAccent} />
+                <Ionicons name="star-outline" size={14} color={Colors.primary} />
+                <Text style={st.sectionTitle}>Avis{reviews.length > 0 ? ` (${reviews.length})` : ''}</Text>
+              </View>
               {avgRating != null && (
                 <View style={st.avgRatingRow}>
                   <StarRow rating={Math.round(avgRating)} size={13} />
@@ -726,45 +736,69 @@ const st = StyleSheet.create({
     borderWidth: 1, borderColor: TEAL_BORDER,
   },
   editBtnText: { fontSize: 13, fontWeight: '700', color: Colors.primary },
-  scroll: { paddingBottom: 20 },
+  scroll: { paddingBottom: 40 },
 
   // Hero
-  hero: { alignItems: 'center', paddingVertical: Spacing.xl, paddingHorizontal: Spacing.lg },
-  avatarWrap: { position: 'relative', marginBottom: Spacing.md },
-  avatarImg: { width: 88, height: 88, borderRadius: 44, borderWidth: 2, borderColor: Colors.primary },
-  avatarPlaceholder: {
-    width: 88, height: 88, borderRadius: 44, backgroundColor: TEAL_DIM,
-    alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: Colors.primary,
+  hero: {
+    alignItems: 'center', paddingTop: 32, paddingBottom: 32, paddingHorizontal: Spacing.lg,
+    borderBottomWidth: 1, borderBottomColor: Colors.secondary, marginBottom: 8,
   },
-  avatarInitial: { fontSize: 38, fontWeight: '800', color: Colors.primary },
+  avatarWrap: { position: 'relative', marginBottom: 16 },
+  avatarImg: {
+    width: 120, height: 120, borderRadius: 60,
+    borderWidth: 3, borderColor: Colors.primary,
+    shadowColor: Colors.primary, shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35, shadowRadius: 16,
+  },
+  avatarPlaceholder: {
+    width: 120, height: 120, borderRadius: 60, backgroundColor: TEAL_DIM,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 3, borderColor: Colors.primary,
+    shadowColor: Colors.primary, shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35, shadowRadius: 16,
+  },
+  avatarInitial: { fontSize: 46, fontWeight: '800', color: Colors.primary },
   verifiedDot: {
-    position: 'absolute', bottom: 2, right: 2, width: 22, height: 22, borderRadius: 11,
-    backgroundColor: Colors.primary, borderWidth: 2, borderColor: Colors.background,
+    position: 'absolute', bottom: 4, right: 4, width: 26, height: 26, borderRadius: 13,
+    backgroundColor: Colors.primary, borderWidth: 2.5, borderColor: Colors.background,
     alignItems: 'center', justifyContent: 'center',
   },
-  name: { fontSize: 22, fontWeight: '800', color: Colors.foreground, marginBottom: 10 },
+  name: { fontSize: 26, fontWeight: '800', color: Colors.foreground, marginBottom: 10, letterSpacing: -0.5 },
   badgeRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
   roleBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: Colors.secondary, borderRadius: Radius.full,
-    paddingHorizontal: 10, paddingVertical: 4,
+    paddingHorizontal: 12, paddingVertical: 5,
   },
   roleBadgeCoach: { backgroundColor: TEAL_DIM },
   roleBadgeText: { fontSize: 12, fontWeight: '600', color: Colors.muted },
   ratingBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: 'rgba(255,215,0,0.12)', borderRadius: Radius.full,
-    paddingHorizontal: 10, paddingVertical: 4,
+    paddingHorizontal: 12, paddingVertical: 5,
     borderWidth: 1, borderColor: 'rgba(255,215,0,0.25)',
   },
   ratingText: { fontSize: 12, fontWeight: '600', color: '#FFD700' },
   achievementBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     borderRadius: Radius.full, paddingHorizontal: 14, paddingVertical: 6,
-    borderWidth: 1, marginBottom: 10,
+    borderWidth: 1, marginBottom: 12,
   },
   achievementText: { fontSize: 13, fontWeight: '700' },
-  bio: { fontSize: 14, color: Colors.muted, textAlign: 'center', lineHeight: 20, maxWidth: 300, marginTop: 4 },
+  bio: { fontSize: 14, color: Colors.muted, textAlign: 'center', lineHeight: 21, maxWidth: 300, marginTop: 6, marginBottom: 20 },
+
+  // Stats row sous le bio
+  statsRow: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: Colors.secondary, borderRadius: Radius.lg,
+    paddingVertical: 16, paddingHorizontal: 24,
+    borderWidth: 1, borderColor: Colors.border,
+    gap: 0, marginTop: 4,
+  },
+  statItem: { flex: 1, alignItems: 'center', gap: 2 },
+  statNum: { fontSize: 20, fontWeight: '800', color: Colors.foreground },
+  statDesc: { fontSize: 11, color: Colors.muted, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  statSep: { width: 1, height: 28, backgroundColor: Colors.border },
 
   // Info row (phone)
   infoRow: {
@@ -782,7 +816,13 @@ const st = StyleSheet.create({
 
   // Section
   section: { paddingHorizontal: Spacing.md, marginBottom: Spacing.lg },
-  sectionTitle: { fontSize: 12, fontWeight: '700', color: Colors.primary, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.8 },
+  sectionHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14,
+  },
+  sectionAccent: {
+    width: 3, height: 16, borderRadius: 2, backgroundColor: Colors.primary,
+  },
+  sectionTitle: { fontSize: 13, fontWeight: '700', color: Colors.foreground, textTransform: 'uppercase', letterSpacing: 1.2 },
 
   // Interests
   tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -796,16 +836,18 @@ const st = StyleSheet.create({
   tagText: { fontSize: 12, fontWeight: '600', color: Colors.primary },
 
   // SpotYou
-  tpList: { gap: 8 },
+  tpList: { gap: 10 },
   tpCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: Colors.secondary, borderRadius: Radius.lg, padding: 10,
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    backgroundColor: Colors.secondary, borderRadius: 16, padding: 12,
+    borderWidth: 1, borderColor: Colors.border,
   },
-  tpThumb: { width: 56, height: 56, borderRadius: Radius.md },
+  tpThumb: { width: 80, height: 80, borderRadius: 12 },
   tpThumbPlaceholder: { backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center' },
-  tpInfo: { flex: 1 },
-  tpTitle: { fontSize: 14, fontWeight: '700', color: Colors.foreground, marginBottom: 3 },
-  tpDate: { fontSize: 12, color: Colors.primary },
+  tpInfo: { flex: 1, gap: 6 },
+  tpTitle: { fontSize: 14, fontWeight: '700', color: Colors.foreground, lineHeight: 19 },
+  tpMeta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  tpDate: { fontSize: 12, color: Colors.primary, fontWeight: '600' },
   // ── Empty states ─────────────────────────────────────────────────────────
   emptySection: {
     marginHorizontal: Spacing.md,
