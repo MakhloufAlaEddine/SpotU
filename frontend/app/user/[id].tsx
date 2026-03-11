@@ -75,16 +75,19 @@ interface CompletionStep {
   onPress: () => void;
 }
 
-function ProfileCompletionBar({ profile, spotYouCount, interests, hasBooking, onEditProfile, onCreateSpotYou, onExplore }: {
+function ProfileCompletionBar({ profile, spotYouCount, interests, hasBooking, isCommunityMember, hasParticipation, onEditProfile, onCreateSpotYou, onExplore }: {
   profile: any; spotYouCount: number; interests: any[]; hasBooking: boolean;
+  isCommunityMember: boolean; hasParticipation: boolean;
   onEditProfile: () => void; onCreateSpotYou: () => void; onExplore: () => void;
 }) {
   const steps: CompletionStep[] = [
-    { id: 'photo',     label: 'Photo',             icon: 'camera-outline',   done: !!profile.picture,           onPress: onEditProfile },
-    { id: 'bio',       label: 'Bio',               icon: 'text-outline',     done: !!profile.bio?.trim(),       onPress: onEditProfile },
-    { id: 'interests', label: "Centres d'intérêt", icon: 'heart-outline',    done: interests.length > 0,        onPress: onEditProfile },
-    { id: 'spotyou',   label: 'SpotYou',           icon: 'location-outline', done: spotYouCount > 0,            onPress: onCreateSpotYou },
-    { id: 'booking',   label: 'Réservation',       icon: 'calendar-outline', done: hasBooking,                  onPress: onExplore },
+    { id: 'photo',       label: 'Photo',                   icon: 'camera-outline',     done: !!profile.picture,      onPress: onEditProfile },
+    { id: 'bio',         label: 'Bio',                     icon: 'text-outline',       done: !!profile.bio?.trim(),  onPress: onEditProfile },
+    { id: 'interests',   label: "Centres d'intérêt",       icon: 'heart-outline',      done: interests.length > 0,   onPress: onEditProfile },
+    { id: 'spotyou',     label: 'SpotYou',                 icon: 'location-outline',   done: spotYouCount > 0,       onPress: onCreateSpotYou },
+    { id: 'booking',     label: 'Réservation',             icon: 'calendar-outline',   done: hasBooking,             onPress: onExplore },
+    { id: 'community',   label: 'Communauté',              icon: 'people-outline',     done: isCommunityMember,      onPress: onExplore },
+    { id: 'participate', label: '1ère participation',      icon: 'checkmark-circle-outline', done: hasParticipation, onPress: onExplore },
   ];
   const doneCount = steps.filter(s => s.done).length;
   const pct = Math.round((doneCount / steps.length) * 100);
@@ -183,6 +186,8 @@ export default function UserProfileScreen() {
   const [myComment, setMyComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [hasBooking, setHasBooking] = useState(false);
+  const [isCommunityMember, setIsCommunityMember] = useState(false);
+  const [hasParticipation, setHasParticipation] = useState(false);
 
   // Reload every time the screen comes into focus (fix: data not updating after edit)
   useFocusEffect(
@@ -195,6 +200,10 @@ export default function UserProfileScreen() {
       if (me?.user_id && me.user_id === id) {
         api.get<any[]>('/bookings/me').then(b => {
           setHasBooking(Array.isArray(b) && b.length > 0);
+        }).catch(() => {});
+        api.get<{ is_community_member: boolean; has_participation: boolean }>('/spot-you/my-completion-stats').then(s => {
+          setIsCommunityMember(s.is_community_member);
+          setHasParticipation(s.has_participation);
         }).catch(() => {});
       }
     }, [id, me?.user_id])
@@ -414,6 +423,8 @@ export default function UserProfileScreen() {
             spotYouCount={SpotYou.length}
             interests={interests}
             hasBooking={hasBooking}
+            isCommunityMember={isCommunityMember}
+            hasParticipation={hasParticipation}
             onEditProfile={() => router.push('/edit-profile' as any)}
             onCreateSpotYou={() => router.push('/(tabs)/create' as any)}
             onExplore={() => router.push('/(tabs)/search' as any)}

@@ -395,6 +395,40 @@ async def not_going_spot_you(point_id: str, request: Request):
     }
 
 
+@router.get("/spot-you/my-completion-stats")
+async def my_completion_stats(request: Request):
+    """
+    Retourne les stats de complétion de profil liées aux SpotYou :
+    - is_community_member : a rejoint au moins 1 communauté SpotYou (dont il n'est pas l'auteur)
+    - has_participation   : a participé (going) à au moins 1 séance SpotYou
+    """
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    uid = user["user_id"]
+
+    async with pool.acquire() as conn:
+        is_member = await conn.fetchval(
+            """SELECT EXISTS(
+                SELECT 1 FROM spot_you_participants syp
+                JOIN tag_points tp ON tp.point_id = syp.spot_you_id
+                WHERE syp.user_id = $1 AND tp.user_id != $1
+            )""",
+            uid,
+        )
+        has_participation = await conn.fetchval(
+            """SELECT EXISTS(
+                SELECT 1 FROM spot_you_attendance
+                WHERE user_id = $1 AND status = 'going'
+            )""",
+            uid,
+        )
+
+    return {
+        "is_community_member": bool(is_member),
+        "has_participation": bool(has_participation),
+    }
+
+
 @router.get("/spot-you/{point_id}/activity")
 async def get_spot_you_activity(point_id: str, request: Request):
     """
