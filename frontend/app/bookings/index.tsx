@@ -23,6 +23,7 @@ import { EmptyState } from '../../components/EmptyState';
 
 const BOOKING_STATUS: Record<string, { label: string; color: string; icon: string }> = {
   requested:        { label: 'En attente',          color: '#FF9500', icon: 'time-outline' },
+  pending:          { label: 'En attente',          color: '#FF9500', icon: 'time-outline' },
   awaiting_payment: { label: 'Paiement en attente', color: '#0A84FF', icon: 'card-outline' },
   accepted:         { label: 'Acceptée',             color: '#34C759', icon: 'checkmark-circle-outline' },
   confirmed:        { label: 'Confirmée',            color: '#1DBF73', icon: 'checkmark-circle' },
@@ -56,7 +57,7 @@ const FILTERS: { key: FilterTab; label: string }[] = [
 
 function filterBookings(bookings: any[], tab: FilterTab): any[] {
   if (tab === 'all') return bookings;
-  if (tab === 'active')    return bookings.filter(b => ['requested', 'accepted', 'awaiting_payment', 'confirmed'].includes(b.status));
+  if (tab === 'active')    return bookings.filter(b => ['requested', 'pending', 'accepted', 'awaiting_payment', 'confirmed'].includes(b.status));
   if (tab === 'done')      return bookings.filter(b => ['completed'].includes(b.status));
   if (tab === 'cancelled') return bookings.filter(b => ['refused', 'expired', 'cancelled'].includes(b.status));
   return bookings;
@@ -65,7 +66,24 @@ function filterBookings(bookings: any[], tab: FilterTab): any[] {
 function formatDate(dateStr: string | null) {
   if (!dateStr) return null;
   const d = new Date(dateStr);
-  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function formatTime(timeStr: string | null | undefined): string {
+  if (!timeStr) return '';
+  return timeStr.slice(0, 5); // "09:00:00" → "09:00"
+}
+
+function formatSlotTime(booking: any): string {
+  const start = formatTime(booking.slot_start_time);
+  const end   = formatTime(booking.slot_end_time);
+  if (start && end) return `${start} – ${end}`;
+  if (start) return start;
+  if (booking.scheduled_at) {
+    const d = new Date(booking.scheduled_at);
+    return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  }
+  return '';
 }
 
 function getAmount(booking: any): number | null {
@@ -99,43 +117,23 @@ function useCountdown(expiresAt: string | null | undefined): string | null {
 
 // ── Carte de réservation ───────────────────────────────────────────────────────
 
-function BookingCard({
-  booking, onPay, paying, onCancel, cancelling,
-}: {
-  booking: any;
-  onPay: () => void;
-  paying: boolean;
-  onCancel: () => void;
-  cancelling: boolean;
-}) {
+function BookingCard({ booking, onPress }: { booking: any; onPress: () => void }) {
   const bStatus = BOOKING_STATUS[booking.status] ?? { label: booking.status, color: Colors.muted, icon: 'help-circle-outline' };
-  const pStatus = PAYMENT_STATUS[booking.payment_status] ?? PAYMENT_STATUS[booking.payment_status ?? 'pending'];
   const amount  = getAmount(booking);
-  const countdown = useCountdown(
-    booking.status === 'awaiting_payment' ? booking.expires_at : null
-  );
-
-  // Peut payer si awaiting_payment, accepté avec paiement en attente, ou requested+pay_now (autorisation)
-  const needsAuthorization = booking.status === 'requested' &&
-    booking.payment_mode === 'pay_now' &&
-    ['pending', 'requires_authorization'].includes(booking.payment_status ?? '');
-
-  const canPay = booking.status === 'awaiting_payment' ||
-    (booking.status === 'accepted' && ['pending', 'unpaid', 'requires_authorization'].includes(booking.payment_status ?? '')) ||
-    needsAuthorization;
-
-  // Peut annuler si requested ou accepted (pas déjà terminé / refusé / annulé / expiré)
-  const canCancel = ['requested', 'accepted', 'awaiting_payment'].includes(booking.status);
-
-  const isExpired = countdown === 'Expiré';
+  const date    = formatDate(booking.scheduled_at || booking.created_at);
+  const time    = formatSlotTime(booking);
 
   return (
-    <View style={c.card} testID={`booking-card-${booking.booking_id}`}>
+    <TouchableOpacity
+      style={c.card}
+      onPress={onPress}
+      activeOpacity={0.78}
+      testID={`booking-card-${booking.booking_id}`}
+    >
       {/* Statut bar gauche */}
       <View style={[c.statusBar, { backgroundColor: bStatus.color }]} />
 
       <View style={c.cardBody}>
-        {/* Header */}
         <View style={c.cardTop}>
           <View style={{ flex: 1 }}>
             <Text style={c.serviceTitle} numberOfLines={1}>
@@ -150,84 +148,36 @@ function BookingCard({
           )}
         </View>
 
-        {/* Date */}
-        {(booking.scheduled_at || booking.created_at) && (
-          <View style={c.infoRow}>
-            <Ionicons name="calendar-outline" size={13} color={Colors.muted} />
-            <Text style={c.infoText}>
-              {booking.scheduled_at
-                ? formatDate(booking.scheduled_at)
-                : `Demande du ${formatDate(booking.created_at)}`}
-            </Text>
-          </View>
-        )}
+        {/* Date + Heure */}
+        <View style={c.infoRow}>
+          <Ionicons name="calendar-outline" size={13} color={Colors.muted} />
+          <Text style={c.infoText}>
+            {booking.scheduled_at ? formatDate(booking.scheduled_at) : `Demandé le ${date}`}
+          </Text>
+          {time ? (
+            <>
+              <Text style={c.infoDot}>·</Text>
+              <Ionicons name="time-outline" size={13} color={Colors.muted} />
+              <Text style={c.infoText}>{time}</Text>
+            </>
+          ) : null}
+        </View>
 
-        {/* Countdown pour awaiting_payment */}
-        {booking.status === 'awaiting_payment' && countdown && (
-          <View style={[c.countdownRow, isExpired && c.countdownRowExpired]}>
-            <Ionicons name="timer-outline" size={13} color={isExpired ? '#FF3B30' : '#0A84FF'} />
-            <Text style={[c.countdownText, isExpired && c.countdownTextExpired]}>
-              {isExpired
-                ? 'Délai expiré — créneau libéré'
-                : `Délai de paiement : ${countdown}`}
-            </Text>
-          </View>
-        )}
-
-        {/* Badges statuts */}
+        {/* Badge statut */}
         <View style={c.badgesRow}>
           <View style={[c.badge, { backgroundColor: bStatus.color + '22' }]}>
             <Ionicons name={bStatus.icon as any} size={11} color={bStatus.color} />
             <Text style={[c.badgeText, { color: bStatus.color }]}>{bStatus.label}</Text>
           </View>
-          {/* Afficher le badge paiement seulement si le statut booking n'est pas déjà awaiting_payment */}
-          {booking.payment_status && booking.status !== 'awaiting_payment' &&
-           booking.payment_status !== 'not_required' && (
-            <View style={[c.badge, { backgroundColor: (pStatus?.color ?? Colors.muted) + '22' }]}>
-              <Ionicons name="card-outline" size={11} color={pStatus?.color ?? Colors.muted} />
-              <Text style={[c.badgeText, { color: pStatus?.color ?? Colors.muted }]}>
-                {pStatus?.label ?? booking.payment_status}
-              </Text>
+          {['requested', 'accepted', 'awaiting_payment'].includes(booking.status) && (
+            <View style={c.tapHint}>
+              <Text style={c.tapHintText}>Voir le détail</Text>
+              <Ionicons name="chevron-forward" size={12} color={Colors.muted} />
             </View>
           )}
         </View>
-
-        {/* Actions : Payer + Annuler */}
-        <View style={c.actionsRow}>
-          {canPay && !isExpired && (
-            <TouchableOpacity
-              style={[c.payBtn, paying && c.payBtnLoading, needsAuthorization && { backgroundColor: '#FF9500' }]}
-              onPress={onPay}
-              disabled={paying || cancelling}
-              testID={`pay-btn-${booking.booking_id}`}
-            >
-              {paying
-                ? <ActivityIndicator size="small" color="#fff" />
-                : <Ionicons name="card" size={15} color="#fff" />
-              }
-              <Text style={c.payBtnText}>
-                {paying ? 'Ouverture...' : needsAuthorization ? 'Confirmer le paiement' : 'Payer maintenant'}
-              </Text>
-            </TouchableOpacity>
-          )}
-
-          {canCancel && (
-            <TouchableOpacity
-              style={[c.cancelBtn, cancelling && c.cancelBtnLoading]}
-              onPress={onCancel}
-              disabled={paying || cancelling}
-              testID={`cancel-btn-${booking.booking_id}`}
-            >
-              {cancelling
-                ? <ActivityIndicator size="small" color="#FF3B30" />
-                : <Ionicons name="close-circle-outline" size={15} color="#FF3B30" />
-              }
-              <Text style={c.cancelBtnText}>{cancelling ? 'Annulation...' : 'Annuler'}</Text>
-            </TouchableOpacity>
-          )}
-        </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
@@ -349,10 +299,7 @@ export default function MyBookingsScreen() {
           renderItem={({ item }) => (
             <BookingCard
               booking={item}
-              onPay={() => handlePay(item)}
-              paying={paying === item.booking_id}
-              onCancel={() => handleCancel(item)}
-              cancelling={cancelling === item.booking_id}
+              onPress={() => router.push(`/bookings/${item.booking_id}` as any)}
             />
           )}
           refreshControl={
@@ -407,37 +354,12 @@ const c = StyleSheet.create({
   serviceTitle: { fontSize: 15, fontWeight: '700', color: Colors.foreground },
   coachName: { fontSize: 12, color: Colors.muted, marginTop: 2 },
   amount: { fontSize: 18, fontWeight: '800', color: Colors.primary, marginLeft: 8 },
-  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   infoText: { fontSize: 12, color: Colors.muted },
-  badgesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  infoDot: { fontSize: 12, color: Colors.muted, marginHorizontal: 1 },
+  badgesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center', justifyContent: 'space-between' },
   badge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: Radius.full },
   badgeText: { fontSize: 11, fontWeight: '600' },
-  actionsRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
-  payBtn: {
-    flex: 1,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: '#635BFF', borderRadius: Radius.full, paddingVertical: 10,
-  },
-  payBtnLoading: { opacity: 0.7 },
-  payBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
-  cancelBtn: {
-    flex: 1,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    backgroundColor: 'rgba(255,59,48,0.08)',
-    borderWidth: 1, borderColor: 'rgba(255,59,48,0.3)',
-    borderRadius: Radius.full, paddingVertical: 10,
-  },
-  cancelBtnLoading: { opacity: 0.6 },
-  cancelBtnText: { fontSize: 13, fontWeight: '600', color: '#FF3B30' },
-  countdownRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 7,
-    backgroundColor: 'rgba(10,132,255,0.10)', borderRadius: 10,
-    paddingHorizontal: 10, paddingVertical: 7,
-    borderWidth: 1, borderColor: 'rgba(10,132,255,0.25)',
-  },
-  countdownRowExpired: {
-    backgroundColor: 'rgba(255,59,48,0.10)', borderColor: 'rgba(255,59,48,0.25)',
-  },
-  countdownText: { fontSize: 12, fontWeight: '700', color: '#0A84FF', flex: 1 },
-  countdownTextExpired: { color: '#FF3B30' },
+  tapHint: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  tapHintText: { fontSize: 11, color: Colors.muted },
 });

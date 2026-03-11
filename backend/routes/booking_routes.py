@@ -977,10 +977,13 @@ async def my_bookings(request: Request):
         rows = await conn.fetch(
             f"""SELECT {BOOKING_FIELDS},
                     s.title AS service_title, s.address,
-                    u_recv.name AS receiver_name
+                    u_recv.name AS receiver_name, u_recv.picture AS receiver_picture,
+                    sl.start_time AS slot_start_time, sl.end_time AS slot_end_time,
+                    sl.slot_date, sl.slot_type
                 FROM bookings b
                 LEFT JOIN services s ON s.service_id = b.service_id
                 LEFT JOIN users u_recv ON u_recv.user_id = COALESCE(b.receiver_user_id, b.coach_id)
+                LEFT JOIN service_slots sl ON sl.slot_id = b.slot_id
                 WHERE b.user_id = $1
                 ORDER BY b.created_at DESC""",
             user["user_id"],
@@ -1007,3 +1010,36 @@ async def received_bookings(request: Request):
             user["user_id"],
         )
     return [_deserialize(row_to_dict(r)) for r in rows]
+
+
+@router.get("/bookings/{booking_id}")
+async def get_booking_detail(booking_id: str, request: Request):
+    """Détail complet d'une réservation (payer ou receiver uniquement)."""
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            f"""SELECT {BOOKING_FIELDS},
+                    s.title AS service_title, s.address, s.images AS service_images,
+                    s.description AS service_description,
+                    u_recv.name AS receiver_name, u_recv.picture AS receiver_picture,
+                    u_pay.name AS payer_name, u_pay.picture AS payer_picture,
+                    sl.start_time AS slot_start_time, sl.end_time AS slot_end_time,
+                    sl.slot_date, sl.slot_type
+                FROM bookings b
+                LEFT JOIN services s ON s.service_id = b.service_id
+                LEFT JOIN users u_recv ON u_recv.user_id = COALESCE(b.receiver_user_id, b.coach_id)
+                LEFT JOIN users u_pay ON u_pay.user_id = COALESCE(b.payer_user_id, b.user_id)
+                LEFT JOIN service_slots sl ON sl.slot_id = b.slot_id
+                WHERE b.booking_id = $1""",
+            booking_id,
+        )
+    if not row:
+        raise HTTPException(404, "Réservation introuvable")
+    d = _deserialize(row_to_dict(row))
+    uid = user["user_id"]
+    # Seuls le payeur, le bénéficiaire et l'admin peuvent voir le détail
+    allowed = {d.get("user_id"), d.get("payer_user_id"), d.get("receiver_user_id"), d.get("coach_id")}
+    if uid not in allowed and user.get("role") != "admin":
+        raise HTTPException(403, "Accès refusé")
+    return d
