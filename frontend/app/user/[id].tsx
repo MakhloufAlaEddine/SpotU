@@ -88,20 +88,20 @@ function ProfileCompletionBar({ profile, spotYouCount, interests, hasBooking, on
   ];
   const doneCount = steps.filter(s => s.done).length;
   const pct = Math.round((doneCount / steps.length) * 100);
-
-  if (pct === 100) return null;
+  const isComplete = pct === 100;
 
   return (
     <View style={pb.card} testID="profile-completion-bar">
       <View style={pb.headerRow}>
         <View style={pb.headerLeft}>
-          <Ionicons name="ribbon-outline" size={15} color={Colors.primary} />
+          <Ionicons name={isComplete ? 'trophy-outline' : 'ribbon-outline'} size={15} color={Colors.primary} />
           <Text style={pb.title}>
-            Profil complété à <Text style={pb.pct}>{pct}%</Text>
+            {isComplete ? 'Profil complété à ' : 'Profil complété à '}
+            <Text style={pb.pct}>{pct}%</Text>
           </Text>
         </View>
-        <Text style={pb.remaining}>
-          {steps.length - doneCount} restant{steps.length - doneCount > 1 ? 's' : ''}
+        <Text style={[pb.remaining, isComplete && pb.remainingDone]}>
+          {isComplete ? 'Complet !' : `${steps.length - doneCount} restant${steps.length - doneCount > 1 ? 's' : ''}`}
         </Text>
       </View>
       <View style={pb.track}>
@@ -146,6 +146,7 @@ const pb = StyleSheet.create({
   title: { fontSize: 13, fontWeight: '600', color: Colors.foreground },
   pct: { color: Colors.primary, fontWeight: '800' },
   remaining: { fontSize: 11, color: Colors.muted },
+  remainingDone: { color: Colors.primary, fontWeight: '700' },
   track: { height: 5, backgroundColor: Colors.border, borderRadius: 3, overflow: 'hidden' },
   fill: { height: '100%', backgroundColor: Colors.primary, borderRadius: 3 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
