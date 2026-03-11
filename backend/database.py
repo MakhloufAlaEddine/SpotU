@@ -718,6 +718,7 @@ async def connect_to_db():
         await conn.execute("""
             ALTER TABLE users ADD COLUMN IF NOT EXISTS cover_picture TEXT;
             ALTER TABLE users ADD COLUMN IF NOT EXISTS cover_offset_y FLOAT DEFAULT 0.5;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS cover_scale FLOAT DEFAULT 1.0;
 
             CREATE TABLE IF NOT EXISTS user_follows (
                 follower_id TEXT REFERENCES users(user_id) ON DELETE CASCADE,

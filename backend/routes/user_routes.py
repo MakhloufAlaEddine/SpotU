@@ -95,7 +95,7 @@ async def get_public_profile(user_id: str, request: Request):
 
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            """SELECT user_id, name, picture, cover_picture, cover_offset_y, role, bio, is_coach_verified, coach_tags,
+            """SELECT user_id, name, picture, cover_picture, cover_offset_y, cover_scale, role, bio, is_coach_verified, coach_tags,
                       show_phone, show_reviews, phone
                FROM users WHERE user_id = $1""",
             user_id
@@ -519,15 +519,18 @@ async def update_cover(user_id: str, request: Request):
     body = await request.json()
     cover_url = body.get("cover_picture", "")
     cover_offset_y = body.get("cover_offset_y")
+    cover_scale = body.get("cover_scale")
     async with pool.acquire() as conn:
-        if cover_offset_y is not None:
+        if cover_offset_y is not None or cover_scale is not None:
+            offset_val = float(cover_offset_y) if cover_offset_y is not None else 0.5
+            scale_val = float(cover_scale) if cover_scale is not None else 1.0
             await conn.execute(
-                "UPDATE users SET cover_picture=$1, cover_offset_y=$2, updated_at=NOW() WHERE user_id=$3",
-                cover_url or None, float(cover_offset_y), user_id
+                "UPDATE users SET cover_picture=$1, cover_offset_y=$2, cover_scale=$3, updated_at=NOW() WHERE user_id=$4",
+                cover_url or None, offset_val, scale_val, user_id
             )
         else:
             await conn.execute(
                 "UPDATE users SET cover_picture=$1, updated_at=NOW() WHERE user_id=$2",
                 cover_url or None, user_id
             )
-    return {"cover_picture": cover_url or None, "cover_offset_y": cover_offset_y}
+    return {"cover_picture": cover_url or None, "cover_offset_y": cover_offset_y, "cover_scale": cover_scale}

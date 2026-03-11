@@ -19,9 +19,10 @@ import { SpotYouCard } from '../../components/SpotYouCard';
 // Cover photo dimensions
 const COVER_H = 220;
 const COVER_IMG_H = 380; // image taller than container for repositioning
+const SCREEN_W = Dimensions.get('window').width;
 const MAX_OFFSET_PX = COVER_IMG_H - COVER_H; // 160px of drag range
 
-const CARD_WIDTH = Dimensions.get('window').width - 48; // plein largeur avec marge
+const CARD_WIDTH = SCREEN_W - 48;
 
 const TEAL_DIM = 'rgba(0,191,165,0.12)';
 const TEAL_BORDER = 'rgba(0,191,165,0.3)';
@@ -205,24 +206,93 @@ export default function UserProfileScreen() {
   const [followersCount, setFollowersCount] = useState(0);
   const [followLoading, setFollowLoading] = useState(false);
 
-  // Cover photo offset (0 = top, 1 = bottom)
+  // Cover photo offset (0 = top, 1 = bottom) + scale (zoom)
   const [coverOffsetY, setCoverOffsetY] = useState(0.5);
+  const [coverScale, setCoverScale] = useState(1.0);
   const [repositioning, setRepositioning] = useState(false);
   const [savingOffset, setSavingOffset] = useState(false);
-  // Animated value for smooth reposition drag
-  const repoTopAnim = useRef(new Animated.Value(-MAX_OFFSET_PX * 0.5)).current;
-  const repoTopRef = useRef(-MAX_OFFSET_PX * 0.5);
+
+  // Animated values for modal drag/pinch
+  const repoTopAnim   = useRef(new Animated.Value(-MAX_OFFSET_PX * 0.5)).current;
+  const repoScaleAnim = useRef(new Animated.Value(1.0)).current;
+  // Animated derived values for image display (width, height, left offset)
+  const animImgWidth  = useRef(Animated.multiply(repoScaleAnim, SCREEN_W)).current;
+  const animImgHeight = useRef(Animated.multiply(repoScaleAnim, COVER_IMG_H)).current;
+  // left = -(scale-1)*SCREEN_W/2  →  Animated.multiply(Animated.subtract(1, scale), SCREEN_W/2)
+  const animImgLeft   = useRef(Animated.multiply(Animated.subtract(1, repoScaleAnim), SCREEN_W / 2)).current;
+
+  // Gesture tracking refs
+  const repoTopRef   = useRef(-MAX_OFFSET_PX * 0.5);
+  const repoScaleRef = useRef(1.0);
+  const isPinchingRef = useRef(false);
+  const pinchInitDistRef   = useRef(0);
+  const pinchInitScaleRef  = useRef(1.0);
+  const lastSingleTouchY   = useRef(0);
+
+  // Helper: distance between two touch points
+  const getTouchDist = (t1: any, t2: any) =>
+    Math.sqrt(Math.pow(t1.pageX - t2.pageX, 2) + Math.pow(t1.pageY - t2.pageY, 2));
+
   const repoPanResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => {
-        // store current value at gesture start
-        repoTopRef.current = (repoTopAnim as any)._value;
+      onMoveShouldSetPanResponder:  () => true,
+
+      onPanResponderGrant: (evt) => {
+        repoTopRef.current   = (repoTopAnim   as any)._value;
+        repoScaleRef.current = (repoScaleAnim as any)._value;
+        const touches = evt.nativeEvent.touches;
+        if (touches.length >= 2) {
+          isPinchingRef.current    = true;
+          pinchInitDistRef.current = getTouchDist(touches[0], touches[1]);
+          pinchInitScaleRef.current = repoScaleRef.current;
+        } else {
+          isPinchingRef.current     = false;
+          lastSingleTouchY.current  = touches[0]?.pageY ?? 0;
+        }
       },
-      onPanResponderMove: (_, gestureState) => {
-        const newTop = Math.max(-MAX_OFFSET_PX, Math.min(0, repoTopRef.current + gestureState.dy));
-        repoTopAnim.setValue(newTop);
+
+      onPanResponderMove: (evt) => {
+        const touches = evt.nativeEvent.touches;
+        if (touches.length >= 2) {
+          if (!isPinchingRef.current) {
+            // Transition single → pinch
+            isPinchingRef.current    = true;
+            pinchInitDistRef.current = getTouchDist(touches[0], touches[1]);
+            pinchInitScaleRef.current = (repoScaleAnim as any)._value;
+            repoTopRef.current        = (repoTopAnim as any)._value;
+          }
+          // Pinch: update scale
+          const ratio = getTouchDist(touches[0], touches[1]) / pinchInitDistRef.current;
+          const newScale = Math.max(1.0, Math.min(3.0, pinchInitScaleRef.current * ratio));
+          repoScaleAnim.setValue(newScale);
+          repoScaleRef.current = newScale;
+          // Clamp top position
+          const maxDrag = COVER_IMG_H * newScale - COVER_H;
+          repoTopAnim.setValue(Math.max(-maxDrag, Math.min(0, repoTopRef.current)));
+        } else if (touches.length === 1) {
+          if (isPinchingRef.current) {
+            // Transition pinch → single
+            isPinchingRef.current    = false;
+            repoTopRef.current       = (repoTopAnim as any)._value;
+            lastSingleTouchY.current = touches[0].pageY;
+          }
+          // Pan: vertical drag using absolute touch position (avoids gestureState.dy drift)
+          const scale   = (repoScaleAnim as any)._value;
+          const maxDrag = COVER_IMG_H * scale - COVER_H;
+          const dy      = touches[0].pageY - lastSingleTouchY.current;
+          const newTop  = Math.max(-maxDrag, Math.min(0, repoTopRef.current + dy));
+          repoTopAnim.setValue(newTop);
+          // Update for next frame
+          lastSingleTouchY.current = touches[0].pageY;
+          repoTopRef.current = newTop;
+        }
+      },
+
+      onPanResponderRelease: () => {
+        repoTopRef.current   = (repoTopAnim   as any)._value;
+        repoScaleRef.current = (repoScaleAnim as any)._value;
+        isPinchingRef.current = false;
       },
     })
   ).current;
@@ -266,11 +336,16 @@ export default function UserProfileScreen() {
       setProfile(data);
       setIsFollowing(data.is_following ?? false);
       setFollowersCount(data.followers_count ?? 0);
-      // Initialize cover offset
+      // Initialize cover offset + scale
       const offsetY = data.cover_offset_y ?? 0.5;
+      const scale   = data.cover_scale   ?? 1.0;
       setCoverOffsetY(offsetY);
-      repoTopAnim.setValue(-MAX_OFFSET_PX * offsetY);
-      repoTopRef.current = -MAX_OFFSET_PX * offsetY;
+      setCoverScale(scale);
+      const initTop = -(offsetY * (COVER_IMG_H * scale - COVER_H));
+      repoTopAnim.setValue(initTop);
+      repoScaleAnim.setValue(scale);
+      repoTopRef.current   = initTop;
+      repoScaleRef.current = scale;
       if (data.show_reviews) await loadReviews();
     } catch {}
     finally { setLoading(false); }
@@ -317,23 +392,43 @@ export default function UserProfileScreen() {
 
   const openReposition = () => {
     const offset = coverOffsetY ?? 0.5;
-    repoTopAnim.setValue(-MAX_OFFSET_PX * offset);
-    repoTopRef.current = -MAX_OFFSET_PX * offset;
+    const scale  = coverScale  ?? 1.0;
+    const initTop = -(offset * (COVER_IMG_H * scale - COVER_H));
+    repoTopAnim.setValue(initTop);
+    repoScaleAnim.setValue(scale);
+    repoTopRef.current   = initTop;
+    repoScaleRef.current = scale;
     setRepositioning(true);
   };
 
+  const cancelReposition = () => {
+    // Revert animated values to saved state
+    const offset   = coverOffsetY ?? 0.5;
+    const scale    = coverScale   ?? 1.0;
+    const savedTop = -(offset * (COVER_IMG_H * scale - COVER_H));
+    repoTopAnim.setValue(savedTop);
+    repoScaleAnim.setValue(scale);
+    repoTopRef.current   = savedTop;
+    repoScaleRef.current = scale;
+    setRepositioning(false);
+  };
+
   const saveReposition = async () => {
-    const currentTop = (repoTopAnim as any)._value;
-    const newOffsetY = Math.max(0, Math.min(1, -currentTop / MAX_OFFSET_PX));
+    const currentTop   = (repoTopAnim   as any)._value;
+    const currentScale = (repoScaleAnim as any)._value;
+    const maxDrag      = COVER_IMG_H * currentScale - COVER_H;
+    const newOffsetY   = maxDrag > 0 ? Math.max(0, Math.min(1, -currentTop / maxDrag)) : 0.5;
     setSavingOffset(true);
     try {
       await api.patch(`/users/${id}/cover`, {
-        cover_picture: profile.cover_picture,
-        cover_offset_y: newOffsetY,
+        cover_picture:   profile.cover_picture,
+        cover_offset_y:  newOffsetY,
+        cover_scale:     currentScale,
       });
       setCoverOffsetY(newOffsetY);
-      setProfile((prev: any) => ({ ...prev, cover_offset_y: newOffsetY }));
-    } catch (e: any) {
+      setCoverScale(currentScale);
+      setProfile((prev: any) => ({ ...prev, cover_offset_y: newOffsetY, cover_scale: currentScale }));
+    } catch {
       Alert.alert('Erreur', 'Impossible de sauvegarder le cadrage.');
     } finally {
       setSavingOffset(false);
@@ -376,13 +471,18 @@ export default function UserProfileScreen() {
         if (!res.ok) throw new Error('Upload échoué');
         uploadUrl = (await res.json()).url;
       }
-      // After upload, reset offset to 0.5 (center) so user can then reposition
-      await api.patch(`/users/${id}/cover`, { cover_picture: uploadUrl, cover_offset_y: 0.5 });
+      // After upload, reset offset to 0.5 (center) + scale 1.0 so user can then reposition
+      await api.patch(`/users/${id}/cover`, { cover_picture: uploadUrl, cover_offset_y: 0.5, cover_scale: 1.0 });
       const newOffsetY = 0.5;
+      const newScale   = 1.0;
       setCoverOffsetY(newOffsetY);
-      repoTopAnim.setValue(-MAX_OFFSET_PX * newOffsetY);
-      repoTopRef.current = -MAX_OFFSET_PX * newOffsetY;
-      setProfile((prev: any) => ({ ...prev, cover_picture: uploadUrl, cover_offset_y: newOffsetY }));
+      setCoverScale(newScale);
+      const initTop = -(newOffsetY * (COVER_IMG_H * newScale - COVER_H));
+      repoTopAnim.setValue(initTop);
+      repoScaleAnim.setValue(newScale);
+      repoTopRef.current   = initTop;
+      repoScaleRef.current = newScale;
+      setProfile((prev: any) => ({ ...prev, cover_picture: uploadUrl, cover_offset_y: newOffsetY, cover_scale: newScale }));
       // After upload, immediately offer to reposition
       setTimeout(() => {
         Alert.alert(
@@ -538,12 +638,17 @@ export default function UserProfileScreen() {
         {/* ── HERO ─────────────────────────────── */}
         <View style={st.hero} testID="user-profile-hero">
 
-          {/* COVER PHOTO — pleine largeur avec offset vertical */}
+          {/* COVER PHOTO — pleine largeur avec offset vertical + zoom */}
           <View style={st.coverWrap}>
             {profile.cover_picture ? (
               <Animated.Image
                 source={{ uri: profile.cover_picture }}
-                style={[st.coverImg, { top: repoTopAnim }]}
+                style={[st.coverImg, {
+                  width:  animImgWidth,
+                  height: animImgHeight,
+                  left:   animImgLeft,
+                  top:    repoTopAnim,
+                }]}
               />
             ) : (
               <View style={st.coverPlaceholder} />
@@ -584,7 +689,7 @@ export default function UserProfileScreen() {
               )}
             </View>
 
-            {/* Boutons droite : Suivre ou Modifier */}
+            {/* Boutons droite : Suivre uniquement (Modifier est dans le header) */}
             <View style={st.heroActions}>
               {me && !isOwnProfile && (
                 <TouchableOpacity
@@ -605,16 +710,6 @@ export default function UserProfileScreen() {
                         </Text>
                       </>
                   }
-                </TouchableOpacity>
-              )}
-              {isOwnProfile && (
-                <TouchableOpacity
-                  style={st.editProfileBtn}
-                  onPress={() => router.push('/edit-profile' as any)}
-                  testID="edit-profile-btn"
-                  activeOpacity={0.8}>
-                  <Ionicons name="pencil-outline" size={14} color={Colors.foreground} />
-                  <Text style={st.editProfileBtnText}>Modifier</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -1024,13 +1119,13 @@ export default function UserProfileScreen() {
         transparent
         animationType="fade"
         statusBarTranslucent
-        onRequestClose={() => setRepositioning(false)}
+        onRequestClose={cancelReposition}
       >
         <View style={rm.overlay}>
           {/* Header */}
           <View style={rm.header}>
             <TouchableOpacity
-              onPress={() => setRepositioning(false)}
+              onPress={cancelReposition}
               style={rm.headerBtn}
               testID="reposition-cancel-btn">
               <Ionicons name="close" size={20} color="rgba(255,255,255,0.8)" />
@@ -1052,22 +1147,34 @@ export default function UserProfileScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Zone de drag */}
+          {/* Zone de drag/pinch */}
           <View style={rm.coverFrame} {...repoPanResponder.panHandlers}>
             {profile?.cover_picture && (
               <Animated.Image
                 source={{ uri: profile.cover_picture }}
-                style={[rm.coverImg, { top: repoTopAnim }]}
+                style={[rm.coverImg, {
+                  width:  animImgWidth,
+                  height: animImgHeight,
+                  left:   animImgLeft,
+                  top:    repoTopAnim,
+                }]}
               />
             )}
             {/* Ligne guide centrale */}
             <View style={rm.guideLine} pointerEvents="none" />
           </View>
 
-          {/* Instruction */}
-          <View style={rm.hint}>
-            <Ionicons name="swap-vertical-outline" size={17} color="rgba(255,255,255,0.65)" />
-            <Text style={rm.hintText}>Glissez pour cadrer la photo</Text>
+          {/* Instructions */}
+          <View style={rm.hintsRow}>
+            <View style={rm.hint}>
+              <Ionicons name="swap-vertical-outline" size={15} color="rgba(255,255,255,0.6)" />
+              <Text style={rm.hintText}>Glisser pour cadrer</Text>
+            </View>
+            <View style={rm.hintDivider} />
+            <View style={rm.hint}>
+              <Ionicons name="search-outline" size={15} color="rgba(255,255,255,0.6)" />
+              <Text style={rm.hintText}>Pincer pour zoomer</Text>
+            </View>
           </View>
         </View>
       </Modal>
@@ -1104,8 +1211,6 @@ const st = StyleSheet.create({
   coverWrap: { width: '100%' as any, height: COVER_H, overflow: 'hidden', position: 'relative' as any },
   coverImg: {
     position: 'absolute' as any,
-    width: '100%' as any,
-    height: COVER_IMG_H,
     resizeMode: 'cover',
   },
   coverPlaceholder: {
@@ -1469,7 +1574,6 @@ const st = StyleSheet.create({
 });
 
 // ── Styles Modal Repositionnement ────────────────────────────────────────────
-const SCREEN_W = Dimensions.get('window').width;
 const rm = StyleSheet.create({
   overlay: {
     flex: 1,
@@ -1516,8 +1620,6 @@ const rm = StyleSheet.create({
   },
   coverImg: {
     position: 'absolute',
-    width: SCREEN_W,
-    height: COVER_IMG_H,
     resizeMode: 'cover',
   } as any,
   guideLine: {
@@ -1528,19 +1630,29 @@ const rm = StyleSheet.create({
     height: 1,
     backgroundColor: 'rgba(255,255,255,0.15)',
   },
-  hint: {
+  hintsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
     marginTop: 20,
     paddingHorizontal: 24,
     paddingVertical: 10,
     backgroundColor: 'rgba(255,255,255,0.07)',
     borderRadius: 20,
+    gap: 10,
+  },
+  hintDivider: {
+    width: 1,
+    height: 16,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  hint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   hintText: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.65)',
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.6)',
     fontWeight: '500',
   },
 });
