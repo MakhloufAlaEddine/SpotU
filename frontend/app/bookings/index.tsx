@@ -9,7 +9,7 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  ActivityIndicator, RefreshControl, Linking,
+  ActivityIndicator, RefreshControl, Linking, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -99,7 +99,15 @@ function useCountdown(expiresAt: string | null | undefined): string | null {
 
 // ── Carte de réservation ───────────────────────────────────────────────────────
 
-function BookingCard({ booking, onPay, paying }: { booking: any; onPay: () => void; paying: boolean }) {
+function BookingCard({
+  booking, onPay, paying, onCancel, cancelling,
+}: {
+  booking: any;
+  onPay: () => void;
+  paying: boolean;
+  onCancel: () => void;
+  cancelling: boolean;
+}) {
   const bStatus = BOOKING_STATUS[booking.status] ?? { label: booking.status, color: Colors.muted, icon: 'help-circle-outline' };
   const pStatus = PAYMENT_STATUS[booking.payment_status] ?? PAYMENT_STATUS[booking.payment_status ?? 'pending'];
   const amount  = getAmount(booking);
@@ -115,6 +123,9 @@ function BookingCard({ booking, onPay, paying }: { booking: any; onPay: () => vo
   const canPay = booking.status === 'awaiting_payment' ||
     (booking.status === 'accepted' && ['pending', 'unpaid', 'requires_authorization'].includes(booking.payment_status ?? '')) ||
     needsAuthorization;
+
+  // Peut annuler si requested ou accepted (pas déjà terminé / refusé / annulé / expiré)
+  const canCancel = ['requested', 'accepted', 'awaiting_payment'].includes(booking.status);
 
   const isExpired = countdown === 'Expiré';
 
@@ -170,7 +181,8 @@ function BookingCard({ booking, onPay, paying }: { booking: any; onPay: () => vo
             <Text style={[c.badgeText, { color: bStatus.color }]}>{bStatus.label}</Text>
           </View>
           {/* Afficher le badge paiement seulement si le statut booking n'est pas déjà awaiting_payment */}
-          {booking.payment_status && booking.status !== 'awaiting_payment' && (
+          {booking.payment_status && booking.status !== 'awaiting_payment' &&
+           booking.payment_status !== 'not_required' && (
             <View style={[c.badge, { backgroundColor: (pStatus?.color ?? Colors.muted) + '22' }]}>
               <Ionicons name="card-outline" size={11} color={pStatus?.color ?? Colors.muted} />
               <Text style={[c.badgeText, { color: pStatus?.color ?? Colors.muted }]}>
@@ -180,27 +192,40 @@ function BookingCard({ booking, onPay, paying }: { booking: any; onPay: () => vo
           )}
         </View>
 
-        {/* CTA Payer */}
-        {canPay && !isExpired && (
-          <TouchableOpacity
-            style={[c.payBtn, paying && c.payBtnLoading, needsAuthorization && { backgroundColor: '#FF9500' }]}
-            onPress={onPay}
-            disabled={paying}
-            testID={`pay-btn-${booking.booking_id}`}
-          >
-            {paying
-              ? <ActivityIndicator size="small" color="#fff" />
-              : <Ionicons name="card" size={15} color="#fff" />
-            }
-            <Text style={c.payBtnText}>
+        {/* Actions : Payer + Annuler */}
+        <View style={c.actionsRow}>
+          {canPay && !isExpired && (
+            <TouchableOpacity
+              style={[c.payBtn, paying && c.payBtnLoading, needsAuthorization && { backgroundColor: '#FF9500' }]}
+              onPress={onPay}
+              disabled={paying || cancelling}
+              testID={`pay-btn-${booking.booking_id}`}
+            >
               {paying
-                ? 'Ouverture...'
-                : needsAuthorization
-                  ? 'Confirmer le paiement'
-                  : 'Payer maintenant'}
-            </Text>
-          </TouchableOpacity>
-        )}
+                ? <ActivityIndicator size="small" color="#fff" />
+                : <Ionicons name="card" size={15} color="#fff" />
+              }
+              <Text style={c.payBtnText}>
+                {paying ? 'Ouverture...' : needsAuthorization ? 'Confirmer le paiement' : 'Payer maintenant'}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {canCancel && (
+            <TouchableOpacity
+              style={[c.cancelBtn, cancelling && c.cancelBtnLoading]}
+              onPress={onCancel}
+              disabled={paying || cancelling}
+              testID={`cancel-btn-${booking.booking_id}`}
+            >
+              {cancelling
+                ? <ActivityIndicator size="small" color="#FF3B30" />
+                : <Ionicons name="close-circle-outline" size={15} color="#FF3B30" />
+              }
+              <Text style={c.cancelBtnText}>{cancelling ? 'Annulation...' : 'Annuler'}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
     </View>
   );
@@ -215,6 +240,7 @@ export default function MyBookingsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter]     = useState<FilterTab>('all');
   const [paying, setPaying]     = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -243,6 +269,38 @@ export default function MyBookingsScreen() {
     } finally {
       setPaying(null);
     }
+  };
+
+  const handleCancel = (booking: any) => {
+    Alert.alert(
+      'Annuler la réservation',
+      `Confirmer l'annulation de "${booking.service_title || 'cette réservation'}" avec ${booking.receiver_name || 'le coach'} ?`,
+      [
+        { text: 'Non, garder', style: 'cancel' },
+        {
+          text: 'Oui, annuler',
+          style: 'destructive',
+          onPress: async () => {
+            setCancelling(booking.booking_id);
+            try {
+              await api.post(`/bookings/${booking.booking_id}/cancel`, {});
+              // Retirer localement pour feedback immédiat, puis recharger
+              setBookings(prev =>
+                prev.map(b =>
+                  b.booking_id === booking.booking_id
+                    ? { ...b, status: 'cancelled', payment_status: 'not_required' }
+                    : b
+                )
+              );
+            } catch (err: any) {
+              Alert.alert('Erreur', err.message || 'Impossible d\'annuler la réservation.');
+            } finally {
+              setCancelling(null);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const filtered = filterBookings(bookings, filter);
@@ -293,6 +351,8 @@ export default function MyBookingsScreen() {
               booking={item}
               onPay={() => handlePay(item)}
               paying={paying === item.booking_id}
+              onCancel={() => handleCancel(item)}
+              cancelling={cancelling === item.booking_id}
             />
           )}
           refreshControl={
@@ -352,12 +412,23 @@ const c = StyleSheet.create({
   badgesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   badge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: Radius.full },
   badgeText: { fontSize: 11, fontWeight: '600' },
+  actionsRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
   payBtn: {
+    flex: 1,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: '#635BFF', borderRadius: Radius.full, paddingVertical: 10, marginTop: 4,
+    backgroundColor: '#635BFF', borderRadius: Radius.full, paddingVertical: 10,
   },
   payBtnLoading: { opacity: 0.7 },
   payBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
+  cancelBtn: {
+    flex: 1,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    backgroundColor: 'rgba(255,59,48,0.08)',
+    borderWidth: 1, borderColor: 'rgba(255,59,48,0.3)',
+    borderRadius: Radius.full, paddingVertical: 10,
+  },
+  cancelBtnLoading: { opacity: 0.6 },
+  cancelBtnText: { fontSize: 13, fontWeight: '600', color: '#FF3B30' },
   countdownRow: {
     flexDirection: 'row', alignItems: 'center', gap: 7,
     backgroundColor: 'rgba(10,132,255,0.10)', borderRadius: 10,
