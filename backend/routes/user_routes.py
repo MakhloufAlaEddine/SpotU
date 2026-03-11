@@ -141,15 +141,56 @@ async def get_public_profile(user_id: str):
             )
             user["services"] = rows_to_list(svcs)
 
-        # Public tagpoints
+        # Public tagpoints — enriched for SpotYouCard carousel
         tp_rows = await conn.fetch(
-            """SELECT point_id, title, images, event_date, event_schedule, domain_id, tag_ids
+            """SELECT point_id, title, images, event_date, event_schedule, domain_id, tag_ids,
+                      minimum_participants, maximum_participants, is_public
                FROM tag_points
                WHERE user_id = $1 AND active = TRUE AND is_public = TRUE
                ORDER BY created_at DESC LIMIT 20""",
             user_id
         )
-        user["tag_points"] = rows_to_list(tp_rows)
+        tag_points = rows_to_list(tp_rows)
+
+        if tag_points:
+            point_ids = [tp["point_id"] for tp in tag_points]
+
+            # Batch: participants_count
+            part_rows = await conn.fetch(
+                "SELECT spot_you_id, COUNT(*) as cnt FROM spot_you_participants WHERE spot_you_id = ANY($1::text[]) GROUP BY spot_you_id",
+                point_ids
+            )
+            part_map = {r["spot_you_id"]: int(r["cnt"]) for r in part_rows}
+
+            # Batch: going_count (next upcoming session only — approximate by counting all)
+            going_rows = await conn.fetch(
+                "SELECT spot_you_id, COUNT(*) as cnt FROM spot_you_attendance WHERE spot_you_id = ANY($1::text[]) AND status = 'going' GROUP BY spot_you_id",
+                point_ids
+            )
+            going_map = {r["spot_you_id"]: int(r["cnt"]) for r in going_rows}
+
+            # Batch: rating + vote_count
+            vote_rows = await conn.fetch(
+                "SELECT point_id, ROUND(AVG(rating)::numeric,1) as avg_r, COUNT(*) as vcnt FROM tag_point_votes WHERE point_id = ANY($1::text[]) GROUP BY point_id",
+                point_ids
+            )
+            rating_map = {r["point_id"]: (float(r["avg_r"]), int(r["vcnt"])) for r in vote_rows}
+
+            # Compute next_session_date per tag_point
+            from routes.spot_you_routes import get_next_session_date as _get_next
+            for tp in tag_points:
+                pid = tp["point_id"]
+                tp["participants_count"] = part_map.get(pid, 0)
+                tp["going_count"] = going_map.get(pid, 0)
+                rv = rating_map.get(pid)
+                tp["rating"] = rv[0] if rv else 0
+                tp["vote_count"] = rv[1] if rv else 0
+                nd = _get_next(tp)
+                tp["next_session_date"] = nd.isoformat() if nd else None
+                max_p = tp.get("maximum_participants")
+                tp["is_full"] = max_p is not None and tp["going_count"] >= max_p
+
+        user["tag_points"] = tag_points
 
     return user
 

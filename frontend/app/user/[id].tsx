@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Image, TextInput, Alert, Linking,
+  ActivityIndicator, Image, TextInput, Alert, Linking, Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
@@ -12,6 +12,9 @@ import { Colors, Spacing, Radius, Shadow } from '../../constants/Colors';
 import { ErrorNoData } from '../../components/OfflineBanner';
 import { UserAvatar } from '../../components/UserAvatar';
 import { ScreenLoader } from '../../components/ScreenLoader';
+import { SpotYouCard } from '../../components/SpotYouCard';
+
+const CARD_WIDTH = Dimensions.get('window').width - 48; // plein largeur avec marge
 
 const TEAL_DIM = 'rgba(0,191,165,0.12)';
 const TEAL_BORDER = 'rgba(0,191,165,0.3)';
@@ -188,6 +191,7 @@ export default function UserProfileScreen() {
   const [hasBooking, setHasBooking] = useState(false);
   const [isCommunityMember, setIsCommunityMember] = useState(false);
   const [hasParticipation, setHasParticipation] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   // Reload every time the screen comes into focus (fix: data not updating after edit)
   useFocusEffect(
@@ -285,6 +289,33 @@ export default function UserProfileScreen() {
       if (ok) Linking.openURL(url);
       else Alert.alert('Impossible', 'Votre appareil ne supporte pas les appels.');
     });
+  };
+
+  const handleToggleGoing = async (item: any) => {
+    if (!me) return;
+    setTogglingId(item.point_id);
+    try {
+      const wasGoing = item.is_going;
+      const endpoint = `/spot-you/${item.point_id}/going`;
+      if (wasGoing) {
+        await api.delete(endpoint);
+      } else {
+        await api.post(endpoint, {});
+      }
+      // Update in-place
+      setProfile((prev: any) => ({
+        ...prev,
+        tag_points: prev.tag_points.map((tp: any) =>
+          tp.point_id === item.point_id
+            ? { ...tp, is_going: !wasGoing, going_count: tp.going_count + (wasGoing ? -1 : 1) }
+            : tp
+        ),
+      }));
+    } catch (e: any) {
+      Alert.alert('Erreur', e.message || 'Impossible de mettre à jour la participation.');
+    } finally {
+      setTogglingId(null);
+    }
   };
 
   if (loading) {
@@ -496,39 +527,35 @@ export default function UserProfileScreen() {
           </View>
         )}
 
-        {/* ── SPOTYOU PUBLIÉS ─────────────────────── */}
+        {/* ── SPOTYOU PUBLIÉS — Carrousel ────────────────── */}
         {SpotYou.length > 0 && (
           <View style={st.section}>
             <View style={st.sectionHeader}>
               <View style={st.sectionAccent} />
               <Ionicons name="location-outline" size={14} color={Colors.primary} />
               <Text style={st.sectionTitle}>SpotYou publiés</Text>
+              <Text style={st.carouselCount}>{SpotYou.length}</Text>
             </View>
-            <View style={st.tpList}>
-              {SpotYou.map((tp: any) => {
-                const thumb = (tp.images as string[] | null)?.[0];
-                return (
-                  <TouchableOpacity key={tp.point_id} style={st.tpCard}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={st.carouselContent}
+              decelerationRate="fast"
+              snapToInterval={CARD_WIDTH + 16}
+              snapToAlignment="start"
+            >
+              {SpotYou.map((tp: any) => (
+                <View key={tp.point_id} style={[st.carouselCard, { width: CARD_WIDTH }]}>
+                  <SpotYouCard
+                    item={tp}
                     onPress={() => router.push(`/spot-you/${tp.point_id}` as any)}
-                    testID={`tp-card-${tp.point_id}`} activeOpacity={0.75}>
-                    {thumb
-                      ? <Image source={{ uri: thumb }} style={st.tpThumb} />
-                      : <View style={[st.tpThumb, st.tpThumbPlaceholder]}>
-                          <Ionicons name="location-outline" size={24} color={Colors.muted} />
-                        </View>
-                    }
-                    <View style={st.tpInfo}>
-                      <Text style={st.tpTitle} numberOfLines={2}>{tp.title}</Text>
-                      <View style={st.tpMeta}>
-                        <Ionicons name="time-outline" size={11} color={Colors.primary} />
-                        <Text style={st.tpDate} numberOfLines={1}>{formatScheduleShort(tp)}</Text>
-                      </View>
-                    </View>
-                    <Ionicons name="chevron-forward" size={16} color={Colors.muted} />
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+                    onToggleGoing={() => handleToggleGoing(tp)}
+                    togglingId={togglingId}
+                    testID={`carousel-tp-${tp.point_id}`}
+                  />
+                </View>
+              ))}
+            </ScrollView>
           </View>
         )}
 
@@ -835,8 +862,14 @@ const st = StyleSheet.create({
   tagIcon: { fontSize: 14 },
   tagText: { fontSize: 12, fontWeight: '600', color: Colors.primary },
 
-  // SpotYou
-  tpList: { gap: 10 },
+  // SpotYou carousel
+  carouselContent: { paddingHorizontal: 4, gap: 16 },
+  carouselCard: { /* width set dynamically */ },
+  carouselCount: {
+    marginLeft: 'auto' as any, fontSize: 12, fontWeight: '700',
+    color: Colors.primary, backgroundColor: Colors.secondary,
+    paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20,
+  },
   tpCard: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
     backgroundColor: Colors.secondary, borderRadius: 16, padding: 12,
