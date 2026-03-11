@@ -1,8 +1,9 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Image, TextInput, Alert, Linking, Dimensions,
+  ActivityIndicator, Image, TextInput, Alert, Linking, Dimensions, Platform,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -174,7 +175,7 @@ const pb = StyleSheet.create({
 export default function UserProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { user: me } = useAuth();
+  const { user: me, token } = useAuth();
 
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -259,6 +260,51 @@ export default function UserProfileScreen() {
       Alert.alert('Erreur', e.message || 'Impossible de mettre à jour le suivi.');
     } finally {
       setFollowLoading(false);
+    }
+  };
+
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const pickAndUploadCover = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission refusée', 'Accès à la galerie nécessaire pour changer la photo de couverture.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'], quality: 0.7, allowsEditing: true, aspect: [16, 9],
+    });
+    if (result.canceled || !result.assets?.length) return;
+    setUploadingCover(true);
+    try {
+      const asset = result.assets[0];
+      const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+      const filename = asset.uri.split('/').pop() || 'cover.jpg';
+      const ext = filename.split('.').pop()?.toLowerCase() || 'jpg';
+      const mimeMap: Record<string, string> = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', heic: 'image/heic' };
+      const mimeType = mimeMap[ext] || 'image/jpeg';
+      let uploadUrl = '';
+      if (Platform.OS === 'web') {
+        const blobRes = await fetch(asset.uri);
+        const blob = await blobRes.blob();
+        const file = new File([blob], `cover.${ext}`, { type: blob.type || mimeType });
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await fetch(`${BASE_URL}/api/upload-image`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData });
+        if (!res.ok) throw new Error('Upload échoué');
+        uploadUrl = (await res.json()).url;
+      } else {
+        const form = new FormData();
+        form.append('file', { uri: asset.uri, name: `cover.${ext}`, type: mimeType } as any);
+        const res = await fetch(`${BASE_URL}/api/upload-image`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
+        if (!res.ok) throw new Error('Upload échoué');
+        uploadUrl = (await res.json()).url;
+      }
+      await api.patch(`/users/${id}/cover`, { cover_picture: uploadUrl });
+      setProfile((prev: any) => ({ ...prev, cover_picture: uploadUrl }));
+    } catch (e: any) {
+      Alert.alert('Erreur', e.message || 'Impossible d\'uploader la photo de couverture.');
+    } finally {
+      setUploadingCover(false);
     }
   };
 
@@ -398,44 +444,101 @@ export default function UserProfileScreen() {
       <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false}>
         {/* ── HERO ─────────────────────────────── */}
         <View style={st.hero} testID="user-profile-hero">
-          {/* COVER PHOTO */}
+
+          {/* COVER PHOTO — pleine largeur */}
           <View style={st.coverWrap}>
             {profile.cover_picture
               ? <Image source={{ uri: profile.cover_picture }} style={st.coverImg} />
               : <View style={st.coverPlaceholder} />
             }
-            {/* Bouton upload cover (propriétaire) */}
+            {/* Overlay gradient bas pour lisibilité avatar */}
+            <View style={st.coverOverlay} />
+            {/* Bouton upload cover (propriétaire) — bas droite */}
             {isOwnProfile && (
-              <TouchableOpacity style={st.coverEditBtn}
-                onPress={() => router.push('/edit-profile' as any)}
-                testID="cover-edit-btn" activeOpacity={0.8}>
-                <Ionicons name="camera" size={16} color="#fff" />
+              <TouchableOpacity
+                style={st.coverEditBtn}
+                onPress={pickAndUploadCover}
+                disabled={uploadingCover}
+                testID="cover-edit-btn"
+                activeOpacity={0.85}>
+                {uploadingCover
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Ionicons name="camera" size={18} color="#fff" />
+                }
               </TouchableOpacity>
             )}
           </View>
 
-          {/* AVATAR — chevauche la cover */}
-          <View style={st.avatarWrap}>
-            {profile.picture
-              ? <Image source={{ uri: profile.picture }} style={st.avatarImg} />
-              : <View style={st.avatarPlaceholder}>
-                  <Text style={st.avatarInitial}>{profile.name?.charAt(0)?.toUpperCase() || '?'}</Text>
+          {/* BANDE AVATAR + ACTIONS — chevauchement Facebook */}
+          <View style={st.avatarRow}>
+            {/* Avatar bas-gauche */}
+            <View style={st.avatarWrap}>
+              {profile.picture
+                ? <Image source={{ uri: profile.picture }} style={st.avatarImg} />
+                : <View style={st.avatarPlaceholder}>
+                    <Text style={st.avatarInitial}>{profile.name?.charAt(0)?.toUpperCase() || '?'}</Text>
+                  </View>
+              }
+              {isCoach && profile.is_coach_verified && (
+                <View style={st.verifiedDot} testID="verified-badge">
+                  <Ionicons name="checkmark" size={10} color="#0A0A0A" />
                 </View>
-            }
-            {isCoach && profile.is_coach_verified && (
-              <View style={st.verifiedDot} testID="verified-badge">
-                <Ionicons name="checkmark" size={11} color="#0A0A0A" />
-              </View>
-            )}
+              )}
+            </View>
+
+            {/* Boutons droite : Suivre ou Modifier */}
+            <View style={st.heroActions}>
+              {me && !isOwnProfile && (
+                <TouchableOpacity
+                  style={[st.followBtn, isFollowing && st.followBtnActive]}
+                  onPress={handleFollow}
+                  disabled={followLoading}
+                  testID="follow-btn"
+                  activeOpacity={0.8}>
+                  {followLoading
+                    ? <ActivityIndicator size="small" color={isFollowing ? Colors.primary : '#0A0A0A'} />
+                    : <>
+                        <Ionicons
+                          name={isFollowing ? 'checkmark-circle' : 'person-add-outline'}
+                          size={14}
+                          color={isFollowing ? Colors.primary : '#0A0A0A'} />
+                        <Text style={[st.followBtnText, isFollowing && st.followBtnTextActive]}>
+                          {isFollowing ? 'Abonné' : 'Suivre'}
+                        </Text>
+                      </>
+                  }
+                </TouchableOpacity>
+              )}
+              {isOwnProfile && (
+                <TouchableOpacity
+                  style={st.editProfileBtn}
+                  onPress={() => router.push('/edit-profile' as any)}
+                  testID="edit-profile-btn"
+                  activeOpacity={0.8}>
+                  <Ionicons name="pencil-outline" size={14} color={Colors.foreground} />
+                  <Text style={st.editProfileBtnText}>Modifier</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
 
-          {/* INFOS SOUS AVATAR */}
+          {/* NOM + BADGES */}
           <View style={st.heroInfo}>
-            <Text style={st.name} testID="user-profile-name">{profile.name}</Text>
+            <View style={st.nameRow}>
+              <Text style={st.name} testID="user-profile-name">{profile.name}</Text>
+              {badge && (
+                <View style={[st.achievementBadge, { backgroundColor: badge.bg, borderColor: badge.color + '44' }]}
+                  testID="achievement-badge">
+                  <Ionicons name={badge.icon as any} size={11} color={badge.color} />
+                  <Text style={[st.achievementText, { color: badge.color }]}>{badge.label}</Text>
+                </View>
+              )}
+            </View>
 
+            {/* Pills rôle + rating */}
             <View style={st.badgeRow}>
               <View style={[st.roleBadge, isCoach && st.roleBadgeCoach]}>
-                <Ionicons name={isCoach ? 'trophy-outline' : 'person-outline'} size={12}
+                <Ionicons name={isCoach ? 'trophy-outline' : 'person-outline'} size={11}
                   color={isCoach ? Colors.primary : Colors.muted} />
                 <Text style={[st.roleBadgeText, isCoach && { color: Colors.primary }]}>
                   {isCoach ? 'Coach' : 'Membre'}
@@ -443,70 +546,24 @@ export default function UserProfileScreen() {
               </View>
               {avgRating != null && (
                 <View style={st.ratingBadge} testID="rating-badge">
-                  <Ionicons name="star" size={12} color="#FFD700" />
+                  <Ionicons name="star" size={11} color="#FFD700" />
                   <Text style={st.ratingText}>{avgRating} ({reviews.length})</Text>
                 </View>
               )}
             </View>
 
-            {badge && (
-              <View style={[st.achievementBadge, { backgroundColor: badge.bg, borderColor: badge.color + '44' }]}
-                testID="achievement-badge">
-                <Ionicons name={badge.icon as any} size={13} color={badge.color} />
-                <Text style={[st.achievementText, { color: badge.color }]}>{badge.label}</Text>
-              </View>
-            )}
-
             {profile.bio ? <Text style={st.bio}>{profile.bio}</Text> : null}
 
-            {/* BOUTON SUIVRE (visiteur connecté uniquement) */}
-            {me && !isOwnProfile && (
-              <TouchableOpacity
-                style={[st.followBtn, isFollowing && st.followBtnActive]}
-                onPress={handleFollow}
-                disabled={followLoading}
-                testID="follow-btn"
-                activeOpacity={0.8}>
-                {followLoading
-                  ? <ActivityIndicator size="small" color={isFollowing ? Colors.primary : '#0A0A0A'} />
-                  : <>
-                      <Ionicons
-                        name={isFollowing ? 'checkmark-circle' : 'person-add-outline'}
-                        size={15}
-                        color={isFollowing ? Colors.primary : '#0A0A0A'} />
-                      <Text style={[st.followBtnText, isFollowing && st.followBtnTextActive]}>
-                        {isFollowing ? 'Abonné' : 'Suivre'}
-                      </Text>
-                    </>
-                }
-              </TouchableOpacity>
-            )}
-
-            {/* STATS ROW */}
-            <View style={st.statsRow}>
-              <View style={st.statItem}>
-                <Text style={st.statNum}>{SpotYou.length}</Text>
-                <Text style={st.statDesc}>SpotYou</Text>
-              </View>
-              <View style={st.statSep} />
-              <View style={st.statItem}>
-                <Text style={st.statNum}>{reviews.length}</Text>
-                <Text style={st.statDesc}>Avis</Text>
-              </View>
-              <View style={st.statSep} />
-              <View style={st.statItem}>
-                <Text style={st.statNum}>{followersCount}</Text>
-                <Text style={st.statDesc}>Abonnés</Text>
-              </View>
-              {isCoach && (
-                <>
-                  <View style={st.statSep} />
-                  <View style={st.statItem}>
-                    <Text style={st.statNum}>{services.length}</Text>
-                    <Text style={st.statDesc}>Services</Text>
-                  </View>
-                </>
-              )}
+            {/* STATS INLINE — style Facebook */}
+            <View style={st.statsInline} testID="profile-stats">
+              <Text style={st.statInlineNum}>{followersCount}</Text>
+              <Text style={st.statInlineLbl}> abonnés</Text>
+              <Text style={st.statInlineSep}> · </Text>
+              <Text style={st.statInlineNum}>{profile.following_count ?? 0}</Text>
+              <Text style={st.statInlineLbl}> abonnements</Text>
+              <Text style={st.statInlineSep}> · </Text>
+              <Text style={st.statInlineNum}>{SpotYou.length}</Text>
+              <Text style={st.statInlineLbl}> SpotYou</Text>
             </View>
           </View>
         </View>
@@ -888,98 +945,101 @@ const st = StyleSheet.create({
   editBtnText: { fontSize: 13, fontWeight: '700', color: Colors.primary },
   scroll: { paddingBottom: 40 },
 
-  // Hero
-  hero: { marginBottom: 8 },
+  // ── HERO FACEBOOK STYLE ──────────────────────
+  hero: { marginBottom: 4 },
 
   // Cover photo
-  coverWrap: { width: '100%' as any, height: 180, position: 'relative' as any },
-  coverImg: { width: '100%' as any, height: 180, resizeMode: 'cover' },
-  coverPlaceholder: { width: '100%' as any, height: 180, backgroundColor: '#0D2420' },
+  coverWrap: { width: '100%' as any, height: 220, position: 'relative' as any },
+  coverImg: { width: '100%' as any, height: 220, resizeMode: 'cover' },
+  coverPlaceholder: {
+    width: '100%' as any, height: 220,
+    backgroundColor: '#0D2420',
+  },
+  coverOverlay: {
+    position: 'absolute' as any, bottom: 0, left: 0, right: 0, height: 80,
+    backgroundColor: 'transparent',
+  },
   coverEditBtn: {
-    position: 'absolute' as any, bottom: 12, right: 14,
-    backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 20,
-    padding: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)',
+    position: 'absolute' as any, bottom: 12, right: 12,
+    backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 22,
+    width: 36, height: 36, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
   },
 
-  // Avatar (chevauche la cover)
-  avatarWrap: {
-    position: 'relative' as any,
-    alignSelf: 'center',
-    marginTop: -48,
-    marginBottom: 12,
-    zIndex: 10,
+  // Bande avatar + actions (chevauchement −52px)
+  avatarRow: {
+    flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between',
+    paddingHorizontal: 16, marginTop: -52, marginBottom: 10,
   },
+  avatarWrap: { position: 'relative' as any },
   avatarImg: {
-    width: 96, height: 96, borderRadius: 48,
-    borderWidth: 3, borderColor: Colors.primary,
-    shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4, shadowRadius: 12,
+    width: 100, height: 100, borderRadius: 50,
+    borderWidth: 4, borderColor: Colors.background,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4, shadowRadius: 8,
   },
   avatarPlaceholder: {
-    width: 96, height: 96, borderRadius: 48, backgroundColor: TEAL_DIM,
+    width: 100, height: 100, borderRadius: 50,
+    backgroundColor: TEAL_DIM, borderWidth: 4, borderColor: Colors.background,
     alignItems: 'center', justifyContent: 'center',
-    borderWidth: 3, borderColor: Colors.primary,
-    shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4, shadowRadius: 12,
   },
   avatarInitial: { fontSize: 38, fontWeight: '800', color: Colors.primary },
   verifiedDot: {
-    position: 'absolute' as any, bottom: 2, right: 2, width: 24, height: 24, borderRadius: 12,
-    backgroundColor: Colors.primary, borderWidth: 2.5, borderColor: Colors.background,
+    position: 'absolute' as any, bottom: 4, right: 4,
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: Colors.primary, borderWidth: 2, borderColor: Colors.background,
     alignItems: 'center', justifyContent: 'center',
   },
 
-  // Infos sous avatar
-  heroInfo: { alignItems: 'center', paddingHorizontal: Spacing.lg, paddingBottom: 24 },
-  name: { fontSize: 26, fontWeight: '800', color: Colors.foreground, marginBottom: 10, letterSpacing: -0.5 },
+  // Boutons à droite de l'avatar
+  heroActions: { flexDirection: 'row', gap: 8, paddingBottom: 4 },
+  followBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: Colors.primary, borderRadius: 8,
+    paddingHorizontal: 16, paddingVertical: 9,
+  },
+  followBtnActive: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: Colors.primary },
+  followBtnText: { fontSize: 13, fontWeight: '800', color: '#0A0A0A' },
+  followBtnTextActive: { color: Colors.primary },
+  editProfileBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: Colors.secondary, borderRadius: 8, borderWidth: 1, borderColor: Colors.border,
+    paddingHorizontal: 14, paddingVertical: 9,
+  },
+  editProfileBtnText: { fontSize: 13, fontWeight: '600', color: Colors.foreground },
+
+  // Nom + infos
+  heroInfo: { paddingHorizontal: 16, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: Colors.secondary },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' as any, marginBottom: 6 },
+  name: { fontSize: 22, fontWeight: '800', color: Colors.foreground, letterSpacing: -0.5 },
   badgeRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
   roleBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: Colors.secondary, borderRadius: Radius.full,
-    paddingHorizontal: 12, paddingVertical: 5,
+    paddingHorizontal: 10, paddingVertical: 4,
   },
   roleBadgeCoach: { backgroundColor: TEAL_DIM },
-  roleBadgeText: { fontSize: 12, fontWeight: '600', color: Colors.muted },
+  roleBadgeText: { fontSize: 11, fontWeight: '600', color: Colors.muted },
   ratingBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: 'rgba(255,215,0,0.12)', borderRadius: Radius.full,
-    paddingHorizontal: 12, paddingVertical: 5,
+    paddingHorizontal: 10, paddingVertical: 4,
     borderWidth: 1, borderColor: 'rgba(255,215,0,0.25)',
   },
-  ratingText: { fontSize: 12, fontWeight: '600', color: '#FFD700' },
+  ratingText: { fontSize: 11, fontWeight: '600', color: '#FFD700' },
   achievementBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    borderRadius: Radius.full, paddingHorizontal: 14, paddingVertical: 6,
-    borderWidth: 1, marginBottom: 12,
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 4,
+    borderWidth: 1,
   },
-  achievementText: { fontSize: 13, fontWeight: '700' },
-  bio: { fontSize: 14, color: Colors.muted, textAlign: 'center', lineHeight: 21, maxWidth: 300, marginTop: 6, marginBottom: 16 },
+  achievementText: { fontSize: 11, fontWeight: '700' },
+  bio: { fontSize: 14, color: Colors.muted, lineHeight: 20, marginBottom: 10 },
 
-  // Bouton Suivre
-  followBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: Colors.primary, borderRadius: 24,
-    paddingHorizontal: 28, paddingVertical: 11, marginBottom: 20,
-    minWidth: 120, justifyContent: 'center',
-  },
-  followBtnActive: {
-    backgroundColor: 'transparent', borderWidth: 1.5, borderColor: Colors.primary,
-  },
-  followBtnText: { fontSize: 14, fontWeight: '800', color: '#0A0A0A' },
-  followBtnTextActive: { color: Colors.primary },
-
-  // Stats row sous le bio
-  statsRow: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: Colors.secondary, borderRadius: Radius.lg,
-    paddingVertical: 16, paddingHorizontal: 16,
-    borderWidth: 1, borderColor: Colors.border,
-    alignSelf: 'stretch',
-  },
-  statItem: { flex: 1, alignItems: 'center', gap: 2 },
-  statNum: { fontSize: 18, fontWeight: '800', color: Colors.foreground },
-  statDesc: { fontSize: 10, color: Colors.muted, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-  statSep: { width: 1, height: 24, backgroundColor: Colors.border },
+  // Stats inline — style Facebook
+  statsInline: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' as any },
+  statInlineNum: { fontSize: 14, fontWeight: '800', color: Colors.foreground },
+  statInlineLbl: { fontSize: 13, color: Colors.muted },
+  statInlineSep: { fontSize: 13, color: Colors.muted },
 
   // Info row (phone)
   infoRow: {
