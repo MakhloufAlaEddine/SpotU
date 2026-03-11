@@ -1,7 +1,8 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Image, TextInput, Alert, Linking, Dimensions, Platform,
+  Modal, PanResponder, Animated,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,6 +15,11 @@ import { ErrorNoData } from '../../components/OfflineBanner';
 import { UserAvatar } from '../../components/UserAvatar';
 import { ScreenLoader } from '../../components/ScreenLoader';
 import { SpotYouCard } from '../../components/SpotYouCard';
+
+// Cover photo dimensions
+const COVER_H = 220;
+const COVER_IMG_H = 380; // image taller than container for repositioning
+const MAX_OFFSET_PX = COVER_IMG_H - COVER_H; // 160px of drag range
 
 const CARD_WIDTH = Dimensions.get('window').width - 48; // plein largeur avec marge
 
@@ -199,6 +205,28 @@ export default function UserProfileScreen() {
   const [followersCount, setFollowersCount] = useState(0);
   const [followLoading, setFollowLoading] = useState(false);
 
+  // Cover photo offset (0 = top, 1 = bottom)
+  const [coverOffsetY, setCoverOffsetY] = useState(0.5);
+  const [repositioning, setRepositioning] = useState(false);
+  const [savingOffset, setSavingOffset] = useState(false);
+  // Animated value for smooth reposition drag
+  const repoTopAnim = useRef(new Animated.Value(-MAX_OFFSET_PX * 0.5)).current;
+  const repoTopRef = useRef(-MAX_OFFSET_PX * 0.5);
+  const repoPanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        // store current value at gesture start
+        repoTopRef.current = (repoTopAnim as any)._value;
+      },
+      onPanResponderMove: (_, gestureState) => {
+        const newTop = Math.max(-MAX_OFFSET_PX, Math.min(0, repoTopRef.current + gestureState.dy));
+        repoTopAnim.setValue(newTop);
+      },
+    })
+  ).current;
+
   // Reload every time the screen comes into focus (fix: data not updating after edit)
   useFocusEffect(
     useCallback(() => {
@@ -238,6 +266,11 @@ export default function UserProfileScreen() {
       setProfile(data);
       setIsFollowing(data.is_following ?? false);
       setFollowersCount(data.followers_count ?? 0);
+      // Initialize cover offset
+      const offsetY = data.cover_offset_y ?? 0.5;
+      setCoverOffsetY(offsetY);
+      repoTopAnim.setValue(-MAX_OFFSET_PX * offsetY);
+      repoTopRef.current = -MAX_OFFSET_PX * offsetY;
       if (data.show_reviews) await loadReviews();
     } catch {}
     finally { setLoading(false); }
@@ -264,6 +297,50 @@ export default function UserProfileScreen() {
   };
 
   const [uploadingCover, setUploadingCover] = useState(false);
+
+  // Show action sheet if cover exists, otherwise open picker directly
+  const handleCoverEdit = () => {
+    if (profile?.cover_picture) {
+      Alert.alert(
+        'Photo de couverture',
+        'Que souhaitez-vous faire ?',
+        [
+          { text: 'Annuler', style: 'cancel' },
+          { text: 'Repositionner', onPress: openReposition },
+          { text: 'Changer la photo', onPress: pickAndUploadCover },
+        ]
+      );
+    } else {
+      pickAndUploadCover();
+    }
+  };
+
+  const openReposition = () => {
+    const offset = coverOffsetY ?? 0.5;
+    repoTopAnim.setValue(-MAX_OFFSET_PX * offset);
+    repoTopRef.current = -MAX_OFFSET_PX * offset;
+    setRepositioning(true);
+  };
+
+  const saveReposition = async () => {
+    const currentTop = (repoTopAnim as any)._value;
+    const newOffsetY = Math.max(0, Math.min(1, -currentTop / MAX_OFFSET_PX));
+    setSavingOffset(true);
+    try {
+      await api.patch(`/users/${id}/cover`, {
+        cover_picture: profile.cover_picture,
+        cover_offset_y: newOffsetY,
+      });
+      setCoverOffsetY(newOffsetY);
+      setProfile((prev: any) => ({ ...prev, cover_offset_y: newOffsetY }));
+    } catch (e: any) {
+      Alert.alert('Erreur', 'Impossible de sauvegarder le cadrage.');
+    } finally {
+      setSavingOffset(false);
+      setRepositioning(false);
+    }
+  };
+
   const pickAndUploadCover = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -271,7 +348,7 @@ export default function UserProfileScreen() {
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'], quality: 0.7, allowsEditing: true, aspect: [16, 9],
+      mediaTypes: ['images'], quality: 0.85, allowsEditing: true, aspect: [16, 9],
     });
     if (result.canceled || !result.assets?.length) return;
     setUploadingCover(true);
@@ -299,8 +376,24 @@ export default function UserProfileScreen() {
         if (!res.ok) throw new Error('Upload échoué');
         uploadUrl = (await res.json()).url;
       }
-      await api.patch(`/users/${id}/cover`, { cover_picture: uploadUrl });
-      setProfile((prev: any) => ({ ...prev, cover_picture: uploadUrl }));
+      // After upload, reset offset to 0.5 (center) so user can then reposition
+      await api.patch(`/users/${id}/cover`, { cover_picture: uploadUrl, cover_offset_y: 0.5 });
+      const newOffsetY = 0.5;
+      setCoverOffsetY(newOffsetY);
+      repoTopAnim.setValue(-MAX_OFFSET_PX * newOffsetY);
+      repoTopRef.current = -MAX_OFFSET_PX * newOffsetY;
+      setProfile((prev: any) => ({ ...prev, cover_picture: uploadUrl, cover_offset_y: newOffsetY }));
+      // After upload, immediately offer to reposition
+      setTimeout(() => {
+        Alert.alert(
+          'Photo uploadée !',
+          'Voulez-vous ajuster le cadrage ?',
+          [
+            { text: 'Non', style: 'cancel' },
+            { text: 'Repositionner', onPress: () => setRepositioning(true) },
+          ]
+        );
+      }, 400);
     } catch (e: any) {
       Alert.alert('Erreur', e.message || 'Impossible d\'uploader la photo de couverture.');
     } finally {
@@ -445,19 +538,23 @@ export default function UserProfileScreen() {
         {/* ── HERO ─────────────────────────────── */}
         <View style={st.hero} testID="user-profile-hero">
 
-          {/* COVER PHOTO — pleine largeur */}
+          {/* COVER PHOTO — pleine largeur avec offset vertical */}
           <View style={st.coverWrap}>
-            {profile.cover_picture
-              ? <Image source={{ uri: profile.cover_picture }} style={st.coverImg} />
-              : <View style={st.coverPlaceholder} />
-            }
+            {profile.cover_picture ? (
+              <Animated.Image
+                source={{ uri: profile.cover_picture }}
+                style={[st.coverImg, { top: repoTopAnim }]}
+              />
+            ) : (
+              <View style={st.coverPlaceholder} />
+            )}
             {/* Overlay gradient bas pour lisibilité avatar */}
             <View style={st.coverOverlay} />
             {/* Bouton upload cover (propriétaire) — bas droite */}
             {isOwnProfile && (
               <TouchableOpacity
                 style={st.coverEditBtn}
-                onPress={pickAndUploadCover}
+                onPress={handleCoverEdit}
                 disabled={uploadingCover}
                 testID="cover-edit-btn"
                 activeOpacity={0.85}>
@@ -467,6 +564,7 @@ export default function UserProfileScreen() {
                 }
               </TouchableOpacity>
             )}
+            {/* Indicateur repositionnement actif — non utilisé ici (géré dans modal) */}
           </View>
 
           {/* BANDE AVATAR + ACTIONS — chevauchement Facebook */}
@@ -919,6 +1017,60 @@ export default function UserProfileScreen() {
 
         <View style={{ height: 32 }} />
       </ScrollView>
+
+      {/* ── MODAL REPOSITIONNEMENT ─────────────────────────────── */}
+      <Modal
+        visible={repositioning}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setRepositioning(false)}
+      >
+        <View style={rm.overlay}>
+          {/* Header */}
+          <View style={rm.header}>
+            <TouchableOpacity
+              onPress={() => setRepositioning(false)}
+              style={rm.headerBtn}
+              testID="reposition-cancel-btn">
+              <Ionicons name="close" size={20} color="rgba(255,255,255,0.8)" />
+              <Text style={rm.headerBtnText}>Annuler</Text>
+            </TouchableOpacity>
+            <Text style={rm.headerTitle}>Repositionner</Text>
+            <TouchableOpacity
+              onPress={saveReposition}
+              style={rm.headerBtn}
+              disabled={savingOffset}
+              testID="reposition-save-btn">
+              {savingOffset
+                ? <ActivityIndicator size="small" color={Colors.primary} />
+                : <>
+                    <Ionicons name="checkmark" size={20} color={Colors.primary} />
+                    <Text style={[rm.headerBtnText, { color: Colors.primary }]}>Enregistrer</Text>
+                  </>
+              }
+            </TouchableOpacity>
+          </View>
+
+          {/* Zone de drag */}
+          <View style={rm.coverFrame} {...repoPanResponder.panHandlers}>
+            {profile?.cover_picture && (
+              <Animated.Image
+                source={{ uri: profile.cover_picture }}
+                style={[rm.coverImg, { top: repoTopAnim }]}
+              />
+            )}
+            {/* Ligne guide centrale */}
+            <View style={rm.guideLine} pointerEvents="none" />
+          </View>
+
+          {/* Instruction */}
+          <View style={rm.hint}>
+            <Ionicons name="swap-vertical-outline" size={17} color="rgba(255,255,255,0.65)" />
+            <Text style={rm.hintText}>Glissez pour cadrer la photo</Text>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -948,11 +1100,16 @@ const st = StyleSheet.create({
   // ── HERO FACEBOOK STYLE ──────────────────────
   hero: { marginBottom: 4 },
 
-  // Cover photo
-  coverWrap: { width: '100%' as any, height: 220, position: 'relative' as any },
-  coverImg: { width: '100%' as any, height: 220, resizeMode: 'cover' },
+  // Cover photo — overflow hidden pour contrôler le cadrage
+  coverWrap: { width: '100%' as any, height: COVER_H, overflow: 'hidden', position: 'relative' as any },
+  coverImg: {
+    position: 'absolute' as any,
+    width: '100%' as any,
+    height: COVER_IMG_H,
+    resizeMode: 'cover',
+  },
   coverPlaceholder: {
-    width: '100%' as any, height: 220,
+    width: '100%' as any, height: COVER_H,
     backgroundColor: '#0D2420',
   },
   coverOverlay: {
@@ -1309,4 +1466,81 @@ const st = StyleSheet.create({
     backgroundColor: TEAL_DIM, marginTop: 4,
   },
   seeMoreText: { fontSize: 13, fontWeight: '600', color: Colors.primary },
+});
+
+// ── Styles Modal Repositionnement ────────────────────────────────────────────
+const SCREEN_W = Dimensions.get('window').width;
+const rm = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.92)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    paddingTop: 48,
+  },
+  headerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 4,
+    paddingVertical: 6,
+  },
+  headerBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.8)',
+  },
+  headerTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+  },
+  // Cover frame — same width as screen, overflow hidden
+  coverFrame: {
+    width: SCREEN_W,
+    height: COVER_H,
+    overflow: 'hidden',
+    backgroundColor: '#0D2420',
+    borderWidth: 1,
+    borderColor: 'rgba(0,191,165,0.3)',
+    position: 'relative',
+  },
+  coverImg: {
+    position: 'absolute',
+    width: SCREEN_W,
+    height: COVER_IMG_H,
+    resizeMode: 'cover',
+  } as any,
+  guideLine: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: COVER_H / 2 - 0.5,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+  },
+  hint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 20,
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 20,
+  },
+  hintText: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.65)',
+    fontWeight: '500',
+  },
 });

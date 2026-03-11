@@ -717,6 +717,7 @@ async def connect_to_db():
         # [PROFILE-V2] Cover photo + système de suivi (follow/abonnements)
         await conn.execute("""
             ALTER TABLE users ADD COLUMN IF NOT EXISTS cover_picture TEXT;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS cover_offset_y FLOAT DEFAULT 0.5;
 
             CREATE TABLE IF NOT EXISTS user_follows (
                 follower_id TEXT REFERENCES users(user_id) ON DELETE CASCADE,
@@ -726,6 +727,29 @@ async def connect_to_db():
             );
             CREATE INDEX IF NOT EXISTS idx_follows_following ON user_follows(following_id);
             CREATE INDEX IF NOT EXISTS idx_follows_follower ON user_follows(follower_id);
+        """)
+
+        # Seed cover photos for test profiles (only if not already set)
+        await conn.execute("""
+            UPDATE users SET
+                cover_picture = 'https://images.pexels.com/photos/1552242/pexels-photo-1552242.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940',
+                cover_offset_y = 0.4
+            WHERE user_id = 'user_coach001' AND cover_picture IS NULL;
+
+            UPDATE users SET
+                cover_picture = 'https://images.pexels.com/photos/5038834/pexels-photo-5038834.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940',
+                cover_offset_y = 0.5
+            WHERE user_id = 'user_demo001' AND cover_picture IS NULL;
+
+            UPDATE users SET
+                cover_picture = 'https://images.pexels.com/photos/5274806/pexels-photo-5274806.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940',
+                cover_offset_y = 0.3
+            WHERE user_id = 'user_demo002' AND cover_picture IS NULL;
+
+            UPDATE users SET
+                cover_picture = 'https://images.unsplash.com/photo-1758274536083-b821befda77c?crop=entropy&cs=srgb&fm=jpg&ixlib=rb-4.1.0&q=85',
+                cover_offset_y = 0.5
+            WHERE user_id = 'user_demo003' AND cover_picture IS NULL;
         """)
 
     logger.info("Connected to PostgreSQL with PostGIS + seed data loaded")

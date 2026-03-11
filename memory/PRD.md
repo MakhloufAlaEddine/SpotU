@@ -65,6 +65,16 @@ Fonctionnalités : création/découverte de services et SpotYous, système de r�
 - **Migration 6 écrans** : chat, notifications, profile, user/[id], spot-me, bookings → 16/16 tests PASS
 - **Fix bug closure** : `notifications.tsx` — `loadedFromCache` remplace `notifs.length` dans le catch
 
+### Phase 7 — Cover Photo Repositioning (2026-03-11)
+- **cover_offset_y FLOAT DEFAULT 0.5** colonne ajoutée à la table users (database.py)
+- **Photos de couverture seed** pour profils de test (coach→fitness, demo001→running, demo002→basketball, demo003→yoga)
+- **PATCH /api/users/{id}/cover** accepte maintenant `cover_offset_y` (user_routes.py)
+- **GET /api/users/{id}/public** retourne `cover_offset_y` (user_routes.py)
+- **Affichage cover** : positionnement absolu + overflow:hidden, image 380px > container 220px
+- **Modal repositionnement** : PanResponder glisser vertical, guide central, "Enregistrer"/"Annuler"
+- **ActionSheet** : si photo déjà uploadée → "Changer" ou "Repositionner" ; sinon → picker direct
+- **Post-upload** : Alert propose immédiatement le repositionnement
+
 ### Phase 6b — Refactoring UX + Gamification Profil (2026-03-11) ✅ TERMINÉ
 - **SpotYouCard.tsx** : labels boutons harmonisés ("Rejoindre"/"Quitter", "Je participe"/"Annuler")
 - **spot-you/[id].tsx** : labels boutons cohérents avec SpotYouCard
