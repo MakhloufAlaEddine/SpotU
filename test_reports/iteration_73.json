@@ -1,0 +1,55 @@
+{
+  "summary": "Iteration 73 — Vérification source + Playwright: lib/chat.ts cache messages + historyState + ws.onmessage cacheSet + useEffect reset. chat/[id].tsx cache convInfo+currentUserId + ErrorNoData conditionnel. 14/14 checks statiques PASS + 7/7 Playwright PASS.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/frontend/e2e/test_17_chat_cache_errornodata.py",
+    "/app/test_reports/pytest/iter73_chat_cache.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "PASS lib/chat.ts: useChat expose historyState ('loading'|'loaded'|'error') — ligne 109 useState, ligne 203 return",
+    "PASS lib/chat.ts: loadHistory utilise buildCacheKey, cacheGet, cacheSet, isFresh, SCHEMA_VERSION — import ligne 4, usage lignes 114/119/123/134",
+    "PASS lib/chat.ts: loadHistory set 'loaded' sur succès réseau (l133) et sur cache hit (l122); set 'error' si prev.length===0 et réseau échoue (l137-138)",
+    "PASS lib/chat.ts: ws.onmessage met à jour le cache en arrière-plan via cacheSet (lignes 174-175) après ajout du nouveau message",
+    "PASS lib/chat.ts: useEffect([conversationId]) reset historyState à 'loading' ligne 185",
+    "PASS chat/[id].tsx: import ErrorNoData depuis OfflineBanner (l14) + import storage depuis lib/storage (l13)",
+    "PASS chat/[id].tsx: historyState et loadHistory extraits de useChat (l71)",
+    "PASS chat/[id].tsx: storage.get('spotu_user') pour currentUserId (l77-80) — offline-safe, pas d'appel /auth/me",
+    "PASS chat/[id].tsx: storage.get('spotu_conv_${id}') en premier pour convInfo (l85-87), puis fetch réseau (l90-96)",
+    "PASS chat/[id].tsx: rendu conditionnel {historyState==='error' && messages.length===0 ? <ErrorNoData testID='chat-error-no-data' onBack onRetry> : <FlatList>} — lignes 172-209",
+    "PASS chat/[id].tsx: FlatList style={{flex:1}} ligne 183",
+    "PASS Playwright: conv_demo002 charge normalement (back-btn + chat-input + send-btn visibles, pas d'ErrorNoData en ligne)",
+    "PASS Playwright: envoi message fonctionne avec guard isConnected (input vidé après send)",
+    "PASS Playwright: ErrorNoData avec testID='chat-error-no-data' visible pour conv inexistante (403), back-nav-btn + retry-btn présents"
+  ],
+  "updated_files": [
+    "/app/frontend/e2e/test_17_chat_cache_errornodata.py"
+  ],
+  "success_rate": {
+    "backend": "N/A (frontend only)",
+    "frontend": "100% — 14/14 checks statiques PASS + 7/7 Playwright PASS = 21/21 PASS total"
+  },
+  "test_credentials": {
+    "user": "user@winek.app / WinekUser2024!",
+    "coach": "coach@winek.app / WinekCoach2024!",
+    "admin": "admin@winek.app / WinekAdmin2024!"
+  },
+  "seed_data_creation": "Aucune.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 73: 21/21 PASS. lib/chat.ts: historyState + loadHistory avec cache + cacheSet sur ws.onmessage + reset useEffect tous implémentés correctement. chat/[id].tsx: storage.get cache offline pour currentUserId et convInfo, ErrorNoData conditionnel historyState==='error'&&messages.length===0 avec testID='chat-error-no-data', back-nav-btn et retry-btn présents. Régression conv_demo002 PASS en ligne. Issue précédente (iter72) user/[id].tsx ErrorNoData sans onBack est le seul ticket restant si non encore fixé. APP_URL=https://connectivity-guard.preview.emergentagent.com",
+  "rca_of_the_issue": {
+    "original_bug": "chat/[id].tsx affichait 'Aucun message pour l'instant' au lieu du cache lors d'une 2ème visite offline",
+    "root_cause": "1) useChat ne gérait pas le cache: loadHistory ne consultait pas AsyncStorage avant le fetch réseau. 2) Pas de historyState pour distinguer 'chargement initial' / 'chargé' / 'erreur réseau sans cache'. 3) FlatList affichait ListEmptyComponent ('Aucun message pour l'instant') même quand le réseau échouait.",
+    "fix_implemented": "1) lib/chat.ts: loadHistory consulte cacheGet avant fetch réseau (stale-while-revalidate). 2) historyState ('loading'|'loaded'|'error') exposé par useChat. 3) ws.onmessage met à jour le cache après chaque nouveau message. 4) chat/[id].tsx: rendu conditionnel historyState==='error'&&messages.length===0 → ErrorNoData au lieu de FlatList vide.",
+    "verified": "PASS via static code review + 7 Playwright tests"
+  }
+}

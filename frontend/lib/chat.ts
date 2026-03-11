@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { storage } from './storage';
 import { api } from './api';
+import { buildCacheKey, cacheGet, cacheSet, isFresh, SCHEMA_VERSION } from './cache';
 
 const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 const BASE_WS = BASE_URL.replace('https://', 'wss://').replace('http://', 'ws://');
@@ -105,14 +106,39 @@ export function useNotifications() {
 export function useChat(conversationId: string | null) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isConnected, setIsConnected] = useState(false);
+  const [historyState, setHistoryState] = useState<'loading' | 'loaded' | 'error'>('loading');
   const wsRef = useRef<WebSocket | null>(null);
 
-  const loadHistory = useCallback(async () => {
+  const loadHistory = useCallback(async (isRefresh = false) => {
     if (!conversationId) return;
+    const cacheKey = buildCacheKey({ path: `/conversations/${conversationId}/messages`, schemaVersion: SCHEMA_VERSION });
+    const ttl = 30 * 60_000; // 30 minutes
+
+    // Étape 1 : lecture cache sur le premier chargement
+    if (!isRefresh) {
+      const cached = await cacheGet<ChatMessage[]>(cacheKey);
+      if (cached?.data) {
+        setMessages(Array.isArray(cached.data) ? cached.data : []);
+        setHistoryState('loaded');
+        if (isFresh(cached)) return;
+        // Stale : continuer le fetch en arrière-plan
+      }
+    }
+
+    // Étape 2 : fetch réseau
     try {
       const data = await api.get<ChatMessage[]>(`/conversations/${conversationId}/messages`);
-      setMessages(data || []);
-    } catch {}
+      const msgs = data || [];
+      setMessages(msgs);
+      setHistoryState('loaded');
+      await cacheSet(cacheKey, msgs, ttl);
+    } catch {
+      // Si aucun message disponible → état d'erreur
+      setMessages(prev => {
+        if (prev.length === 0) setHistoryState('error');
+        return prev;
+      });
+    }
   }, [conversationId]);
 
   const connect = useCallback(async () => {
@@ -142,7 +168,13 @@ export function useChat(conversationId: string | null) {
     ws.onmessage = (e) => {
       try {
         const msg: ChatMessage = JSON.parse(e.data);
-        setMessages(prev => [...prev, msg]);
+        setMessages(prev => {
+          const updated = [...prev, msg];
+          // Mise à jour du cache en arrière-plan pour la prochaine consultation offline
+          const key = buildCacheKey({ path: `/conversations/${conversationId}/messages`, schemaVersion: SCHEMA_VERSION });
+          cacheSet(key, updated, 30 * 60_000).catch(() => {});
+          return updated;
+        });
       } catch {}
     };
   }, [conversationId]);
@@ -150,6 +182,7 @@ export function useChat(conversationId: string | null) {
   useEffect(() => {
     setMessages([]);
     setIsConnected(false);
+    setHistoryState('loading');
     loadHistory();
     connect();
     return () => {
@@ -167,7 +200,7 @@ export function useChat(conversationId: string | null) {
     }
   }, []);
 
-  return { messages, sendMessage, isConnected, loadHistory };
+  return { messages, sendMessage, isConnected, loadHistory, historyState };
 }
 
 export async function getOrCreateConversation(type: string, context_id: string): Promise<Conversation> {

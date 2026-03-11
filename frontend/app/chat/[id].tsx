@@ -10,6 +10,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { useChat, ChatMessage } from '../../lib/chat';
 import { api } from '../../lib/api';
+import { storage } from '../../lib/storage';
+import { ErrorNoData } from '../../components/OfflineBanner';
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
@@ -66,16 +68,31 @@ export default function ChatScreen() {
   const [sending, setSending] = useState(false);
   const flatRef = useRef<FlatList>(null);
 
-  const { messages, sendMessage, isConnected } = useChat(id ?? null);
+  const { messages, sendMessage, isConnected, historyState, loadHistory } = useChat(id ?? null);
 
   const isBlocked = convInfo?.is_blocked === true;
 
   useEffect(() => {
-    api.get<any>('/auth/me').then(me => setCurrentUserId(me.user_id)).catch(() => {});
+    // currentUserId depuis le cache auth (offline-safe, évite l'appel /auth/me)
+    storage.get('spotu_user').then(raw => {
+      if (raw) {
+        try { setCurrentUserId(JSON.parse(raw).user_id); } catch {}
+      }
+    }).catch(() => {});
+
     if (id) {
+      // Lecture du cache convInfo en premier (offline-safe)
+      storage.get(`spotu_conv_${id}`).then(raw => {
+        if (raw) { try { setConvInfo(JSON.parse(raw)); } catch {} }
+      }).catch(() => {});
+
+      // Puis fetch réseau avec mise en cache
       api.get<any[]>('/conversations').then(convs => {
         const c = convs?.find(cv => cv.conversation_id === id);
-        if (c) setConvInfo(c);
+        if (c) {
+          setConvInfo(c);
+          storage.set(`spotu_conv_${id}`, JSON.stringify(c)).catch(() => {});
+        }
       }).catch(() => {});
     }
   }, [id]);
@@ -151,12 +168,23 @@ export default function ChatScreen() {
         </View>
       </SafeAreaView>
 
-      {/* Messages */}
+      {/* Messages ou état d'erreur */}
+      {historyState === 'error' && messages.length === 0 ? (
+        <View style={{ flex: 1 }}>
+          <ErrorNoData
+            onRetry={() => loadHistory(true)}
+            onBack={() => router.back()}
+            testID="chat-error-no-data"
+            message="Impossible de charger les messages. Vérifiez votre connexion."
+          />
+        </View>
+      ) : (
       <FlatList
         ref={flatRef}
         data={messages}
         keyExtractor={m => m.message_id}
-        contentContainerStyle={st.messageList}
+        style={{ flex: 1 }}
+        contentContainerStyle={[st.messageList, messages.length === 0 && { flex: 1 }]}
         onContentSizeChange={() => flatRef.current?.scrollToEnd({ animated: false })}
         renderItem={({ item, index }) => (
           <>
@@ -178,6 +206,7 @@ export default function ChatScreen() {
           </View>
         }
       />
+      )}
 
       {/* Input bar — désactivé si bloqué */}
       {isBlocked ? (
