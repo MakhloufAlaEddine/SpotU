@@ -172,11 +172,11 @@ export default function SavedScreen() {
     if (item.is_going) {
       setConfirmAction({
         title: 'Annuler votre participation ?',
-        description: 'Vous vous désinscrivez de la prochaine séance.',
+        description: 'Vous ne participerez plus à la prochaine séance.',
         icon: 'close-circle-outline',
-        iconColor: '#F59E0B',
-        iconBg: '#FFFBEB',
-        confirmLabel: 'Annuler ma participation',
+        iconColor: Colors.muted,
+        iconBg: Colors.card,
+        confirmLabel: 'Annuler ma présence',
         confirmStyle: 'danger',
         cancelLabel: 'Garder ma place',
         bullets: [

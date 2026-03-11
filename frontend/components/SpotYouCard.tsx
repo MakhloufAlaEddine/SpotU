@@ -228,7 +228,7 @@ export function SpotYouCard({
                 testID={`going-btn-${item.point_id}`}
               >
                 {isLoading
-                  ? <ActivityIndicator size="small" color={isGoing ? Colors.primary : Colors.background} />
+                  ? <ActivityIndicator size="small" color={isGoing ? Colors.muted : Colors.background} />
                   : (isFull && !isGoing)
                     ? <>
                         <Ionicons name="flash" size={12} color="#F59E0B" />
@@ -236,12 +236,12 @@ export function SpotYouCard({
                       </>
                     : <>
                         <Ionicons
-                          name={isGoing ? 'checkmark-circle' : 'add-circle-outline'}
+                          name={isGoing ? 'close-circle-outline' : 'add-circle-outline'}
                           size={12}
-                          color={isGoing ? Colors.primary : Colors.background}
+                          color={isGoing ? Colors.muted : Colors.background}
                         />
-                        <Text style={[sc.goingBtnText, isGoing && { color: Colors.primary }]}>
-                          {isGoing ? 'Je participe ✓' : 'Je participe'}
+                        <Text style={[sc.goingBtnText, isGoing && sc.goingBtnCancelText]}>
+                          {isGoing ? 'Annuler' : 'Je participe'}
                         </Text>
                       </>
                 }
@@ -356,8 +356,9 @@ export const sc = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 6,
     borderRadius: Radius.full,
   },
-  goingBtnActive: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: Colors.primary },
+  goingBtnActive: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: Colors.border },
   goingBtnFull: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: '#F59E0B' },
   goingBtnText: { fontSize: 12, fontWeight: '700', color: Colors.background },
+  goingBtnCancelText: { color: Colors.muted },
   pastText: { fontSize: 11, color: Colors.muted, fontStyle: 'italic' },
 });

@@ -1,0 +1,39 @@
+{
+  "summary": "Iteration 75 — Barrel index.ts + harmonisation labels boutons SpotYou (Rejoindre/Quitter, Je participe/Annuler). 100% PASS sur 3 écrans (saved, spot-me, spot-you/[id]) sans crash. Tous les labels correspondent au spec.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "PASS Barrel index.ts: exports UserAvatar+UserAvatarProps, ScreenLoader+ScreenLoaderProps, EmptyState+EmptyStateProps, SpotYouCard+SpotYouCardProps, StaleBanner+OfflineBanner+ErrorNoData — complet et cohérent",
+    "PASS SpotYouCard.tsx L239-244: isGoing ? 'close-circle-outline'+'Annuler' : 'add-circle-outline'+'Je participe' — correct; goingBtnCancelText (muted), goingBtnActive (transparent+border) — styles conformes",
+    "PASS saved.tsx: onglet SpotYou affiche 4 SpotYouCards — HIIT morning (is_going=true) → 'Annuler' outline muted; 3 autres (is_going=false) → 'Je participe' vert filled — conforme spec",
+    "PASS spot-me.tsx: 4 SpotMe cards — HIIT morning (is_going=true) → 'Annuler'; Yoga&Méditation, Match de basket, Footing (is_going=false) → 'Je participe' — conforme spec",
+    "PASS spot-you/[id].tsx L1006-1008: rsvp-button (testID) affiche 'Quitter' (isMember=true, Boxe&MMA) et 'Rejoindre' (isMember=false, Yoga Trocadéro) — styles joinBtnCompactLeaveText (muted) + joinBtnCompactActive (transparent+border) corrects",
+    "PASS spot-you/[id].tsx L1110-1111: going-button affiche 'Annuler' (isGoing=true, HIIT morning) et 'Je participe' (isGoing=false, Boxe&MMA, Yoga) — styles goingBtnInlineCancelText (muted) + goingBtnInlineActive (transparent+border) corrects",
+    "PASS Condition !isOwner (L978): rsvp-button masqué pour le propriétaire (Thomas sur HIIT morning) — comportement attendu et conforme",
+    "PASS Récurrent/Passé uniquement pour RSVP: la condition (!!event_schedule || date passée) fonctionne correctement pour Boxe&MMA et Yoga (récurrents) affichant le bouton Rejoindre/Quitter",
+    "PASS Aucun crash: les 3 écrans (saved, spot-me, spot-you/[id]) s'ouvrent et chargent les données sans erreur"
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A (frontend only)",
+    "frontend": "100% — 9/9 checks PASS"
+  },
+  "test_credentials": {
+    "user": "user@winek.app / WinekUser2024!",
+    "coach": "coach@winek.app / WinekCoach2024!"
+  },
+  "seed_data_creation": "",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 75: 100% PASS. Barrel index.ts validé (7 exports). Labels boutons harmonisés confirmés visuellement: SpotYouCard ('Je participe'/'Annuler'), spot-you/[id] RSVP ('Rejoindre'/'Quitter') + session ('Je participe'/'Annuler'). Tests visuels Playwright sur: saved (4 SpotYou HIIT=Annuler, 3=Je participe), spot-me (même résultat), spot-you/[id] Boxe&MMA (Quitter+Je participe) et Yoga Trocadéro (Rejoindre+Je participe). APP_URL=https://connection-shield-1.preview.emergentagent.com",
+  "rca_of_the_issue": null
+}

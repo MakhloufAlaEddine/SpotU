@@ -996,15 +996,15 @@ export default function SpotYouDetail() {
                   testID="rsvp-button"
                 >
                   {rsvpLoading
-                    ? <ActivityIndicator color={isMember ? Colors.primary : Colors.background} size="small" />
+                    ? <ActivityIndicator color={isMember ? Colors.muted : Colors.background} size="small" />
                     : <>
                         <Ionicons
-                          name={isMember ? 'checkmark-circle' : 'people-outline'}
+                          name={isMember ? 'exit-outline' : 'people-outline'}
                           size={14}
-                          color={isMember ? Colors.primary : Colors.background}
+                          color={isMember ? Colors.muted : Colors.background}
                         />
-                        <Text style={[st.joinBtnCompactText, isMember && st.joinBtnCompactTextActive]}>
-                          {isMember ? 'Membre ✓' : 'Rejoindre'}
+                        <Text style={[st.joinBtnCompactText, isMember && st.joinBtnCompactLeaveText]}>
+                          {isMember ? 'Quitter' : 'Rejoindre'}
                         </Text>
                       </>
                   }
@@ -1103,12 +1103,12 @@ export default function SpotYouDetail() {
                               </>
                             : <>
                                 <Ionicons
-                                  name={isGoing ? 'checkmark-circle' : 'add-circle-outline'}
+                                  name={isGoing ? 'close-circle-outline' : 'add-circle-outline'}
                                   size={13}
-                                  color={isGoing ? Colors.primary : Colors.background}
+                                  color={isGoing ? Colors.muted : Colors.background}
                                 />
-                                <Text style={[st.goingBtnInlineText, isGoing && { color: Colors.primary }]}>
-                                  {isGoing ? 'Je participe ✓' : 'Je participe'}
+                                <Text style={[st.goingBtnInlineText, isGoing && st.goingBtnInlineCancelText]}>
+                                  {isGoing ? 'Annuler' : 'Je participe'}
                                 </Text>
                               </>
                         }
@@ -1172,12 +1172,12 @@ export default function SpotYouDetail() {
                               </>
                             : <>
                                 <Ionicons
-                                  name={isGoing ? 'checkmark-circle' : 'add-circle-outline'}
+                                  name={isGoing ? 'close-circle-outline' : 'add-circle-outline'}
                                   size={13}
-                                  color={isGoing ? Colors.primary : Colors.background}
+                                  color={isGoing ? Colors.muted : Colors.background}
                                 />
-                                <Text style={[st.goingBtnInlineText, isGoing && { color: Colors.primary }]}>
-                                  {isGoing ? 'Je participe ✓' : 'Je participe'}
+                                <Text style={[st.goingBtnInlineText, isGoing && st.goingBtnInlineCancelText]}>
+                                  {isGoing ? 'Annuler' : 'Je participe'}
                                 </Text>
                               </>
                         }
@@ -1773,15 +1773,16 @@ const st = StyleSheet.create({
   goingTextActive: { color: Colors.primary },
   // Bouton "Je participe" inline dans la date card
   goingBtnInline: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.primary, paddingHorizontal: 11, paddingVertical: 6, borderRadius: Radius.full, flexShrink: 0, marginLeft: 8 },
-  goingBtnInlineActive: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: Colors.primary },
+  goingBtnInlineActive: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: Colors.border },
   goingBtnInlineDisabled: { backgroundColor: '#F59E0B22', borderWidth: 1.5, borderColor: '#F59E0B' },
   goingBtnInlineText: { fontSize: 12, fontWeight: '700', color: Colors.background },
+  goingBtnInlineCancelText: { color: Colors.muted },
   goingCountInline: { fontSize: 11, color: Colors.primary, fontWeight: '600', marginTop: 3 },
   // Bouton Rejoindre compact (dans la ligne rating)
   joinBtnCompact: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.primary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: Radius.full },
-  joinBtnCompactActive: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: Colors.primary },
+  joinBtnCompactActive: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: Colors.border },
   joinBtnCompactText: { fontSize: 12, fontWeight: '700', color: Colors.background },
-  joinBtnCompactTextActive: { color: Colors.primary },
+  joinBtnCompactLeaveText: { color: Colors.muted },
   // Chip membres inline
   membersChipInline: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: Colors.card, borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: Colors.border },
   membersChipInlineText: { fontSize: 11, color: Colors.muted, fontWeight: '600' },
