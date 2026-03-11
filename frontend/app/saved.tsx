@@ -374,10 +374,10 @@ const s = StyleSheet.create({
   tabText: { fontSize: 14, fontWeight: '600', color: Colors.muted },
   tabTextActive: { color: Colors.primary },
   // SpotYou card wrapper avec bouton de désave
-  spotYouCardWrap: { position: 'relative' },
+  spotYouCardWrap: { position: 'relative', marginBottom: 12 },
   unsaveOverlay: {
     position: 'absolute',
-    top: 10,
+    top: 44,
     right: 10,
     backgroundColor: Colors.card,
     borderRadius: 20,
