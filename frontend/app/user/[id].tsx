@@ -75,15 +75,16 @@ interface CompletionStep {
   onPress: () => void;
 }
 
-function ProfileCompletionBar({ profile, spotYouCount, interests, onEditProfile, onCreateSpotYou }: {
-  profile: any; spotYouCount: number; interests: any[];
-  onEditProfile: () => void; onCreateSpotYou: () => void;
+function ProfileCompletionBar({ profile, spotYouCount, interests, hasBooking, onEditProfile, onCreateSpotYou, onExplore }: {
+  profile: any; spotYouCount: number; interests: any[]; hasBooking: boolean;
+  onEditProfile: () => void; onCreateSpotYou: () => void; onExplore: () => void;
 }) {
   const steps: CompletionStep[] = [
     { id: 'photo',     label: 'Photo',             icon: 'camera-outline',   done: !!profile.picture,           onPress: onEditProfile },
     { id: 'bio',       label: 'Bio',               icon: 'text-outline',     done: !!profile.bio?.trim(),       onPress: onEditProfile },
     { id: 'interests', label: "Centres d'intérêt", icon: 'heart-outline',    done: interests.length > 0,        onPress: onEditProfile },
     { id: 'spotyou',   label: 'SpotYou',           icon: 'location-outline', done: spotYouCount > 0,            onPress: onCreateSpotYou },
+    { id: 'booking',   label: 'Réservation',       icon: 'calendar-outline', done: hasBooking,                  onPress: onExplore },
   ];
   const doneCount = steps.filter(s => s.done).length;
   const pct = Math.round((doneCount / steps.length) * 100);
@@ -180,6 +181,16 @@ export default function UserProfileScreen() {
   const [myRating, setMyRating] = useState(0);
   const [myComment, setMyComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [hasBooking, setHasBooking] = useState(false);
+
+  // Fetch bookings count pour la barre de complétion (uniquement sur son propre profil)
+  React.useEffect(() => {
+    if (me?.user_id && me.user_id === id) {
+      api.get<any[]>('/bookings/me').then(b => {
+        setHasBooking(Array.isArray(b) && b.length > 0);
+      }).catch(() => {});
+    }
+  }, [me?.user_id, id]);
 
   // Reload every time the screen comes into focus (fix: data not updating after edit)
   useFocusEffect(
@@ -404,8 +415,10 @@ export default function UserProfileScreen() {
             profile={profile}
             spotYouCount={SpotYou.length}
             interests={interests}
+            hasBooking={hasBooking}
             onEditProfile={() => router.push('/edit-profile' as any)}
             onCreateSpotYou={() => router.push('/(tabs)/create' as any)}
+            onExplore={() => router.push('/(tabs)/search' as any)}
           />
         )}
 

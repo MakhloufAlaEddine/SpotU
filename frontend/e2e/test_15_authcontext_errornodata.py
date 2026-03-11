@@ -16,7 +16,7 @@ import pytest
 import asyncio
 from playwright.async_api import async_playwright
 
-APP_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://connection-shield-1.preview.emergentagent.com")
+APP_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://shared-components.preview.emergentagent.com")
 
 # ─── File paths ───────────────────────────────────────────────────────────────
 AUTH_CTX   = "/app/frontend/context/AuthContext.tsx"

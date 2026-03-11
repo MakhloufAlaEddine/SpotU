@@ -1,84 +1,96 @@
-<analysis>**original_problem_statement**: The user is continuing to refine the application's network protection and caching layer. The initial implementation from the previous session had several gaps and silent failures in offline scenarios.
+<analysis>**original_problem_statement**: The user initiated a series of refactoring and feature enhancement tasks to improve code quality, UI/UX consistency, and user engagement.
 
-The user's explicit requests during this session were to fix these gaps:
-1.  ****: Implement explicit offline guards for actions, add clear user messages, manage stale/fresh data, and use targeted cache invalidation.
-2.  ****: Explicitly block the send action when offline with a clear user message, ensuring no silent message loss. It was later also requested to cache the chat history for offline viewing.
-3.  ****: Fully migrate the screen to the robust state model (, , , ) to prevent infinite spinners and handle errors gracefully.
-4.  ****: Implement caching so the screen is viewable offline.
-5.  **General UX**: Replace brutal blank or error text screens with a consistent, shared No Data component (), and add a Back button to this component for better navigation.
-
-A critical underlying bug was discovered and fixed: the  was incorrectly treating network errors as authentication failures, logging the user out when offline.
+The user's explicit requests were:
+1.  **Refactor **: Convert a locally defined card component into a shared component () and reuse it across the  and  screens. This also required enriching a backend endpoint.
+2.  **Fix Offline UI**: Correct a bug on the notifications screen where an inconsistent No Connection message was shown instead of the shared  component with cached content.
+3.  **UI Adjustments**: Fine-tune the layout on the  screen by adding vertical space between cards and repositioning an icon.
+4.  **Major Component Refactoring**: Audit the codebase for duplicated UI for avatars, loaders, and empty states, then create and integrate shared components (, , ) across more than six screens.
+5.  **Harmonize Button Labels**: Standardize the text and behavior of all buttons related to joining/leaving a SpotYou community and participating/canceling a session to ensure UX consistency.
+6.  **Redesign Empty Profile**: Redesign the public profile page for users with no content (no SpotYous, no reviews) to be more engaging and provide clear calls-to-action (CTAs).
+7.  **Implement Profile Completion Bar**: Add a gamified progress bar on the user's own profile page to encourage them to complete their profile. This started as a 4-step bar and was later extended to 5 steps.
 
 **User's preferred language**: French
 
 **what currently exists?**
-The application's advanced caching and network protection layer has been significantly hardened and expanded.
--   **Core Auth Fix**:  has been modified to distinguish between network errors and actual authentication failures, preserving the user's session when offline. This was a critical fix that resolved several cascading UI issues.
--   **Screen Migrations**: The , , , and  screens now all use a consistent and robust data fetching and state management pattern for handling online, offline, stale data, and error states.
--   **Offline Guards**: Actions that cannot be performed offline (e.g., sending a chat message, joining a SpotYou) are now explicitly disabled with clear alerts to the user. Silent failures have been eliminated on these screens.
--   **Offline Data Caching**: Chat history () and SpotYou details () are now cached, allowing users to view this information when offline.
--   **Improved UI**: The shared  component has been enhanced with better styling and an optional  prop to allow users to navigate back, improving the experience on error screens.
+The application has undergone significant refactoring to improve code maintainability and UI consistency.
+-   **Shared Components**: Key UI elements like , , , and  have been created and are now used across the application, reducing code duplication. A barrel file () simplifies their importation.
+-   **Backend Enrichment**: The  endpoint was updated to provide all necessary data for the rich  component.
+-   **UI/UX Consistency**: Button labels for key actions (Rejoindre/Quitter, Je participe/Annuler) are now harmonized. The notifications screen correctly displays cached data and the standard offline banner.
+-   **Engaging Empty States**: The public profile page () now features a redesigned, user-friendly empty state with clear CTAs for both the profile owner and visitors.
+-   **Profile Gamification**: A 5-step profile completion bar is present on the user's own profile page, tracking photo, bio, interests, created SpotYous, and first booking to incentivize engagement.
 
 **Last working item**:
--   **Last item agent was working**: Implementing caching for the chat history in  and . This allows users to view past messages when offline and displays the shared  component if the device is offline and no history has been cached.
--   **Status**: USER VERIFICATION PENDING
--   **Agent Testing Done**: Y (Testing agent passed 21/21 tests)
--   **Which testing method agent to use?**: testing_agent_v4_fork
+-   **Last item agent was working**: Extending the  on the  page to include a fifth criterion: Première réservation (First Booking). This involved adding a new state, fetching the user's booking status from the  endpoint, and updating the UI logic to calculate a 5-step completion percentage.
+-   **Status**: IN PROGRESS
+-   **Agent Testing Done**: N (The agent confirmed the backend endpoint works with  but has not taken a screenshot to verify the final UI).
+-   **Which testing method agent to use?**: screenshot tool
 -   **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
--   Issue 1: Expo Hot-Reload Instability (P1)
--   Issue 2: Update SpotYou flow not fully verified (P2)
--   Issue 3: Old e2e test suites are failing (P3)
+-   Issue 1: Visually verify the 5-step profile completion bar (P0)
+-   Issue 2: Expo Hot-Reload Instability (P1)
+-   Issue 3: Update SpotYou flow not fully verified (P2)
+-   Issue 4: Old e2e test suites are failing (P3)
 
 Issues Detail:
--   **Issue 1: Expo Hot-Reload Instability**
-    -   Attempted fixes: None. This is a recurring issue from the previous fork. The workaround is to restart the frontend service.
-    -   Next debug checklist: Investigate , clear the Metro bundler cache, and check for potential memory leaks.
-    -   Why fix this issue and what will be achieved with the fix?: Would significantly improve development speed and testing reliability.
+-   **Issue 1: Visually verify the 5-step profile completion bar**
+    -   Attempted fixes: The agent has implemented all code changes and verified the backend call. The final UI state is unconfirmed.
+    -   Next debug checklist:
+        1.  Use the  tool to capture the  screen for the  user.
+        2.  Verify that the progress bar correctly shows 5 steps and the completion percentage is calculated out of 100% (20% per item).
+    -   Why fix this issue and what will be achieved with the fix?: To complete the user's latest feature request and confirm the implementation is working as expected.
+    -   Status: IN PROGRESS
+    -   Is recurring issue?: N
+    -   Should Test frontend/backend/both after fix?: frontend
+    -   Blocked on other issue: None
+
+-   **Issue 2: Expo Hot-Reload Instability**
+    -   Attempted fixes: None in this session. The workaround remains restarting the frontend service.
+    -   Next debug checklist: Investigate , clear the Metro bundler cache.
+    -   Why fix this issue and what will be achieved with the fix?: Would significantly improve development speed.
     -   Status: NOT STARTED
     -   Is recurring issue?: Y
     -   Should Test frontend/backend/both after fix?: frontend
     -   Blocked on other issue: None
 
--   **Issue 2: Update SpotYou flow not fully verified**
+-   **Issue 3: Update SpotYou flow not fully verified**
     -   Attempted fixes: None.
-    -   Next debug checklist: Manually test or create an e2e test plan for the Update SpotYou feature to check for regressions after the recent data-fetching changes.
-    -   Why fix this issue and what will be achieved with the fix?: Ensures a core feature remains stable.
+    -   Next debug checklist: Manually test or create a test plan for the Update SpotYou feature.
+    -   Why fix this issue and what will be achieved with the fix?: Ensures a core feature remains stable after recent changes.
     -   Status: NOT STARTED
     -   Is recurring issue?: N
     -   Should Test frontend/backend/both after fix?: both
     -   Blocked on other issue: None
 
--   **Issue 3: Old e2e test suites are failing**
-    -   Attempted fixes: None in this session.
-    -   Next debug checklist: Debug the  failure. It is likely caused by the Expo Instability (Issue 1) or a stale configuration in the test setup.
+-   **Issue 4: Old e2e test suites are failing**
+    -   Attempted fixes: None.
+    -   Next debug checklist: Debug the  failure, which is likely caused by Expo Instability (Issue 2).
     -   Why fix this issue and what will be achieved with the fix?: Restores the integrity of the automated testing pipeline.
     -   Status: NOT STARTED
     -   Is recurring issue?: Y
     -   Should Test frontend/backend/both after fix?: frontend
-    -   Blocked on other issue: Issue 1
+    -   Blocked on other issue: Issue 2
 
 **In progress Task List**:
 -   NONE
 
 **Upcoming and Future Tasks**
 -   **Upcoming Tasks**:
-    -   (P1) **Code Refactoring**: Create shared components for , , and  to reduce code duplication.
     -   (P1) **Bilingual Support (i18n)**: Fully implement French/English translations across the application.
 -   **Future Tasks**:
-    -   (P2) **Offline Mutations**: Implement a queueing system for offline actions (chat messages, joining SpotYous) that syncs when connectivity is restored.
+    -   (P2) **Offline Mutations**: Implement a queueing system for offline actions (e.g., chat messages) that syncs when connectivity is restored.
     -   (P2) **Enhance Notifications**: Implement the missing notifications identified in previous analyses.
     -   (P2) **Finalize Push Notifications**: Use EAS Build for production deployment.
 
 **Completed work in this session**
--   **Critical AuthContext Fix**: Prevented incorrect user logout on network errors by updating .
--   **Robust Offline Handling in **: Implemented full  pattern, offline guards, and cache invalidation.
--   **Robust Offline Handling in **: Migrated to the 4-state model and fixed infinite spinner risk.
--   **Offline Chat Guard**: Blocked message sending when offline in .
--   **Chat History Caching**: Implemented caching for chat history for offline viewing in  and .
--   **SpotYou Detail Caching**: Implemented caching for  to allow offline viewing.
--   **Enhanced Error Component**: Added a Back button and improved the shared  component in .
+-   **Shared  Component**: Refactored card into  and used it in  and .
+-   **Backend  Endpoint Enrichment**: Updated  to support the shared card.
+-   **Notification Offline Bug Fix**: Corrected a closure bug in  to properly display cached data.
+-   **Shared Component Refactoring**: Created and integrated , , and  components, reducing code duplication in 6+ screens.
+-   **Component Barrel File**: Created  for streamlined component imports.
+-   **Button Label Harmonization**: Standardized button labels in  and .
+-   **Profile Empty State Redesign**: Redesigned the empty states on  with engaging CTAs.
+-   **Profile Completion Bar**: Implemented and then extended a profile completion progress bar on .
 
 **Earlier issues found/mentioned but not fixed**
 -   Same as **All Pending/In progress Issue list**.
@@ -92,48 +104,60 @@ Issues Detail:
 
 
 **Key Technical Concepts**
--   **Resilient Authentication**: The auth context now distinguishes between authentication failures (401/403) and network failures, preserving the user session and cached data when offline.
--   **State-driven Error UI**: Consistently using the shared  component across screens to provide a uniform and user-friendly experience when data cannot be loaded, preventing brutal blank screens.
--   **Progressive Caching**: Iteratively adding caching to screens (, ) that were previously online-only, enabling offline functionality based on user feedback.
+-   **Component-Based Refactoring**: Abstracting duplicated UI logic (cards, loaders, avatars) into shared, reusable React components to enforce consistency and reduce maintenance overhead.
+-   **Barrel File Exports**: Using an  file in the  directory to create a single, clean import path for multiple shared components.
+-   **Conditional Rendering for UX**: Displaying different UI elements based on user state (e.g., profile owner vs. visitor) to provide contextual calls-to-action (CTAs).
+-   **UI Gamification**: Implementing a profile completion bar that dynamically calculates and displays progress based on user data, encouraging user engagement.
+-   **Backend Data Enrichment**: Modifying API endpoints to include derived data (, ) to support richer frontend components without requiring extra client-side logic.
 
 **key DB schema**
--   No changes made to the database schema in this session.
+-   No changes were made to the database schema.
 
 **All files of reference**
--   : Core file for the critical session persistence fix.
--   : The shared UI component for displaying offline/error states.
--   : The hook managing chat state, now with caching logic.
--   : The chat UI, now consuming the cached history.
--   : The SpotYou detail screen, now with offline viewing capabilities.
--   : Example of a screen migrated to the robust offline state model.
+-   : The main file for the last set of feature requests (empty state redesign, completion bar).
+-   : New shared component for user images.
+-   : New shared component for loading spinners.
+-   : New shared component for empty data sections.
+-   : The shared card component, now used in multiple screens.
+-   : The new barrel file for simplified imports.
+-   : The backend file modified to support the shared card.
+-   : File where the offline caching bug was fixed.
 
 **Areas that need refactoring**:
--   **Component Duplication**: Code for Avatars, Loaders, and Empty States is repeated across screens and should be extracted into shared, reusable components.
+-   The  component is currently defined inside . It could be extracted into its own file in  for better separation of concerns.
 
 **key api endpoints**
--   No new API endpoints were created.
+-    (Modified to return richer data)
+-    (Used for the profile completion bar)
 
 **Critical Info for New Agent**
--   Your immediate priority is to get the user's validation for the latest set of fixes, particularly the offline chat history. The user is highly technical and will test the changes thoroughly.
--   The most critical change this session was in . You must understand that network errors **no longer clear the user session**. This prevents the app from logging users out when they go offline.
--   The  component in  now has an optional  prop. When implementing it on new screens, consider if adding a back button would improve the user experience.
--   The underlying Expo instability issue remains unresolved. If you encounter strange build failures or non-responsive UI during development, your first step should be frontend: ERROR (no such process)
-frontend: ERROR (no such process).
+-   Your immediate priority is to finish the last task by visually verifying the 5-step . Use the  tool on the public profile of .
+-   The user is highly visual and detail-oriented. Pay close attention to UI/UX requests and provide visual confirmation (screenshots) of your work.
+-   The agent successfully completed a large-scale refactoring of shared components. Be aware that many screens now depend on the new components in .
+-   When adding the completion bar, the agent introduced a syntax error that broke the UI, requiring a bundler restart. Be careful with component placement and always check logs () if the UI appears blank or fails to load.
+-   The user's preferred language is French. All communication must be in French.
 
 **documents and test reports created in this job**
--    (multiple created)
--    (created by testing agent)
+-    (multiple created by the testing agent)
+-    (updated)
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User**: Reported that chat history is not visible offline. **Status**: . Agent implemented caching for chat history.
-2.  **User**: Reported that the  screen shows a brutal error when viewed offline. Also requested a back button on the generic error screen. **Status**: . Agent implemented caching for the spot-you screen and added the  feature to .
-3.  **User**: Reported a bug on the profile page when viewed offline after an online session, showing a profile not found error. **Status**: . Agent diagnosed this as a critical issue in  and fixed it.
-4.  **User**: Provided detailed feedback on the initial network protection implementation, pointing out silent failures in  and , and an infinite spinner in . Demanded a full  and report. **Status**: . The agent addressed all points and provided the requested report.
+1.  **User**: Extend the profile completion bar with a 5th criterion (Première réservation). **Status**: .
+2.  **User**: Add a profile completion bar to the profile page. **Status**: .
+3.  **User**: continue. **Status**: .
+4.  **User**: Redesign the empty state of the public profile page. **Status**: .
+5.  **User**: Create a barrel file for components and harmonize button labels. **Status**: .
+6.  **User**: Refactor , ,  into shared components. **Status**: .
+7.  **User**: Fix the offline display bug on the notifications screen. **Status**: .
+8.  **User**: Adjust the UI on the saved screen (spacing and icon position). **Status**: .
+9.  **User**: Refactor a component into the shared . **Status**: .
+10. **User**: Initial request to see the plan of action. **Status**: .
 
 **Project Health Check:**
 -   **Broken**:
-    -   Expo hot-reload environment remains unstable.
-    -   The older e2e test suite  is still failing.
+    -   The Expo hot-reload environment remains unstable and may require manual restarts (frontend: ERROR (no such process)
+frontend: ERROR (no such process)).
+    -   An old e2e test suite, , is still failing.
 -   **Mocked**:
     -   None.
 
@@ -145,10 +169,10 @@ frontend: ERROR (no such process).
 -   
 
 **Testing status**
--   **Testing agent used after significant changes**: YES. Multiple runs were executed successfully after each major fix.
+-   **Testing agent used after significant changes**: YES. The agent was used successfully to validate the major refactoring and button harmonization tasks.
 -   **Troubleshoot agent used after agent stuck in loop**: NO.
--   **Test files created**: Yes, the testing agent created/updated e2e test files, including .
--   **Known regressions**: The  failure persists from a previous session, likely due to environment instability.
+-   **Test files created**: None. Existing tests were run by the testing agent.
+-   **Known regressions**: The failure of  persists from a previous session.
 
 **Credentials to test flow:**
 -   **Admin**:  / 
@@ -156,4 +180,5 @@ frontend: ERROR (no such process).
 -   **User**:  / 
 
 **What agent forgot to execute**
--   The agent did not address the long-standing, lower-priority issues from the backlog: Expo instability, verifying the Update SpotYou flow, and fixing the old failing e2e tests. It also has not yet started on the planned refactoring or i18n tasks, correctly prioritizing the user's more urgent bug reports.</analysis>
+-   The agent correctly prioritized the user's active feature requests over the long-standing backlog issues (Expo instability, Update SpotYou flow verification, failing e2e tests).
+-   The agent has not yet started the upcoming i18n task.</analysis>

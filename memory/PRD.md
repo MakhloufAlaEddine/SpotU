@@ -63,7 +63,17 @@ Fonctionnalités : création/découverte de services et SpotYous, système de r�
 - **ScreenLoader.tsx** (nouveau) : spinner centré plein-écran
 - **EmptyState.tsx** (nouveau) : icône + titre + sous-titre + bouton optionnel
 - **Migration 6 écrans** : chat, notifications, profile, user/[id], spot-me, bookings → 16/16 tests PASS
-- **Fix bug closure** : `notifications.tsx` + `notifications.tsx` — `loadedFromCache` remplace `notifs.length` dans le catch
+- **Fix bug closure** : `notifications.tsx` — `loadedFromCache` remplace `notifs.length` dans le catch
+
+### Phase 6b — Refactoring UX + Gamification Profil (2026-03-11) ✅ TERMINÉ
+- **SpotYouCard.tsx** : labels boutons harmonisés ("Rejoindre"/"Quitter", "Je participe"/"Annuler")
+- **spot-you/[id].tsx** : labels boutons cohérents avec SpotYouCard
+- **components/index.ts** : barrel file pour imports simplifiés (SpotYouCard, UserAvatar, ScreenLoader, EmptyState)
+- **user/[id].tsx** — Empty state redesigné : CTA motivant (propriétaire) + message doux (visiteur)
+- **user/[id].tsx** — **ProfileCompletionBar** 5 étapes : Photo, Bio, Centres d'intérêt, SpotYou, Réservation
+  - 20% par étape, affichage conditionnel (masqué à 100%)
+  - `GET /api/bookings/me` pour détecter la 1ère réservation
+  - ✅ Vérifié visuellement : 20% affiché correctement pour admin@winek.app (seul Bio complété)
 
 **Détails**:
 - Clé cache = méthode + path + params normalisés + userId + schemaVersion

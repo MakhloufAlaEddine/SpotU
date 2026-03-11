@@ -18,7 +18,7 @@ import uuid
 import json
 
 # URL de l'API
-API_BASE = "https://connection-shield-1.preview.emergentagent.com/api"
+API_BASE = "https://shared-components.preview.emergentagent.com/api"
 
 # Credentials
 COACH_EMAIL = "coach@winek.app"

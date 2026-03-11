@@ -137,7 +137,7 @@ def api_url():
     """URL de l'API backend (depuis env ou valeur par défaut)."""
     return os.environ.get(
         "BACKEND_URL",
-        "https://connection-shield-1.preview.emergentagent.com/api",
+        "https://shared-components.preview.emergentagent.com/api",
     )
 
 
