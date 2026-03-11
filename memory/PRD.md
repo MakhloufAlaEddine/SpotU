@@ -54,11 +54,16 @@ Fonctionnalités : création/découverte de services et SpotYous, système de r�
 - **chat/[id].tsx** : `currentUserId` depuis `storage.get('spotu_user')` (offline-safe), `convInfo` depuis `storage.get('spotu_conv_${id}')` en premier, `ErrorNoData` conditionnel quand `historyState==='error' && messages.length===0`
 - **21/21 tests PASS** — `/app/frontend/e2e/test_17_chat_cache_errornodata.py`
 
-### Phase 6 — Composant partagé SpotYouCard + Écran Enregistrés (2026-03-11)
+### Phase 6 — Composant partagé SpotYouCard + Écran Enregistrés (2026-03-11) + Shared Components (2026-03-11)
 - **SpotYouCard.tsx** : props `testID?` + `headerAction?` ajoutés
-- **spot-me.tsx** : `SpotCard` local supprimé → `SpotYouCard` partagé utilisé (testID `my-tp-*` préservé), ~170 lignes dupliquées supprimées
-- **saved.tsx** : onglet SpotYou remplace `SavedCard` basique → `SpotYouCard` complet avec `toggleGoing`, modal de confirmation, guard offline ; bookmark unsave en overlay
+- **spot-me.tsx** : `SpotCard` local supprimé → `SpotYouCard` partagé utilisé (testID `my-tp-*` préservé)
+- **saved.tsx** : onglet SpotYou → `SpotYouCard` complet (going, participants) + overlay unsave + offline guard
 - **Backend `/tag-points/saved`** : enrichi avec `going_count`, `is_going`, `next_session_date`, `participants_count`, `rating`, `vote_count`
+- **UserAvatar.tsx** (nouveau) : avatar circulaire partagé, taille configurable, fallback initiale
+- **ScreenLoader.tsx** (nouveau) : spinner centré plein-écran
+- **EmptyState.tsx** (nouveau) : icône + titre + sous-titre + bouton optionnel
+- **Migration 6 écrans** : chat, notifications, profile, user/[id], spot-me, bookings → 16/16 tests PASS
+- **Fix bug closure** : `notifications.tsx` + `notifications.tsx` — `loadedFromCache` remplace `notifs.length` dans le catch
 
 **Détails**:
 - Clé cache = méthode + path + params normalisés + userId + schemaVersion
