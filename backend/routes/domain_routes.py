@@ -107,3 +107,177 @@ async def create_tag(data: TagCreate, request: Request):
         )
         row = await conn.fetchrow("SELECT * FROM tags WHERE tag_id = $1", tid)
     return row_to_dict(row)
+
+
+# ── Mise à jour & suppression Domaines ────────────────────────────────────────
+
+@router.put("/domains/{domain_id}")
+async def update_domain(domain_id: str, request: Request):
+    pool = get_pool()
+    await require_role(request, pool, "admin")
+    body = await request.json()
+    allowed = {"name", "label_fr", "label_en", "icon", "color", "active"}
+    fields = {k: v for k, v in body.items() if k in allowed}
+    if not fields:
+        raise HTTPException(400, "Aucun champ valide à mettre à jour")
+    set_clause = ", ".join(f"{k} = ${i+2}" for i, k in enumerate(fields))
+    async with pool.acquire() as conn:
+        result = await conn.execute(
+            f"UPDATE domains SET {set_clause} WHERE domain_id = $1",
+            domain_id, *fields.values()
+        )
+    if result == "UPDATE 0":
+        raise HTTPException(404, "Domaine introuvable")
+    return {"success": True}
+
+
+@router.get("/domains/{domain_id}/usage")
+async def get_domain_usage(domain_id: str, request: Request):
+    pool = get_pool()
+    await require_role(request, pool, "admin")
+    async with pool.acquire() as conn:
+        tagpoint_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM tag_points WHERE domain_id = $1", domain_id
+        )
+        user_count = await conn.fetchval(
+            """SELECT COUNT(DISTINCT su.user_id)
+               FROM (
+                 SELECT user_id, coach_tags FROM users
+                 WHERE coach_tags IS NOT NULL AND jsonb_typeof(coach_tags) = 'array'
+               ) su
+               CROSS JOIN LATERAL jsonb_array_elements_text(su.coach_tags) AS tid
+               JOIN tags t ON t.tag_id = tid
+               WHERE t.domain_id = $1""",
+            domain_id
+        )
+    return {"tagpoint_count": int(tagpoint_count), "user_count": int(user_count)}
+
+
+@router.delete("/domains/{domain_id}")
+async def delete_domain(domain_id: str, request: Request, mode: str = Query("deactivate")):
+    pool = get_pool()
+    await require_role(request, pool, "admin")
+    async with pool.acquire() as conn:
+        if mode == "cascade":
+            await conn.execute("DELETE FROM domains WHERE domain_id = $1", domain_id)
+        else:
+            result = await conn.execute(
+                "UPDATE domains SET active = FALSE WHERE domain_id = $1", domain_id
+            )
+            if result == "UPDATE 0":
+                raise HTTPException(404, "Domaine introuvable")
+    return {"success": True}
+
+
+# ── Mise à jour & suppression Catégories ──────────────────────────────────────
+
+@router.put("/tags/categories/{category_id}")
+async def update_category(category_id: str, request: Request):
+    pool = get_pool()
+    await require_role(request, pool, "admin")
+    body = await request.json()
+    allowed = {"name", "label_fr", "label_en", "icon", "active", "domain_id"}
+    fields = {k: v for k, v in body.items() if k in allowed}
+    if not fields:
+        raise HTTPException(400, "Aucun champ valide à mettre à jour")
+    set_clause = ", ".join(f"{k} = ${i+2}" for i, k in enumerate(fields))
+    async with pool.acquire() as conn:
+        result = await conn.execute(
+            f"UPDATE tag_categories SET {set_clause} WHERE category_id = $1",
+            category_id, *fields.values()
+        )
+    if result == "UPDATE 0":
+        raise HTTPException(404, "Catégorie introuvable")
+    return {"success": True}
+
+
+@router.get("/tags/categories/{category_id}/usage")
+async def get_category_usage(category_id: str, request: Request):
+    pool = get_pool()
+    await require_role(request, pool, "admin")
+    async with pool.acquire() as conn:
+        tag_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM tags WHERE category_id = $1", category_id
+        )
+        tagpoint_count = await conn.fetchval(
+            """SELECT COUNT(DISTINCT safe_tp.point_id)
+               FROM (
+                 SELECT point_id, tag_ids FROM tag_points
+                 WHERE tag_ids IS NOT NULL AND jsonb_typeof(tag_ids) = 'array'
+               ) safe_tp
+               JOIN (
+                 SELECT t.tag_id FROM tags t WHERE t.category_id = $1
+               ) cat_tags ON safe_tp.tag_ids @> jsonb_build_array(cat_tags.tag_id::text)""",
+            category_id
+        )
+    return {"tag_count": int(tag_count), "tagpoint_count": int(tagpoint_count)}
+
+
+@router.delete("/tags/categories/{category_id}")
+async def delete_category(category_id: str, request: Request, mode: str = Query("deactivate")):
+    pool = get_pool()
+    await require_role(request, pool, "admin")
+    async with pool.acquire() as conn:
+        if mode == "cascade":
+            await conn.execute("DELETE FROM tag_categories WHERE category_id = $1", category_id)
+        else:
+            result = await conn.execute(
+                "UPDATE tag_categories SET active = FALSE WHERE category_id = $1", category_id
+            )
+            if result == "UPDATE 0":
+                raise HTTPException(404, "Catégorie introuvable")
+    return {"success": True}
+
+
+# ── Mise à jour & suppression Tags ────────────────────────────────────────────
+
+@router.put("/tags/{tag_id}")
+async def update_tag(tag_id: str, request: Request):
+    pool = get_pool()
+    await require_role(request, pool, "admin")
+    body = await request.json()
+    allowed = {"name", "label_fr", "label_en", "icon", "active", "category_id", "domain_id"}
+    fields = {k: v for k, v in body.items() if k in allowed}
+    if not fields:
+        raise HTTPException(400, "Aucun champ valide à mettre à jour")
+    set_clause = ", ".join(f"{k} = ${i+2}" for i, k in enumerate(fields))
+    async with pool.acquire() as conn:
+        result = await conn.execute(
+            f"UPDATE tags SET {set_clause} WHERE tag_id = $1",
+            tag_id, *fields.values()
+        )
+    if result == "UPDATE 0":
+        raise HTTPException(404, "Tag introuvable")
+    return {"success": True}
+
+
+@router.get("/tags/{tag_id}/usage")
+async def get_tag_usage(tag_id: str, request: Request):
+    pool = get_pool()
+    await require_role(request, pool, "admin")
+    async with pool.acquire() as conn:
+        tagpoint_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM tag_points WHERE tag_ids @> jsonb_build_array($1::text)",
+            tag_id
+        )
+        user_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM users WHERE coach_tags @> jsonb_build_array($1::text)",
+            tag_id
+        )
+    return {"tagpoint_count": int(tagpoint_count), "user_count": int(user_count)}
+
+
+@router.delete("/tags/{tag_id}")
+async def delete_tag(tag_id: str, request: Request, mode: str = Query("deactivate")):
+    pool = get_pool()
+    await require_role(request, pool, "admin")
+    async with pool.acquire() as conn:
+        if mode == "cascade":
+            await conn.execute("DELETE FROM tags WHERE tag_id = $1", tag_id)
+        else:
+            result = await conn.execute(
+                "UPDATE tags SET active = FALSE WHERE tag_id = $1", tag_id
+            )
+            if result == "UPDATE 0":
+                raise HTTPException(404, "Tag introuvable")
+    return {"success": True}

@@ -1,0 +1,78 @@
+{
+  "summary": "Testing complet des fonctionnalités Tags & Domaines (itération 78). Backend: 35 tests PASS 100%. Frontend: Toutes les fonctionnalités testées et opérationnelles. Onglet Tags admin fonctionnel avec sous-onglets, CRUD complet, modal de suppression avec avertissement d'usage.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Tags > Stats",
+        "issues": [
+          "Utilisations tags (in SpotYou) shows 0 because tag_ids are not set in tag_points table (tag_points use domain_id directly). The SpotYou/domain counts are correct (via domain_id), but tag-level granularity stats will be 0 until tag_ids are populated on tag_points records. This is a data/design concern, not a bug in the display."
+        ]
+      },
+      {
+        "screen": "Tags > Stats > Top Domains",
+        "issues": [
+          "Test domains (dom_879eaa986dd9, dom_9695b7bccbc3) were showing in stats panel during tests - now cleaned up. The all-domains endpoint returns ALL including inactive ones which appear in stats."
+        ]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_tags_domains_iter78.py",
+    "/app/test_reports/pytest/iter78_tags_domains.xml"
+  ],
+  "action_items": [
+    "Consider cleaning up stale deactivated test domains from previous iterations if they accumulate in production",
+    "The 'Utilisations tags dans les SpotYou' total in stats shows 0 because tag_ids JSONB column in tag_points is currently empty (SpotYou are linked to domains via domain_id, not via tag_ids). This is expected with current data but the counter may be misleading."
+  ],
+  "critical_code_review_comments": [
+    "domain_routes.py: The DELETE /api/tags/{id}?mode=deactivate route returns success:true even for non-existent tags in cascade mode (silently deletes 0 rows) - only deactivate mode returns 404. This inconsistency is minor but could mask errors.",
+    "admin_routes.py L286-292: There are TWO /domains endpoints - one in admin_routes.py (GET /api/admin/domains) and one in domain_routes.py (GET /api/domains). The admin one returns ALL domains (including inactive) without pagination, which could be a performance issue with large datasets.",
+    "domain_routes.py: No validation that category's domain_id matches tag's domain_id when creating tags. A tag could be created with mismatched domain/category.",
+    "Overall file size: admin/index.tsx is 1518 lines - exceeds 700 line recommended limit. Should be split into separate component files."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_tags_domains_iter78.py"
+  ],
+  "success_rate": {
+    "backend": "100% (35/35 tests pass)",
+    "frontend": "100% - all features tested and working"
+  },
+  "test_credentials": {
+    "admin": "admin@winek.app / WinekAdmin2024!",
+    "coach": "coach@winek.app / WinekCoach2024!"
+  },
+  "seed_data_creation": "Test domains created and deleted during testing (test_ui_domain, test_domain cleanup done via API)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All Tags & Domains management features are working. Backend: 35 new tests in test_tags_domains_iter78.py. Frontend: Admin Tags tab fully functional with 4 sub-tabs (Domaines, Catégories, Tags, Stats). CRUD + usage warning modals all work correctly. Test data cleaned up. Main concern: tag_ids in tag_points table appears empty (stats show 0 tag usages) while domain_id-based SpotYou counts are correct (12 sport, 3 coaching).",
+  "features_verified": {
+    "admin_login": "PASS - admin@winek.app/WinekAdmin2024!",
+    "tags_tab_in_nav": "PASS - visible as 6th tab in admin",
+    "subtabs_domaines_categories_tags_stats": "PASS - all 4 sub-tabs work",
+    "GET_admin_all-domains": "PASS - returns domains with active status",
+    "GET_admin_all-categories": "PASS - returns categories with domain_name",
+    "GET_admin_all-tags": "PASS - returns tags with domain_name, category_name",
+    "GET_admin_tags-analytics": "PASS - returns top_tags, top_domains, totals",
+    "GET_domains_id_usage": "PASS - returns tagpoint_count, user_count",
+    "GET_tags_categories_id_usage": "PASS - returns tag_count, tagpoint_count",
+    "GET_tags_id_usage": "PASS - returns tagpoint_count, user_count",
+    "POST_domains": "PASS - creates domain (admin only)",
+    "PUT_domains_id": "PASS - updates domain",
+    "DELETE_domains_id_deactivate": "PASS - soft delete",
+    "DELETE_domains_id_cascade": "PASS - hard delete",
+    "POST_tags": "PASS - creates tag",
+    "PUT_tags_id": "PASS - updates tag",
+    "DELETE_tags_id_cascade": "PASS - hard delete",
+    "POST_tags_categories": "PASS - creates category",
+    "PUT_tags_categories_id": "PASS - updates category",
+    "DELETE_tags_categories_id_deactivate": "PASS - soft delete",
+    "delete_modal_with_usage_warning": "PASS - shows usage count (SpotYou + profils), offers Désactiver/Cascade options",
+    "visual_stat_bars": "PASS - progress bars rendering correctly"
+  }
+}

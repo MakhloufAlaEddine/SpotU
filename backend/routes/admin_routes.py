@@ -292,6 +292,135 @@ async def admin_domains(request: Request):
     return rows_to_list(rows)
 
 
+@router.get("/tags-analytics")
+async def get_tags_analytics(request: Request):
+    """Statistiques d'utilisation des tags et domaines."""
+    pool = get_pool()
+    await require_role(request, pool, "admin")
+    async with pool.acquire() as conn:
+        # Top tags : utilisés dans tag_points ET profils utilisateurs
+        top_tags_rows = await conn.fetch(
+            """WITH safe_tp AS (
+                 SELECT tag_ids FROM tag_points
+                 WHERE tag_ids IS NOT NULL AND jsonb_typeof(tag_ids) = 'array'
+               ),
+               safe_users AS (
+                 SELECT coach_tags FROM users
+                 WHERE coach_tags IS NOT NULL AND jsonb_typeof(coach_tags) = 'array'
+               ),
+               tp_usage AS (
+                 SELECT tid AS tag_id, COUNT(*) AS tp_count
+                 FROM safe_tp, jsonb_array_elements_text(tag_ids) AS tid
+                 GROUP BY tid
+               ),
+               user_usage AS (
+                 SELECT tid AS tag_id, COUNT(*) AS u_count
+                 FROM safe_users, jsonb_array_elements_text(coach_tags) AS tid
+                 GROUP BY tid
+               )
+               SELECT t.tag_id, t.name, t.label_fr, t.label_en, t.icon,
+                      d.name AS domain_name, d.color AS domain_color,
+                      COALESCE(tp.tp_count, 0) AS tagpoint_count,
+                      COALESCE(uu.u_count, 0) AS user_count,
+                      COALESCE(tp.tp_count, 0) + COALESCE(uu.u_count, 0) AS total_usage
+               FROM tags t
+               LEFT JOIN tp_usage tp ON tp.tag_id = t.tag_id
+               LEFT JOIN user_usage uu ON uu.tag_id = t.tag_id
+               LEFT JOIN domains d ON d.domain_id = t.domain_id
+               ORDER BY total_usage DESC
+               LIMIT 20"""
+        )
+
+        # Top domaines : SpotYou + utilisateurs (via leurs tags)
+        top_domains_rows = await conn.fetch(
+            """WITH safe_users AS (
+                 SELECT user_id, coach_tags FROM users
+                 WHERE coach_tags IS NOT NULL AND jsonb_typeof(coach_tags) = 'array'
+               ),
+               tp_dom AS (
+                 SELECT domain_id, COUNT(*) AS tp_count
+                 FROM tag_points WHERE domain_id IS NOT NULL
+                 GROUP BY domain_id
+               ),
+               user_dom AS (
+                 SELECT t.domain_id, COUNT(DISTINCT su.user_id) AS u_count
+                 FROM safe_users su
+                 CROSS JOIN LATERAL jsonb_array_elements_text(su.coach_tags) AS tid
+                 JOIN tags t ON t.tag_id = tid
+                 WHERE t.domain_id IS NOT NULL
+                 GROUP BY t.domain_id
+               )
+               SELECT d.domain_id, d.name, d.label_fr, d.label_en, d.color, d.icon,
+                      COALESCE(td.tp_count, 0) AS tagpoint_count,
+                      COALESCE(ud.u_count, 0) AS user_count,
+                      COALESCE(td.tp_count, 0) + COALESCE(ud.u_count, 0) AS total_usage
+               FROM domains d
+               LEFT JOIN tp_dom td ON td.domain_id = d.domain_id
+               LEFT JOIN user_dom ud ON ud.domain_id = d.domain_id
+               ORDER BY total_usage DESC"""
+        )
+
+        # Totaux globaux
+        total_tags = await conn.fetchval("SELECT COUNT(*) FROM tags WHERE active = TRUE")
+        total_domains = await conn.fetchval("SELECT COUNT(*) FROM domains WHERE active = TRUE")
+        total_categories = await conn.fetchval("SELECT COUNT(*) FROM tag_categories WHERE active = TRUE")
+        total_tag_usages = await conn.fetchval(
+            "SELECT COALESCE(SUM(jsonb_array_length(tag_ids)), 0) FROM tag_points WHERE tag_ids IS NOT NULL AND jsonb_typeof(tag_ids) = 'array'"
+        )
+
+    return {
+        "top_tags": rows_to_list(top_tags_rows),
+        "top_domains": rows_to_list(top_domains_rows),
+        "totals": {
+            "tags": int(total_tags),
+            "domains": int(total_domains),
+            "categories": int(total_categories),
+            "tag_usages": int(total_tag_usages),
+        }
+    }
+
+
+# ── Listes complètes pour l'admin (avec éléments inactifs) ────────────────────
+
+@router.get("/all-domains")
+async def admin_all_domains(request: Request):
+    pool = get_pool()
+    await require_role(request, pool, "admin")
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT * FROM domains ORDER BY active DESC, name")
+    return rows_to_list(rows)
+
+
+@router.get("/all-categories")
+async def admin_all_categories(request: Request):
+    pool = get_pool()
+    await require_role(request, pool, "admin")
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT tc.*, d.name AS domain_name, d.color AS domain_color
+               FROM tag_categories tc
+               LEFT JOIN domains d ON d.domain_id = tc.domain_id
+               ORDER BY tc.active DESC, tc.name"""
+        )
+    return rows_to_list(rows)
+
+
+@router.get("/all-tags")
+async def admin_all_tags(request: Request):
+    pool = get_pool()
+    await require_role(request, pool, "admin")
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT t.*, d.name AS domain_name, d.color AS domain_color,
+                      c.name AS category_name
+               FROM tags t
+               LEFT JOIN domains d ON d.domain_id = t.domain_id
+               LEFT JOIN tag_categories c ON c.category_id = t.category_id
+               ORDER BY t.active DESC, t.name"""
+        )
+    return rows_to_list(rows)
+
+
 # ── Configuration globale de l'application ─────────────────────────────────────
 
 async def _get_booking_flags(conn) -> dict:
