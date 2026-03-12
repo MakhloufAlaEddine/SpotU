@@ -65,6 +65,7 @@ export function FollowListModal({
   const [search, setSearch]           = useState('');
   const [roleFilter, setRoleFilter]   = useState<RoleFilter>('all');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const loadVersionRef = useRef(0); // anti-stale-response guard
 
   // ── Suggestions state ─────────────────────────────────────────────────────────
   const [suggestions, setSuggestions]       = useState<SuggestionUser[]>([]);
@@ -73,8 +74,6 @@ export function FollowListModal({
   const [hasMoreSuggestions, setHasMoreSuggestions] = useState(true);
   const [hasInterests, setHasInterests]     = useState<boolean | null>(null);
   const [isPopularFallback, setIsPopularFallback] = useState(false);
-  const suggestFollowing = useRef<Set<string>>(new Set()); // tracks who user just followed
-
   const LIMIT = 10;
 
   // ── Reset on open / tab change ────────────────────────────────────────────────
@@ -96,15 +95,20 @@ export function FollowListModal({
 
   // ── Load followers / following ────────────────────────────────────────────────
   const loadUsers = useCallback(async () => {
+    const version = ++loadVersionRef.current; // incrément avant l'appel async
     setLoading(true);
     try {
       const path = activeTab === 'followers'
         ? `/users/${profileId}/followers`
         : `/users/${profileId}/following`;
       const data = await api.get<FollowUser[]>(path);
+      // Ignorer la réponse si une version plus récente a déjà été lancée
+      if (version !== loadVersionRef.current) return;
       setUsers(Array.isArray(data) ? data : []);
     } catch {}
-    finally { setLoading(false); }
+    finally {
+      if (version === loadVersionRef.current) setLoading(false);
+    }
   }, [activeTab, profileId]);
 
   // ── Load suggestions (paginated) ──────────────────────────────────────────────
@@ -135,7 +139,6 @@ export function FollowListModal({
     setSuggestions([]);
     setSuggestSkip(0);
     setHasMoreSuggestions(true);
-    suggestFollowing.current = new Set();
     loadSuggestions(0, true);
   }, [loadSuggestions]);
 
@@ -179,9 +182,8 @@ export function FollowListModal({
     setActionLoading(u.user_id);
     try {
       await api.post(`/users/${u.user_id}/follow`, {});
-      suggestFollowing.current.add(u.user_id);
-      // Retirer de la liste: déjà suivi → plus une suggestion
       setSuggestions(prev => prev.filter(x => x.user_id !== u.user_id));
+      onFollowingCountChange?.(+1); // mettre à jour le compteur sur la page profil
     } catch (e: any) {
       Alert.alert('Erreur', e.message || 'Action impossible');
     } finally { setActionLoading(null); }
