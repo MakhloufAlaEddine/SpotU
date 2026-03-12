@@ -730,35 +730,40 @@ function TagsTab() {
   if (loading) return <View style={s.center}><ActivityIndicator color={Colors.primary} /></View>;
 
   return (
-    <View style={{ flex: 1 }}>
-      {/* Sub-nav */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={td.subNav}>
-        {SUB_TABS.map(st => (
-          <TouchableOpacity key={st.key} style={[td.subTabItem, subTab === st.key && td.subTabActive]}
-            onPress={() => setSubTab(st.key)} testID={`subtab-${st.key}`}>
-            <Ionicons name={st.icon as any} size={14} color={subTab === st.key ? Colors.primary : Colors.muted} />
-            <Text style={[td.subTabLabel, subTab === st.key && td.subTabLabelActive]}>{st.label}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+    <View style={{ flex: 1, backgroundColor: Colors.background }}>
+      {/* Sub-nav : View wrapper avec hauteur fixe pour éviter l'expansion verticale sur iOS */}
+      <View style={td.subNavWrapper}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={td.subNavContent}>
+          {SUB_TABS.map(st => (
+            <TouchableOpacity key={st.key} style={[td.subTabItem, subTab === st.key && td.subTabActive]}
+              onPress={() => setSubTab(st.key)} testID={`subtab-${st.key}`}>
+              <Ionicons name={st.icon as any} size={14} color={subTab === st.key ? Colors.primary : Colors.muted} />
+              <Text style={[td.subTabLabel, subTab === st.key && td.subTabLabelActive]}>{st.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
 
-      {subTab === 'domaines' && (
-        <DomainesPanel domains={domains} onRefresh={() => load(true)} refreshing={refreshing}
-          onEdit={d => setDomainForm(d)} onDelete={d => handleDelete('domain', d)}
-          onAdd={() => setDomainForm({})} />
-      )}
-      {subTab === 'categories' && (
-        <CategoriesPanel categories={categories} domains={domains} onRefresh={() => load(true)}
-          refreshing={refreshing} onEdit={c => setCatForm(c)}
-          onDelete={c => handleDelete('category', c)} onAdd={() => setCatForm({})} />
-      )}
-      {subTab === 'tags' && (
-        <TagsPanel tags={tags} domains={domains} categories={categories}
-          onRefresh={() => load(true)} refreshing={refreshing}
-          onEdit={t => setTagForm(t)} onDelete={t => handleDelete('tag', t)}
-          onAdd={() => setTagForm({})} />
-      )}
-      {subTab === 'stats' && <StatsAnalyticsPanel analytics={analytics} />}
+      {/* Panels : flex:1 garantit qu'ils commencent juste après le sub-nav */}
+      <View style={{ flex: 1 }}>
+        {subTab === 'domaines' && (
+          <DomainesPanel domains={domains} onRefresh={() => load(true)} refreshing={refreshing}
+            onEdit={d => setDomainForm(d)} onDelete={d => handleDelete('domain', d)}
+            onAdd={() => setDomainForm({})} />
+        )}
+        {subTab === 'categories' && (
+          <CategoriesPanel categories={categories} domains={domains} onRefresh={() => load(true)}
+            refreshing={refreshing} onEdit={c => setCatForm(c)}
+            onDelete={c => handleDelete('category', c)} onAdd={() => setCatForm({})} />
+        )}
+        {subTab === 'tags' && (
+          <TagsPanel tags={tags} domains={domains} categories={categories}
+            onRefresh={() => load(true)} refreshing={refreshing}
+            onEdit={t => setTagForm(t)} onDelete={t => handleDelete('tag', t)}
+            onAdd={() => setTagForm({})} />
+        )}
+        {subTab === 'stats' && <StatsAnalyticsPanel analytics={analytics} />}
+      </View>
 
       {/* Modal formulaire domaine */}
       <Modal visible={domainForm !== null} animationType="slide" presentationStyle="formSheet"
@@ -890,7 +895,7 @@ function DomainesPanel({ domains, onRefresh, refreshing, onEdit, onDelete, onAdd
   onEdit: (d: Domain) => void; onDelete: (d: Domain) => void; onAdd: () => void;
 }) {
   return (
-    <ScrollView contentContainerStyle={s.tabContent}
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={s.tabContent}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}>
       <SectionHeader title={`Domaines (${domains.length})`} onAdd={onAdd} />
       {domains.length === 0 && (
@@ -929,7 +934,7 @@ function CategoriesPanel({ categories, domains, onRefresh, refreshing, onEdit, o
   onEdit: (c: TagCategory) => void; onDelete: (c: TagCategory) => void; onAdd: () => void;
 }) {
   return (
-    <ScrollView contentContainerStyle={s.tabContent}
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={s.tabContent}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}>
       <SectionHeader title={`Catégories (${categories.length})`} onAdd={onAdd} />
       {categories.length === 0 && (
@@ -974,7 +979,7 @@ function TagsPanel({ tags, domains, categories, onRefresh, refreshing, onEdit, o
     : tags;
 
   return (
-    <ScrollView contentContainerStyle={s.tabContent}
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={s.tabContent}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}>
       <SectionHeader title={`Tags (${tags.length})`} onAdd={onAdd} />
       <View style={td.searchRow}>
@@ -1022,7 +1027,7 @@ function StatsAnalyticsPanel({ analytics }: { analytics: TagAnalytics | null }) 
   const maxDomUsage = Math.max(...analytics.top_domains.map(d => d.total_usage), 1);
 
   return (
-    <ScrollView contentContainerStyle={s.tabContent}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={s.tabContent}>
       {/* Totaux */}
       <Text style={s.tabSectionTitle}>Vue d'ensemble</Text>
       <View style={s.statsGrid}>
@@ -1475,6 +1480,8 @@ const mf = StyleSheet.create({
 
 // ── Styles Tags Dashboard ─────────────────────────────────────────────────────
 const td = StyleSheet.create({
+  subNavWrapper:  { height: 44, backgroundColor: Colors.header, borderBottomWidth: 1, borderBottomColor: Colors.border, justifyContent: 'center' },
+  subNavContent:  { alignItems: 'center', paddingHorizontal: 2 },
   subNav:         { height: 44, borderBottomWidth: 1, borderBottomColor: Colors.border, backgroundColor: Colors.header },
   subTabItem:     { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, paddingVertical: 9 },
   subTabActive:   { borderBottomWidth: 2, borderBottomColor: Colors.primary },
