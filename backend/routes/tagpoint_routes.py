@@ -384,14 +384,18 @@ async def get_tag_point(point_id: str, request: Request):
         )
         pt["rating_distribution"] = {str(r["rating"]): r["cnt"] for r in dist}
 
-        # Participants — utiliser spot_you_participants (nouvelle table) ET tag_point_participants (legacy)
-        syp_count = await conn.fetchval(
-            "SELECT COUNT(*) FROM spot_you_participants WHERE spot_you_id=$1", point_id
+        # Participants — compter tous les membres distincts, propriétaire inclus
+        member_count = await conn.fetchval(
+            """SELECT COUNT(DISTINCT u) FROM (
+                SELECT user_id AS u FROM spot_you_participants WHERE spot_you_id=$1
+                UNION
+                SELECT user_id AS u FROM tag_point_participants WHERE point_id=$1
+                UNION
+                SELECT user_id AS u FROM tag_points WHERE point_id=$1
+            ) AS all_members""",
+            point_id,
         ) or 0
-        legacy_count = await conn.fetchval(
-            "SELECT COUNT(*) FROM tag_point_participants WHERE point_id=$1", point_id
-        ) or 0
-        pt["participants_count"] = int(max(syp_count, legacy_count))
+        pt["participants_count"] = int(member_count)
 
         # Prochaine séance
         from routes.spot_you_routes import get_next_session_date as _get_next
