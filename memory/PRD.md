@@ -511,6 +511,31 @@ alors que le frontend (qui utilise l'heure locale) la considérait comme termin�
 - `frontend/app/chat/[id].tsx`: Bannière de blocage si is_blocked=true
 - `frontend/lib/chat.ts`: Interface Conversation + is_blocked?: boolean
 
+## Feature Followers/Following Instagram-style — COMPLÈTE (2026-03-12)
+
+### Objectif
+Modals de gestion des abonnés/abonnements sur la page profil, style Instagram.
+
+### Backend (user_routes.py)
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/users/{id}/followers` | Liste des abonnés, triée alphabétiquement. Retourne `is_following_back`, `is_blocked` |
+| `GET /api/users/{id}/following` | Liste des abonnements. Retourne `follows_back`, `is_blocked` |
+| `DELETE /api/users/{id}/followers/{follower_id}` | Retirer un abonné (propriétaire uniquement) |
+| `POST /api/users/{id}/block` | Bloquer (supprime les follows dans les deux sens) |
+| `DELETE /api/users/{id}/block` | Débloquer |
+
+### Frontend
+- `frontend/components/FollowListModal.tsx` : modal complète avec recherche, filtre par rôle, bouton Suivre/Abonné (tous utilisateurs connectés), menu 3 points (propriétaire: retirer abonné, bloquer), badge Mutuel
+- `frontend/app/user/[id].tsx` : stats `abonnés` et `abonnements` rendues cliquables (`TouchableOpacity`, testID `followers-count-btn` / `following-count-btn`)
+
+### DB
+- `user_blocks(blocker_id, blocked_id)` — migration Alembic ajoutée
+
+### Tests
+- 14/14 tests backend PASSÉS (`tests/test_follow_feature_iter76.py`)
+- 12/12 vérifications frontend PASSÉES
+
 ## Notes Techniques - Proxy Emergent Stripe
 Le proxy Emergent (`sk_test_emergent` → `https://integrations.emergentagent.com/stripe`) est utilisé pour les tests. Comportement connu :
 - `session.payment_intent = None` (le proxy ne retourne pas l'ID du PI)
