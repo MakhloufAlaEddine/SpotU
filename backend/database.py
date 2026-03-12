@@ -795,6 +795,21 @@ async def connect_to_db():
             DROP TABLE IF EXISTS tag_point_participants CASCADE;
         """)
 
+        # Migration: Corriger les tag_ids et coach_tags stockés comme JSONB strings au lieu d'arrays
+        await conn.execute("""
+            UPDATE tag_points
+            SET tag_ids = (tag_ids #>> '{}')::jsonb
+            WHERE tag_ids IS NOT NULL
+              AND jsonb_typeof(tag_ids) = 'string'
+              AND left(trim(tag_ids #>> '{}'), 1) = '[';
+
+            UPDATE users
+            SET coach_tags = (coach_tags #>> '{}')::jsonb
+            WHERE coach_tags IS NOT NULL
+              AND jsonb_typeof(coach_tags) = 'string'
+              AND left(trim(coach_tags #>> '{}'), 1) = '[';
+        """)
+
 
 async def close_db():
     global pool
