@@ -250,18 +250,13 @@ async def seed_initial_data():
                        VALUES ($1,$2,$3,$4,ST_SetSRID(ST_MakePoint($5,$6),4326),$7,$8::jsonb,$9,TRUE,$10) ON CONFLICT DO NOTHING""",
                     p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9]
                 )
+                # Le propriétaire est inséré une seule fois à la création du SpotYou
+                await conn.execute(
+                    """INSERT INTO spot_you_members (id, spot_you_id, user_id)
+                       VALUES ($1, $2, $3) ON CONFLICT (spot_you_id, user_id) DO NOTHING""",
+                    f"syp_owner_{p[0]}", p[0], p[1]
+                )
             logger.info("Seeded demo tag points")
-
-        # ── Toujours s'assurer que les propriétaires sont membres de leur SpotYou ──
-        await conn.execute("""
-            INSERT INTO spot_you_members (id, spot_you_id, user_id)
-            SELECT 'syp_owner_' || point_id, point_id, user_id
-            FROM tag_points
-            WHERE NOT EXISTS (
-                SELECT 1 FROM spot_you_members
-                WHERE spot_you_id = tag_points.point_id AND user_id = tag_points.user_id
-            )
-        """)
 
         # ── Always update: dates, schedules, images (relative to NOW) ──────────
         # Format nouveau: schedule = {type:'weekly', schedule:{dayIdx:[{start,end}]}}

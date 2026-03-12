@@ -608,6 +608,7 @@ async def connect_to_db():
             );
 
             CREATE INDEX IF NOT EXISTS idx_syu_members_spot ON spot_you_members(spot_you_id);
+            CREATE INDEX IF NOT EXISTS idx_syu_members_user ON spot_you_members(user_id);
             CREATE INDEX IF NOT EXISTS idx_syu_attendance_spot ON spot_you_attendance(spot_you_id);
             CREATE INDEX IF NOT EXISTS idx_syu_attendance_date ON spot_you_attendance(session_date);
         """)
