@@ -369,6 +369,7 @@ export default function SpotYouDetail() {
   const [isCancelled, setIsCancelled] = useState(false);
   const [isParticipant, setIsParticipant] = useState(false);
   const [isMember, setIsMember] = useState(false);
+  const [canParticipate, setCanParticipate] = useState(false);
   const [isGoing, setIsGoing] = useState(false);
   const [goingCount, setGoingCount] = useState(0);
   const [maxParticipants, setMaxParticipants] = useState<number | null>(null);
@@ -409,8 +410,9 @@ export default function SpotYouDetail() {
       setRatingDist(data.rating_distribution || {});
       setIsParticipant(data.is_participant || data.is_member || false);
       setIsMember(data.is_member || data.is_participant || false);
+      setCanParticipate(data.can_participate ?? false);
       setIsGoing(data.is_going || false);
-      setGoingCount(data.going_count || 0);
+      setGoingCount(data.going_count ?? 0);
       setMaxParticipants(data.maximum_participants ?? null);
       setIsFull(data.is_full || false);
       setParticipantsCount(data.participants_count || 0);
@@ -647,6 +649,7 @@ export default function SpotYouDetail() {
         : await api.post(`/spot-you/${id}/join`, {});
       setIsMember(res.is_member);
       setIsParticipant(res.is_member);
+      setCanParticipate(res.is_member);
       setParticipantsCount(res.participants_count || participantsCount);
       if (!res.is_member) setIsGoing(false);
       loadParticipants();
@@ -1071,49 +1074,51 @@ export default function SpotYouDetail() {
                       </Text>
                     </View>
                   ) : (
-                    <View style={st.eventActionBar}>
-                      <TouchableOpacity
-                        style={st.eventParticipantChip}
-                        onPress={() => setShowGoingList(true)}
-                        testID="event-participant-count"
-                      >
-                        <Ionicons name="people-outline" size={14} color={Colors.primary} />
-                        <Text style={st.eventParticipantChipText}>
-                          {goingCount} {goingCount > 1 ? 'participants' : 'participant'}
-                          {maxParticipants ? ` / ${maxParticipants}` : ''}
-                        </Text>
-                        <Ionicons name="chevron-forward" size={12} color={Colors.primary} />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[
-                          st.goingBtnInline,
-                          isGoing && st.goingBtnInlineActive,
-                          (isFull && !isGoing) && st.goingBtnInlineDisabled,
-                        ]}
-                        onPress={(isFull && !isGoing) ? undefined : toggleGoing}
-                        disabled={goingLoading || (isFull && !isGoing)}
-                        testID="going-button"
-                      >
-                        {goingLoading
-                          ? <ActivityIndicator color={isGoing ? Colors.primary : Colors.background} size="small" />
-                          : (isFull && !isGoing)
-                            ? <>
-                                <Ionicons name="flash" size={12} color="#F59E0B" />
-                                <Text style={[st.goingBtnInlineText, { color: '#F59E0B' }]}>Complet</Text>
-                              </>
-                            : <>
-                                <Ionicons
-                                  name={isGoing ? 'close-circle-outline' : 'add-circle-outline'}
-                                  size={13}
-                                  color={isGoing ? Colors.muted : Colors.background}
-                                />
-                                <Text style={[st.goingBtnInlineText, isGoing && st.goingBtnInlineCancelText]}>
-                                  {isGoing ? 'Annuler' : 'Je participe'}
-                                </Text>
-                              </>
-                        }
-                      </TouchableOpacity>
-                    </View>
+                    canParticipate ? (
+                      <View style={st.eventActionBar}>
+                        <TouchableOpacity
+                          style={st.eventParticipantChip}
+                          onPress={() => setShowGoingList(true)}
+                          testID="event-participant-count"
+                        >
+                          <Ionicons name="people-outline" size={14} color={Colors.primary} />
+                          <Text style={st.eventParticipantChipText}>
+                            {goingCount} {goingCount > 1 ? 'participants' : 'participant'}
+                            {maxParticipants ? ` / ${maxParticipants}` : ''}
+                          </Text>
+                          <Ionicons name="chevron-forward" size={12} color={Colors.primary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[
+                            st.goingBtnInline,
+                            isGoing && st.goingBtnInlineActive,
+                            (isFull && !isGoing) && st.goingBtnInlineDisabled,
+                          ]}
+                          onPress={(isFull && !isGoing) ? undefined : toggleGoing}
+                          disabled={goingLoading || (isFull && !isGoing)}
+                          testID="going-button"
+                        >
+                          {goingLoading
+                            ? <ActivityIndicator color={isGoing ? Colors.primary : Colors.background} size="small" />
+                            : (isFull && !isGoing)
+                              ? <>
+                                  <Ionicons name="flash" size={12} color="#F59E0B" />
+                                  <Text style={[st.goingBtnInlineText, { color: '#F59E0B' }]}>Complet</Text>
+                                </>
+                              : <>
+                                  <Ionicons
+                                    name={isGoing ? 'close-circle-outline' : 'add-circle-outline'}
+                                    size={13}
+                                    color={isGoing ? Colors.muted : Colors.background}
+                                  />
+                                  <Text style={[st.goingBtnInlineText, isGoing && st.goingBtnInlineCancelText]}>
+                                    {isGoing ? 'Annuler' : 'Je participe'}
+                                  </Text>
+                                </>
+                          }
+                        </TouchableOpacity>
+                      </View>
+                    ) : null
                   )}
                 </View>
               )}
@@ -1140,6 +1145,7 @@ export default function SpotYouDetail() {
                       </View>
                     </View>
                     {/* Barre d'action : participants séance (cliquable) + Je participe */}
+                    {canParticipate && (
                     <View style={st.eventActionBar}>
                       <TouchableOpacity
                         style={st.eventParticipantChip}
@@ -1183,6 +1189,7 @@ export default function SpotYouDetail() {
                         }
                       </TouchableOpacity>
                     </View>
+                    )}
                     {/* Per-day schedule table */}
                     {rec.perDay && rec.perDay.length > 0 && (
                       <View style={st.scheduleTable}>

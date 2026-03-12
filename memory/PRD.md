@@ -46,7 +46,19 @@ Fonctionnalités : création/découverte de services et SpotYous, système de r�
 | 2026-03 | `app/chat/[id].tsx` — guard offline envoi (isConnected check + Alert explicite) | UPDATED |
 | 2026-03 | `app/(tabs)/profile.tsx` — 4-états dataScreenState + StaleBanner + timeout anti-spinner | UPDATED |
 | 2026-03 | `@react-native-community/netinfo@12.0.1` installé | package.json |
-### Phase 5 — Correctifs offline screen SpotYou + ErrorNoData (2026-03)
+### Phase 7 — Nouvelles règles métier SpotYou (2026-03)
+| Date | Composant | Changement |
+|------|-----------|-----------|
+| 2026-03 | `backend/routes/spot_you_routes.py` | Suppression auto-join; ajout vérification membership (403 si non-membre) dans `POST /spot-you/{id}/going` |
+| 2026-03 | `backend/routes/spot_you_routes.py` | `DELETE /spot-you/{id}/leave` : changement UPDATE→DELETE pour annuler les séances futures |
+| 2026-03 | `backend/routes/tagpoint_routes.py` | `get_tag_point` : `going_count=None` et `can_participate=False` pour non-membres; propriétaire toujours membre |
+| 2026-03 | `backend/routes/tagpoint_routes.py` | `get_saved_tag_points` : vérification membership batch; masquage `going_count` pour non-membres |
+| 2026-03 | `backend/routes/tagpoint_routes.py` | `my_tag_points` : `can_participate=True` pour le propriétaire |
+| 2026-03 | `frontend/app/spot-you/[id].tsx` | Ajout état `canParticipate`; UI conditionnelle basée sur données backend |
+| 2026-03 | `frontend/components/SpotYouCard.tsx` | Utilisation `can_participate` pour affichage conditionnel chip + bouton |
+| 2026-03 | `backend/tests/test_spotyou_participation.py` | Tests mis à jour pour refléter nouvelles règles (19/19 passent) |
+
+
 - **spot-you/[id].tsx** : loadPoint avec cache, screenState 4-états, StaleBanner, ErrorNoData (onBack), cacheInvalidate ciblé
 - **ErrorNoData** : prop `onBack?` + bouton "Retour" (testID=`back-nav-btn`)
 - **user/[id].tsx** : ErrorNoData avec onBack

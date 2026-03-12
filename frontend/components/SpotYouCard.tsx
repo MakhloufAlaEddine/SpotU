@@ -85,11 +85,12 @@ export function SpotYouCard({
   const nextLabel = formatNextDate(item.next_session_date, item.event_date, item.event_schedule);
   const rating = parseFloat(item.rating) || 0;
   const votes = item.vote_count || 0;
-  const goingCount = item.going_count || 0;
+  const goingCount = item.going_count ?? 0;
   const maxP = item.maximum_participants;
   const isFull = item.is_full || false;
   const isGoing = item.is_going || false;
   const isLoading = togglingId === item.point_id;
+  const canParticipate = item.can_participate ?? false;
 
   const handleViewMembers = () => {
     if (onViewMembers) {
@@ -208,7 +209,7 @@ export function SpotYouCard({
                 Terminé · {new Date(item.event_date || '').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
               </Text>
             </View>
-          ) : (
+          ) : canParticipate ? (
             <View style={sc.actionBar}>
               <View style={sc.participantChip}>
                 <Ionicons name="people-outline" size={13} color={Colors.primary} />
@@ -247,7 +248,7 @@ export function SpotYouCard({
                 }
               </TouchableOpacity>
             </View>
-          )}
+          ) : null}
         </View>
       )}
     </TouchableOpacity>

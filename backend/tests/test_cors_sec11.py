@@ -23,7 +23,7 @@ import pytest
 API_URL = "http://localhost:8001"
 
 # Origines définies dans .env ALLOWED_ORIGINS
-ALLOWED_ORIGIN  = "https://relationship-mgmt-1.preview.emergentagent.com"
+ALLOWED_ORIGIN  = "https://follow-modal.preview.emergentagent.com"
 DEV_ORIGIN      = "http://localhost:3000"
 EVIL_ORIGIN     = "https://evil.com"
 

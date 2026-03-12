@@ -254,6 +254,7 @@ async def my_tag_points(request: Request):
         for pt in points:
             pid = pt["point_id"]
             pt["participants_count"] = part_map.get(pid, 0)
+            pt["can_participate"] = True  # Le propriétaire est toujours membre
             nd = next_dates.get(pid)
             pt["next_session_date"] = nd.isoformat() if nd else None
             pt["going_count"] = going_map.get(pid, 0)
@@ -299,6 +300,13 @@ async def get_saved_tag_points(request: Request):
                GROUP BY point_id""", point_ids)
         rating_map = {r["point_id"]: (float(r["avg_r"]), int(r["vcnt"])) for r in vote_rows}
 
+        # Vérification membership pour l'utilisateur courant (batch)
+        member_rows = await conn.fetch(
+            """SELECT spot_you_id FROM spot_you_participants
+               WHERE spot_you_id = ANY($1::text[]) AND user_id = $2""",
+            point_ids, user["user_id"])
+        member_set = {r["spot_you_id"] for r in member_rows}
+
         for pt in points:
             pid = pt["point_id"]
             pt["participants_count"] = part_map.get(pid, 0)
@@ -307,9 +315,12 @@ async def get_saved_tag_points(request: Request):
             pt["vote_count"] = r_v[1] if r_v else 0
             pt["is_saved"] = True  # by definition (in saved list)
 
+            is_member = pid in member_set
+            pt["can_participate"] = is_member
+
             nd = _get_next(pt)
             pt["next_session_date"] = nd.isoformat() if nd else None
-            if nd:
+            if is_member and nd:
                 going_count = await conn.fetchval(
                     """SELECT COUNT(*) FROM spot_you_attendance
                        WHERE spot_you_id=$1 AND session_date=$2 AND status='going'""",
@@ -322,7 +333,7 @@ async def get_saved_tag_points(request: Request):
                 max_p = pt.get("maximum_participants")
                 pt["is_full"] = max_p is not None and going_count >= max_p
             else:
-                pt["going_count"] = 0
+                pt["going_count"] = None
                 pt["is_going"] = False
                 pt["is_full"] = False
 
@@ -382,22 +393,14 @@ async def get_tag_point(point_id: str, request: Request):
         ) or 0
         pt["participants_count"] = int(max(syp_count, legacy_count))
 
-        # Prochaine séance + going_count
+        # Prochaine séance
         from routes.spot_you_routes import get_next_session_date as _get_next
         next_date = _get_next(pt)
         pt["next_session_date"] = next_date.isoformat() if next_date else None
-        if next_date:
-            going_count = await conn.fetchval(
-                """SELECT COUNT(*) FROM spot_you_attendance
-                   WHERE spot_you_id=$1 AND session_date=$2 AND status='going'""",
-                point_id, next_date,
-            ) or 0
-            pt["going_count"] = int(going_count)
-            max_p = pt.get("maximum_participants")
-            pt["is_full"] = max_p is not None and going_count >= max_p
-        else:
-            pt["going_count"] = 0
-            pt["is_full"] = False
+        # going_count n'est visible que pour les membres
+        pt["going_count"] = None
+        pt["is_full"] = False
+        pt["can_participate"] = False
 
         # Current user participation + save
         pt["is_participant"] = False
@@ -419,6 +422,19 @@ async def get_tag_point(point_id: str, request: Request):
                 ))
                 if not pt["is_member"] and pt["is_participant"]:
                     pt["is_member"] = True  # Compat rétrograde
+                # L'auteur du SpotYou est toujours membre
+                if not pt["is_member"] and str(pt.get("user_id", "")) == str(user["user_id"]):
+                    pt["is_member"] = True
+                pt["can_participate"] = pt["is_member"]
+                if pt["is_member"] and next_date:
+                    going_count = await conn.fetchval(
+                        """SELECT COUNT(*) FROM spot_you_attendance
+                           WHERE spot_you_id=$1 AND session_date=$2 AND status='going'""",
+                        point_id, next_date,
+                    ) or 0
+                    pt["going_count"] = int(going_count)
+                    max_p = pt.get("maximum_participants")
+                    pt["is_full"] = max_p is not None and going_count >= max_p
                 if next_date:
                     pt["is_going"] = bool(await conn.fetchval(
                         """SELECT EXISTS(

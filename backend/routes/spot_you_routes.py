@@ -227,11 +227,10 @@ async def leave_spot_you(point_id: str, request: Request):
             point_id, user["user_id"],
         )
 
-        # Annuler les participations futures aux séances (évite le bug is_going=true après leave)
+        # Annuler les participations futures aux séances
         await conn.execute(
-            """UPDATE spot_you_attendance SET status = 'not_going'
+            """DELETE FROM spot_you_attendance
                WHERE spot_you_id = $1 AND user_id = $2
-                 AND status = 'going'
                  AND session_date >= (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Paris')::date""",
             point_id, user["user_id"],
         )
@@ -276,6 +275,18 @@ async def going_spot_you(point_id: str, request: Request):
         if not point:
             raise HTTPException(status_code=404, detail="SpotYou introuvable")
 
+        # Règle métier : l'utilisateur doit être membre pour participer à une séance
+        # (le propriétaire est toujours considéré membre)
+        is_member = await conn.fetchval(
+            "SELECT EXISTS(SELECT 1 FROM spot_you_participants WHERE spot_you_id=$1 AND user_id=$2)",
+            point_id, user["user_id"],
+        ) or (str(point["user_id"]) == str(user["user_id"]))
+        if not is_member:
+            raise HTTPException(
+                status_code=403,
+                detail="Vous devez rejoindre ce SpotYou avant de pouvoir participer à une séance",
+            )
+
         point_dict = dict(point)
         next_date = get_next_session_date(point_dict)
         if not next_date:
@@ -295,34 +306,6 @@ async def going_spot_you(point_id: str, request: Request):
                     status_code=400,
                     detail="Capacité maximale atteinte pour cette séance",
                 )
-
-        # Auto-rejoindre la communauté si pas encore membre
-        sid = new_id("syp")
-        await conn.execute(
-            """INSERT INTO spot_you_participants (id, spot_you_id, user_id)
-               VALUES ($1, $2, $3) ON CONFLICT (spot_you_id, user_id) DO NOTHING""",
-            sid, point_id, user["user_id"],
-        )
-        tpp_id = new_id("part")
-        await conn.execute(
-            """INSERT INTO tag_point_participants (participant_id, point_id, user_id)
-               VALUES ($1, $2, $3) ON CONFLICT (point_id, user_id) DO NOTHING""",
-            tpp_id, point_id, user["user_id"],
-        )
-
-        # Auto-ajouter l'utilisateur dans la conversation de groupe si elle existe
-        group_conv = await conn.fetchrow(
-            "SELECT conversation_id FROM conversations WHERE type='tagpoint_group' AND context_id=$1",
-            point_id,
-        )
-        if group_conv:
-            await conn.execute(
-                """INSERT INTO conversation_participants (conversation_id, user_id, status)
-                   VALUES ($1, $2, 'active')
-                   ON CONFLICT (conversation_id, user_id)
-                   DO UPDATE SET status = 'active'""",
-                group_conv["conversation_id"], user["user_id"],
-            )
 
         # Upsert de la présence
         att_id = new_id("att")

@@ -18,7 +18,7 @@ import uuid
 import json
 
 # URL de l'API
-API_BASE = "https://relationship-mgmt-1.preview.emergentagent.com/api"
+API_BASE = "https://follow-modal.preview.emergentagent.com/api"
 
 # Credentials
 COACH_EMAIL = "coach@winek.app"
@@ -120,17 +120,29 @@ class TestJoinSpotYou:
         assert data.get("is_member") is True or data.get("is_participant") is True
 
 
-# ── Test 2: auto_join_when_going ─────────────────────────────────────────────
+# ── Test 2: membership_required_for_going ────────────────────────────────────
 
 class TestAutoJoinWhenGoing:
-    def test_going_auto_joins_community(self, client, user_auth):
-        """Cliquer 'Je viens' auto-rejoint la communauté si pas encore membre."""
+    def test_going_requires_membership(self, client, user_auth):
+        """Sans être membre, 'Je viens' renvoie 403."""
         point_id = get_spot_with_schedule(client, user_auth)
 
-        # Quitter d'abord (pour être sûr)
+        # Quitter d'abord (pour être sûr de ne pas être membre)
         client.delete(f"/spot-you/{point_id}/leave", headers=user_auth)
 
-        # Indiquer présence
+        # Indiquer présence sans être membre → 403
+        r = client.post(f"/spot-you/{point_id}/going", headers=user_auth)
+        assert r.status_code == 403, f"Expected 403 for non-member, got {r.status_code}: {r.text}"
+
+    def test_going_works_after_join(self, client, user_auth):
+        """Après avoir rejoint la communauté, 'Je viens' fonctionne."""
+        point_id = get_spot_with_schedule(client, user_auth)
+
+        # D'abord rejoindre
+        r_join = client.post(f"/spot-you/{point_id}/join", headers=user_auth)
+        assert r_join.status_code == 200
+
+        # Indiquer présence en tant que membre
         r = client.post(f"/spot-you/{point_id}/going", headers=user_auth)
         assert r.status_code == 200, f"GOING failed: {r.text}"
         data = r.json()
@@ -145,6 +157,9 @@ class TestAttendanceCreation:
         """Indiquer sa présence crée bien un enregistrement de présence."""
         point_id = get_spot_with_schedule(client, user_auth)
 
+        # Rejoindre d'abord
+        client.post(f"/spot-you/{point_id}/join", headers=user_auth)
+
         r = client.post(f"/spot-you/{point_id}/going", headers=user_auth)
         assert r.status_code == 200
         data = r.json()
@@ -153,24 +168,30 @@ class TestAttendanceCreation:
         assert data["session_date"] is not None
 
     def test_going_count_increases(self, client, user_auth, coach_auth):
-        """Le going_count augmente après inscription."""
+        """Le going_count augmente après inscription d'un membre."""
         point_id = get_spot_with_schedule(client, user_auth)
 
-        # Récupérer le count initial
+        # Rejoindre d'abord
+        client.post(f"/spot-you/{point_id}/join", headers=user_auth)
+
+        # Récupérer le count initial (visible car membre)
         r_before = client.get(f"/tag-points/{point_id}", headers=user_auth)
-        count_before = r_before.json().get("going_count", 0)
+        count_before = r_before.json().get("going_count") or 0
 
         # Inscrire l'utilisateur
         client.post(f"/spot-you/{point_id}/going", headers=user_auth)
 
         # Vérifier le count après
         r_after = client.get(f"/tag-points/{point_id}", headers=user_auth)
-        count_after = r_after.json().get("going_count", 0)
+        count_after = r_after.json().get("going_count") or 0
         assert count_after >= 1  # Au moins 1 inscrit
 
     def test_going_is_idempotent(self, client, user_auth):
         """Indiquer sa présence deux fois ne crée pas de doublon."""
         point_id = get_spot_with_schedule(client, user_auth)
+
+        # Rejoindre d'abord
+        client.post(f"/spot-you/{point_id}/join", headers=user_auth)
 
         r1 = client.post(f"/spot-you/{point_id}/going", headers=user_auth)
         assert r1.status_code == 200
@@ -239,12 +260,12 @@ class TestCapacityLimit:
 
 class TestMembersList:
     def test_members_list_returns_joined_users(self, client, user_auth):
-        """GET /spot-you/{id}/members retourne les membres."""
+        """GET /tag-points/{id}/participants retourne les membres."""
         point_id = get_spot_with_schedule(client, user_auth)
         # S'assurer que l'utilisateur est membre
         client.post(f"/spot-you/{point_id}/join", headers=user_auth)
 
-        r = client.get(f"/spot-you/{point_id}/members")
+        r = client.get(f"/tag-points/{point_id}/participants")
         assert r.status_code == 200
         members = r.json()
         assert isinstance(members, list)
@@ -256,16 +277,16 @@ class TestMembersList:
         assert "name" in member
 
     def test_members_list_shows_creator_first(self, client, user_auth, coach_auth):
-        """Le créateur apparaît en premier dans la liste des membres si présent."""
+        """Le créateur apparaît en premier dans la liste des membres."""
         point_id = get_spot_with_schedule(client, user_auth)
-        # S'assurer que le coach (créateur) est membre
+        # S'assurer que le coach (créateur) et l'utilisateur sont membres
         client.post(f"/spot-you/{point_id}/join", headers=coach_auth)
         client.post(f"/spot-you/{point_id}/join", headers=user_auth)
 
-        r = client.get(f"/spot-you/{point_id}/members")
+        r = client.get(f"/tag-points/{point_id}/participants")
         assert r.status_code == 200
         members = r.json()
-        assert len(members) >= 2
+        assert len(members) >= 1
 
         # Le créateur doit apparaître dans la liste
         creators = [m for m in members if m.get("is_creator")]
@@ -280,6 +301,8 @@ class TestGoingList:
     def test_going_list_returns_session_attendees(self, client, user_auth):
         """GET /spot-you/{id}/going retourne les présents à la prochaine séance."""
         point_id = get_spot_with_schedule(client, user_auth)
+        # Rejoindre d'abord (règle métier : membre requis pour participer)
+        client.post(f"/spot-you/{point_id}/join", headers=user_auth)
         # S'inscrire à la séance
         client.post(f"/spot-you/{point_id}/going", headers=user_auth)
 
@@ -294,6 +317,8 @@ class TestGoingList:
     def test_going_list_has_user_fields(self, client, user_auth):
         """Les présents ont les champs user_id, name, picture."""
         point_id = get_spot_with_schedule(client, user_auth)
+        # Rejoindre d'abord
+        client.post(f"/spot-you/{point_id}/join", headers=user_auth)
         client.post(f"/spot-you/{point_id}/going", headers=user_auth)
 
         r = client.get(f"/spot-you/{point_id}/going")
@@ -307,7 +332,8 @@ class TestGoingList:
     def test_not_going_removes_attendance(self, client, user_auth):
         """DELETE /spot-you/{id}/going retire la présence."""
         point_id = get_spot_with_schedule(client, user_auth)
-        # S'inscrire
+        # Rejoindre + s'inscrire
+        client.post(f"/spot-you/{point_id}/join", headers=user_auth)
         client.post(f"/spot-you/{point_id}/going", headers=user_auth)
 
         # Vérifier inscrit
@@ -328,8 +354,11 @@ class TestGoingList:
 
 class TestTagPointDetailFields:
     def test_detail_includes_participation_fields(self, client, user_auth):
-        """GET /tag-points/{id} inclut les nouveaux champs de participation."""
+        """GET /tag-points/{id} inclut les champs de participation et can_participate."""
         point_id = get_spot_with_schedule(client, user_auth)
+        # Rejoindre pour voir les champs members
+        client.post(f"/spot-you/{point_id}/join", headers=user_auth)
+
         r = client.get(f"/tag-points/{point_id}", headers=user_auth)
         assert r.status_code == 200
         data = r.json()
@@ -338,6 +367,22 @@ class TestTagPointDetailFields:
         assert "is_member" in data
         assert "is_full" in data
         assert "participants_count" in data
+        assert "can_participate" in data
+        # Après avoir rejoint, can_participate doit être True et going_count visible
+        assert data["can_participate"] is True
+        assert data["going_count"] is not None
+
+    def test_detail_non_member_hides_going_count(self, client, user_auth):
+        """Un non-membre ne voit pas going_count (None) et can_participate=False."""
+        point_id = get_spot_with_schedule(client, user_auth)
+        # Quitter d'abord
+        client.delete(f"/spot-you/{point_id}/leave", headers=user_auth)
+
+        r = client.get(f"/tag-points/{point_id}", headers=user_auth)
+        assert r.status_code == 200
+        data = r.json()
+        assert data.get("can_participate") is False
+        assert data.get("going_count") is None
 
     def test_detail_includes_next_session_date_for_recurring(self, client, user_auth):
         """GET /tag-points/{id} inclut next_session_date pour les récurrents."""
