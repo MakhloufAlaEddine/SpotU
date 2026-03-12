@@ -511,6 +511,35 @@ alors que le frontend (qui utilise l'heure locale) la considérait comme termin�
 - `frontend/app/chat/[id].tsx`: Bannière de blocage si is_blocked=true
 - `frontend/lib/chat.ts`: Interface Conversation + is_blocked?: boolean
 
+## Feature Suggestions d'abonnements — COMPLÈTE (2026-03-12)
+
+### Objectif
+Onglet "Suggestions" dans la modal followers/following, visible uniquement sur son propre profil.
+
+### Backend (user_routes.py)
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/users/{id}/suggestions?skip=0&limit=10` | Suggestions basées sur les intérêts communs (coach_tags). Si pas d'intérêts ou aucun résultat: fallback utilisateurs populaires. Pagination 10/10. |
+
+**Logique :**
+- Si has_interests ET tags communs → utilisateurs triés par `common_count DESC`
+- Si has_interests MAIS aucun résultat → fallback populaires (`is_popular_fallback=true`)
+- Si no interests → utilisateurs populaires + `has_interests=false`
+- Exclut: déjà suivi, bloqué, soi-même
+- Fix JSONB double-encodage: `SAFE_TAGS` SQL CASE expression + double-parsing Python
+
+### Frontend (FollowListModal.tsx)
+- Refactorisé en modal unifiée avec 3 onglets internes: **Abonnés | Abonnements | Suggestions**
+- Onglet Suggestions: visible uniquement si `isOwnProfile && meId`
+- CTA "Ajouter mes intérêts" (`testID: no-interests-cta`) avec redirect vers `/edit-profile`
+- Badge "X intérêts communs" sur chaque suggestion
+- Bouton Suivre dans suggestions → retire l'utilisateur de la liste immédiatement
+- Bouton "Voir 10 de plus" (`testID: load-more-suggestions`) pour la pagination
+
+### Tests
+- 11/11 tests backend PASSÉS (`tests/test_suggestions_iter77.py`)
+- 7/7 vérifications frontend PASSÉES (iteration_77.json)
+
 ## Feature Followers/Following Instagram-style — COMPLÈTE (2026-03-12)
 
 ### Objectif
