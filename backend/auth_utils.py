@@ -80,6 +80,23 @@ async def require_auth(request: Request, pool) -> dict:
     return row_to_dict(row)
 
 
+async def get_optional_auth(request: Request, pool):
+    """Retourne l'utilisateur connecté ou None si pas de token / token invalide."""
+    try:
+        token = get_token_from_request(request)
+        if not token:
+            return None
+        payload = decode_jwt(token)
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                f"SELECT {USER_FIELDS} FROM users WHERE user_id = $1",
+                payload["user_id"]
+            )
+        return row_to_dict(row) if row else None
+    except Exception:
+        return None
+
+
 async def require_role(request: Request, pool, role: str) -> dict:
     user = await require_auth(request, pool)
     if user["role"] != role:

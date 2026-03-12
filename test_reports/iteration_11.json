@@ -55,7 +55,7 @@
   "rca_of_the_issue": {
     "bug": "Frontend white screen / SyntaxError in create.tsx",
     "root_cause": "Line 578 of create.tsx contained '}────' — the Unicode box-drawing character '─' (U+2500) was accidentally embedded directly in code (outside a comment), causing Babel to throw 'Unexpected character ─' SyntaxError. Metro bundler running in CI=true mode served the stale/error bundle.",
-    "reproduction": "Load https://profile-redesign-15.preview.emergentagent.com — white blank screen. Check expo logs: ERROR SyntaxError: /app/frontend/app/(tabs)/create.tsx: Unexpected character '─'. (578:1)",
+    "reproduction": "Load https://relationship-mgmt-1.preview.emergentagent.com — white blank screen. Check expo logs: ERROR SyntaxError: /app/frontend/app/(tabs)/create.tsx: Unexpected character '─'. (578:1)",
     "fix_applied": "Replaced '}────' with '}\\n// ─── Step 1: L\\'essentiel ────────────────────────────────────────────────────────' and restarted expo supervisor.",
     "verification": "After restart, app loads correctly, login works, all wizard steps 1-5 navigate correctly, submit button present at step 4 (preview)."
   },

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request, HTTPException
 from datetime import datetime, timezone
 from models import UserUpdate, ProfileReviewCreate, new_id
-from auth_utils import require_auth, USER_FIELDS
+from auth_utils import require_auth, get_optional_auth, USER_FIELDS
 from database import get_pool, row_to_dict, rows_to_list
 
 router = APIRouter()
@@ -548,3 +548,104 @@ async def update_cover(user_id: str, request: Request):
         delete_upload_file(old_cover)
 
     return {"cover_picture": cover_url or None, "cover_offset_y": cover_offset_y, "cover_scale": cover_scale}
+
+
+# ── Abonnés / Abonnements ────────────────────────────────────────────────────
+
+@router.get("/{user_id}/followers")
+async def list_followers(user_id: str, request: Request):
+    """Liste des abonnés d'un utilisateur, avec statuts suivi/blocage pour l'appelant."""
+    pool = get_pool()
+    me = await get_optional_auth(request, pool)
+    me_id = me["user_id"] if me else None
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT u.user_id, u.name, u.picture, u.role,
+                      CASE WHEN $1::TEXT IS NOT NULL THEN
+                          EXISTS(SELECT 1 FROM user_follows WHERE follower_id=$1 AND following_id=u.user_id)
+                      ELSE FALSE END AS is_following_back,
+                      CASE WHEN $1::TEXT IS NOT NULL THEN
+                          EXISTS(SELECT 1 FROM user_blocks WHERE blocker_id=$1 AND blocked_id=u.user_id)
+                      ELSE FALSE END AS is_blocked
+               FROM user_follows uf
+               JOIN users u ON u.user_id = uf.follower_id
+               WHERE uf.following_id = $2
+               ORDER BY u.name ASC""",
+            me_id, user_id
+        )
+    return [dict(r) for r in rows]
+
+
+@router.get("/{user_id}/following")
+async def list_following(user_id: str, request: Request):
+    """Liste des abonnements d'un utilisateur."""
+    pool = get_pool()
+    me = await get_optional_auth(request, pool)
+    me_id = me["user_id"] if me else None
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT u.user_id, u.name, u.picture, u.role,
+                      CASE WHEN $1::TEXT IS NOT NULL THEN
+                          EXISTS(SELECT 1 FROM user_follows WHERE follower_id=u.user_id AND following_id=$1)
+                      ELSE FALSE END AS follows_back,
+                      CASE WHEN $1::TEXT IS NOT NULL THEN
+                          EXISTS(SELECT 1 FROM user_blocks WHERE blocker_id=$1 AND blocked_id=u.user_id)
+                      ELSE FALSE END AS is_blocked
+               FROM user_follows uf
+               JOIN users u ON u.user_id = uf.following_id
+               WHERE uf.follower_id = $2
+               ORDER BY u.name ASC""",
+            me_id, user_id
+        )
+    return [dict(r) for r in rows]
+
+
+@router.delete("/{user_id}/followers/{follower_id}")
+async def remove_follower(user_id: str, follower_id: str, request: Request):
+    """Retirer un abonné (seul le propriétaire du profil peut le faire)."""
+    pool = get_pool()
+    me = await require_auth(request, pool)
+    if me["user_id"] != user_id:
+        raise HTTPException(403, "Seul le propriétaire du profil peut retirer un abonné.")
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "DELETE FROM user_follows WHERE follower_id=$1 AND following_id=$2",
+            follower_id, user_id
+        )
+        count = await conn.fetchval("SELECT COUNT(*) FROM user_follows WHERE following_id=$1", user_id)
+    return {"removed": True, "followers_count": int(count)}
+
+
+@router.post("/{user_id}/block")
+async def block_user(user_id: str, request: Request):
+    """Bloquer un utilisateur : supprime les liens de suivi dans les deux sens."""
+    pool = get_pool()
+    me = await require_auth(request, pool)
+    blocker_id = me["user_id"]
+    if blocker_id == user_id:
+        raise HTTPException(400, "Vous ne pouvez pas vous bloquer vous-même.")
+    async with pool.acquire() as conn:
+        # Supprimer les follows dans les deux sens
+        await conn.execute(
+            "DELETE FROM user_follows WHERE (follower_id=$1 AND following_id=$2) OR (follower_id=$2 AND following_id=$1)",
+            blocker_id, user_id
+        )
+        # Insérer le blocage
+        await conn.execute(
+            "INSERT INTO user_blocks(blocker_id, blocked_id) VALUES($1,$2) ON CONFLICT DO NOTHING",
+            blocker_id, user_id
+        )
+    return {"blocked": True}
+
+
+@router.delete("/{user_id}/block")
+async def unblock_user(user_id: str, request: Request):
+    """Débloquer un utilisateur."""
+    pool = get_pool()
+    me = await require_auth(request, pool)
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "DELETE FROM user_blocks WHERE blocker_id=$1 AND blocked_id=$2",
+            me["user_id"], user_id
+        )
+    return {"blocked": False}

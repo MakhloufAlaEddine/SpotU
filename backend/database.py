@@ -728,6 +728,28 @@ async def connect_to_db():
             );
             CREATE INDEX IF NOT EXISTS idx_follows_following ON user_follows(following_id);
             CREATE INDEX IF NOT EXISTS idx_follows_follower ON user_follows(follower_id);
+
+            -- Blocages (style Instagram)
+            CREATE TABLE IF NOT EXISTS user_blocks (
+                blocker_id TEXT REFERENCES users(user_id) ON DELETE CASCADE,
+                blocked_id TEXT REFERENCES users(user_id) ON DELETE CASCADE,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                PRIMARY KEY (blocker_id, blocked_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_blocks_blocker ON user_blocks(blocker_id);
+            CREATE INDEX IF NOT EXISTS idx_blocks_blocked ON user_blocks(blocked_id);
+        """)
+
+        # Seed quelques relations follow pour les démos (ON CONFLICT DO NOTHING = idempotent)
+        await conn.execute("""
+            INSERT INTO user_follows(follower_id, following_id) VALUES
+                ('user_demo001', 'user_coach001'),
+                ('user_demo002', 'user_coach001'),
+                ('user_demo003', 'user_coach001'),
+                ('user_coach001', 'user_demo001'),
+                ('user_demo001', 'user_demo002'),
+                ('user_demo002', 'user_demo003')
+            ON CONFLICT DO NOTHING;
         """)
 
         # Seed cover photos for test profiles (only if not already set)

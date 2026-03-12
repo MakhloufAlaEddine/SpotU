@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="1" failures="0" skipped="0" tests="14" time="43.380" timestamp="2026-03-12T12:36:41.895430+00:00" hostname="agent-env-598bbc6a-6a9f-4a72-b18e-6c30782fa0b2"><testcase classname="tests.test_follow_feature_iter76.TestFollowListEndpoints" name="test_list_followers_unauthenticated" time="0.962" /><testcase classname="tests.test_follow_feature_iter76.TestFollowListEndpoints" name="test_list_followers_authenticated" time="0.877" /><testcase classname="tests.test_follow_feature_iter76.TestFollowListEndpoints" name="test_followers_sorted_alphabetically" time="0.824" /><testcase classname="tests.test_follow_feature_iter76.TestFollowListEndpoints" name="test_list_following_authenticated" time="0.945" /><testcase classname="tests.test_follow_feature_iter76.TestFollowActions" name="test_follow" time="0.872" /><testcase classname="tests.test_follow_feature_iter76.TestFollowActions" name="test_unfollow" time="1.008" /><testcase classname="tests.test_follow_feature_iter76.TestFollowActions" name="test_follow_requires_auth" time="0.873" /><testcase classname="tests.test_follow_feature_iter76.TestRemoveFollower" name="test_remove_follower_as_owner" time="0.890" /><testcase classname="tests.test_follow_feature_iter76.TestRemoveFollower" name="test_remove_follower_forbidden_if_not_owner" time="0.887" /><testcase classname="tests.test_follow_feature_iter76.TestBlockUnblock" name="test_block_user" time="0.949" /><testcase classname="tests.test_follow_feature_iter76.TestBlockUnblock" name="test_block_removes_follow_links" time="1.246" /><testcase classname="tests.test_follow_feature_iter76.TestBlockUnblock" name="test_unblock_user" time="1.085" /><testcase classname="tests.test_follow_feature_iter76.TestBlockUnblock" name="test_cannot_block_yourself" time="10.701"><error message="failed on setup with &quot;httpx.ConnectTimeout: timed out&quot;">/root/.venv/lib/python3.11/site-packages/httpx/_transports/default.py:101: in map_httpcore_exceptions
+    yield
+/root/.venv/lib/python3.11/site-packages/httpx/_transports/default.py:250: in handle_request
+    resp = self._pool.handle_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/httpcore/_sync/connection_pool.py:256: in handle_request
+    raise exc from None
+/root/.venv/lib/python3.11/site-packages/httpcore/_sync/connection_pool.py:236: in handle_request
+    response = connection.handle_request(
+/root/.venv/lib/python3.11/site-packages/httpcore/_sync/connection.py:101: in handle_request
+    raise exc
+/root/.venv/lib/python3.11/site-packages/httpcore/_sync/connection.py:78: in handle_request
+    stream = self._connect(request)
+             ^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/httpcore/_sync/connection.py:124: in _connect
+    stream = self._network_backend.connect_tcp(**kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/httpcore/_backends/sync.py:207: in connect_tcp
+    with map_exceptions(exc_map):
+/usr/local/lib/python3.11/contextlib.py:158: in __exit__
+    self.gen.throw(typ, value, traceback)
+/root/.venv/lib/python3.11/site-packages/httpcore/_exceptions.py:14: in map_exceptions
+    raise to_exc(exc) from exc
+E   httpcore.ConnectTimeout: timed out
+
+The above exception was the direct cause of the following exception:
+backend/tests/test_follow_feature_iter76.py:183: in setup_method
+    httpx.delete(
+/root/.venv/lib/python3.11/site-packages/httpx/_api.py:426: in delete
+    return request(
+/root/.venv/lib/python3.11/site-packages/httpx/_api.py:109: in request
+    return client.request(
+/root/.venv/lib/python3.11/site-packages/httpx/_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/httpx/_client.py:914: in send
+    response = self._send_handling_auth(
+/root/.venv/lib/python3.11/site-packages/httpx/_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+/root/.venv/lib/python3.11/site-packages/httpx/_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/httpx/_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/httpx/_transports/default.py:249: in handle_request
+    with map_httpcore_exceptions():
+/usr/local/lib/python3.11/contextlib.py:158: in __exit__
+    self.gen.throw(typ, value, traceback)
+/root/.venv/lib/python3.11/site-packages/httpx/_transports/default.py:118: in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+E   httpx.ConnectTimeout: timed out</error></testcase><testcase classname="tests.test_follow_feature_iter76.TestBlockUnblock" name="test_block_requires_auth" time="21.075" /></testsuite></testsuites>

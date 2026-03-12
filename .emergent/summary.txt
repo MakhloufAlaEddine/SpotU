@@ -1,102 +1,114 @@
-<analysis>**original_problem_statement**: The user initiated a comprehensive, multi-stage overhaul of the user profile page. This involved numerous feature additions and design iterations to enhance user engagement, UI/UX consistency, and visual appeal.
+<analysis>**original_problem_statement**: The user wants to implement an Instagram-style follower/following feature on the profile page.
 
-The user's explicit requests throughout the session included:
-1.  **Extend Profile Completion Bar**: Add criteria for First Participation and Community Membership, expanding it from 5 to 7 steps. Also, fix a bug preventing the bar from updating on focus and ensure it remains visible at 100% completion.
-2.  **Redesign Profile Page**: A complete, iterative redesign of the public profile screen (), including:
-    *   Prioritizing and redesigning the Services section.
-    *   Implementing a new, more impactful hero section with larger avatars and clearer stats.
-    .
-3.  **Implement Carousels**:
-    *   Convert the list of user's SpotYous into a horizontal carousel using the existing  component.
-    *   Convert the Services section into a carousel to handle multiple services.
-    *   Add dot indicators () for navigation to both carousels.
-4.  **Enhance Service Cards**: Add a cover image to each service card.
-5.  **Implement Follow System**: Introduce a full-stack follow/unfollow feature, including database changes, API endpoints, and UI integration (a Follow button and follower/following counts).
-6.  **Implement Cover Photo**: Add a Facebook-style cover photo to the profile hero, with a mechanism for the user to upload their own.
-7.  **Refine Hero Layout**: Rework the hero section to mimic Facebook's layout, with the avatar at the bottom-left, left-aligned text, and a direct upload button for the cover photo.
-8.  **Bug Fixes**: Resolve a navigation bug in the SpotYou carousel and address UI discrepancies caused by Expo Go's cached bundles.
+PRODUCT REQUIREMENTS:
+1.  **Follower/Following Modals**: When a user clicks on the followers or following count on a profile, a modal should open displaying the respective list of users.
+2.  **Modal Content**: Each item in the list should display the user's photo, first name, and last name. The list must be sorted alphabetically.
+3.  **Modal Features**:
+    *   **Search**: A search bar to filter users within the list.
+    *   **Filter**: A badge or toggle to filter the list by user type (e.g., Coach vs. User).
+4.  **Instagram-like Actions**: The modal should allow the current user to manage relationships, including:
+    *   **Unfollow**: Unfollow a user they are currently following.
+    *   **Remove Follower**: Remove a user from their own list of followers.
+    *   **Block**: Block a user, which should prevent them from following or seeing the profile.
 
 **User's preferred language**: French
 
 **what currently exists?**
-The application's profile page () has been completely transformed into a modern, feature-rich screen.
--   **Facebook-Style Hero**: A new hero section features a full-width cover photo (with a direct upload function), an overlapping profile picture positioned at the bottom-left, and a Follow button.
--   **Follow/Unfollow System**: A fully functional follow system is in place. The backend has a  table and API endpoints to manage relationships. The frontend displays follower/following counts and a dynamic Follow/Subscribed button.
--   **Carousels for Content**: Both Services and SpotYous are now displayed in horizontal, scrollable carousels with dot indicators for navigation, making the layout cleaner and more interactive.
--   **Enhanced Service Cards**: Service cards prominently feature a cover image, making them more visually appealing.
--   **Enriched Backend**: The primary user profile endpoint () has been significantly enriched to provide all necessary data for the new UI, including follower stats,  status, service images, and detailed SpotYou data, minimizing client-side logic.
--   **7-Step Profile Completion Bar**: A gamified progress bar encourages users to complete 7 key actions, now correctly updating on screen focus and displaying a congratulatory message at 100%.
+The backend infrastructure for the follower/following feature has been partially built. This includes:
+-   A new  table in the database to manage blocked users.
+-   A new Alembic migration to create this table.
+-   Five new API endpoints in  to handle listing followers/following, blocking/unblocking users, and removing followers.
+-   A new  utility in  to allow public and authenticated access to follower lists.
+
+On the frontend, the groundwork has been laid:
+-   An empty component file, , has been created.
+-   On the profile page (), the follower and following count statistics have been made clickable to trigger the (currently empty) modal. State variables (, ) have been added to manage the modal's visibility.
 
 **Last working item**:
--   **Last item agent was working**: Redesigning the profile hero section to match a Facebook-style layout. This involved repositioning the avatar to the bottom-left, left-aligning the user's name and stats, and fixing the cover photo upload functionality to trigger the image picker directly instead of navigating to another screen.
--   **Status**: USER VERIFICATION PENDING
--   **Agent Testing Done**: Y
--   **Which testing method agent to use?**: screenshot tool
+-   **Last item agent was working**: Integrating the placeholder for the  into the profile page. The agent created the empty modal component, added state management (, ) to , and wrapped the follower/following count stats in  components to handle opening the modals.
+-   **Status**: IN PROGRESS
+-   **Agent Testing Done**: N
+-   **Which testing method agent to use?**: both
 -   **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
--   Issue 1: Verify the new Facebook-style profile hero layout (P0)
--   Issue 2: Expo Hot-Reload Instability (P1)
--   Issue 3: Update SpotYou flow not fully verified (P2)
+-   Issue 1: Implement the  UI and logic (P0)
+-   Issue 2: Implement Instagram-style actions (unfollow, remove, block) in the modal (P1)
+-   Issue 3: Expo Hot-Reload Instability (P2)
 -   Issue 4: Old e2e test suites are failing (P3)
 
 Issues Detail:
--   **Issue 1: Verify the new Facebook-style profile hero layout**
-    -   Attempted fixes: The agent has implemented the layout changes and fixed the cover photo upload navigation bug. A screenshot confirms the visual changes are correct.
-    -   Next debug checklist: Await user feedback on the new design and functionality.
-    -   Why fix this issue and what will be achieved with the fix?: To complete the user's latest design request and ensure the profile page meets their vision.
-    -   Status: USER VERIFICATION PENDING
-    -   Is recurring issue?: N
-    -   Should Test frontend/backend/both after fix?: frontend
-    -   Blocked on other issue: None
-
--   **Issue 2: Expo Hot-Reload Instability**
-    -   Attempted fixes: None in this session. The workaround remains restarting the frontend service (frontend: ERROR (no such process)
-frontend: ERROR (no such process)).
-    -   Next debug checklist: Investigate , clear the Metro bundler cache ().
-    -   Why fix this issue and what will be achieved with the fix?: Would significantly improve development speed and stability, especially for native app testing.
-    -   Status: NOT STARTED
-    -   Is recurring issue?: Y
-    -   Should Test frontend/backend/both after fix?: frontend
-    -   Blocked on other issue: None
-
--   **Issue 3: Update SpotYou flow not fully verified**
-    -   Attempted fixes: None.
-    -   Next debug checklist: Manually test or create a test plan for the Update SpotYou feature.
-    -   Why fix this issue and what will be achieved with the fix?: Ensures a core feature remains stable after numerous related changes.
+-   **Issue 1: Implement the  UI and logic**
+    -   Attempted fixes: A placeholder file was created at .
+    -   Next debug checklist:
+        1.  Build the UI for the modal, including a header, search input, filter buttons, and a scrollable list for users.
+        2.  Fetch data from the new backend endpoints ( and ).
+        3.  Implement client-side alphabetical sorting, search functionality, and filtering by user role ().
+    -   Why fix this issue and what will be achieved with the fix?: This is the core of the user's latest feature request.
     -   Status: NOT STARTED
     -   Is recurring issue?: N
     -   Should Test frontend/backend/both after fix?: both
     -   Blocked on other issue: None
 
--   **Issue 4: Old e2e test suites are failing**
-    -   Attempted fixes: None.
-    -   Next debug checklist: Debug the  failure, which is likely caused by Expo Instability (Issue 2).
-    -   Why fix this issue and what will be achieved with the fix?: Restores the integrity of the automated testing pipeline.
+-   **Issue 2: Implement Instagram-style actions (unfollow, remove, block) in the modal**
+    -   Attempted fixes: Backend endpoints were created.
+    -   Next debug checklist:
+        1.  For each user in the modal's list, add a button or a context menu ().
+        2.  Wire up the actions to the corresponding backend APIs (, , ).
+        3.  Update the UI instantly upon a successful action (e.g., remove the user from the list).
+    -   Why fix this issue and what will be achieved with the fix?: Fulfills the user's requirement for full follow-management functionality.
+    -   Status: NOT STARTED
+    -   Is recurring issue?: N
+    -   Should Test frontend/backend/both after fix?: both
+    -   Blocked on other issue: Issue 1
+
+-   **Issue 3: Expo Hot-Reload Instability**
+    -   Attempted fixes: None. The workaround remains restarting the frontend service (frontend: ERROR (no such process)
+frontend: ERROR (no such process)) and clearing the bundler cache.
+    -   Next debug checklist: Investigate , consider a more stable version of Expo if possible.
+    -   Why fix this issue and what will be achieved with the fix?: Would significantly improve development velocity and reduce frustrating debugging cycles.
     -   Status: NOT STARTED
     -   Is recurring issue?: Y
     -   Should Test frontend/backend/both after fix?: frontend
-    -   Blocked on other issue: Issue 2
+    -   Blocked on other issue: None
+
+-   **Issue 4: Old e2e test suites are failing**
+    -   Attempted fixes: None.
+    -   Next debug checklist: Run and debug the  suite to identify the root cause of the failure.
+    -   Why fix this issue and what will be achieved with the fix?: Restores confidence in the automated testing pipeline.
+    -   Status: NOT STARTED
+    -   Is recurring issue?: Y
+    -   Should Test frontend/backend/both after fix?: frontend
+    -   Blocked on other issue: None
 
 **In progress Task List**:
--   NONE
+-   Task 1: Build Followers/Following Modals
+    -   Where to resume: Implement the UI and data fetching logic inside .
+    -   What will be achieved with this?: A visual modal that lists users fetched from the backend, laying the foundation for interactive features.
+    -   Status: IN PROGRESS
+    -   Should Test frontend/backend/both after fix?: both
+    -   Blocked on something: None
 
 **Upcoming and Future Tasks**
 -   **Upcoming Tasks**:
     -   (P1) **Bilingual Support (i18n)**: Fully implement French/English translations across the application.
 -   **Future Tasks**:
-    -   (P2) **Offline Mutations**: Implement a queueing system for offline actions that syncs when connectivity is restored.
-    -   (P2) **Enhance Notifications**: Implement the missing notifications identified in previous analyses.
+    -   (P2) **Offline Mutations**: Implement a queueing system for offline actions.
+    -   (P2) **Enhance Notifications**: Implement missing notifications.
     -   (P2) **Finalize Push Notifications**: Use EAS Build for production deployment.
 
 **Completed work in this session**
--   **Profile Page Overhaul**: Completed a full, iterative redesign of , implementing a Facebook-style hero, carousels for services and SpotYous, and enhanced UI elements.
--   **Follow System**: Implemented a full-stack follow/unfollow feature, including a new  database table, API endpoints in , and frontend integration.
--   **Cover Photo Feature**: Added support for profile cover photos, including a  column in the  table, an upload endpoint (), and a direct upload mechanism from the profile page.
--   **Carousel Implementation**: Converted static lists for services and SpotYous into interactive horizontal carousels with dot pagination.
--   **Backend Enrichment**: Significantly updated  and  to provide rich data for the new UI components, simplifying frontend logic.
--   **Profile Completion Bar Enhancements**: Extended the bar to 7 steps, fixed a  bug to ensure it updates on screen focus, and changed its behavior to remain visible at 100% completion.
--   **Bug Fixes**: Resolved issues with Expo Go cached bundles, fixed a navigation bug in the SpotYou carousel, and corrected a JSON parsing error for service images.
+-   **Booking Management System**:
+    -   **Cancellation Feature**: Implemented a cancellation flow with a confirmation dialog on the bookings list ().
+    -   **Booking Details Screen**: Created a new dedicated screen () to display full booking details, accessible by tapping a booking card.
+    -   **Bug Fixes**: Resolved three critical bugs in booking data: missing coach names (), incorrect payment permissions, and inconsistent status badges on Refused bookings.
+-   **Profile Cover Photo Overhaul**:
+    -   **Reposition & Zoom**: Implemented drag-to-reposition and pinch-to-zoom for the cover photo, saving the state ( and ) to the backend.
+    -   **File Deletion Fix**: Corrected a bug where old cover photos were not deleted from the server's storage upon uploading a new one.
+    -   **UI Cleanup**: Removed a duplicate Edit button from the profile hero section.
+-   **Backend for Follower System**:
+    -   **Database**: Created the  table via an Alembic migration.
+    -   **API**: Added five new endpoints to  for listing followers/following, blocking/unblocking, and removing followers.
 
 **Earlier issues found/mentioned but not fixed**
 -   Same as **All Pending/In progress Issue list**.
@@ -110,63 +122,63 @@ frontend: ERROR (no such process)).
 
 
 **Key Technical Concepts**
--   **Iterative UI/UX Development**: The profile page was built and refined through multiple cycles of user feedback and agent implementation.
--   **Full-Stack Feature Implementation**: Features like the follow system were built from the database schema (Alembic migration) up to the API (FastAPI) and frontend UI (React Native).
--   **Backend-for-Frontend (BFF)**: The backend was continuously adapted to serve data tailored for specific UI components (e.g., adding  and follower counts to the user profile endpoint).
--   **Direct Image Upload**: Implemented a flow using  to allow users to select a cover photo from their device and upload it directly to the server via a  request.
--   **Expo Native App Debugging**: Successfully diagnosed and resolved UI discrepancies caused by cached bundles in the Expo Go client by restarting the Metro server and instructing the user to reload the app.
--   **Component-Driven Carousels**: Used  with , , and  properties to create interactive carousels for displaying dynamic content.
+-   **React Native Gestures**: Used  and  API to implement complex drag and pinch-to-zoom gestures for the cover photo.
+-   **Full-Stack Debugging**: Traced UI bugs in the booking system back to incorrect seed data and faulty backend logic, and fixed them at the source.
+-   **Server-Side File Management**: Implemented logic in a FastAPI endpoint to delete old image files from the disk when they are replaced.
+-   **Optional API Authentication**: Created a  utility to build endpoints that behave differently for authenticated vs. anonymous users.
 
 **key DB schema**
--   **users**: Added .
--   **user_follows**: New table  to track follow relationships.
--   **services**: Confirmed usage of  column to store service photo URLs.
+-   **users**: Modified to add , .
+-   **user_blocks**: New table .
 
 **All files of reference**
--   : The central file for all work in this session. It was completely refactored and redesigned multiple times.
--   : The core backend file that was modified to add the follow system, cover photo upload, and enrich the public profile data.
--   : The new Alembic migration file that created the  table.
--   : Updated to include the  field in the User model.
--   : Multiple markdown files were created by the design agent to guide the profile redesign.
+-   : Core profile screen, modified for cover photo gestures and modal integration.
+-   : New placeholder for the current task.
+-   : Heavily modified with new follower/block APIs and cover photo logic.
+-   : Main booking list screen, refactored for new navigation and cancellation flow.
+-   : New booking detail screen.
+-   : Modified for bug fixes and the new detail endpoint.
+-   : New migration file for the blocking feature.
+-   : Modified to add .
 
 **Areas that need refactoring**:
--   The  file is now exceedingly large and handles logic for profile data, a 7-step completion bar, the follow system, cover photo uploads, and two separate carousels. It should be broken down into smaller, self-contained components (e.g., , , , ) to improve maintainability.
+-   The  file has become excessively large and complex. It manages state and logic for the profile hero, cover photo gestures, multiple API calls, and now the follower modals. It urgently needs to be broken down into smaller, manageable components (e.g., , , etc.) to improve maintainability.
 
 **key api endpoints**
--   : Follow a user.
--   : Unfollow a user.
--   : Upload a new cover photo for the user.
--   : Fetches participation data for the profile completion bar.
--   : Heavily modified to return follower/following counts,  status, cover photo URL, and enriched SpotYou/Service data.
--   : Modified to include service images in the response.
+-   : **(NEW)** Fetches details for a single booking.
+-   : **(NEW)** Lists a user's followers.
+-   : **(NEW)** Lists users a user is following.
+-   : **(NEW)** Blocks a user.
+-   : **(NEW)** Unblocks a user.
+-   : **(NEW)** Allows a user to remove a follower.
+-   : **(MODIFIED)** Now handles  and , and correctly deletes the old image file from storage.
 
 **Critical Info for New Agent**
 -   **User's Language**: The user's preferred language is French. All communication must be in French.
--   **Awaiting Feedback**: Your immediate priority is to await the user's feedback on the latest Facebook-style profile hero.
--   **Profile Page Complexity**: The file  is now very large. Future work on this page will be difficult without refactoring it into smaller components. Propose this to the user if further changes are requested for this screen.
--   **Expo Go Caching**: Be aware that the user tests on the Expo Go native app. If they report seeing an old UI, the first troubleshooting step is always frontend: ERROR (no such process)
-frontend: ERROR (no such process) followed by instructing them to shake their device and press Reload.
+-   **Immediate Task**: Your priority is to build out the  component. This involves implementing the UI (list, search, filter), fetching data from the newly created backend endpoints, and wiring up the Instagram-style actions (unfollow, remove, block).
+-   **Expo Go Cache Issues**: This is a persistent problem. If the user reports not seeing your changes, your first step is always to restart the frontend server (frontend: ERROR (no such process)
+frontend: ERROR (no such process)) and instruct the user to Reload or Clear bundle cache in their Expo Go app.
+-   **Refactoring **: This file's complexity is a major risk. You should propose refactoring it into smaller components as a necessary step before adding significant new features to the profile page in the future.
 
 **documents and test reports created in this job**
--    (Updated)
--   Multiple  markdown files were created in  to guide the various stages of the profile redesign.
+-    (Updated with completed work)
 
 **Last 10 User Messages and any pending HUMAN messages**
-10. **Request**: Redesign the hero section with a cover photo and follow system. **Status**: .
-9.  **Query**: Asked for an explanation of seed data for service photos. **Status**: .
-8.  **Request**: Add carousel dots, fix a scroll bug, add photos to services, and make services a carousel. **Status**: .
-7.  **Request**: Display SpotYous in a carousel. **Status**: .
-6.  **Clarification**: The entire profile screen needs a redesign, not just one part. **Status**: .
-5.  **Request**: Redesign the profile screen to highlight services. **Status**: .
-4.  **Request**: Add two more steps to the profile completion bar. **Status**: .
-3.  **Request**: Do not hide the completion bar at 100%. **Status**: .
-2.  **Bug Report**: User sees an old UI version on their native app. **Status**:  (Expo cache issue).
-1.  **Request**: Redesign the hero to be like Facebook's layout and fix the cover photo upload navigation. **Status**: .
+10. **Request**: Add follower/following modals with search, filter, and Instagram-like management actions. **Status**: .
+9.  **Request**: Add start/end times to booking cards and create a new detail screen for bookings. **Status**: .
+8.  **Question**: How can I cancel a reservation? **Status**: .
+7.  **Question**: Why do I have strange reservations on my booking page? (showed UI bugs). **Status**: .
+6.  **Question**: Are old profile/cover photos deleted when I upload new ones? **Status**: .
+5.  **Bug Report**: I see two Modify buttons on my profile. **Status**: .
+4.  **Request**: Add pinch-to-zoom for the cover photo. **Status**: .
+3.  **Bug Report**: I don't see the cover photo changes. **Status**:  (Expo cache issue).
+2.  **Request**: Allow repositioning of the uploaded cover photo. **Status**: .
+1.  **Request**: Add cover photos to test profiles. **Status**: .
 
 **Project Health Check:**
 -   **Broken**:
     -   Expo hot-reload environment remains unstable.
-    -   An old e2e test suite, , is still failing.
+    -   An old e2e test suite () is still failing.
 -   **Mocked**:
     -   None.
 
@@ -181,8 +193,8 @@ frontend: ERROR (no such process) followed by instructing them to shake their de
 **Testing status**
 -   **Testing agent used after significant changes**: NO
 -   **Troubleshoot agent used after agent stuck in loop**: NO
--   **Test files created**: None.
--   **Known regressions**: The failure of  persists from a previous session.
+-   **Test files created**: None
+-   **Known regressions**: The  e2e test failure persists.
 
 **Credentials to test flow:**
 -   **Admin**:  / 
@@ -190,4 +202,5 @@ frontend: ERROR (no such process) followed by instructing them to shake their de
 -   **User (Visitor)**:  / 
 
 **What agent forgot to execute**
--   The agent correctly prioritized the user's active and iterative feature requests over long-standing backlog items like Expo instability and failing e2e tests. All user-facing requests in this session were addressed.</analysis>
+-   The agent has not addressed the long-standing issues of Expo instability and failing e2e tests, prioritizing active user requests instead.
+-   The agent did not propose refactoring the increasingly complex  file, which was recommended in the previous handoff and is now more critical than ever.</analysis>

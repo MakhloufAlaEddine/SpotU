@@ -15,6 +15,7 @@ import { ErrorNoData } from '../../components/OfflineBanner';
 import { UserAvatar } from '../../components/UserAvatar';
 import { ScreenLoader } from '../../components/ScreenLoader';
 import { SpotYouCard } from '../../components/SpotYouCard';
+import { FollowListModal } from '../../components/FollowListModal';
 
 // Cover photo dimensions
 const COVER_H = 220;
@@ -205,6 +206,10 @@ export default function UserProfileScreen() {
   const [isFollowing, setIsFollowing] = useState(false);
   const [followersCount, setFollowersCount] = useState(0);
   const [followLoading, setFollowLoading] = useState(false);
+
+  // Modales followers / following
+  const [showFollowers, setShowFollowers] = useState(false);
+  const [showFollowing, setShowFollowing] = useState(false);
 
   // Cover photo offset (0 = top, 1 = bottom) + scale (zoom)
   const [coverOffsetY, setCoverOffsetY] = useState(0.5);
@@ -749,11 +754,25 @@ export default function UserProfileScreen() {
 
             {/* STATS INLINE — style Facebook */}
             <View style={st.statsInline} testID="profile-stats">
-              <Text style={st.statInlineNum}>{followersCount}</Text>
-              <Text style={st.statInlineLbl}> abonnés</Text>
+              <TouchableOpacity
+                onPress={() => setShowFollowers(true)}
+                activeOpacity={0.7}
+                testID="followers-count-btn"
+                style={st.statInlineTap}
+              >
+                <Text style={st.statInlineNum}>{followersCount}</Text>
+                <Text style={st.statInlineLbl}> abonnés</Text>
+              </TouchableOpacity>
               <Text style={st.statInlineSep}> · </Text>
-              <Text style={st.statInlineNum}>{profile.following_count ?? 0}</Text>
-              <Text style={st.statInlineLbl}> abonnements</Text>
+              <TouchableOpacity
+                onPress={() => setShowFollowing(true)}
+                activeOpacity={0.7}
+                testID="following-count-btn"
+                style={st.statInlineTap}
+              >
+                <Text style={st.statInlineNum}>{profile.following_count ?? 0}</Text>
+                <Text style={st.statInlineLbl}> abonnements</Text>
+              </TouchableOpacity>
               <Text style={st.statInlineSep}> · </Text>
               <Text style={st.statInlineNum}>{SpotYou.length}</Text>
               <Text style={st.statInlineLbl}> SpotYou</Text>
@@ -1178,6 +1197,26 @@ export default function UserProfileScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* ── MODALS FOLLOWERS / FOLLOWING ─────────────────────────── */}
+      <FollowListModal
+        visible={showFollowers}
+        onClose={() => setShowFollowers(false)}
+        profileId={id}
+        meId={me?.user_id ?? null}
+        type="followers"
+        count={followersCount}
+        isOwnProfile={!!isOwnProfile}
+      />
+      <FollowListModal
+        visible={showFollowing}
+        onClose={() => setShowFollowing(false)}
+        profileId={id}
+        meId={me?.user_id ?? null}
+        type="following"
+        count={profile?.following_count ?? 0}
+        isOwnProfile={!!isOwnProfile}
+      />
     </SafeAreaView>
   );
 }
@@ -1299,6 +1338,7 @@ const st = StyleSheet.create({
 
   // Stats inline — style Facebook
   statsInline: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' as any },
+  statInlineTap: { flexDirection: 'row', alignItems: 'center' },
   statInlineNum: { fontSize: 14, fontWeight: '800', color: Colors.foreground },
   statInlineLbl: { fontSize: 13, color: Colors.muted },
   statInlineSep: { fontSize: 13, color: Colors.muted },
