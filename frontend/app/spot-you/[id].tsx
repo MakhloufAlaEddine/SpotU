@@ -977,8 +977,8 @@ export default function SpotYouDetail() {
               </TouchableOpacity>
             )}
 
-            {/* Rejoindre + membres — récurrents OU événement unique passé (pour pouvoir quitter) */}
-            {!isOwner && (!!point.event_schedule || (!point.event_schedule && !!point.event_date && new Date(point.event_date) < new Date())) && (
+            {/* Rejoindre + membres — récurrents ET date unique (passés ou futurs) */}
+            {!isOwner && (!!point.event_schedule || !!point.event_date) && (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
                 {participantsCount > 0 && (
                   <TouchableOpacity
