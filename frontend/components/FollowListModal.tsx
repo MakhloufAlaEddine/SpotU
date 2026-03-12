@@ -41,6 +41,8 @@ interface Props {
   followersCount: number;
   followingCount: number;
   isOwnProfile: boolean;
+  onFollowersCountChange?: (delta: number) => void;
+  onFollowingCountChange?: (delta: number) => void;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
@@ -49,6 +51,8 @@ export function FollowListModal({
   initialTab = 'followers',
   followersCount, followingCount,
   isOwnProfile,
+  onFollowersCountChange,
+  onFollowingCountChange,
 }: Props) {
   const router = useRouter();
 
@@ -144,10 +148,11 @@ export function FollowListModal({
       if (isFollowingThem) {
         await api.delete(`/users/${u.user_id}/follow`);
         if (activeTab === 'following') {
-          // Dans la liste "abonnements": retirer immédiatement (plus abonné = plus dans la liste)
+          // Dans "abonnements": retirer de la liste + décrémenter le compteur parent
           setUsers(prev => prev.filter(x => x.user_id !== u.user_id));
+          onFollowingCountChange?.(-1);
         } else {
-          // Dans la liste "abonnés": basculer le bouton vers "Suivre"
+          // Dans "abonnés": basculer vers "Suivre" (on ne suit plus en retour)
           setUsers(prev => prev.map(x =>
             x.user_id === u.user_id
               ? { ...x, is_following_back: false, follows_back: false }
@@ -156,6 +161,9 @@ export function FollowListModal({
         }
       } else {
         await api.post(`/users/${u.user_id}/follow`, {});
+        if (activeTab === 'following') {
+          onFollowingCountChange?.(+1);
+        }
         setUsers(prev => prev.map(x =>
           x.user_id === u.user_id ? { ...x, is_following_back: true } : x
         ));
@@ -191,6 +199,7 @@ export function FollowListModal({
           try {
             await api.delete(`/users/${profileId}/followers/${u.user_id}`);
             setUsers(prev => prev.filter(x => x.user_id !== u.user_id));
+            onFollowersCountChange?.(-1);
           } catch (e: any) { Alert.alert('Erreur', e.message); }
           finally { setActionLoading(null); }
         }},
@@ -209,6 +218,9 @@ export function FollowListModal({
           try {
             await api.post(`/users/${u.user_id}/block`, {});
             setUsers(prev => prev.filter(x => x.user_id !== u.user_id));
+            // Le blocage supprime les liens dans les deux sens
+            if (activeTab === 'followers') onFollowersCountChange?.(-1);
+            if (activeTab === 'following') onFollowingCountChange?.(-1);
           } catch (e: any) { Alert.alert('Erreur', e.message); }
           finally { setActionLoading(null); }
         }},

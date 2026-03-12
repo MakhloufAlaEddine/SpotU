@@ -205,6 +205,7 @@ export default function UserProfileScreen() {
   const [serviceIndex, setServiceIndex] = useState(0);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followersCount, setFollowersCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
   const [followLoading, setFollowLoading] = useState(false);
 
   // Modales followers / following
@@ -341,6 +342,7 @@ export default function UserProfileScreen() {
       setProfile(data);
       setIsFollowing(data.is_following ?? false);
       setFollowersCount(data.followers_count ?? 0);
+      setFollowingCount(data.following_count ?? 0);
       // Initialize cover offset + scale
       const offsetY = data.cover_offset_y ?? 0.5;
       const scale   = data.cover_scale   ?? 1.0;
@@ -770,7 +772,7 @@ export default function UserProfileScreen() {
                 testID="following-count-btn"
                 style={st.statInlineTap}
               >
-                <Text style={st.statInlineNum}>{profile.following_count ?? 0}</Text>
+                <Text style={st.statInlineNum}>{followingCount}</Text>
                 <Text style={st.statInlineLbl}> abonnements</Text>
               </TouchableOpacity>
               <Text style={st.statInlineSep}> · </Text>
@@ -1206,8 +1208,10 @@ export default function UserProfileScreen() {
         meId={me?.user_id ?? null}
         initialTab={followModalTab}
         followersCount={followersCount}
-        followingCount={profile?.following_count ?? 0}
+        followingCount={followingCount}
         isOwnProfile={!!isOwnProfile}
+        onFollowersCountChange={(delta) => setFollowersCount(prev => Math.max(0, prev + delta))}
+        onFollowingCountChange={(delta) => setFollowingCount(prev => Math.max(0, prev + delta))}
       />
     </SafeAreaView>
   );
