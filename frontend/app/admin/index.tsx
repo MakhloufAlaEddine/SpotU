@@ -1475,7 +1475,7 @@ const mf = StyleSheet.create({
 
 // ── Styles Tags Dashboard ─────────────────────────────────────────────────────
 const td = StyleSheet.create({
-  subNav:         { borderBottomWidth: 1, borderBottomColor: Colors.border, backgroundColor: Colors.header },
+  subNav:         { height: 44, borderBottomWidth: 1, borderBottomColor: Colors.border, backgroundColor: Colors.header },
   subTabItem:     { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, paddingVertical: 9 },
   subTabActive:   { borderBottomWidth: 2, borderBottomColor: Colors.primary },
   subTabLabel:    { fontSize: 12, color: Colors.muted },
