@@ -179,7 +179,7 @@ async def process_spot_you_notifications(pool) -> int:
                         if max_p is None or int(going_count) < max_p:
                             # Récupérer membres pas encore inscrits
                             members = await conn.fetch(
-                                """SELECT p.user_id FROM spot_you_participants p
+                                """SELECT p.user_id FROM spot_you_members p
                                    WHERE p.spot_you_id = $1
                                      AND NOT EXISTS (
                                        SELECT 1 FROM spot_you_attendance a
@@ -217,7 +217,7 @@ async def process_spot_you_notifications(pool) -> int:
                             next_date = get_next_session_date(point)
                             # Notifier tous les membres de la communauté
                             members = await conn.fetch(
-                                "SELECT user_id FROM spot_you_participants WHERE spot_you_id = $1",
+                                "SELECT user_id FROM spot_you_members WHERE spot_you_id = $1",
                                 point_id,
                             )
                             data = {

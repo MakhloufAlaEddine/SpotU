@@ -184,7 +184,7 @@ async def get_public_profile(user_id: str, request: Request):
 
             # Batch: participants_count
             part_rows = await conn.fetch(
-                "SELECT spot_you_id, COUNT(*) as cnt FROM spot_you_participants WHERE spot_you_id = ANY($1::text[]) GROUP BY spot_you_id",
+                "SELECT spot_you_id, COUNT(*) as cnt FROM spot_you_members WHERE spot_you_id = ANY($1::text[]) GROUP BY spot_you_id",
                 point_ids
             )
             part_map = {r["spot_you_id"]: int(r["cnt"]) for r in part_rows}
@@ -385,7 +385,7 @@ async def get_activity_feed(request: Request):
         # SpotYou dont l'utilisateur est membre
         member_spots = await conn.fetch(
             """SELECT p.spot_you_id, tp.title
-               FROM spot_you_participants p
+               FROM spot_you_members p
                JOIN tag_points tp ON tp.point_id = p.spot_you_id
                WHERE p.user_id = $1 AND tp.active = TRUE""",
             user["user_id"],
@@ -439,7 +439,7 @@ async def get_activity_feed(request: Request):
         join_rows = await conn.fetch(
             """SELECT p.user_id, p.spot_you_id, p.joined_at,
                       u.name, u.picture
-               FROM spot_you_participants p
+               FROM spot_you_members p
                JOIN users u ON p.user_id = u.user_id
                WHERE p.spot_you_id = ANY($1)
                  AND p.user_id != $2

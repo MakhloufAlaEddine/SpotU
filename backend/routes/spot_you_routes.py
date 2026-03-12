@@ -3,7 +3,7 @@ spot_you_routes.py — Routes de participation SpotYou
 =====================================================
 
 Gère :
-  - Rejoindre une communauté SpotYou (spot_you_participants)
+  - Rejoindre une communauté SpotYou (spot_you_members)
   - Indiquer sa présence à la prochaine séance (spot_you_attendance)
   - Lister les membres et les présents à la prochaine séance
 """
@@ -146,20 +146,13 @@ async def join_spot_you(point_id: str, request: Request):
 
         sid = new_id("syp")
         await conn.execute(
-            """INSERT INTO spot_you_participants (id, spot_you_id, user_id)
+            """INSERT INTO spot_you_members (id, spot_you_id, user_id)
                VALUES ($1, $2, $3) ON CONFLICT (spot_you_id, user_id) DO NOTHING""",
             sid, point_id, user["user_id"],
         )
-        # Compatibilité rétrograde : mise à jour de tag_point_participants pour le planning
-        tpp_id = new_id("part")
-        await conn.execute(
-            """INSERT INTO tag_point_participants (participant_id, point_id, user_id)
-               VALUES ($1, $2, $3) ON CONFLICT (point_id, user_id) DO NOTHING""",
-            tpp_id, point_id, user["user_id"],
-        )
 
         count = await conn.fetchval(
-            "SELECT COUNT(*) FROM spot_you_participants WHERE spot_you_id = $1", point_id
+            "SELECT COUNT(*) FROM spot_you_members WHERE spot_you_id = $1", point_id
         )
 
         # Auto-ajouter l'utilisateur dans la conversation de groupe si elle existe
@@ -219,11 +212,7 @@ async def leave_spot_you(point_id: str, request: Request):
             raise HTTPException(status_code=403, detail="Le propriétaire ne peut pas quitter sa propre communauté.")
 
         await conn.execute(
-            "DELETE FROM spot_you_participants WHERE spot_you_id = $1 AND user_id = $2",
-            point_id, user["user_id"],
-        )
-        await conn.execute(
-            "DELETE FROM tag_point_participants WHERE point_id = $1 AND user_id = $2",
+            "DELETE FROM spot_you_members WHERE spot_you_id = $1 AND user_id = $2",
             point_id, user["user_id"],
         )
 
@@ -236,7 +225,7 @@ async def leave_spot_you(point_id: str, request: Request):
         )
 
         count = await conn.fetchval(
-            "SELECT COUNT(*) FROM spot_you_participants WHERE spot_you_id = $1", point_id
+            "SELECT COUNT(*) FROM spot_you_members WHERE spot_you_id = $1", point_id
         )
 
         # Bloquer l'utilisateur dans la conversation de groupe (sans le supprimer)
@@ -277,7 +266,7 @@ async def going_spot_you(point_id: str, request: Request):
 
         # Règle métier : l'utilisateur doit être membre pour participer à une séance
         is_member = await conn.fetchval(
-            "SELECT EXISTS(SELECT 1 FROM spot_you_participants WHERE spot_you_id=$1 AND user_id=$2)",
+            "SELECT EXISTS(SELECT 1 FROM spot_you_members WHERE spot_you_id=$1 AND user_id=$2)",
             point_id, user["user_id"],
         )
         if not is_member:
@@ -322,7 +311,7 @@ async def going_spot_you(point_id: str, request: Request):
             point_id, next_date,
         )
         members_count = await conn.fetchval(
-            "SELECT COUNT(*) FROM spot_you_participants WHERE spot_you_id = $1", point_id
+            "SELECT COUNT(*) FROM spot_you_members WHERE spot_you_id = $1", point_id
         )
         is_full = max_p is not None and going_count >= max_p
 
@@ -391,7 +380,7 @@ async def my_completion_stats(request: Request):
     async with pool.acquire() as conn:
         is_member = await conn.fetchval(
             """SELECT EXISTS(
-                SELECT 1 FROM spot_you_participants syp
+                SELECT 1 FROM spot_you_members syp
                 JOIN tag_points tp ON tp.point_id = syp.spot_you_id
                 WHERE syp.user_id = $1 AND tp.user_id != $1
             )""",
@@ -480,7 +469,7 @@ async def get_spot_you_activity(point_id: str, request: Request):
         join_rows = await conn.fetch(
             """SELECT p.user_id, p.joined_at,
                       u.name, u.picture
-               FROM spot_you_participants p
+               FROM spot_you_members p
                JOIN users u ON p.user_id = u.user_id
                WHERE p.spot_you_id = $1
                  AND p.joined_at >= $2
@@ -523,7 +512,7 @@ async def get_spot_you_members(point_id: str):
             """SELECT u.user_id, u.name, u.picture, u.role,
                       p.joined_at,
                       (u.user_id = tp.user_id) as is_creator
-               FROM spot_you_participants p
+               FROM spot_you_members p
                JOIN users u ON p.user_id = u.user_id
                JOIN tag_points tp ON tp.point_id = p.spot_you_id
                WHERE p.spot_you_id = $1

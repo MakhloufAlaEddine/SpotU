@@ -589,7 +589,7 @@ async def connect_to_db():
             ALTER TABLE tag_points ADD COLUMN IF NOT EXISTS minimum_participants INTEGER NULL;
             ALTER TABLE tag_points ADD COLUMN IF NOT EXISTS maximum_participants INTEGER NULL;
 
-            CREATE TABLE IF NOT EXISTS spot_you_participants (
+            CREATE TABLE IF NOT EXISTS spot_you_members (
                 id TEXT PRIMARY KEY,
                 spot_you_id TEXT NOT NULL REFERENCES tag_points(point_id) ON DELETE CASCADE,
                 user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
@@ -607,7 +607,7 @@ async def connect_to_db():
                 UNIQUE (spot_you_id, user_id, session_date)
             );
 
-            CREATE INDEX IF NOT EXISTS idx_syu_participants_spot ON spot_you_participants(spot_you_id);
+            CREATE INDEX IF NOT EXISTS idx_syu_members_spot ON spot_you_members(spot_you_id);
             CREATE INDEX IF NOT EXISTS idx_syu_attendance_spot ON spot_you_attendance(spot_you_id);
             CREATE INDEX IF NOT EXISTS idx_syu_attendance_date ON spot_you_attendance(session_date);
         """)
@@ -649,23 +649,20 @@ async def connect_to_db():
             UPDATE tag_points SET event_schedule = '{"type":"weekly","day":4,"time":"19:00"}' WHERE point_id = 'pt_demo012';
         """)
         await conn.execute("""
-            INSERT INTO tag_point_participants (participant_id, point_id, user_id, joined_at) VALUES
-              ('part_001','pt_demo001','user_demo001', NOW()-INTERVAL '1 hour'),
-              ('part_002','pt_demo005','user_demo001', NOW()-INTERVAL '30 minutes'),
-              ('part_003','pt_demo007','user_demo001', NOW()-INTERVAL '2 hours'),
-              ('part_004','pt_demo014','user_demo001', NOW()-INTERVAL '3 hours'),
-              ('part_005','pt_demo013','user_demo001', NOW()-INTERVAL '6 days'),
-              ('part_006','pt_demo001','user_demo002', NOW()-INTERVAL '45 minutes'),
-              ('part_007','pt_demo002','user_demo002', NOW()-INTERVAL '1 day'),
-              ('part_008','pt_demo007','user_demo002', NOW()-INTERVAL '3 hours'),
-              ('part_009','pt_demo010','user_demo002', NOW()-INTERVAL '2 days'),
-              ('part_010','pt_demo003','user_demo003', NOW()-INTERVAL '1 day'),
-              ('part_011','pt_demo009','user_demo003', NOW()-INTERVAL '2 hours'),
-              ('part_012','pt_demo010','user_demo003', NOW()-INTERVAL '1 day'),
-              ('part_013','pt_demo014','user_demo003', NOW()-INTERVAL '4 hours'),
-              ('part_014','pt_demo004','user_coach001', NOW()-INTERVAL '2 days'),
-              ('part_015','pt_demo012','user_coach001', NOW()-INTERVAL '1 day')
-            ON CONFLICT (point_id, user_id) DO NOTHING;
+            INSERT INTO spot_you_members (id, spot_you_id, user_id) VALUES
+              ('mbr_001','pt_demo005','user_demo001'),
+              ('mbr_002','pt_demo007','user_demo001'),
+              ('mbr_003','pt_demo014','user_demo001'),
+              ('mbr_004','pt_demo013','user_demo001'),
+              ('mbr_005','pt_demo001','user_demo002'),
+              ('mbr_006','pt_demo002','user_demo002'),
+              ('mbr_007','pt_demo007','user_demo002'),
+              ('mbr_008','pt_demo010','user_demo002'),
+              ('mbr_009','pt_demo003','user_demo003'),
+              ('mbr_010','pt_demo009','user_demo003'),
+              ('mbr_011','pt_demo014','user_demo003'),
+              ('mbr_012','pt_demo012','user_coach001')
+            ON CONFLICT (spot_you_id, user_id) DO NOTHING;
         """)
         await conn.execute("""
             INSERT INTO tag_point_votes (vote_id, point_id, user_id, rating, comment, created_at) VALUES
@@ -775,7 +772,27 @@ async def connect_to_db():
             WHERE user_id = 'user_demo003' AND cover_picture IS NULL;
         """)
 
-    logger.info("Connected to PostgreSQL with PostGIS + seed data loaded")
+        # [REFACTOR-V1] spot_you_participants → spot_you_members + supprimer tag_point_participants
+        await conn.execute("""
+            DO $$ BEGIN
+                IF EXISTS (SELECT FROM pg_tables WHERE tablename='spot_you_participants') THEN
+                    IF EXISTS (SELECT FROM pg_tables WHERE tablename='spot_you_members') THEN
+                        INSERT INTO spot_you_members (id, spot_you_id, user_id, joined_at)
+                        SELECT id, spot_you_id, user_id, joined_at FROM spot_you_participants
+                        ON CONFLICT DO NOTHING;
+                        DROP TABLE spot_you_participants;
+                    ELSE
+                        ALTER TABLE spot_you_participants RENAME TO spot_you_members;
+                    END IF;
+                END IF;
+                -- Supprimer l'ancien index s'il existe encore (remplacé par idx_syu_members_spot)
+                IF EXISTS (SELECT FROM pg_indexes WHERE indexname='idx_syu_participants_spot') THEN
+                    DROP INDEX idx_syu_participants_spot;
+                END IF;
+            END $$;
+
+            DROP TABLE IF EXISTS tag_point_participants CASCADE;
+        """)
 
 
 async def close_db():

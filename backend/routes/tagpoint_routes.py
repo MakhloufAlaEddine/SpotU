@@ -225,7 +225,7 @@ async def my_tag_points(request: Request):
         # Batch: participants count per spot
         part_rows = await conn.fetch(
             """SELECT spot_you_id, COUNT(*) AS cnt
-               FROM spot_you_participants WHERE spot_you_id = ANY($1::text[])
+               FROM spot_you_members WHERE spot_you_id = ANY($1::text[])
                GROUP BY spot_you_id""", point_ids)
         part_map = {r["spot_you_id"]: int(r["cnt"]) for r in part_rows}
 
@@ -289,7 +289,7 @@ async def get_saved_tag_points(request: Request):
         # Batch: participants count
         part_rows = await conn.fetch(
             """SELECT spot_you_id, COUNT(*) AS cnt
-               FROM spot_you_participants WHERE spot_you_id = ANY($1::text[])
+               FROM spot_you_members WHERE spot_you_id = ANY($1::text[])
                GROUP BY spot_you_id""", point_ids)
         part_map = {r["spot_you_id"]: int(r["cnt"]) for r in part_rows}
 
@@ -302,7 +302,7 @@ async def get_saved_tag_points(request: Request):
 
         # Vérification membership pour l'utilisateur courant (batch)
         member_rows = await conn.fetch(
-            """SELECT spot_you_id FROM spot_you_participants
+            """SELECT spot_you_id FROM spot_you_members
                WHERE spot_you_id = ANY($1::text[]) AND user_id = $2""",
             point_ids, user["user_id"])
         member_set = {r["spot_you_id"] for r in member_rows}
@@ -384,9 +384,9 @@ async def get_tag_point(point_id: str, request: Request):
         )
         pt["rating_distribution"] = {str(r["rating"]): r["cnt"] for r in dist}
 
-        # Participants — utiliser spot_you_participants (propriétaire toujours inclus via seed/création)
+        # Participants — utiliser spot_you_members (propriétaire toujours inclus via seed/création)
         member_count = await conn.fetchval(
-            "SELECT COUNT(*) FROM spot_you_participants WHERE spot_you_id=$1", point_id
+            "SELECT COUNT(*) FROM spot_you_members WHERE spot_you_id=$1", point_id
         ) or 0
         pt["participants_count"] = int(member_count)
 
@@ -408,17 +408,12 @@ async def get_tag_point(point_id: str, request: Request):
         if auth_header.startswith("Bearer "):
             try:
                 user = await require_auth(request, pool)
-                # Legacy + nouvelle table
+                # Vérification membre dans spot_you_members
                 pt["is_participant"] = bool(await conn.fetchval(
-                    "SELECT EXISTS(SELECT 1 FROM tag_point_participants WHERE point_id=$1 AND user_id=$2)",
+                    "SELECT EXISTS(SELECT 1 FROM spot_you_members WHERE spot_you_id=$1 AND user_id=$2)",
                     point_id, user["user_id"]
                 ))
-                pt["is_member"] = bool(await conn.fetchval(
-                    "SELECT EXISTS(SELECT 1 FROM spot_you_participants WHERE spot_you_id=$1 AND user_id=$2)",
-                    point_id, user["user_id"]
-                ))
-                if not pt["is_member"] and pt["is_participant"]:
-                    pt["is_member"] = True  # Compat rétrograde
+                pt["is_member"] = pt["is_participant"]
                 pt["can_participate"] = pt["is_member"]
                 if pt["is_member"] and next_date:
                     going_count = await conn.fetchval(
@@ -582,10 +577,10 @@ async def join_tag_point(point_id: str, request: Request):
     async with pool.acquire() as conn:
         tp = await conn.fetchrow("SELECT user_id, title FROM tag_points WHERE point_id = $1", point_id)
         await conn.execute(
-            "INSERT INTO tag_point_participants (participant_id, point_id, user_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING",
+            "INSERT INTO spot_you_members (id, spot_you_id, user_id) VALUES ($1,$2,$3) ON CONFLICT (spot_you_id, user_id) DO NOTHING",
             pid, point_id, user["user_id"]
         )
-        count = await conn.fetchval("SELECT COUNT(*) FROM tag_point_participants WHERE point_id=$1", point_id)
+        count = await conn.fetchval("SELECT COUNT(*) FROM spot_you_members WHERE spot_you_id=$1", point_id)
     # Notifier le propriétaire du SpotYou (sauf si c'est lui-même)
     if tp and tp["user_id"] != user["user_id"]:
         content_title = tp["title"] or "SpotYou"
@@ -614,10 +609,10 @@ async def leave_tag_point(point_id: str, request: Request):
     async with pool.acquire() as conn:
         tp = await conn.fetchrow("SELECT user_id, title FROM tag_points WHERE point_id = $1", point_id)
         await conn.execute(
-            "DELETE FROM tag_point_participants WHERE point_id=$1 AND user_id=$2",
+            "DELETE FROM spot_you_members WHERE spot_you_id=$1 AND user_id=$2",
             point_id, user["user_id"]
         )
-        count = await conn.fetchval("SELECT COUNT(*) FROM tag_point_participants WHERE point_id=$1", point_id)
+        count = await conn.fetchval("SELECT COUNT(*) FROM spot_you_members WHERE spot_you_id=$1", point_id)
     # Notifier le propriétaire du SpotYou (sauf si c'est lui-même)
     if tp and tp["user_id"] != user["user_id"]:
         content_title = tp["title"] or "SpotYou"
@@ -645,11 +640,11 @@ async def get_tag_point_participants(point_id: str):
         rows = await conn.fetch(
             """SELECT u.user_id, u.name, u.picture, u.role,
                       (u.user_id = tp.user_id) as is_creator
-               FROM tag_point_participants p
-               JOIN users u ON p.user_id = u.user_id
-               JOIN tag_points tp ON tp.point_id = p.point_id
-               WHERE p.point_id = $1
-               ORDER BY (u.user_id = tp.user_id) DESC, p.joined_at ASC""",
+               FROM spot_you_members m
+               JOIN users u ON m.user_id = u.user_id
+               JOIN tag_points tp ON tp.point_id = m.spot_you_id
+               WHERE m.spot_you_id = $1
+               ORDER BY (u.user_id = tp.user_id) DESC, m.joined_at ASC""",
             point_id
         )
         result = [
@@ -744,12 +739,12 @@ async def get_my_events(request: Request):
     user = await require_auth(request, pool)
     async with pool.acquire() as conn:
         rows = await conn.fetch(
-            f"""SELECT {TP_FIELDS}, p.joined_at,
+            f"""SELECT {TP_FIELDS}, m.joined_at,
                 COALESCE(tp.event_date, tp.created_at) as sort_date
                 FROM tag_points tp
-                JOIN tag_point_participants p ON tp.point_id = p.point_id
+                JOIN spot_you_members m ON tp.point_id = m.spot_you_id
                 LEFT JOIN users u ON tp.user_id = u.user_id
-                WHERE p.user_id = $1 AND tp.active = TRUE
+                WHERE m.user_id = $1 AND tp.active = TRUE
                 ORDER BY sort_date DESC""",
             user["user_id"]
         )
@@ -1139,16 +1134,10 @@ async def create_tag_point(data: TagPointCreate, request: Request):
             data.event_date, data.event_end_date, event_schedule_val, data.images or [],
             min_p, max_p,
         )
-        # Le créateur est automatiquement participant
+        # Le créateur est automatiquement membre de son SpotYou
         await conn.execute(
-            "INSERT INTO tag_point_participants (participant_id, point_id, user_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING",
+            "INSERT INTO spot_you_members (id, spot_you_id, user_id) VALUES ($1,$2,$3) ON CONFLICT (spot_you_id, user_id) DO NOTHING",
             part_id, pid, user["user_id"]
-        )
-        # Aussi dans spot_you_participants (nouvelle table)
-        syp_id = new_id("syp")
-        await conn.execute(
-            "INSERT INTO spot_you_participants (id, spot_you_id, user_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING",
-            syp_id, pid, user["user_id"]
         )
         row = await conn.fetchrow(f"SELECT {TP_FIELDS} FROM tag_points tp LEFT JOIN users u ON tp.user_id = u.user_id WHERE tp.point_id = $1", pid)
     return build_point_response(row_to_dict(row))
@@ -1284,7 +1273,7 @@ async def update_tag_point(point_id: str, data: TagPointUpdate, request: Request
         row = await conn.fetchrow(f"SELECT {TP_FIELDS} FROM tag_points tp LEFT JOIN users u ON tp.user_id = u.user_id WHERE tp.point_id = $1", point_id)
 
         participants = await conn.fetch(
-            "SELECT user_id FROM tag_point_participants WHERE point_id=$1 AND user_id != $2",
+            "SELECT user_id FROM spot_you_members WHERE spot_you_id=$1 AND user_id != $2",
             point_id, existing["user_id"]
         )
 
@@ -1347,7 +1336,7 @@ async def toggle_visibility(point_id: str, request: Request):
             raise HTTPException(status_code=403, detail="Not authorized")
         # Vérifier qu'il n'y a pas d'autres participants
         other_count = await conn.fetchval(
-            "SELECT COUNT(*) FROM tag_point_participants WHERE point_id=$1 AND user_id != $2",
+            "SELECT COUNT(*) FROM spot_you_members WHERE spot_you_id=$1 AND user_id != $2",
             point_id, existing["user_id"]
         )
         if other_count > 0:
@@ -1380,7 +1369,7 @@ async def cancel_tag_point(point_id: str, request: Request):
             "UPDATE tag_points SET cancelled = TRUE, updated_at = NOW() WHERE point_id = $1", point_id
         )
         participants = await conn.fetch(
-            "SELECT user_id FROM tag_point_participants WHERE point_id=$1 AND user_id != $2",
+            "SELECT user_id FROM spot_you_members WHERE spot_you_id=$1 AND user_id != $2",
             point_id, existing["user_id"]
         )
 
@@ -1422,7 +1411,7 @@ async def restore_tag_point(point_id: str, request: Request):
             "UPDATE tag_points SET cancelled = FALSE, updated_at = NOW() WHERE point_id = $1", point_id
         )
         participants = await conn.fetch(
-            "SELECT user_id FROM tag_point_participants WHERE point_id=$1 AND user_id != $2",
+            "SELECT user_id FROM spot_you_members WHERE spot_you_id=$1 AND user_id != $2",
             point_id, existing["user_id"]
         )
 
@@ -1456,7 +1445,7 @@ async def delete_tag_point(point_id: str, request: Request):
         if existing["user_id"] != user["user_id"] and user["role"] != "admin":
             raise HTTPException(status_code=403, detail="Not authorized")
         other_count = await conn.fetchval(
-            "SELECT COUNT(*) FROM tag_point_participants WHERE point_id=$1 AND user_id != $2",
+            "SELECT COUNT(*) FROM spot_you_members WHERE spot_you_id=$1 AND user_id != $2",
             point_id, existing["user_id"]
         )
         if other_count > 0:

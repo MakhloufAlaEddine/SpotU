@@ -36,7 +36,6 @@ EXPECTED_INDEXES = [
     ("idx_service_packages_service_id",   "service_packages"),
     ("idx_services_coach_id",             "services"),
     ("idx_services_active_created",       "services"),
-    ("idx_tag_point_participants_user_id","tag_point_participants"),
     ("idx_conversations_created_by",      "conversations"),
 ]
 
@@ -149,19 +148,6 @@ class TestPERF01_IndexScans:
             f"idx_bookings_coach_id non utilisé:\n{plan}"
         )
 
-    def test_tag_point_participants_par_user_utilise_idx(self):
-        """GET /api/tagpoints (participation) → Index Scan sur idx_tag_point_participants_user_id."""
-        plan = asyncio.run(_explain_plan(
-            "SELECT participant_id, point_id, user_id "
-            "FROM tag_point_participants "
-            "WHERE user_id = 'user_demo001'"
-        ))
-        assert "Index Scan" in plan, (
-            f"Attendu Index Scan sur tag_point_participants(user_id), plan:\n{plan}"
-        )
-        assert "idx_tag_point_participants_user_id" in plan, (
-            f"idx_tag_point_participants_user_id non utilisé:\n{plan}"
-        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

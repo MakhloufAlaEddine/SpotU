@@ -254,21 +254,12 @@ async def seed_initial_data():
 
         # ── Toujours s'assurer que les propriétaires sont membres de leur SpotYou ──
         await conn.execute("""
-            INSERT INTO spot_you_participants (id, spot_you_id, user_id)
+            INSERT INTO spot_you_members (id, spot_you_id, user_id)
             SELECT 'syp_owner_' || point_id, point_id, user_id
             FROM tag_points
             WHERE NOT EXISTS (
-                SELECT 1 FROM spot_you_participants
+                SELECT 1 FROM spot_you_members
                 WHERE spot_you_id = tag_points.point_id AND user_id = tag_points.user_id
-            )
-        """)
-        await conn.execute("""
-            INSERT INTO tag_point_participants (participant_id, point_id, user_id)
-            SELECT 'tpp_owner_' || point_id, point_id, user_id
-            FROM tag_points
-            WHERE NOT EXISTS (
-                SELECT 1 FROM tag_point_participants
-                WHERE point_id = tag_points.point_id AND user_id = tag_points.user_id
             )
         """)
 

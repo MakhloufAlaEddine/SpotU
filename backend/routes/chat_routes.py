@@ -142,7 +142,7 @@ async def create_or_get_conversation(data: ConversationCreate, request: Request)
         if data.type == "tagpoint_group":
             # Vérifier que l'utilisateur est membre ou créateur du SpotYou
             is_member_row = await conn.fetchrow(
-                """SELECT 1 FROM spot_you_participants WHERE spot_you_id = $1 AND user_id = $2
+                """SELECT 1 FROM spot_you_members WHERE spot_you_id = $1 AND user_id = $2
                    UNION
                    SELECT 1 FROM tag_points WHERE point_id = $1 AND user_id = $2""",
                 data.context_id, uid
