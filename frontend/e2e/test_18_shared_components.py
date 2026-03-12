@@ -14,7 +14,7 @@ import pytest
 import time
 from playwright.sync_api import Page, expect
 
-APP_URL = "https://follow-modal.preview.emergentagent.com"
+APP_URL = "https://participation-rules.preview.emergentagent.com"
 
 CREDENTIALS = {
     "user":  {"email": "user@winek.app",  "password": "WinekUser2024!"},

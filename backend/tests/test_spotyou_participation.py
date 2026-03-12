@@ -18,7 +18,7 @@ import uuid
 import json
 
 # URL de l'API
-API_BASE = "https://follow-modal.preview.emergentagent.com/api"
+API_BASE = "https://participation-rules.preview.emergentagent.com/api"
 
 # Credentials
 COACH_EMAIL = "coach@winek.app"
