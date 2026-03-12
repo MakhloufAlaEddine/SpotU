@@ -143,11 +143,17 @@ export function FollowListModal({
       const isFollowingThem = activeTab === 'followers' ? (u.is_following_back ?? false) : true;
       if (isFollowingThem) {
         await api.delete(`/users/${u.user_id}/follow`);
-        setUsers(prev => prev.map(x =>
-          x.user_id === u.user_id
-            ? { ...x, is_following_back: false, follows_back: false }
-            : x
-        ));
+        if (activeTab === 'following') {
+          // Dans la liste "abonnements": retirer immédiatement (plus abonné = plus dans la liste)
+          setUsers(prev => prev.filter(x => x.user_id !== u.user_id));
+        } else {
+          // Dans la liste "abonnés": basculer le bouton vers "Suivre"
+          setUsers(prev => prev.map(x =>
+            x.user_id === u.user_id
+              ? { ...x, is_following_back: false, follows_back: false }
+              : x
+          ));
+        }
       } else {
         await api.post(`/users/${u.user_id}/follow`, {});
         setUsers(prev => prev.map(x =>
