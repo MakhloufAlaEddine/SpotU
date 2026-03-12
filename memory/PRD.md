@@ -46,6 +46,22 @@ Fonctionnalités : création/découverte de services et SpotYous, système de r�
 | 2026-03 | `app/chat/[id].tsx` — guard offline envoi (isConnected check + Alert explicite) | UPDATED |
 | 2026-03 | `app/(tabs)/profile.tsx` — 4-états dataScreenState + StaleBanner + timeout anti-spinner | UPDATED |
 | 2026-03 | `@react-native-community/netinfo@12.0.1` installé | package.json |
+### Phase 8 — Gestion Admin Tags & Domaines (2026-03-12)
+| Date | Composant | Changement |
+|------|-----------|-----------|
+| 2026-03-12 | `routes/domain_routes.py` | Ajout PUT/DELETE pour domains, tag_categories, tags + endpoints usage (/usage) |
+| 2026-03-12 | `routes/admin_routes.py` | Ajout /admin/all-domains, /admin/all-categories, /admin/all-tags, /admin/tags-analytics |
+| 2026-03-12 | `frontend/app/admin/index.tsx` | Nouvel onglet "Tags" (6e tab) avec CRUD complet + stats visuelles |
+| 2026-03-12 | `backend/tests/test_tags_domains_iter78.py` | 35 tests de régression pour le CRUD tags/domaines |
+
+**Fonctionnalités ajoutées :**
+- CRUD complet Domaines (ajout, modification, désactivation, suppression cascade)
+- CRUD complet Catégories de tags (ajout, modification, désactivation, suppression cascade)
+- CRUD complet Tags (ajout, modification, désactivation, suppression cascade)
+- Modal d'avertissement à la suppression : affiche le nb d'utilisations (SpotYou + profils), propose "Désactiver" vs "Supprimer définitivement"
+- Statistiques analytics : top 20 tags + top domaines par usage (SpotYou + profils utilisateurs), barres visuelles proportionnelles
+- Recherche de tags dans le panneau admin
+
 ### Phase 7 — Nouvelles règles métier SpotYou (2026-03)
 | Date | Composant | Changement |
 |------|-----------|-----------|
