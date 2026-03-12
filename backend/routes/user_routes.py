@@ -649,3 +649,133 @@ async def unblock_user(user_id: str, request: Request):
             me["user_id"], user_id
         )
     return {"blocked": False}
+
+
+@router.get("/{user_id}/suggestions")
+async def suggest_follows(user_id: str, request: Request, skip: int = 0, limit: int = 10):
+    """Suggestions d'abonnements :
+    - Si l'utilisateur a des intérêts (coach_tags) → utilisateurs avec tags en commun, triés par nb commun DESC.
+    - Sinon → utilisateurs populaires (nb abonnés DESC).
+    - Exclut : déjà suivi, bloqué, soi-même.
+    - Réservé au profil du demandeur (me_id == user_id).
+    """
+    pool = get_pool()
+    me = await require_auth(request, pool)
+    me_id = me["user_id"]
+
+    if me_id != user_id:
+        raise HTTPException(403, "Suggestions disponibles uniquement pour votre propre profil.")
+
+    async with pool.acquire() as conn:
+        # Récupérer mes tags
+        my_tags_raw = await conn.fetchval(
+            "SELECT coach_tags FROM users WHERE user_id = $1", me_id
+        )
+        # asyncpg retourne JSONB comme string. Gérer le double-encodage (certains users).
+        import json as _json
+        my_tags: list = []
+        if my_tags_raw is not None:
+            val = my_tags_raw
+            # Première passe
+            if isinstance(val, str):
+                try:
+                    val = _json.loads(val)
+                except Exception:
+                    val = []
+            # Deuxième passe si encore une string (double-encodage)
+            if isinstance(val, str):
+                try:
+                    val = _json.loads(val)
+                except Exception:
+                    val = []
+            my_tags = list(val) if isinstance(val, list) else []
+        has_interests = len(my_tags) > 0
+
+        # Helper SQL pour extraire les tags de façon robuste (gère les tableaux et scalaires)
+        SAFE_TAGS = """
+            CASE
+                WHEN jsonb_typeof(COALESCE(u.coach_tags,'[]'::jsonb)) = 'array'
+                    THEN COALESCE(u.coach_tags,'[]'::jsonb)
+                WHEN jsonb_typeof(COALESCE(u.coach_tags,'[]'::jsonb)) = 'string'
+                    THEN (COALESCE(u.coach_tags,'[]'::jsonb) #>> '{}')::jsonb
+                ELSE '[]'::jsonb
+            END
+        """
+
+        # ── Requête principale ──────────────────────────────────────────
+        popular_query = """
+            SELECT u.user_id, u.name, u.picture, u.role,
+                0 AS common_count,
+                ARRAY[]::text[] AS common_tag_ids,
+                (SELECT COUNT(*) FROM user_follows WHERE following_id=u.user_id)::int AS _pop
+            FROM users u
+            WHERE u.user_id != $1
+              AND NOT EXISTS(SELECT 1 FROM user_follows WHERE follower_id=$1 AND following_id=u.user_id)
+              AND NOT EXISTS(SELECT 1 FROM user_blocks  WHERE blocker_id=$1 AND blocked_id=u.user_id)
+              AND NOT EXISTS(SELECT 1 FROM user_blocks  WHERE blocker_id=u.user_id AND blocked_id=$1)
+            ORDER BY _pop DESC, u.name ASC
+            LIMIT $2 OFFSET $3
+        """
+        is_popular_fallback = False
+
+        if has_interests:
+            rows = await conn.fetch(
+                f"""
+                SELECT u.user_id, u.name, u.picture, u.role,
+                    (SELECT COUNT(*) FROM jsonb_array_elements_text({SAFE_TAGS}) t
+                     WHERE t = ANY($1::text[])) AS common_count,
+                    ARRAY(SELECT t FROM jsonb_array_elements_text({SAFE_TAGS}) t
+                          WHERE t = ANY($1::text[])) AS common_tag_ids
+                FROM users u
+                WHERE u.user_id != $2
+                  AND NOT EXISTS(SELECT 1 FROM user_follows   WHERE follower_id=$2 AND following_id=u.user_id)
+                  AND NOT EXISTS(SELECT 1 FROM user_blocks    WHERE blocker_id=$2 AND blocked_id=u.user_id)
+                  AND NOT EXISTS(SELECT 1 FROM user_blocks    WHERE blocker_id=u.user_id AND blocked_id=$2)
+                  AND (SELECT COUNT(*) FROM jsonb_array_elements_text({SAFE_TAGS}) t
+                       WHERE t = ANY($1::text[])) > 0
+                ORDER BY common_count DESC, u.name ASC
+                LIMIT $3 OFFSET $4
+                """,
+                my_tags, me_id, limit, skip,
+            )
+            # Fallback vers les utilisateurs populaires si aucun résultat d'intérêts
+            if not rows:
+                is_popular_fallback = True
+                rows = await conn.fetch(popular_query, me_id, limit, skip)
+        else:
+            rows = await conn.fetch(popular_query, me_id, limit, skip)
+
+        # Batch-fetch tag labels pour les tags communs
+        all_tag_ids: set = set()
+        for row in rows:
+            all_tag_ids.update(row["common_tag_ids"] or [])
+
+        tag_labels: dict = {}
+        if all_tag_ids:
+            tag_rows = await conn.fetch(
+                "SELECT tag_id, label_fr FROM tags WHERE tag_id = ANY($1::text[])",
+                list(all_tag_ids),
+            )
+            tag_labels = {r["tag_id"]: r["label_fr"] for r in tag_rows}
+
+        result = []
+        for row in rows:
+            result.append({
+                "user_id": row["user_id"],
+                "name": row["name"],
+                "picture": row["picture"],
+                "role": row["role"],
+                "common_count": int(row["common_count"] or 0),
+                "common_interests": [
+                    {"tag_id": t, "label": tag_labels.get(t, t)}
+                    for t in (row["common_tag_ids"] or [])
+                ],
+            })
+
+        return {
+            "suggestions": result,
+            "has_interests": has_interests,
+            "skip": skip,
+            "limit": limit,
+            "count": len(result),
+        }

@@ -208,8 +208,8 @@ export default function UserProfileScreen() {
   const [followLoading, setFollowLoading] = useState(false);
 
   // Modales followers / following
-  const [showFollowers, setShowFollowers] = useState(false);
-  const [showFollowing, setShowFollowing] = useState(false);
+  const [showFollowModal, setShowFollowModal] = useState(false);
+  const [followModalTab, setFollowModalTab] = useState<'followers' | 'following' | 'suggestions'>('followers');
 
   // Cover photo offset (0 = top, 1 = bottom) + scale (zoom)
   const [coverOffsetY, setCoverOffsetY] = useState(0.5);
@@ -755,7 +755,7 @@ export default function UserProfileScreen() {
             {/* STATS INLINE — style Facebook */}
             <View style={st.statsInline} testID="profile-stats">
               <TouchableOpacity
-                onPress={() => setShowFollowers(true)}
+                onPress={() => { setFollowModalTab('followers'); setShowFollowModal(true); }}
                 activeOpacity={0.7}
                 testID="followers-count-btn"
                 style={st.statInlineTap}
@@ -765,7 +765,7 @@ export default function UserProfileScreen() {
               </TouchableOpacity>
               <Text style={st.statInlineSep}> · </Text>
               <TouchableOpacity
-                onPress={() => setShowFollowing(true)}
+                onPress={() => { setFollowModalTab('following'); setShowFollowModal(true); }}
                 activeOpacity={0.7}
                 testID="following-count-btn"
                 style={st.statInlineTap}
@@ -1198,23 +1198,15 @@ export default function UserProfileScreen() {
         </View>
       </Modal>
 
-      {/* ── MODALS FOLLOWERS / FOLLOWING ─────────────────────────── */}
+      {/* ── MODAL FOLLOWERS / FOLLOWING / SUGGESTIONS ──────────────── */}
       <FollowListModal
-        visible={showFollowers}
-        onClose={() => setShowFollowers(false)}
+        visible={showFollowModal}
+        onClose={() => setShowFollowModal(false)}
         profileId={id}
         meId={me?.user_id ?? null}
-        type="followers"
-        count={followersCount}
-        isOwnProfile={!!isOwnProfile}
-      />
-      <FollowListModal
-        visible={showFollowing}
-        onClose={() => setShowFollowing(false)}
-        profileId={id}
-        meId={me?.user_id ?? null}
-        type="following"
-        count={profile?.following_count ?? 0}
+        initialTab={followModalTab}
+        followersCount={followersCount}
+        followingCount={profile?.following_count ?? 0}
         isOwnProfile={!!isOwnProfile}
       />
     </SafeAreaView>
