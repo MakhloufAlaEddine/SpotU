@@ -276,11 +276,10 @@ async def going_spot_you(point_id: str, request: Request):
             raise HTTPException(status_code=404, detail="SpotYou introuvable")
 
         # Règle métier : l'utilisateur doit être membre pour participer à une séance
-        # (le propriétaire est toujours considéré membre)
         is_member = await conn.fetchval(
             "SELECT EXISTS(SELECT 1 FROM spot_you_participants WHERE spot_you_id=$1 AND user_id=$2)",
             point_id, user["user_id"],
-        ) or (str(point["user_id"]) == str(user["user_id"]))
+        )
         if not is_member:
             raise HTTPException(
                 status_code=403,

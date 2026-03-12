@@ -384,16 +384,9 @@ async def get_tag_point(point_id: str, request: Request):
         )
         pt["rating_distribution"] = {str(r["rating"]): r["cnt"] for r in dist}
 
-        # Participants — compter tous les membres distincts, propriétaire inclus
+        # Participants — utiliser spot_you_participants (propriétaire toujours inclus via seed/création)
         member_count = await conn.fetchval(
-            """SELECT COUNT(DISTINCT u) FROM (
-                SELECT user_id AS u FROM spot_you_participants WHERE spot_you_id=$1
-                UNION
-                SELECT user_id AS u FROM tag_point_participants WHERE point_id=$1
-                UNION
-                SELECT user_id AS u FROM tag_points WHERE point_id=$1
-            ) AS all_members""",
-            point_id,
+            "SELECT COUNT(*) FROM spot_you_participants WHERE spot_you_id=$1", point_id
         ) or 0
         pt["participants_count"] = int(member_count)
 
@@ -426,9 +419,6 @@ async def get_tag_point(point_id: str, request: Request):
                 ))
                 if not pt["is_member"] and pt["is_participant"]:
                     pt["is_member"] = True  # Compat rétrograde
-                # L'auteur du SpotYou est toujours membre
-                if not pt["is_member"] and str(pt.get("user_id", "")) == str(user["user_id"]):
-                    pt["is_member"] = True
                 pt["can_participate"] = pt["is_member"]
                 if pt["is_member"] and next_date:
                     going_count = await conn.fetchval(
@@ -666,17 +656,6 @@ async def get_tag_point_participants(point_id: str):
             {"user_id": r["user_id"], "name": r["name"], "picture": r["picture"], "role": r["role"], "is_creator": r["is_creator"]}
             for r in rows
         ]
-        # Toujours inclure le propriétaire (même s'il n'a pas rejoint explicitement)
-        owner = await conn.fetchrow(
-            """SELECT u.user_id, u.name, u.picture, u.role
-               FROM tag_points tp JOIN users u ON tp.user_id = u.user_id
-               WHERE tp.point_id = $1""", point_id
-        )
-        if owner:
-            owner_id = str(owner["user_id"])
-            already_in = any(str(r["user_id"]) == owner_id for r in result)
-            if not already_in:
-                result.insert(0, {"user_id": owner["user_id"], "name": owner["name"], "picture": owner["picture"], "role": owner["role"], "is_creator": True})
     return result
 
 
