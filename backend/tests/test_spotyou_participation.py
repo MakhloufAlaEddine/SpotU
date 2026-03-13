@@ -18,7 +18,7 @@ import uuid
 import json
 
 # URL de l'API
-API_BASE = "https://tags-usage-stats.preview.emergentagent.com/api"
+API_BASE = "https://profile-smoke-test.preview.emergentagent.com/api"
 
 # Credentials
 COACH_EMAIL = "coach@winek.app"
