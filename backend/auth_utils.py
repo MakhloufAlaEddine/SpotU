@@ -62,7 +62,7 @@ def get_token_from_request(request: Request) -> Optional[str]:
     return request.cookies.get("winek_token")
 
 
-USER_FIELDS = "user_id, email, name, role, language, picture, bio, phone, is_coach_verified, coach_tags, show_phone, show_reviews, created_at, updated_at"
+USER_FIELDS = "user_id, email, name, role, language, picture, bio, phone, is_coach_verified, coach_tags, show_phone, show_reviews, created_at, updated_at, sports_level, goals, user_roles, onboarding_done"
 
 
 async def require_auth(request: Request, pool) -> dict:

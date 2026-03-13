@@ -698,6 +698,29 @@ Le proxy Emergent (`sk_test_emergent` → `https://integrations.emergentagent.co
 - Animations d'entrée (spring staggered) sur logo et formulaire
 - Textes en français : "Bon retour !", "Connectez-vous pour continuer", "Se connecter", etc.
 - Bouton Google avec icône Ionicons au lieu d'emoji
+
+### Onboarding Multi-Étapes (2026-03-13) ✅
+**Backend** :
+- Nouvelles colonnes : `sports_level`, `goals` (JSONB), `user_roles` (JSONB), `onboarding_done` (BOOL) dans table `users`
+- `USER_FIELDS` étendu pour inclure les nouveaux champs
+- `UserUpdate` Pydantic model étendu avec les nouveaux champs
+- Sérialisation JSONB dans `update_profile()` handler
+
+**Frontend — 6 écrans fluides** (`app/(auth)/register.tsx`) :
+1. Création de compte (nom, email, mdp, Google)
+2. Rôle : "Je veux faire du sport" / "Je suis coach / j'organise" (multi-select)
+3. Sports : 12 options avec icônes (Running, Musculation, CrossFit, Yoga, Boxe, etc.)
+4. Niveau : Débutant → Coach (single select)
+5. Objectif : Se remettre au sport, Trouver des partenaires, etc. (multi-select)
+6. Localisation : Auto-détection GPS OU saisie manuelle + CTA "C'est parti !"
+
+**UX** :
+- Animations slide entre étapes
+- Progress bar avec dots
+- Bouton "Passer" pour skip à tout moment
+- Design cohérent avec le login (dark/teal, cartes, floating inputs)
+- Toutes les données sauvegardées via PUT /api/users/profile avec onboarding_done=true
+
 - Login fonctionnel vérifié (web + iOS bundle OK)
 
 

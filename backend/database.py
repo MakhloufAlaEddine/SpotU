@@ -810,6 +810,14 @@ async def connect_to_db():
               AND left(trim(coach_tags #>> '{}'), 1) = '[';
         """)
 
+        # [ONBOARDING] New profile fields for onboarding flow
+        await conn.execute("""
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS sports_level TEXT;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS goals JSONB DEFAULT '[]';
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS user_roles JSONB DEFAULT '[]';
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_done BOOLEAN DEFAULT FALSE;
+        """)
+
 
 async def close_db():
     global pool

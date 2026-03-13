@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Request, HTTPException
 from datetime import datetime, timezone
+import json
 from models import UserUpdate, ProfileReviewCreate, new_id
 from auth_utils import require_auth, get_optional_auth, USER_FIELDS
 from database import get_pool, row_to_dict, rows_to_list
@@ -61,9 +62,14 @@ async def update_profile(data: UserUpdate, request: Request):
     set_clauses = []
     values = []
     i = 1
+    JSONB_FIELDS = {'coach_tags', 'goals', 'user_roles'}
     for key, val in update_fields.items():
-        set_clauses.append(f"{key} = ${i}")
-        values.append(val)
+        if key in JSONB_FIELDS and isinstance(val, list):
+            set_clauses.append(f"{key} = ${i}::jsonb")
+            values.append(json.dumps(val))
+        else:
+            set_clauses.append(f"{key} = ${i}")
+            values.append(val)
         i += 1
     values.append(user["user_id"])
     set_clauses.append("updated_at = NOW()")

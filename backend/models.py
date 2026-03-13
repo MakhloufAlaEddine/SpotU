@@ -101,6 +101,10 @@ class UserUpdate(BaseModel):
     iban: Optional[str] = None
     bic: Optional[str] = None
     iban_name: Optional[str] = None
+    sports_level: Optional[str] = None
+    goals: Optional[List[str]] = None
+    user_roles: Optional[List[str]] = None
+    onboarding_done: Optional[bool] = None
 
 
 # --- DOMAIN ---
