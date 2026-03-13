@@ -1,12 +1,26 @@
 from fastapi import APIRouter, Request, HTTPException
+from fastapi.responses import RedirectResponse
 from datetime import datetime, timezone
 from models import UserCreate, UserLogin, GoogleAuthRequest, PasswordChange, new_id
 from auth_utils import hash_password, verify_password, create_jwt, require_auth, fetch_emergent_session, USER_FIELDS
 from database import get_pool, row_to_dict
 from limiter import limiter
 import json
+from urllib.parse import unquote
 
 router = APIRouter()
+
+
+@router.get("/native-callback")
+async def native_google_callback(request: Request):
+    """HTTP 302 redirect to exp:// deep link — works reliably in SFSafariViewController."""
+    params = request.query_params
+    session_id = params.get("session_id", "")
+    exp_callback = unquote(params.get("exp_callback", ""))
+    if not session_id or not exp_callback:
+        raise HTTPException(400, "Missing session_id or exp_callback")
+    target = f"{exp_callback}?session_id={session_id}"
+    return RedirectResponse(url=target, status_code=302)
 
 
 @router.post("/register")

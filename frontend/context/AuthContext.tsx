@@ -151,23 +151,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       //
       // FLOW :
       // 1. Ouvrir auth.emergentagent.com dans SFSafariViewController
-      // 2. Après Google auth, callback redirige vers exp://TUNNEL_HOST/--/auth-callback?session_id=...
-      // 3. SFSafariViewController se ferme, Expo Go reçoit le deep link
+      // 2. Après Google auth → redirige vers backend /api/auth/native-callback
+      // 3. Backend retourne HTTP 302 vers exp://TUNNEL/--/auth-callback?session_id=...
+      // 4. iOS détecte le scheme exp:// → ferme SFSafariViewController → ouvre Expo Go
+      // 5. Linking.addEventListener reçoit le session_id
       //
       const expCallbackUrl = Linking.createURL('auth-callback');
-      // expCallbackUrl = exp://profile-smoke-test.ngrok.io/--/auth-callback (dynamic, always correct)
 
-      // Redirect URL for the web callback page (served via Kubernetes ingress)
-      const redirectUrl = `https://profile-smoke-test.preview.emergentagent.com/(auth)/callback?native=1&exp_callback=${encodeURIComponent(expCallbackUrl)}`;
-      const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+      // Use backend HTTP 302 redirect (reliable in SFSafariViewController)
+      const backendCallback = `https://profile-smoke-test.preview.emergentagent.com/api/auth/native-callback?exp_callback=${encodeURIComponent(expCallbackUrl)}`;
+      const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(backendCallback)}`;
 
-      // Préparer la promesse qui se résout avec le session_id via deep link
       let resolveDeepLink: ((sid: string | null) => void) | null = null;
       const deepLinkPromise = new Promise<string | null>(resolve => {
         resolveDeepLink = resolve;
       });
 
-      // Écouter le deep link AVANT d'ouvrir le navigateur
       const subscription = Linking.addEventListener('url', ({ url }) => {
         const match = url.match(/session_id=([^&#]+)/);
         if (match?.[1]) {
@@ -177,15 +176,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       });
 
-      // Ouvrir le navigateur in-app (SFSafariViewController)
       WebBrowser.openBrowserAsync(authUrl).then(() => {
-        // Le navigateur s'est fermé — attendre 2s que le deep link arrive
-        // (SFSafariViewController se ferme AVANT que Linking ne reçoive le deep link)
         setTimeout(() => {
           subscription.remove();
           resolveDeepLink?.(null);
           resolveDeepLink = null;
-        }, 2000);
+        }, 3000);
       });
 
       // Attendre le session_id via deep link
