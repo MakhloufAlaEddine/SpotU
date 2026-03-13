@@ -692,4 +692,13 @@ Le proxy Emergent (`sk_test_emergent` → `https://integrations.emergentagent.co
 - `bookings/[id].tsx` : Même pattern — `ErrorNoData` avec retry/back quand offline, `loadBooking` extrait en `useCallback`
 - `spot-you/[id].tsx` : Déjà correctement géré
 
+### Redesign Écran Login (2026-03-13) ✅
+- Redesign complet de `app/(auth)/login.tsx` : fond gradient sombre/teal, logo SpotU avec glow, carte formulaire semi-transparente
+- Inputs avec floating labels + icônes (mail, cadenas) + état focus teal
+- Animations d'entrée (spring staggered) sur logo et formulaire
+- Textes en français : "Bon retour !", "Connectez-vous pour continuer", "Se connecter", etc.
+- Bouton Google avec icône Ionicons au lieu d'emoji
+- Login fonctionnel vérifié (web + iOS bundle OK)
+
+
 
