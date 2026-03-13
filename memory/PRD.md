@@ -598,3 +598,24 @@ Le proxy Emergent (`sk_test_emergent` → `https://integrations.emergentagent.co
 - `session.payment_intent = None` (le proxy ne retourne pas l'ID du PI)
 - Les appels `capture_payment_intent` / `cancel_payment_intent` sont silencieusement skippés (null check)
 - En production avec une vraie clé Stripe, `session.payment_intent` est peuplé et la capture manuelle fonctionne
+
+
+## Audit des règles métier — Mars 2026
+
+### Tests ajoutés (`backend/tests/test_business_rules_audit.py`)
+23 tests couvrant les 9 règles métier non testées :
+
+| # | Règle | Tests | Statut |
+|---|-------|-------|--------|
+| 1 | Interdiction de réserver son propre service | `TestCannotBookOwnService` (1 test) | PASS |
+| 2 | Propriétaire ne peut pas quitter sa communauté | `TestOwnerCannotLeaveCommunity` (2 tests) | PASS |
+| 3 | Quitter → annule participations futures | `TestLeaveDeletesFutureAttendance` (1 test) | PASS |
+| 4 | Masquage coordonnées (100m/1000m) | `TestCoordinatePrecisionMasking` (5 tests) | PASS |
+| 5 | Max 10 images (gap documenté) | `TestMaxImagesValidation` (1 test) | PASS (documente l'absence de validation backend) |
+| 6 | Slots masqués si booking actif | `TestSlotsHiddenWithActiveBooking` (2 tests) | PASS |
+| 7 | Images retirées supprimées du disque | `TestImageDeletionOnRemoval` (3 tests) | PASS |
+| 8 | Service soft delete | `TestServiceSoftDelete` (3 tests) | PASS |
+| 9 | Fuseau Europe/Paris | `TestTimezoneParis` (5 tests) | PASS |
+
+### Gap documenté
+- **Max 10 images** : La validation est uniquement côté frontend (`create.tsx` L300). Le backend accepte >10 images. Le test documente ce comportement.
