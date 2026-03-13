@@ -37,7 +37,7 @@ export default function AuthCallback() {
       const isNativeContext = search.includes('native=1');
       if (isNativeContext && sessionId) {
         try { sessionStorage.removeItem('spotu_pending_session'); } catch {}
-        const expHost = 'geo-coaching-app.preview.emergentagent.com';
+        const expHost = 'profile-smoke-test.preview.emergentagent.com';
         const expUrl = `exp://${expHost}/--/auth-callback?session_id=${encodeURIComponent(sessionId)}`;
         // Redirection vers exp:// → SFSafariViewController se ferme, Expo Go reçoit le deep link
         window.location.href = expUrl;

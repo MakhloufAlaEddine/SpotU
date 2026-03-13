@@ -160,7 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // 3. iOS ouvre Expo Go avec le deep link
       // 4. Linking.addEventListener reçoit le session_id → auth complète
       //
-      const expHost = 'geo-coaching-app.preview.emergentagent.com';
+      const expHost = 'profile-smoke-test.preview.emergentagent.com';
       const redirectUrl = `https://${expHost}/(auth)/callback?native=1`;
       const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
 
