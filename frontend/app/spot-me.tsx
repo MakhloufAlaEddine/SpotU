@@ -4,7 +4,7 @@ import {
   ActivityIndicator, RefreshControl, Image, Alert, Modal, ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+;
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
@@ -18,11 +18,12 @@ import { SpotYouCard } from '../components/SpotYouCard';
 import { UserAvatar } from '../components/UserAvatar';
 import { ScreenLoader } from '../components/ScreenLoader';
 import { EmptyState } from '../components/EmptyState';
+import { useGuardedRouter } from '../hooks/useGuardedRouter';
 
 // ─── Screen ─────────────────────────────────────────────────────────────────
 
 export default function MySpotYouScreen() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const { user } = useAuth();
   const { playClickSound } = useClickSound();
 

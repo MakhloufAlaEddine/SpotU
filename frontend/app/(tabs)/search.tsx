@@ -4,7 +4,7 @@ import {
   ActivityIndicator, Image, Modal, FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+;
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import { api } from '../../lib/api';
@@ -12,6 +12,7 @@ import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { useLocation } from '../../context/LocationContext';
 import { haversineDistance, formatDistance } from '../../utils/distance';
 import { MapViewComponent, MapPin } from '../../components/MapViewComponent';
+import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Tag { tag_id: string; label_fr: string; label_en: string; name: string; }
@@ -158,7 +159,7 @@ const modalSt = StyleSheet.create({
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function SearchScreen() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const [radiusKm, setRadiusKm] = useState(40);
   const [combineMode, setCombineMode] = useState(false);
   const [SpotYou, setSpotYou] = useState<any[]>([]);

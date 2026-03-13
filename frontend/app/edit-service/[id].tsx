@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 
 /**
  * Redirect to the shared create-service screen with serviceId param.
@@ -7,7 +8,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
  */
 export default function EditServiceRedirect() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const router = useRouter();
+  const router = useGuardedRouter();
 
   useEffect(() => {
     if (id) {

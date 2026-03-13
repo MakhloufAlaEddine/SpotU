@@ -5,7 +5,7 @@ import {
   Animated, Dimensions, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { MapViewComponent } from '../../components/MapViewComponent';
@@ -18,6 +18,7 @@ import { useLang } from '../../context/LanguageContext';
 import { useRefresh } from '../../context/RefreshContext';
 import { reverseGeocodeGoogle } from '../../services/googlePlacesService';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
+import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 
@@ -94,7 +95,7 @@ function calcQuality(form: any): { score: number; label: string; color: string }
 
 // ─── Main Component ─────────────────────────────────────────────────────────────
 export default function CreateSpotYouScreen() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const { user, token } = useAuth();
   const { lang } = useLang();
   const { triggerProfileRefresh } = useRefresh();

@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Colors, Spacing, Radius, Shadow } from '../constants/Colors';
-import { useRouter } from 'expo-router';
+import { useGuardedRouter } from '../hooks/useGuardedRouter';
+;
 
 interface Service {
   service_id: string;
@@ -21,7 +22,7 @@ interface Props {
 }
 
 export function CoachCard({ service, lang = 'fr' }: Props) {
-  const router = useRouter();
+  const router = useGuardedRouter();
 
   return (
     <TouchableOpacity

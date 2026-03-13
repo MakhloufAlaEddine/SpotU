@@ -5,13 +5,14 @@ import {
   ActivityIndicator, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { useChat, ChatMessage } from '../../lib/chat';
 import { api } from '../../lib/api';
 import { storage } from '../../lib/storage';
 import { ErrorNoData } from '../../components/OfflineBanner';
+import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
@@ -61,7 +62,7 @@ function Bubble({ msg, isMe }: { msg: ChatMessage; isMe: boolean }) {
 
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const router = useRouter();
+  const router = useGuardedRouter();
   const [input, setInput] = useState('');
   const [currentUserId, setCurrentUserId] = useState('');
   const [convInfo, setConvInfo] = useState<any>(null);

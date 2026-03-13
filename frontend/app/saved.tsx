@@ -4,7 +4,7 @@ import {
   Image, ActivityIndicator, RefreshControl, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+;
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { api } from '../lib/api';
@@ -14,6 +14,7 @@ import ConfirmActionModal, { ConfirmAction } from '../components/ConfirmActionMo
 import { useNetwork } from '../hooks/useNetwork';
 import { useClickSound } from '../hooks/useClickSound';
 import { cacheInvalidate } from '../lib/cache';
+import { useGuardedRouter } from '../hooks/useGuardedRouter';
 
 const ORANGE = '#FF9500';
 
@@ -108,7 +109,7 @@ const card = StyleSheet.create({
 type Tab = 'spotyou' | 'services';
 
 export default function SavedScreen() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const { isOnline } = useNetwork();
   const { playClickSound } = useClickSound();
 

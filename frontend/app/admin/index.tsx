@@ -5,11 +5,12 @@ import {
   KeyboardAvoidingView, Platform, RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
 import { Colors, Spacing } from '../../constants/Colors';
+import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type Tab = 'stats' | 'rules' | 'plans' | 'payments' | 'booking' | 'tags';
@@ -1288,7 +1289,7 @@ function TagForm({ initial, domains, categories, onSave, onClose }: {
 // ── Écran principal ───────────────────────────────────────────────────────────
 export default function AdminScreen() {
   const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
+  const router = useGuardedRouter();
   const [tab, setTab] = useState<Tab>('stats');
   const [stats, setStats] = useState<Stats | null>(null);
   const [rules, setRules] = useState<PricingRule[]>([]);

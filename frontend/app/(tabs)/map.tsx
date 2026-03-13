@@ -5,7 +5,7 @@ import {
   Image, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+;
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
 import { useLang } from '../../context/LanguageContext';
@@ -16,6 +16,7 @@ import { haversineDistance, formatDistance } from '../../utils/distance';
 import { buildCacheKey, cacheGet, cacheSet, isFresh, cacheAgeMinutes, getTtl, SCHEMA_VERSION } from '../../lib/cache';
 import { StaleBanner, ErrorNoData } from '../../components/OfflineBanner';
 import { registerScreenRefresh } from '../../hooks/useNetwork';
+import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 
 const { width: SW } = Dimensions.get('window');
 const HERO_H = 280;
@@ -277,7 +278,7 @@ const recSt = StyleSheet.create({
 
 // ── Main Screen ──────────────────────────────────────────────
 export default function HomeScreen() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const { t } = useLang();
   const { user } = useAuth();
   const { location, loading: locLoading } = useLocation();

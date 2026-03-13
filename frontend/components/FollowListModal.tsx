@@ -4,10 +4,11 @@ import {
   TextInput, ActivityIndicator, Alert, ScrollView, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+;
 import { api } from '../lib/api';
 import { Colors, Radius, Spacing } from '../constants/Colors';
 import { UserAvatar } from './UserAvatar';
+import { useGuardedRouter } from '../hooks/useGuardedRouter';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type FollowUser = {
@@ -54,7 +55,7 @@ export function FollowListModal({
   onFollowersCountChange,
   onFollowingCountChange,
 }: Props) {
-  const router = useRouter();
+  const router = useGuardedRouter();
 
   // ── Tab state ────────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<Tab>(initialTab);

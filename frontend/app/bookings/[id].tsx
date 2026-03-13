@@ -4,12 +4,13 @@ import {
   ActivityIndicator, Alert, Linking, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
+import { useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { ScreenLoader } from '../../components/ScreenLoader';
 import { UserAvatar } from '../../components/UserAvatar';
+import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 
 // ── Countdown hook ──
 function useExpired(expiresAt: string | null | undefined): { expired: boolean; countdown: string | null } {
@@ -69,7 +70,7 @@ function getAmount(b: any): number | null {
 // ── Screen ─────────────────────────────────────────────────────────────────────
 export default function BookingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const router = useRouter();
+  const router = useGuardedRouter();
   const [booking, setBooking] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying]   = useState(false);

@@ -4,12 +4,13 @@ import {
   Image, ActivityIndicator, RefreshControl, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../lib/api';
 import { useLocation } from '../context/LocationContext';
 import { haversineDistance, formatDistance } from '../utils/distance';
 import { Colors, Spacing, Radius } from '../constants/Colors';
+import { useGuardedRouter } from '../hooks/useGuardedRouter';
 
 const DAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 const DAYS_FULL = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
@@ -60,7 +61,7 @@ function EventCard({ item, onLeave }: { item: EventPoint; onLeave: () => void })
     : null;
 
   const isRecurring = !!item.event_schedule;
-  const router = useRouter();
+  const router = useGuardedRouter();
 
   return (
     <TouchableOpacity
@@ -137,7 +138,7 @@ const card = StyleSheet.create({
 });
 
 export default function EventsScreen() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const [items, setItems] = useState<EventPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

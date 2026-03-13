@@ -4,11 +4,12 @@ import {
   ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform, Image, Linking, AppState, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { useBookingConfig } from '../../lib/useBookingConfig';
+import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 
 const ORANGE = '#FF9500';
 const ORANGE_LIGHT = 'rgba(255,149,0,0.12)';
@@ -48,7 +49,7 @@ function useCountdown(expiresAt: string | null | undefined): string | null {
 }
 
 export default function BookingConfirmScreen() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const { serviceId, slotId, locationId, scheduledAt } = useLocalSearchParams<{
     serviceId: string; slotId: string; locationId: string; scheduledAt: string;
   }>();

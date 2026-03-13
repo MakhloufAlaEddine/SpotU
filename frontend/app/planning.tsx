@@ -4,11 +4,12 @@ import {
   ScrollView, ActivityIndicator, RefreshControl, InteractionManager,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../constants/Colors';
 import { api } from '../lib/api';
+import { useGuardedRouter } from '../hooks/useGuardedRouter';
 
 const CACHE_KEY = 'planning_events_cache';
 
@@ -210,7 +211,7 @@ function EventCard({ event, onPress, isConflict }: { event: any; onPress: () => 
 
 // ── Écran principal ────────────────────────────────────────────────────────────
 export default function PlanningScreen() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const today = isoDate(new Date());
 
   const [events, setEvents]         = useState<any[]>([]);

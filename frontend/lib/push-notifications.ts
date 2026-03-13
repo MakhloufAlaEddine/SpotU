@@ -11,6 +11,7 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { router } from 'expo-router';
 import { api } from './api';
+import { guardedNavigate } from './navGuard';
 
 // Configuration globale du comportement des notifications reçues en avant-plan
 Notifications.setNotificationHandler({
@@ -105,12 +106,12 @@ export function setupNotificationResponseHandler(): () => void {
     switch (data.type) {
       case 'chat_message':
         if (data.conversationId) {
-          router.push(`/chat/${data.conversationId}`);
+          guardedNavigate(() => router.push(`/chat/${data.conversationId}`));
         }
         break;
       case 'new_booking':
       case 'booking_status':
-        router.push('/bookings');
+        guardedNavigate(() => router.push('/bookings'));
         break;
     }
   });

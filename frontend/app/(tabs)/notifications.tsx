@@ -4,7 +4,7 @@ import {
   RefreshControl, Image, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
 import { subscribeNewNotification } from '../../lib/chat';
@@ -16,6 +16,7 @@ import { registerScreenRefresh } from '../../hooks/useNetwork';
 import { UserAvatar } from '../../components/UserAvatar';
 import { ScreenLoader } from '../../components/ScreenLoader';
 import { EmptyState } from '../../components/EmptyState';
+import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 
 // ── Config visuelle par type ──────────────────────────────────────────────────
 const NOTIF_CFG: Record<string, { icon: any; color: string; bg: string; label: string }> = {
@@ -104,7 +105,7 @@ function NotifItem({ item, onPress }: { item: any; onPress: () => void }) {
 
 // ── Écran principal ───────────────────────────────────────────────────────────
 export default function NotificationsScreen() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const { user } = useAuth();
   const [notifs, setNotifs]     = useState<any[]>([]);
   const [screenState, setScreenState] = useState<'loading_initial' | 'ready_fresh' | 'ready_cached' | 'error_no_data'>('loading_initial');

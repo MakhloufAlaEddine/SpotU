@@ -12,11 +12,12 @@ import {
   ActivityIndicator, RefreshControl, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { useBookingConfig } from '../../lib/useBookingConfig';
+import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 
 // ── Statuts ────────────────────────────────────────────────────────────────────
 
@@ -234,7 +235,7 @@ function ReceivedCard({
 // ── Écran principal ────────────────────────────────────────────────────────────
 
 export default function ReceivedBookingsScreen() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const [bookings, setBookings]   = useState<any[]>([]);
   const [loading, setLoading]     = useState(true);
   const [refreshing, setRefreshing] = useState(false);

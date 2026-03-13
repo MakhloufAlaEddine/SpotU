@@ -1,11 +1,12 @@
 import React, { useEffect, useRef } from 'react';
 import { View, ActivityIndicator, Text, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
+;
 import { useAuth } from '../../context/AuthContext';
 import { Colors, Spacing } from '../../constants/Colors';
+import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 
 export default function AuthCallback() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const { processGoogleCallback } = useAuth();
   const processed = useRef(false);
 

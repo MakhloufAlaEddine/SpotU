@@ -8,7 +8,7 @@ import * as ImagePicker from 'expo-image-picker';
 
 const { height: SH } = Dimensions.get('window');
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LocationPicker } from '../components/LocationPicker';
 import { WeekCalendar } from '../components/WeekCalendar';
@@ -18,6 +18,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
 import { Colors, Spacing, Radius } from '../constants/Colors';
 import { useBookingConfig } from '../lib/useBookingConfig';
+import { useGuardedRouter } from '../hooks/useGuardedRouter';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ORANGE = '#FF9500';
@@ -101,7 +102,7 @@ function computeScore(
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function CreateServiceScreen() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const { user, token } = useAuth();
   const { lang } = useLang();
   const scrollRef = useRef<ScrollView>(null);

@@ -4,12 +4,13 @@ import {
   TextInput, FlatList, Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, Stack } from 'expo-router';
+import { Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../constants/Colors';
 import { MapViewComponent } from '../components/MapViewComponent';
 import { useLocation } from '../context/LocationContext';
 import { searchPlaces, getPlaceDetails, reverseGeocodeGoogle, type PlaceSuggestion } from '../services/googlePlacesService';
+import { useGuardedRouter } from '../hooks/useGuardedRouter';
 
 const SAVED_ADDRESSES = [
   {
@@ -31,7 +32,7 @@ const SAVED_ADDRESSES = [
 ];
 
 export default function SetLocationScreen() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const { location, setLocation } = useLocation();
   const [loading, setLoading] = useState(false);
   const [currentAddress, setCurrentAddress] = useState(location.address);

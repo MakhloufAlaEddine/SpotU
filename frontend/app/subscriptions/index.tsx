@@ -13,10 +13,11 @@ import {
   ActivityIndicator, RefreshControl, Alert, Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
 import { Colors, Radius } from '../../constants/Colors';
+import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -220,7 +221,7 @@ function ActiveSubCard({
 // ── Écran principal ────────────────────────────────────────────────────────────
 
 export default function SubscriptionsScreen() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const [plans, setPlans]         = useState<Plan[]>([]);
   const [subData, setSubData]     = useState<{ has_subscription: boolean; subscription: Subscription | null } | null>(null);
   const [loading, setLoading]     = useState(true);

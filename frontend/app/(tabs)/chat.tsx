@@ -4,7 +4,7 @@ import {
   StyleSheet, Image, RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { api } from '../../lib/api';
@@ -16,6 +16,7 @@ import { registerScreenRefresh } from '../../hooks/useNetwork';
 import { UserAvatar } from '../../components/UserAvatar';
 import { ScreenLoader } from '../../components/ScreenLoader';
 import { EmptyState } from '../../components/EmptyState';
+import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -44,7 +45,7 @@ function TypeBadge({ type }: { type: string }) {
 }
 
 function ConvItem({ item, currentUserId }: { item: Conversation; currentUserId: string }) {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const other = item.other_participant;
   const isGroup = item.type === 'tagpoint_group';
 

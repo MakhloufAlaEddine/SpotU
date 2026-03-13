@@ -1,8 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Colors, Spacing, Radius } from '../constants/Colors';
-import { useRouter } from 'expo-router';
+;
 import { Ionicons } from '@expo/vector-icons';
+import { useGuardedRouter } from '../hooks/useGuardedRouter';
 
 interface TagPoint {
   point_id: string;
@@ -52,7 +53,7 @@ const starStyles = StyleSheet.create({
 });
 
 export function TagPointCard({ point, lang = 'fr' }: Props) {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const color = DOMAIN_COLORS[point.domain_id] || Colors.primary;
 
   const formatDistance = (distanceMeters?: number) => {

@@ -4,7 +4,7 @@ import {
   RefreshControl, Image, Modal, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+;
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { useRefresh } from '../../context/RefreshContext';
@@ -15,9 +15,10 @@ import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { StaleBanner, ErrorNoData } from '../../components/OfflineBanner';
 import { buildCacheKey, cacheGet, cacheSet, isFresh, getTtl, SCHEMA_VERSION } from '../../lib/cache';
 import { ScreenLoader } from '../../components/ScreenLoader';
+import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 
 export default function MenuScreen() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const { user, logout, loading, refreshUser } = useAuth();
   const { lang, setLanguage } = useLang();
   const [refreshing, setRefreshing] = useState(false);

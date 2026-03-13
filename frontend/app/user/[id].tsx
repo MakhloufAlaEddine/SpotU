@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
+import { useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
@@ -22,12 +22,13 @@ import { ProfileSpotYouSection } from '../../components/profile/ProfileSpotYouSe
 import { ProfileReviews } from '../../components/profile/ProfileReviews';
 import { CoverRepositionModal } from '../../components/profile/CoverRepositionModal';
 import { ProfileCompletionBar } from '../../components/profile/ProfileCompletionBar';
+import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 
 const SCREEN_W = Dimensions.get('window').width;
 
 export default function UserProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const router = useRouter();
+  const router = useGuardedRouter();
   const { user: me, token } = useAuth();
 
   // ── State ──

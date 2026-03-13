@@ -7,7 +7,7 @@ import {
 
 const { width: SW } = Dimensions.get('window');
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { MapViewComponent } from '../../components/MapViewComponent';
 import type { MapPin } from '../../components/MapViewComponent';
@@ -16,6 +16,7 @@ import { useBookingConfig } from '../../lib/useBookingConfig';
 import { getOrCreateConversation } from '../../lib/chat';
 import { useAuth } from '../../context/AuthContext';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
+import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 const ORANGE = '#FF9500';
@@ -69,7 +70,7 @@ function formatFullDate(dateStr: string): string {
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function ServiceDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const router = useRouter();
+  const router = useGuardedRouter();
   const { user } = useAuth();
 
   const [service, setService] = useState<any>(null);

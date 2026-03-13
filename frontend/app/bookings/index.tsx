@@ -12,12 +12,13 @@ import {
   ActivityIndicator, RefreshControl, Linking, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { ScreenLoader } from '../../components/ScreenLoader';
 import { EmptyState } from '../../components/EmptyState';
+import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 
 // ── Statuts booking ────────────────────────────────────────────────────────────
 
@@ -184,7 +185,7 @@ function BookingCard({ booking, onPress }: { booking: any; onPress: () => void }
 // ── Écran principal ────────────────────────────────────────────────────────────
 
 export default function MyBookingsScreen() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading]   = useState(true);
   const [refreshing, setRefreshing] = useState(false);

@@ -4,15 +4,16 @@ import {
   Platform, ScrollView, ActivityIndicator, Alert, Pressable, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+;
 import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/LanguageContext';
 import { WButton } from '../../components/WButton';
 import { WInput } from '../../components/WInput';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
+import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 
 export default function LoginScreen() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const { login, loginWithGoogle } = useAuth();
   const { t } = useLang();
   const [email, setEmail] = useState('');

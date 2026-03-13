@@ -4,15 +4,16 @@ import {
   ScrollView, Alert, Pressable, TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+;
 import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/LanguageContext';
 import { WButton } from '../../components/WButton';
 import { WInput } from '../../components/WInput';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
+import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 
 export default function RegisterScreen() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const { register, loginWithGoogle } = useAuth();
   const { t, setLanguage, lang } = useLang();
   const [name, setName] = useState('');

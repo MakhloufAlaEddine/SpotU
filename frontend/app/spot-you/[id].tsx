@@ -5,7 +5,7 @@ import {
   TextInput, Modal, KeyboardAvoidingView, Platform, Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter, Stack, useFocusEffect } from 'expo-router';
+import { useLocalSearchParams, Stack, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { MapViewComponent } from '../../components/MapViewComponent';
 import { MarkdownText } from '../../components/RichTextInput';
@@ -22,6 +22,7 @@ import { useClickSound } from '../../hooks/useClickSound';
 import { useNetwork } from '../../hooks/useNetwork';
 import { StaleBanner, ErrorNoData } from '../../components/OfflineBanner';
 import { buildCacheKey, cacheGet, cacheSet, isFresh, cacheAgeMinutes, getTtl, SCHEMA_VERSION, cacheInvalidate } from '../../lib/cache';
+import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -335,7 +336,7 @@ const vcSt = StyleSheet.create({
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function SpotYouDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const router = useRouter();
+  const router = useGuardedRouter();
   const { user } = useAuth();
   const { location } = useLocation();
   const { lang } = useLang();

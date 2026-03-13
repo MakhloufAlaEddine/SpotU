@@ -5,12 +5,13 @@ import {
   KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+;
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
 import { Colors, Spacing, Radius } from '../constants/Colors';
+import { useGuardedRouter } from '../hooks/useGuardedRouter';
 
 const TEAL_DIM = 'rgba(0,191,165,0.12)';
 const TEAL_BORDER = 'rgba(0,191,165,0.3)';
@@ -65,7 +66,7 @@ function SwitchRow({ label, desc, value, onValueChange, testID }: any) {
 
 // ── Main screen ───────────────────────────────────────────────────────────────
 export default function EditProfileScreen() {
-  const router = useRouter();
+  const router = useGuardedRouter();
   const { user, refreshUser } = useAuth();
 
   // Profile fields
