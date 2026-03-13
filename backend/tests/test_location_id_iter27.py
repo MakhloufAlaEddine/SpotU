@@ -9,7 +9,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('EXPO_PUBLIC_BACKEND_URL', 'https://profile-smoke-test.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('EXPO_PUBLIC_BACKEND_URL', 'https://onboarding-flow-82.preview.emergentagent.com').rstrip('/')
 
 COACH_EMAIL = "coach@winek.app"
 COACH_PASSWORD = "WinekCoach2024!"

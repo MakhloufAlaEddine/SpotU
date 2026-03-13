@@ -159,7 +159,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Use the web callback page as redirect target (Emergent auth appends session_id to it)
       // Then the callback page redirects to backend 302 endpoint for the exp:// deep link
       const expCallbackUrl = Linking.createURL('auth-callback');
-      const redirectUrl = `https://profile-smoke-test.preview.emergentagent.com/(auth)/callback?native=1`;
+      const redirectUrl = `https://onboarding-flow-82.preview.emergentagent.com/(auth)/callback?native=1`;
       const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
 
       let resolveDeepLink: ((sid: string | null) => void) | null = null;

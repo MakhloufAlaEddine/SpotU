@@ -14,7 +14,7 @@ import httpx
 from datetime import datetime, timezone
 
 # URL de l'API
-API_BASE = "https://profile-smoke-test.preview.emergentagent.com/api"
+API_BASE = "https://onboarding-flow-82.preview.emergentagent.com/api"
 
 # Credentials
 USER_EMAIL = "user@winek.app"

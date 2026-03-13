@@ -36,7 +36,7 @@
   "seed_data_creation": "Aucune.",
   "retest_needed": false,
   "should_main_agent_self_test": false,
-  "context_for_next_testing_agent": "Iteration 70: 31/31 PASS. Guards offline + modèle 4-états + protection envoi chat tous vérifiés. Test file: /app/frontend/e2e/test_14_offline_guards.py. Cumul sessions: test_01 à test_14 soit ~122 tests. APP_URL = https://profile-smoke-test.preview.emergentagent.com. Commande: cd /app/frontend/e2e && EXPO_PUBLIC_BACKEND_URL=https://profile-smoke-test.preview.emergentagent.com python -m pytest -v. Précédente itération (69): 91 tests PASS, bugs corrigés dans notifications.tsx et map.tsx.",
+  "context_for_next_testing_agent": "Iteration 70: 31/31 PASS. Guards offline + modèle 4-états + protection envoi chat tous vérifiés. Test file: /app/frontend/e2e/test_14_offline_guards.py. Cumul sessions: test_01 à test_14 soit ~122 tests. APP_URL = https://onboarding-flow-82.preview.emergentagent.com. Commande: cd /app/frontend/e2e && EXPO_PUBLIC_BACKEND_URL=https://onboarding-flow-82.preview.emergentagent.com python -m pytest -v. Précédente itération (69): 91 tests PASS, bugs corrigés dans notifications.tsx et map.tsx.",
   "test_results_detail": {
     "TestSourceCodeGuards (16 tests)": {
       "test_spotme_has_4state_model": "PASS",
