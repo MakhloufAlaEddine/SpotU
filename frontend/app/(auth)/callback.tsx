@@ -37,18 +37,11 @@ export default function AuthCallback() {
       const isNativeContext = search.includes('native=1');
       if (isNativeContext && sessionId) {
         try { sessionStorage.removeItem('spotu_pending_session'); } catch {}
-        // Use the dynamic exp_callback URL passed from the native app
-        const expCallbackMatch = search.match(/[?&]exp_callback=([^&]+)/);
-        const expCallbackBase = expCallbackMatch ? decodeURIComponent(expCallbackMatch[1]) : null;
-        if (expCallbackBase) {
-          const expUrl = `${expCallbackBase}?session_id=${encodeURIComponent(sessionId)}`;
-          window.location.href = expUrl;
-        } else {
-          // Fallback: use ngrok tunnel host
-          const expHost = 'profile-smoke-test.ngrok.io';
-          const expUrl = `exp://${expHost}/--/auth-callback?session_id=${encodeURIComponent(sessionId)}`;
-          window.location.href = expUrl;
-        }
+        // Redirect to backend 302 endpoint which returns exp:// deep link
+        // This is reliable in SFSafariViewController (JS exp:// redirects are blocked)
+        const expCallback = `exp://profile-smoke-test.ngrok.io/--/auth-callback`;
+        const backendUrl = `/api/auth/native-callback?exp_callback=${encodeURIComponent(expCallback)}&session_id=${encodeURIComponent(sessionId)}`;
+        window.location.href = backendUrl;
         return;
       }
     }

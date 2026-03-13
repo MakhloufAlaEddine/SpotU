@@ -156,11 +156,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // 4. iOS détecte le scheme exp:// → ferme SFSafariViewController → ouvre Expo Go
       // 5. Linking.addEventListener reçoit le session_id
       //
+      // Use the web callback page as redirect target (Emergent auth appends session_id to it)
+      // Then the callback page redirects to backend 302 endpoint for the exp:// deep link
       const expCallbackUrl = Linking.createURL('auth-callback');
-
-      // Use backend HTTP 302 redirect (reliable in SFSafariViewController)
-      const backendCallback = `https://profile-smoke-test.preview.emergentagent.com/api/auth/native-callback?exp_callback=${encodeURIComponent(expCallbackUrl)}`;
-      const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(backendCallback)}`;
+      const redirectUrl = `https://profile-smoke-test.preview.emergentagent.com/(auth)/callback?native=1`;
+      const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
 
       let resolveDeepLink: ((sid: string | null) => void) | null = null;
       const deepLinkPromise = new Promise<string | null>(resolve => {
