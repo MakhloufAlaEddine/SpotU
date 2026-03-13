@@ -59,12 +59,19 @@ function NavigationGuard() {
 
     const inAuth = segments[0] === '(auth)';
     const atRoot = segments.length === 0;
+    const inOnboarding = segments[0] === 'onboarding';
 
     if (user && (inAuth || atRoot)) {
-      router.replace('/(tabs)/map');
+      // New user → onboarding, existing user → map
+      if (!user.onboarding_done) {
+        router.replace('/onboarding');
+      } else {
+        router.replace('/(tabs)/map');
+      }
     } else if (!user && !inAuth) {
       router.replace('/(auth)/login');
     }
+    // If user is on /onboarding, let them stay
   }, [navigationState?.key, user, loading, splashReady, segments]);
 
   return null;
@@ -87,6 +94,7 @@ export default function RootLayout() {
             >
               <Stack.Screen name="index" />
               <Stack.Screen name="(auth)" />
+              <Stack.Screen name="onboarding" options={{ headerShown: false, animation: 'slide_from_right' }} />
               <Stack.Screen name="(tabs)" />
               <Stack.Screen
                 name="spot-you"

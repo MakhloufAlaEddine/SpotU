@@ -21,6 +21,7 @@ interface User {
   hourly_rate?: number | null;
   show_phone?: boolean;
   show_reviews?: boolean;
+  onboarding_done?: boolean;
 }
 
 interface AuthContextType {

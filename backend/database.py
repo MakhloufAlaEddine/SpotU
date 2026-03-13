@@ -817,6 +817,12 @@ async def connect_to_db():
             ALTER TABLE users ADD COLUMN IF NOT EXISTS user_roles JSONB DEFAULT '[]';
             ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_done BOOLEAN DEFAULT FALSE;
         """)
+        # Mark pre-existing seeded users as onboarded (new registrations stay FALSE for onboarding flow)
+        await conn.execute("""
+            UPDATE users SET onboarding_done = TRUE
+            WHERE user_id IN ('user_admin', 'user_demo001', 'user_demo002')
+              AND (onboarding_done IS NULL OR onboarding_done = FALSE)
+        """)
 
 
 async def close_db():
