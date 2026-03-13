@@ -11,6 +11,8 @@ import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { ScreenLoader } from '../../components/ScreenLoader';
 import { UserAvatar } from '../../components/UserAvatar';
 import { useGuardedRouter } from '../../hooks/useGuardedRouter';
+import { classifyFetchError, isOfflineOrTimeout } from '../../lib/network-error';
+import { ErrorNoData } from '../../components/OfflineBanner';
 
 // ── Countdown hook ──
 function useExpired(expiresAt: string | null | undefined): { expired: boolean; countdown: string | null } {
@@ -73,30 +75,50 @@ export default function BookingDetailScreen() {
   const router = useGuardedRouter();
   const [booking, setBooking] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isNetworkError, setIsNetworkError] = useState(false);
   const [paying, setPaying]   = useState(false);
   const [cancelling, setCancelling] = useState(false);
 
-  useFocusEffect(
-    useCallback(() => {
-      setLoading(true);
-      api.get(`/bookings/${id}`)
-        .then((data: any) => setBooking(data))
-        .catch(() => {})
-        .finally(() => setLoading(false));
-    }, [id])
-  );
+  const loadBooking = useCallback(() => {
+    setLoading(true);
+    setIsNetworkError(false);
+    api.get(`/bookings/${id}`)
+      .then((data: any) => setBooking(data))
+      .catch((e: any) => {
+        const classified = classifyFetchError(e);
+        if (isOfflineOrTimeout(classified)) setIsNetworkError(true);
+      })
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  useFocusEffect(loadBooking);
 
   if (loading) return <ScreenLoader />;
-  if (!booking) return (
-    <SafeAreaView style={s.safe}>
-      <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
-        <Ionicons name="arrow-back" size={22} color={Colors.foreground} />
-      </TouchableOpacity>
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ color: Colors.muted }}>Réservation introuvable.</Text>
-      </View>
-    </SafeAreaView>
-  );
+  if (!booking) {
+    const goBack = () => router.canGoBack() ? router.back() : router.replace('/bookings' as any);
+    if (isNetworkError) {
+      return (
+        <SafeAreaView style={s.safe}>
+          <ErrorNoData
+            onRetry={loadBooking}
+            onBack={goBack}
+            message="Impossible de charger la réservation. Vérifiez votre connexion."
+            testID="booking-offline-error"
+          />
+        </SafeAreaView>
+      );
+    }
+    return (
+      <SafeAreaView style={s.safe}>
+        <TouchableOpacity style={s.backBtn} onPress={goBack}>
+          <Ionicons name="arrow-back" size={22} color={Colors.foreground} />
+        </TouchableOpacity>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: Colors.muted }}>Réservation introuvable.</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const bStatus = BOOKING_STATUS[booking.status] ?? { label: booking.status, color: Colors.muted, icon: 'help-circle-outline', desc: '' };
   const pStatus = PAYMENT_STATUS[booking.payment_status ?? ''];

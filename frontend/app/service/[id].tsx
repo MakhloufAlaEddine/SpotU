@@ -17,6 +17,8 @@ import { getOrCreateConversation } from '../../lib/chat';
 import { useAuth } from '../../context/AuthContext';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { useGuardedRouter } from '../../hooks/useGuardedRouter';
+import { classifyFetchError, isOfflineOrTimeout } from '../../lib/network-error';
+import { ErrorNoData } from '../../components/OfflineBanner';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 const ORANGE = '#FF9500';
@@ -75,6 +77,7 @@ export default function ServiceDetailScreen() {
 
   const [service, setService] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isNetworkError, setIsNetworkError] = useState(false);
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
   const [activeLocIdx, setActiveLocIdx] = useState(0);
@@ -122,6 +125,7 @@ export default function ServiceDetailScreen() {
   useEffect(() => { if (id) loadService(); }, [id, user?.user_id]);
 
   const loadService = async () => {
+    setIsNetworkError(false);
     try {
       const data = await api.get(`/services/${id}`);
       setService(data);
@@ -133,7 +137,10 @@ export default function ServiceDetailScreen() {
         } catch {}
       }
     } catch (e: any) {
-      Alert.alert('Erreur', e.message || 'Service introuvable');
+      const classified = classifyFetchError(e);
+      if (isOfflineOrTimeout(classified)) {
+        setIsNetworkError(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -194,11 +201,34 @@ export default function ServiceDetailScreen() {
   }
 
   if (!service) {
+    const goBack = () => router.canGoBack() ? router.back() : router.replace('/(tabs)/map' as any);
+    if (isNetworkError) {
+      return (
+        <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
+          <ErrorNoData
+            onRetry={() => { setLoading(true); loadService(); }}
+            onBack={goBack}
+            message="Impossible de charger le service. Vérifiez votre connexion réseau."
+            testID="service-offline-error"
+          />
+        </SafeAreaView>
+      );
+    }
     return (
-      <View style={{ flex: 1, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' }}>
-        <Ionicons name="alert-circle-outline" size={48} color={Colors.muted} />
-        <Text style={{ color: Colors.muted, marginTop: 8 }}>Service introuvable</Text>
-      </View>
+      <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 }}>
+          <Ionicons name="alert-circle-outline" size={48} color={Colors.muted} />
+          <Text style={{ color: Colors.muted, marginTop: 8 }}>Service introuvable</Text>
+          <TouchableOpacity
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 8, paddingHorizontal: 16 }}
+            onPress={goBack}
+            testID="service-notfound-back-btn"
+          >
+            <Ionicons name="chevron-back" size={15} color={Colors.primary} />
+            <Text style={{ fontSize: 14, color: Colors.primary, fontWeight: '600' }}>Retour</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
     );
   }
 

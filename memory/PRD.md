@@ -681,3 +681,15 @@ Le proxy Emergent (`sk_test_emergent` → `https://integrations.emergentagent.co
 **Tests** : 8/8 unit tests PASS + regression testing agent 100% PASS (iteration_80)
 
 - Basculé le frontend en mode export statique (`npx expo export --platform web`) servi par `npx serve dist -l 3000 -s` pour contourner la limite inotify de 12288 watches
+
+### Fix Offline/ErrorNoData sur pages détail (2026-03-13)
+- `service/[id].tsx` : Ajout détection réseau (classifyFetchError) + écran ErrorNoData avec retry/back quand offline. Ajout bouton "Retour" même pour le cas "Service introuvable"
+- `bookings/[id].tsx` : Même pattern — ErrorNoData avec retry/back quand offline
+- `spot-you/[id].tsx` : Déjà correctement géré (ErrorNoData existant)
+
+### Fix Offline/ErrorNoData sur pages détail (2026-03-13) ✅
+- `service/[id].tsx` : Détection réseau via `classifyFetchError()` + écran `ErrorNoData` avec retry/back offline. Bouton "Retour" ajouté aussi pour "Service introuvable"
+- `bookings/[id].tsx` : Même pattern — `ErrorNoData` avec retry/back quand offline, `loadBooking` extrait en `useCallback`
+- `spot-you/[id].tsx` : Déjà correctement géré
+
+
