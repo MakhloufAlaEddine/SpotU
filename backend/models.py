@@ -64,6 +64,20 @@ class UserCreate(BaseModel):
     name: str
     language: Language = Language.fr
 
+    @field_validator("password")
+    @classmethod
+    def password_min_length(cls, v):
+        if len(v) < 6:
+            raise ValueError("Le mot de passe doit contenir au moins 6 caractères")
+        return v
+
+    @field_validator("name")
+    @classmethod
+    def name_not_empty(cls, v):
+        if not v or not v.strip():
+            raise ValueError("Le nom est obligatoire")
+        return v.strip()
+
 
 class UserLogin(BaseModel):
     email: str
@@ -134,6 +148,26 @@ class TagPointCreate(BaseModel):
     minimum_participants: Optional[int] = None
     maximum_participants: Optional[int] = None
 
+    @field_validator("title")
+    @classmethod
+    def title_not_empty(cls, v):
+        if not v or not v.strip():
+            raise ValueError("Le titre est obligatoire")
+        return v.strip()
+
+    @field_validator("event_schedule")
+    @classmethod
+    def validate_schedule_times(cls, v):
+        if v and isinstance(v, dict) and v.get("schedule"):
+            for day_key, slots in v["schedule"].items():
+                if isinstance(slots, list):
+                    for slot in slots:
+                        start = slot.get("start", "")
+                        end = slot.get("end", "")
+                        if start and end and end <= start:
+                            raise ValueError(f"L'heure de fin ({end}) doit être après l'heure de début ({start})")
+        return v
+
 
 class TagPointUpdate(BaseModel):
     title: Optional[str] = None
@@ -200,6 +234,27 @@ class ServiceCreate(BaseModel):
     locations: List[ServiceLocationItem] = []
     packages: List[ServicePackageItem] = []
     slots: List[ServiceSlotItem] = []
+
+    @field_validator("title")
+    @classmethod
+    def title_min_length(cls, v):
+        if not v or len(v.strip()) < 5:
+            raise ValueError("Le titre doit avoir au moins 5 caractères")
+        return v.strip()
+
+    @field_validator("images")
+    @classmethod
+    def images_max_count(cls, v):
+        if v and len(v) > 5:
+            raise ValueError("Maximum 5 images autorisées pour un service")
+        return v
+
+    @field_validator("price")
+    @classmethod
+    def price_positive(cls, v):
+        if v is not None and v < 0:
+            raise ValueError("Le prix ne peut pas être négatif")
+        return v
 
 
 class ServiceUpdate(BaseModel):

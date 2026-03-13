@@ -174,13 +174,20 @@ export default function CreateServiceScreen() {
     if (status !== 'granted') { Alert.alert('Permission refusée', 'Accès à la galerie nécessaire'); return; }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'], allowsMultipleSelection: true,
-      quality: 0.7, selectionLimit: 5,
+      quality: 0.7, selectionLimit: 5 - images.length,
     });
     if (result.canceled || !result.assets?.length) return;
+    const MAX_SIZE = 5 * 1024 * 1024; // 5 Mo
+    const oversized = result.assets.filter(a => a.fileSize && a.fileSize > MAX_SIZE);
+    if (oversized.length > 0) {
+      Alert.alert('Fichier trop volumineux', `${oversized.length} image(s) dépassent 5 Mo et ont été ignorées.`);
+    }
+    const valid = result.assets.filter(a => !a.fileSize || a.fileSize <= MAX_SIZE);
+    if (!valid.length) return;
     setUploadingImages(true);
     try {
       const urls: string[] = [];
-      for (const asset of result.assets) {
+      for (const asset of valid) {
         const url = await uploadImage(asset.uri);
         urls.push(url);
       }

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Alert, Linking, Image,
@@ -10,6 +10,22 @@ import { api } from '../../lib/api';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { ScreenLoader } from '../../components/ScreenLoader';
 import { UserAvatar } from '../../components/UserAvatar';
+
+// ── Countdown hook ──
+function useExpired(expiresAt: string | null | undefined): { expired: boolean; countdown: string | null } {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!expiresAt) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [expiresAt]);
+  if (!expiresAt) return { expired: false, countdown: null };
+  const diff = new Date(expiresAt).getTime() - now;
+  if (diff <= 0) return { expired: true, countdown: 'Expiré' };
+  const m = Math.floor(diff / 60000);
+  const s = Math.floor((diff % 60000) / 1000);
+  return { expired: false, countdown: `${m}:${s.toString().padStart(2, '0')}` };
+}
 
 // ── Status maps ────────────────────────────────────────────────────────────────
 const BOOKING_STATUS: Record<string, { label: string; color: string; icon: string; desc: string }> = {
@@ -89,9 +105,12 @@ export default function BookingDetailScreen() {
   const timeStr = startT && endT ? `${startT} – ${endT}` : startT || '';
 
   const needsAuthorization = booking.status === 'requested' && booking.payment_mode === 'pay_now';
-  const canPay = booking.status === 'awaiting_payment' ||
+  const { expired: isExpired, countdown } = useExpired(booking.expires_at);
+  const canPay = !isExpired && (
+    booking.status === 'awaiting_payment' ||
     (booking.status === 'accepted' && ['pending', 'unpaid'].includes(booking.payment_status ?? '')) ||
-    needsAuthorization;
+    needsAuthorization
+  );
   const canCancel = ['requested', 'pending', 'accepted', 'awaiting_payment'].includes(booking.status);
 
   const handlePay = async () => {

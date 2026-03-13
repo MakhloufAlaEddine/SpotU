@@ -42,6 +42,13 @@ async def update_profile(data: UserUpdate, request: Request):
             update_fields[k] = v
         elif k in CLEARABLE_FIELDS:
             update_fields[k] = None  # Allow explicitly clearing these fields
+
+    # Validation: nom non vide
+    if 'name' in update_fields and (not update_fields['name'] or not update_fields['name'].strip()):
+        raise HTTPException(status_code=400, detail="Le nom est obligatoire")
+    if 'name' in update_fields:
+        update_fields['name'] = update_fields['name'].strip()
+
     if not update_fields:
         return user
 

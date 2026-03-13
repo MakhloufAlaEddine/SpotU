@@ -304,7 +304,15 @@ export default function CreateSpotYouScreen() {
       mediaTypes: 'images' as any, allowsMultipleSelection: true,
       quality: 0.8, selectionLimit: 10 - images.length,
     });
-    if (!result.canceled) setImages(p => [...p, ...result.assets.map(a => a.uri)].slice(0, 10));
+    if (!result.canceled) {
+      const MAX_SIZE = 5 * 1024 * 1024; // 5 Mo (cohérent avec backend)
+      const oversized = result.assets.filter(a => a.fileSize && a.fileSize > MAX_SIZE);
+      if (oversized.length > 0) {
+        Alert.alert('Fichier trop volumineux', `${oversized.length} image(s) dépassent 5 Mo et ont été ignorées.`);
+      }
+      const valid = result.assets.filter(a => !a.fileSize || a.fileSize <= MAX_SIZE);
+      setImages(p => [...p, ...valid.map(a => a.uri)].slice(0, 10));
+    }
   };
 
   const resetForm = () => {

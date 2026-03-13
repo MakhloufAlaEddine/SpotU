@@ -611,11 +611,37 @@ Le proxy Emergent (`sk_test_emergent` → `https://integrations.emergentagent.co
 | 2 | Propriétaire ne peut pas quitter sa communauté | `TestOwnerCannotLeaveCommunity` (2 tests) | PASS |
 | 3 | Quitter → annule participations futures | `TestLeaveDeletesFutureAttendance` (1 test) | PASS |
 | 4 | Masquage coordonnées (100m/1000m) | `TestCoordinatePrecisionMasking` (5 tests) | PASS |
-| 5 | Max 10 images (gap documenté) | `TestMaxImagesValidation` (1 test) | PASS (documente l'absence de validation backend) |
+| 5 | Max 10 images SpotYou | `TestMaxImagesValidation` (3 tests) | PASS — validation backend ajoutée |
 | 6 | Slots masqués si booking actif | `TestSlotsHiddenWithActiveBooking` (2 tests) | PASS |
 | 7 | Images retirées supprimées du disque | `TestImageDeletionOnRemoval` (3 tests) | PASS |
 | 8 | Service soft delete | `TestServiceSoftDelete` (3 tests) | PASS |
 | 9 | Fuseau Europe/Paris | `TestTimezoneParis` (5 tests) | PASS |
 
 ### Gap documenté
-- **Max 10 images** : La validation est uniquement côté frontend (`create.tsx` L300). Le backend accepte >10 images. Le test documente ce comportement.
+- ~~**Max 10 images** : gap fermé — validation ajoutée backend + frontend~~
+
+### Validations backend ajoutées (Mars 2026)
+11 validations backend synchronisées avec le frontend :
+
+| # | Validation | Modèle/Route | Message |
+|---|-----------|-------------|---------|
+| 1 | Titre service ≥ 5 caractères | `ServiceCreate.title` | "Le titre doit avoir au moins 5 caractères" |
+| 2 | Prix service ≥ 0 | `ServiceCreate.price` | "Le prix ne peut pas être négatif" |
+| 3 | Max 5 images service | `ServiceCreate.images` | "Maximum 5 images autorisées pour un service" |
+| 4 | Titre SpotYou non vide | `TagPointCreate.title` | "Le titre est obligatoire" |
+| 5 | Schedule : heure fin > début | `TagPointCreate.event_schedule` | "L'heure de fin doit être après l'heure de début" |
+| 6 | Max 10 images SpotYou | `tagpoint_routes.py` (create+update) | "Maximum 10 images autorisées" |
+| 7 | MDP inscription ≥ 6 car. | `UserCreate.password` | "Le mot de passe doit contenir au moins 6 caractères" |
+| 8 | Nom inscription non vide | `UserCreate.name` | "Le nom est obligatoire" |
+| 9 | Nom profil non vide (update) | `user_routes.py` (update) | "Le nom est obligatoire" |
+| 10 | ~~Description coach requise~~ | Pas ajouté — description optionnelle selon le design | — |
+| 11 | ~~≥1 tag requis (service)~~ | Pas ajouté — tag_ids optionnel selon le design | — |
+
+### Améliorations frontend ajoutées (Mars 2026)
+| # | Amélioration | Fichier | Description |
+|---|-------------|---------|-------------|
+| 1 | Guard double-tap booking | `booking/confirm.tsx` | `if (submitting) return` + meilleur message d'erreur |
+| 2 | Meilleur message erreur slot | `booking/confirm.tsx` | Alert.alert au lieu de alert() natif |
+| 3 | Bouton Payer désactivé si expiré | `bookings/[id].tsx` | Hook `useExpired` + countdown temps réel |
+| 4 | Pré-validation taille fichier 5Mo | `(tabs)/create.tsx` + `create-service.tsx` | Vérifie fileSize avant upload |
+| 5 | Limite sélection dynamique | `create-service.tsx` | `selectionLimit: 5 - images.length` |

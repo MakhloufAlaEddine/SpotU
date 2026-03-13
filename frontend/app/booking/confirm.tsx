@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
-  ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform, Image, Linking, AppState,
+  ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform, Image, Linking, AppState, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -195,6 +195,7 @@ export default function BookingConfirmScreen() {
   };
 
   const handleConfirm = async () => {
+    if (submitting) return; // Guard double-tap
     setSubmitting(true);
     try {
       const result = await api.post<any>('/bookings/request', {
@@ -210,7 +211,11 @@ export default function BookingConfirmScreen() {
       setPricing({ payer_total_amount: snap?.payer_total_amount ?? result.amount });
       setBooking(result);
     } catch (err: any) {
-      alert(err.message || 'Impossible de créer la réservation');
+      const msg = err.message || '';
+      if (msg.includes('créneau') || msg.includes('réservation'))
+        Alert.alert('Créneau indisponible', msg);
+      else
+        Alert.alert('Erreur', msg || 'Impossible de créer la réservation');
     } finally {
       setSubmitting(false);
     }
