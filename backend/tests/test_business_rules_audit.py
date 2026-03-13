@@ -342,33 +342,44 @@ class TestMaxImagesValidation:
     avec >10 images (actuellement aucune validation backend — ce test documente le gap).
     """
 
-    def test_update_tagpoint_with_11_images_accepted(self, client, coach_headers, coach_user_id):
-        """
-        Actuellement le backend N'A PAS de validation max images.
-        Ce test documente ce comportement pour traçabilité.
-        Si une validation est ajoutée, ce test devra être inversé.
-        """
-        # Trouver un SpotYou du coach
-        point_id = _get_coach_spotyou(client, coach_headers, coach_user_id)
+    def test_create_tagpoint_with_11_images_rejected(self, client, coach_headers):
+        """Le backend rejette la création d'un SpotYou avec >10 images."""
+        fake_images = [f"https://example.com/img_{i}.jpg" for i in range(11)]
+        payload = {
+            "title": "Test Max Images",
+            "latitude": 48.8566,
+            "longitude": 2.3522,
+            "domain_id": "dom_sport",
+            "images": fake_images,
+        }
+        r = client.post("/tag-points", json=payload, headers=coach_headers)
+        assert r.status_code == 400, f"Expected 400, got {r.status_code}: {r.text}"
+        assert "10 images" in r.json().get("detail", "")
 
+    def test_update_tagpoint_with_11_images_rejected(self, client, coach_headers, coach_user_id):
+        """Le backend rejette la mise à jour d'un SpotYou avec >10 images."""
+        point_id = _get_coach_spotyou(client, coach_headers, coach_user_id)
         fake_images = [f"https://example.com/img_{i}.jpg" for i in range(11)]
         r = client.put(
             f"/tag-points/{point_id}",
             json={"images": fake_images},
             headers=coach_headers,
         )
-        # Document: backend accepte actuellement >10 images (pas de validation côté serveur)
-        # Ce test passera tant que le backend n'a pas de limite
-        if r.status_code == 200:
-            # Remettre les images d'origine
-            client.put(
-                f"/tag-points/{point_id}",
-                json={"images": []},
-                headers=coach_headers,
-            )
-            assert True, "Backend accepts >10 images — no server-side validation (documented gap)"
-        elif r.status_code in (400, 422):
-            assert True, "Backend now validates max images — update this test"
+        assert r.status_code == 400, f"Expected 400, got {r.status_code}: {r.text}"
+        assert "10 images" in r.json().get("detail", "")
+
+    def test_update_tagpoint_with_10_images_accepted(self, client, coach_headers, coach_user_id):
+        """Le backend accepte exactement 10 images."""
+        point_id = _get_coach_spotyou(client, coach_headers, coach_user_id)
+        fake_images = [f"https://example.com/img_{i}.jpg" for i in range(10)]
+        r = client.put(
+            f"/tag-points/{point_id}",
+            json={"images": fake_images},
+            headers=coach_headers,
+        )
+        assert r.status_code == 200
+        # Cleanup
+        client.put(f"/tag-points/{point_id}", json={"images": []}, headers=coach_headers)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

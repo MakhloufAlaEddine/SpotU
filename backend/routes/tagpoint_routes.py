@@ -1108,6 +1108,10 @@ async def create_tag_point(data: TagPointCreate, request: Request):
     pid = new_id("pt")
     part_id = new_id("part")
 
+    # Validation max 10 images
+    if data.images and len(data.images) > 10:
+        raise HTTPException(status_code=400, detail="Maximum 10 images autorisées")
+
     stored_lat, stored_lng = randomize_for_storage(data.latitude, data.longitude, data.precision)
     event_schedule_val = data.event_schedule
 
@@ -1191,6 +1195,10 @@ async def update_tag_point(point_id: str, data: TagPointUpdate, request: Request
         if not raw:
             row = await conn.fetchrow(f"SELECT {TP_FIELDS} FROM tag_points tp LEFT JOIN users u ON tp.user_id = u.user_id WHERE tp.point_id = $1", point_id)
             return build_point_response(row_to_dict(row))
+
+        # Validation max 10 images
+        if 'images' in raw and raw['images'] is not None and len(raw['images']) > 10:
+            raise HTTPException(status_code=400, detail="Maximum 10 images autorisées")
 
         # Appliquer les règles métier capacité si l'un des deux champs est fourni
         if 'minimum_participants' in raw or 'maximum_participants' in raw:
