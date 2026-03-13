@@ -663,4 +663,21 @@ Le proxy Emergent (`sk_test_emergent` → `https://integrations.emergentagent.co
 
 ### Fix Expo Metro ENOSPC inotify (2026-03-13)
 - Configuré `metro.config.js` : blockList pour ios/android/tests/examples + useWatchman=false
+
+### Phase 11 — Fix Global Double-Navigation (2026-03-13) ✅ TERMINÉ
+**Problème** : Double-tap rapide sur un élément navigable empilait 2 écrans identiques dans la stack.
+**Solution** : Protection centralisée anti-double-navigation avec verrou synchrone.
+
+| Fichier | Rôle |
+|---------|------|
+| `lib/navGuard.ts` | Singleton : `guardedNavigate()` avec lock synchrone module-level, auto-release 600ms |
+| `hooks/useGuardedRouter.ts` | Drop-in replacement pour `useRouter()` — wrap `push/replace/navigate` avec guard |
+| `tests/navGuard.test.ts` | 8 tests unitaires : simple tap, double/triple tap bloqué, auto-unlock, re-entrant |
+| 31 fichiers migrés | Tous les `useRouter()` remplacés par `useGuardedRouter()` |
+| `lib/push-notifications.ts` | Appels globaux `router.push()` wrappés avec `guardedNavigate()` |
+| `app/_layout.tsx` | EXCLU (redirections auth uniquement, pas de tap utilisateur) |
+
+**Zones couvertes** : Cartes SpotYou, services, coachs/profils, recherche, favoris, notifications, chat, réservations, carte map, home feed, événements, abonnements, création/édition de services, paiements
+**Tests** : 8/8 unit tests PASS + regression testing agent 100% PASS (iteration_80)
+
 - Basculé le frontend en mode export statique (`npx expo export --platform web`) servi par `npx serve dist -l 3000 -s` pour contourner la limite inotify de 12288 watches
