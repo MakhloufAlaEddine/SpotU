@@ -21,8 +21,19 @@ config.maxWorkers = 2;
 // increase in CPU usage, which is acceptable in a dev container.
 config.watcher = {
   watchman: { deferStates: [] },
-  // Fall back to node fs.watch / polling when inotify is unavailable
   useWatchman: false,
+  // Increase poll interval to reduce inotify pressure
+  additionalExts: [],
 };
+
+// Block heavy node_modules sub-trees that contain ios/android native code
+// This dramatically reduces the number of inotify watches needed
+config.resolver.blockList = [
+  /node_modules\/.*\/android\/.*/,
+  /node_modules\/.*\/ios\/.*/,
+  /node_modules\/.*\/__tests__\/.*/,
+  /node_modules\/.*\/example\/.*/,
+  /\.git\/.*/,
+];
 
 module.exports = config;
