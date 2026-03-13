@@ -645,3 +645,22 @@ Le proxy Emergent (`sk_test_emergent` → `https://integrations.emergentagent.co
 | 3 | Bouton Payer désactivé si expiré | `bookings/[id].tsx` | Hook `useExpired` + countdown temps réel |
 | 4 | Pré-validation taille fichier 5Mo | `(tabs)/create.tsx` + `create-service.tsx` | Vérifie fileSize avant upload |
 | 5 | Limite sélection dynamique | `create-service.tsx` | `selectionLimit: 5 - images.length` |
+
+
+### Phase 10 — Refactoring Page Profil Utilisateur (2026-03-13) ✅ TERMINÉ
+| Date | Composant | Changement |
+|------|-----------|-----------|
+| 2026-03-13 | `frontend/app/user/[id].tsx` | Réduit de 1695 lignes à ~450 lignes (container uniquement) |
+| 2026-03-13 | `frontend/components/profile/ProfileHero.tsx` | Cover photo, avatar, nom, badges, stats, bouton suivre |
+| 2026-03-13 | `frontend/components/profile/ProfileCompletionBar.tsx` | Barre de complétion 7 étapes (Photo, Bio, Intérêts, SpotYou, Réservation, Communauté, Participation) |
+| 2026-03-13 | `frontend/components/profile/ProfileServicesCarousel.tsx` | Carrousel horizontal des services du coach |
+| 2026-03-13 | `frontend/components/profile/ProfileSpotYouSection.tsx` | Section SpotYou avec toggle going |
+| 2026-03-13 | `frontend/components/profile/ProfileReviews.tsx` | Liste d'avis, formulaire écriture/édition, notation étoiles |
+| 2026-03-13 | `frontend/components/profile/CoverRepositionModal.tsx` | Modal repositionnement photo couverture (PanResponder + pinch zoom) |
+| 2026-03-13 | `frontend/components/profile/profileUtils.tsx` | Constantes partagées (COVER_H, TEAL_DIM), logique badge, StarRow, formatScheduleShort |
+
+**Tests régression : 100% PASS (iteration_79)** — Toutes les fonctionnalités vérifiées : profil propre, profil visiteur, follow/unfollow, modal followers, avis, services, SpotYou, barre de complétion
+
+### Fix Expo Metro ENOSPC inotify (2026-03-13)
+- Configuré `metro.config.js` : blockList pour ios/android/tests/examples + useWatchman=false
+- Basculé le frontend en mode export statique (`npx expo export --platform web`) servi par `npx serve dist -l 3000 -s` pour contourner la limite inotify de 12288 watches

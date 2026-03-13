@@ -55,7 +55,7 @@ export function ProfileSpotYouSection({
               <Ionicons name="location-outline" size={26} color={Colors.muted} />
             </View>
             <Text style={st.emptyVisitorTitle}>Aucun SpotYou public</Text>
-            <Text style={st.emptyVisitorDesc}>Cet utilisateur n'a pas encore partagé d'activités.</Text>
+            <Text style={st.emptyVisitorDesc}>{"Cet utilisateur n'a pas encore partagé d'activités."}</Text>
           </View>
         )}
       </View>
