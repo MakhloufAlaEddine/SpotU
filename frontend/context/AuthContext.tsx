@@ -149,19 +149,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else {
       // Native (iOS/Android Expo Go)
       //
-      // POURQUOI CETTE APPROCHE :
-      // - openAuthSessionAsync avec https:// → utilise SFSafariViewController (pas ASWebAuthenticationSession)
-      //   car iOS ne peut intercepter https:// qu'avec des Universal Links (non configurés ici)
-      // - SFSafariViewController ne ferme PAS automatiquement le navigateur → app bloquée sur login
+      // FLOW :
+      // 1. Ouvrir auth.emergentagent.com dans SFSafariViewController
+      // 2. Après Google auth, callback redirige vers exp://TUNNEL_HOST/--/auth-callback?session_id=...
+      // 3. SFSafariViewController se ferme, Expo Go reçoit le deep link
       //
-      // SOLUTION : Utiliser openBrowserAsync + deep link
-      // 1. Le callback web (?native=1) redirige vers exp://...?session_id=...
-      // 2. SFSafariViewController se FERME automatiquement quand il rencontre exp://
-      // 3. iOS ouvre Expo Go avec le deep link
-      // 4. Linking.addEventListener reçoit le session_id → auth complète
-      //
-      const expHost = 'profile-smoke-test.preview.emergentagent.com';
-      const redirectUrl = `https://${expHost}/(auth)/callback?native=1`;
+      const expCallbackUrl = Linking.createURL('auth-callback');
+      // expCallbackUrl = exp://profile-smoke-test.ngrok.io/--/auth-callback (dynamic, always correct)
+
+      // Redirect URL for the web callback page (served via Kubernetes ingress)
+      const redirectUrl = `https://profile-smoke-test.preview.emergentagent.com/(auth)/callback?native=1&exp_callback=${encodeURIComponent(expCallbackUrl)}`;
       const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
 
       // Préparer la promesse qui se résout avec le session_id via deep link

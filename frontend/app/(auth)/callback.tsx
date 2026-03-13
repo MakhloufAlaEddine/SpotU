@@ -37,10 +37,18 @@ export default function AuthCallback() {
       const isNativeContext = search.includes('native=1');
       if (isNativeContext && sessionId) {
         try { sessionStorage.removeItem('spotu_pending_session'); } catch {}
-        const expHost = 'profile-smoke-test.preview.emergentagent.com';
-        const expUrl = `exp://${expHost}/--/auth-callback?session_id=${encodeURIComponent(sessionId)}`;
-        // Redirection vers exp:// → SFSafariViewController se ferme, Expo Go reçoit le deep link
-        window.location.href = expUrl;
+        // Use the dynamic exp_callback URL passed from the native app
+        const expCallbackMatch = search.match(/[?&]exp_callback=([^&]+)/);
+        const expCallbackBase = expCallbackMatch ? decodeURIComponent(expCallbackMatch[1]) : null;
+        if (expCallbackBase) {
+          const expUrl = `${expCallbackBase}?session_id=${encodeURIComponent(sessionId)}`;
+          window.location.href = expUrl;
+        } else {
+          // Fallback: use ngrok tunnel host
+          const expHost = 'profile-smoke-test.ngrok.io';
+          const expUrl = `exp://${expHost}/--/auth-callback?session_id=${encodeURIComponent(sessionId)}`;
+          window.location.href = expUrl;
+        }
         return;
       }
     }
