@@ -29,11 +29,20 @@ config.watcher = {
 // Block heavy node_modules sub-trees that contain ios/android native code
 // This dramatically reduces the number of inotify watches needed
 config.resolver.blockList = [
+  /node_modules\/.*\/local-maven-repo\/.*/,
+  /node_modules\/.*\/node_modules\/.*/,
+  /node_modules\/.*\/\.bin\/.*/,
   /node_modules\/.*\/android\/.*/,
   /node_modules\/.*\/ios\/.*/,
+  /node_modules\/.*\/web-build\/.*/,
   /node_modules\/.*\/__tests__\/.*/,
   /node_modules\/.*\/example\/.*/,
+  /node_modules\/.*\/docs\/.*/,
   /\.git\/.*/,
 ];
+
+// Some Expo / RN packages expose complex package export maps that force Metro
+// to scan additional subtrees in containers with very low watch limits.
+config.resolver.unstable_enablePackageExports = false;
 
 module.exports = config;
