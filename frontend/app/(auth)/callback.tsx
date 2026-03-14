@@ -37,9 +37,14 @@ export default function AuthCallback() {
       const isNativeContext = search.includes('native=1');
       if (isNativeContext && sessionId) {
         try { sessionStorage.removeItem('spotu_pending_session'); } catch {}
+        const expCallbackMatch = search.match(/[?&]exp_callback=([^&]+)/);
+        const expCallback = expCallbackMatch?.[1] ? decodeURIComponent(expCallbackMatch[1]) : null;
+        if (!expCallback) {
+          router.replace('/(auth)/login');
+          return;
+        }
         // Redirect to backend 302 endpoint which returns exp:// deep link
         // This is reliable in SFSafariViewController (JS exp:// redirects are blocked)
-        const expCallback = `exp://profile-smoke-test.ngrok.io/--/auth-callback`;
         const backendUrl = `/api/auth/native-callback?exp_callback=${encodeURIComponent(expCallback)}&session_id=${encodeURIComponent(sessionId)}`;
         window.location.href = backendUrl;
         return;

@@ -14,16 +14,11 @@ config.cacheStores = [
 // Reduce workers to lower resource usage in container
 config.maxWorkers = 2;
 
-// [FIX ENOSPC / SHA-1] Use polling watcher instead of inotify.
-// The Kubernetes container has a hard limit of 12 288 inotify watches
-// (the kernel /proc entry is read-only — sysctl cannot raise it).
-// Polling avoids the "Failed to get SHA-1" crash at the cost of a small
-// increase in CPU usage, which is acceptable in a dev container.
+// Prefer Watchman when available to avoid exhausting the container's
+// very low inotify watch limit.
 config.watcher = {
   watchman: { deferStates: [] },
-  useWatchman: false,
-  // Increase poll interval to reduce inotify pressure
-  additionalExts: [],
+  useWatchman: true,
 };
 
 // Block heavy node_modules sub-trees that contain ios/android native code
