@@ -51,6 +51,9 @@ function NavigationGuard() {
     if (Platform.OS === 'web' && !navigationState?.key) return;
     if (loading || !splashReady) return;
 
+    const hasExistingProfile = Boolean(user?.bio?.trim()) || Boolean(user?.coach_tags?.length) || user?.role !== 'user';
+    const shouldGoToOnboarding = Boolean(user) && user?.onboarding_done !== true && !hasExistingProfile;
+
     // Cacher le splash screen natif une seule fois
     if (!splashHiddenRef.current) {
       splashHiddenRef.current = true;
@@ -63,7 +66,7 @@ function NavigationGuard() {
 
     if (user && (inAuth || atRoot)) {
       // New user → onboarding, existing user → map
-      if (!user.onboarding_done) {
+      if (shouldGoToOnboarding) {
         router.replace('/onboarding');
       } else {
         router.replace('/(tabs)/map');

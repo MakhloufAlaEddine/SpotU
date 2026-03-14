@@ -1,0 +1,51 @@
+{
+  "summary": "Frontend testing of onboarding flow fix. All tests PASSED: Coach login (coach@winek.app) lands on /map NOT onboarding. Admin login (admin@winek.app) lands on /map NOT onboarding. Onboarding screen design verified - hero panel renders correctly with visible content, no giant empty teal block at top.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "NavigationGuard in _layout.tsx correctly computes shouldGoToOnboarding: checks user.onboarding_done !== true AND !hasExistingProfile (bio/coach_tags/non-user role)",
+    "seed.py properly sets onboarding_done=true for all demo/seeded users (admin, coach, user)",
+    "Onboarding hero panel design has proper structure with eyebrow, title, body, badges - no empty top area"
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A (frontend-only test)",
+    "frontend": "100% (all 4 test cases passed)"
+  },
+  "test_credentials": "coach@winek.app / WinekCoach2024!, admin@winek.app / WinekAdmin2024!",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Onboarding flow fix verified. Coach and Admin users correctly bypass onboarding and land on /map. Onboarding screen design is correct with hero panel content visible at top (no empty block). NavigationGuard logic uses shouldGoToOnboarding computed from onboarding_done flag AND hasExistingProfile check.",
+  "tests_executed": [
+    {
+      "test": "Coach login should NOT show onboarding",
+      "result": "PASS",
+      "details": "coach@winek.app logged in, redirected to /map with greeting 'Bon après-midi, Sophie'"
+    },
+    {
+      "test": "Admin login should NOT show onboarding", 
+      "result": "PASS",
+      "details": "admin@winek.app logged in, redirected to /map with greeting 'Bon après-midi, Admin'"
+    },
+    {
+      "test": "Onboarding screen design - no giant empty top area",
+      "result": "PASS",
+      "details": "Hero panel renders with BIENVENUE SUR SPOTU, title, body text, badges immediately visible at top"
+    },
+    {
+      "test": "No loop between auth/onboarding/map",
+      "result": "PASS",
+      "details": "Authenticated users with onboarding_done=true go directly to /map without loop"
+    }
+  ]
+}
