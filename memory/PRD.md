@@ -28,6 +28,14 @@ Fonctionnalités : création/découverte de services et SpotYous, système de r�
 
 ## What's Been Implemented
 
+### Phase 12 — Fix routage onboarding au démarrage + redesign onboarding (2026-03-14)
+| Date | Composant | Changement |
+|------|-----------|-----------|
+| 2026-03-14 | `frontend/app/_layout.tsx` | Garde de navigation durcie : onboarding affiché uniquement si `onboarding_done !== true` **et** aucun profil existant détecté (bio/tags/rôle) |
+| 2026-03-14 | `frontend/app/onboarding.tsx` | Refonte visuelle du haut d'écran : hero panel éditorial, suppression du grand bloc vide, hiérarchie plus claire |
+| 2026-03-14 | `backend/seed.py` | Tous les comptes seed/demo sont désormais marqués `onboarding_done=true` pour éviter l'affichage forcé au démarrage |
+| 2026-03-14 | `/app/test_reports/iteration_81.json` | Vérification frontend : coach/admin redirigent bien vers `/map`, onboarding redesign validé, aucun loop auth/onboarding/map |
+
 ### Phase 5 - Protection réseau avancée — COMPLÈTE (2026-03)
 | Date | Composant | Fichiers |
 |------|-----------|---------|
