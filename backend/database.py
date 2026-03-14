@@ -823,6 +823,18 @@ async def connect_to_db():
             WHERE created_at < NOW() - INTERVAL '1 minute'
               AND (onboarding_done IS NULL OR onboarding_done = FALSE)
         """)
+        await conn.execute("""
+            UPDATE users
+            SET onboarding_done = TRUE, updated_at = NOW()
+            WHERE email = ANY($1::text[])
+              AND (onboarding_done IS NULL OR onboarding_done = FALSE)
+        """, [
+            'admin@winek.app',
+            'coach@winek.app',
+            'user@winek.app',
+            'mbenali@winek.app',
+            'cdurand@winek.app',
+        ])
 
 
 async def close_db():

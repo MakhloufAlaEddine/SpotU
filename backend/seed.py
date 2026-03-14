@@ -99,49 +99,33 @@ async def seed_initial_data():
 
         # Users - always ensure demo users exist (ON CONFLICT DO NOTHING is idempotent)
         await conn.execute(
-            "INSERT INTO users (user_id, email, password_hash, name, role, language, bio, is_coach_verified, coach_tags, onboarding_done, user_roles) VALUES ($1,$2,$3,$4,'admin','fr',$5,FALSE,'[]'::jsonb,TRUE,$6) ON CONFLICT DO NOTHING",
-            "user_admin001", "admin@winek.app", hash_password("WinekAdmin2024!"), "Admin WINEK", "Administrateur WINEK", ["admin"]
+            "INSERT INTO users (user_id, email, password_hash, name, role, language, bio, is_coach_verified, coach_tags) VALUES ($1,$2,$3,$4,'admin','fr',$5,FALSE,'[]'::jsonb) ON CONFLICT DO NOTHING",
+            "user_admin001", "admin@winek.app", hash_password("WinekAdmin2024!"), "Admin WINEK", "Administrateur WINEK"
         )
         await conn.execute(
-            "INSERT INTO users (user_id, email, password_hash, name, role, language, bio, is_coach_verified, coach_tags, picture, onboarding_done, user_roles, sports_level, goals) VALUES ($1,$2,$3,$4,'coach','fr',$5,TRUE,$6,$7,TRUE,$8,$9,$10) ON CONFLICT DO NOTHING",
+            "INSERT INTO users (user_id, email, password_hash, name, role, language, bio, is_coach_verified, coach_tags, picture) VALUES ($1,$2,$3,$4,'coach','fr',$5,TRUE,$6,$7) ON CONFLICT DO NOTHING",
             "user_coach001", "coach@winek.app", hash_password("WinekCoach2024!"), "Sophie Martin",
             "Coach sportive certifiée, spécialisée fitness et running. 8 ans d'expérience.",
             ["tag_musculation", "tag_hiit", "tag_cardio"],
-            "https://images.pexels.com/photos/1552253/pexels-photo-1552253.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=150&w=150",
-            ["coach"],
-            "coach",
-            ["improve", "with_coach"]
+            "https://images.pexels.com/photos/1552253/pexels-photo-1552253.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=150&w=150"
         )
         await conn.execute(
-            "INSERT INTO users (user_id, email, password_hash, name, role, language, bio, is_coach_verified, coach_tags, picture, onboarding_done, user_roles, sports_level, goals) VALUES ($1,$2,$3,$4,'user','fr',$5,FALSE,'[]'::jsonb,$6,TRUE,$7,$8,$9) ON CONFLICT DO NOTHING",
+            "INSERT INTO users (user_id, email, password_hash, name, role, language, bio, is_coach_verified, coach_tags, picture) VALUES ($1,$2,$3,$4,'user','fr',$5,FALSE,'[]'::jsonb,$6) ON CONFLICT DO NOTHING",
             "user_demo001", "user@winek.app", hash_password("WinekUser2024!"), "Thomas Dupont",
             "Passionné de sport et de running.",
-            "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=150&w=150",
-            ["athlete"],
-            "intermediate",
-            ["restart", "find_partners"]
+            "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=150&w=150"
         )
         await conn.execute(
-            "INSERT INTO users (user_id, email, password_hash, name, role, language, bio, is_coach_verified, coach_tags, picture, onboarding_done, user_roles, sports_level, goals) VALUES ($1,$2,$3,$4,'user','fr',$5,FALSE,'[]'::jsonb,$6,TRUE,$7,$8,$9) ON CONFLICT DO NOTHING",
+            "INSERT INTO users (user_id, email, password_hash, name, role, language, bio, is_coach_verified, coach_tags, picture) VALUES ($1,$2,$3,$4,'user','fr',$5,FALSE,'[]'::jsonb,$6) ON CONFLICT DO NOTHING",
             "user_demo002", "mbenali@winek.app", hash_password("WinekDemo2024!"), "Mohamed Benali",
             "Joueur de basket passionné. Fan de streetball et 3x3.",
-            "https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=150&w=150",
-            ["athlete"],
-            "advanced",
-            ["find_partners", "meet_people"]
+            "https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=150&w=150"
         )
         await conn.execute(
-            "INSERT INTO users (user_id, email, password_hash, name, role, language, bio, is_coach_verified, coach_tags, picture, onboarding_done, user_roles, sports_level, goals) VALUES ($1,$2,$3,$4,'user','fr',$5,FALSE,'[]'::jsonb,$6,TRUE,$7,$8,$9) ON CONFLICT DO NOTHING",
+            "INSERT INTO users (user_id, email, password_hash, name, role, language, bio, is_coach_verified, coach_tags, picture) VALUES ($1,$2,$3,$4,'user','fr',$5,FALSE,'[]'::jsonb,$6) ON CONFLICT DO NOTHING",
             "user_demo003", "cdurand@winek.app", hash_password("WinekDemo2024!"), "Camille Durand",
             "Pratiquante de yoga et arts martiaux depuis 10 ans.",
-            "https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=150&w=150",
-            ["athlete"],
-            "advanced",
-            ["improve", "meet_people"]
-        )
-        await conn.execute(
-            "UPDATE users SET onboarding_done = TRUE, updated_at = NOW() WHERE email = ANY($1::text[]) AND onboarding_done IS DISTINCT FROM TRUE",
-            ["admin@winek.app", "coach@winek.app", "user@winek.app", "mbenali@winek.app", "cdurand@winek.app"]
+            "https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=150&w=150"
         )
         logger.info("Seeded users: admin@winek.app / WinekAdmin2024!, coach@winek.app / WinekCoach2024!, user@winek.app / WinekUser2024!")
 
