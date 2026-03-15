@@ -394,6 +394,15 @@ export default function SpotYouDetail() {
   // ── WebSocket temps réel ────────────────────────────────────────────────────
   const wsRef = useRef<WebSocket | null>(null);
   const wsPointIdRef = useRef<string | null>(null);
+  // Tick incrémenté par le WS pour déclencher le rechargement des listes
+  const [wsUpdateTick, setWsUpdateTick] = useState(0);
+
+  // Recharge participants + goingList à chaque update WS (sans stale closure)
+  useEffect(() => {
+    if (wsUpdateTick === 0) return;
+    loadParticipants();
+    loadGoingList();
+  }, [wsUpdateTick]);
 
   const connectLive = useCallback(async (pointId: string) => {
     // Éviter double connexion pour le même point
@@ -419,6 +428,8 @@ export default function SpotYouDetail() {
           if (data.participants_count !== undefined) setParticipantsCount(data.participants_count);
           if (data.going_count !== undefined) setGoingCount(data.going_count);
           if (data.is_full !== undefined) setIsFull(data.is_full);
+          // Recharger les listes pour afficher les noms/avatars mis à jour
+          setWsUpdateTick(t => t + 1);
         }
       } catch {}
     };
@@ -704,7 +715,10 @@ export default function SpotYouDetail() {
       setIsParticipant(res.is_member);
       setCanParticipate(res.is_member);
       setParticipantsCount(res.participants_count || participantsCount);
-      if (!res.is_member) setIsGoing(false);
+      if (!res.is_member) {
+        setIsGoing(false);
+        loadGoingList(); // mise à jour de la liste des présences si on quitte
+      }
       loadParticipants();
       if (res.is_member) loadActivity();
       // Invalidation ciblée des caches impactés par ce changement de membership
