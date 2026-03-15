@@ -2,13 +2,28 @@
  * SpotYouCard — Composant partagé de carte SpotYou
  * Utilisé dans : spot-me.tsx (Mes SpotMe), saved.tsx (Enregistrés)
  */
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ActivityIndicator, Image,
+  ActivityIndicator, Image, Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../constants/Colors';
+
+// ─── PulseDot ───────────────────────────────────────────────────────────────
+
+function PulseDot() {
+  const opacity = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 0.2, duration: 700, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 1,   duration: 700, useNativeDriver: true }),
+      ])
+    ).start();
+  }, [opacity]);
+  return <Animated.View style={[sc.pulseDot, { opacity }]} />;
+}
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -69,6 +84,8 @@ export interface SpotYouCardProps {
   testID?: string;
   /** Élément extra affiché en overlay haut-droite (ex: bouton désave) */
   headerAction?: React.ReactNode;
+  /** Affiche un indicateur de mise à jour temps réel */
+  isLive?: boolean;
 }
 
 export function SpotYouCard({
@@ -79,6 +96,7 @@ export function SpotYouCard({
   onViewMembers,
   testID,
   headerAction,
+  isLive = false,
 }: SpotYouCardProps) {
   const isRecurring = !!item.event_schedule;
   const past = isPastDate(item.event_date, item.event_schedule);
@@ -162,11 +180,11 @@ export function SpotYouCard({
               </View>
             )}
             <TouchableOpacity
-              style={sc.membersChip}
+              style={[sc.membersChip, isLive && sc.membersChipLive]}
               onPress={handleViewMembers}
               testID={`members-chip-${item.point_id}`}
             >
-              <Ionicons name="people-outline" size={11} color={Colors.primary} />
+              {isLive ? <PulseDot /> : <Ionicons name="people-outline" size={11} color={Colors.primary} />}
               <Text style={sc.membersChipText}>
                 {Math.max(item.participants_count || 0, 1)} membre{Math.max(item.participants_count || 0, 1) > 1 ? 's' : ''}
               </Text>
@@ -311,7 +329,16 @@ export const sc = StyleSheet.create({
     paddingHorizontal: 8, paddingVertical: 3,
     borderWidth: 1, borderColor: Colors.primary + '30',
   },
+  membersChipLive: {
+    borderColor: '#00E676' + '60',
+    backgroundColor: '#00E676' + '10',
+  },
   membersChipText: { fontSize: 11, fontWeight: '600', color: Colors.primary },
+  pulseDot: {
+    width: 7, height: 7,
+    borderRadius: 4,
+    backgroundColor: '#00E676',
+  },
 
   eventSection: {
     borderTopWidth: 1,

@@ -307,6 +307,7 @@ export default function SavedScreen() {
                   onNavigate={id => router.push(`/spot-you/${id}` as any)}
                   onToggleGoing={toggleGoing}
                   togglingId={togglingId}
+                  isLive
                 />
                 <TouchableOpacity
                   style={s.unsaveOverlay}

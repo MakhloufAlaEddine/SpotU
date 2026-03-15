@@ -199,6 +199,7 @@ export default function MySpotYouScreen() {
               togglingId={togglingId}
               onViewMembers={openMembersModal}
               testID={`my-tp-${item.point_id}`}
+              isLive
             />
           )}
           contentContainerStyle={{ padding: Spacing.md, gap: 12, paddingBottom: 48 }}
