@@ -18,7 +18,7 @@ import uuid
 import json
 
 # URL de l'API
-API_BASE = "https://spotu-staging.preview.emergentagent.com/api"
+API_BASE = "https://realtime-events-4.preview.emergentagent.com/api"
 
 # Credentials
 COACH_EMAIL = "coach@winek.app"

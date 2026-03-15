@@ -1,13 +1,13 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   Image, ActivityIndicator, RefreshControl, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-;
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { api } from '../lib/api';
+import { storage } from '../lib/storage';
 import { Colors, Spacing, Radius } from '../constants/Colors';
 import { SpotYouCard } from '../components/SpotYouCard';
 import ConfirmActionModal, { ConfirmAction } from '../components/ConfirmActionModal';
@@ -17,6 +17,7 @@ import { cacheInvalidate } from '../lib/cache';
 import { useGuardedRouter } from '../hooks/useGuardedRouter';
 
 const ORANGE = '#FF9500';
+const BASE_WS = (process.env.EXPO_PUBLIC_BACKEND_URL || '').replace('https://', 'wss://').replace('http://', 'ws://');
 
 interface SavedService {
   service_id: string;
@@ -125,6 +126,55 @@ export default function SavedScreen() {
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
   const [pendingCallback, setPendingCallback] = useState<(() => void) | null>(null);
 
+  // ── WebSocket temps réel — un WS par SpotYou enregistré (cap à 15) ────────
+  const wsMap = useRef<Map<string, WebSocket>>(new Map());
+  const spotYouRef = useRef<any[]>([]);
+
+  const connectLiveAll = useCallback(async (pts: any[]) => {
+    const token = await storage.get('spotu_token');
+    if (!token || !BASE_WS) return;
+
+    const ids = pts.map((p: any) => p.point_id as string);
+
+    // Fermer les WS des SpotYou qui ne sont plus dans la liste
+    for (const [pid, ws] of wsMap.current) {
+      if (!ids.includes(pid)) { ws.close(); wsMap.current.delete(pid); }
+    }
+
+    // Connecter les nouveaux (cap à 15)
+    for (const pid of ids.slice(0, 15)) {
+      if (wsMap.current.has(pid)) continue;
+      const ws = new WebSocket(`${BASE_WS}/api/ws/spot-you/${pid}`);
+      wsMap.current.set(pid, ws);
+      ws.onopen = () => ws.send(JSON.stringify({ token }));
+      ws.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data.type === 'spotyou_update') {
+            setSpotYou(prev => prev.map(p =>
+              p.point_id === pid
+                ? {
+                    ...p,
+                    ...(data.participants_count !== undefined && { participants_count: data.participants_count }),
+                    ...(data.going_count !== undefined && { going_count: data.going_count }),
+                    ...(data.is_full !== undefined && { is_full: data.is_full }),
+                  }
+                : p
+            ));
+          }
+        } catch {}
+      };
+      ws.onerror = () => {};
+      ws.onclose = () => { wsMap.current.delete(pid); };
+    }
+  }, []);
+
+  // Mise à jour de la ref + connexion WS quand la liste change
+  useEffect(() => {
+    spotYouRef.current = SpotYou;
+    if (SpotYou.length > 0) connectLiveAll(SpotYou);
+  }, [SpotYou.length, connectLiveAll]);
+
   const load = async () => {
     try {
       const [pts, svcs] = await Promise.all([
@@ -145,7 +195,15 @@ export default function SavedScreen() {
   useFocusEffect(useCallback(() => {
     setLoading(true);
     load();
-  }, []));
+    // Reconnect les WS si les données étaient déjà chargées (retour sur l'écran)
+    if (spotYouRef.current.length > 0) connectLiveAll(spotYouRef.current);
+    return () => {
+      // Fermer toutes les connexions WS en quittant l'écran
+      for (const ws of wsMap.current.values()) ws.close();
+      wsMap.current.clear();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connectLiveAll]));
 
   const handleUnsavePoint = async (pointId: string) => {
     try {

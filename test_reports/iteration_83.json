@@ -1,0 +1,79 @@
+{
+  "summary": "Full backend + frontend testing of real-time WebSocket updates on spot-me.tsx (Mes SpotMe) and saved.tsx (Enregistrés) list screens. 38 backend tests pass (21 existing + 17 new). Both frontend screens load correctly with proper participant counts and going buttons. WebSocket broadcast verified end-to-end for join/leave/going/not-going actions.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "DELETE /api/spot-you/{id}/leave",
+        "issue": "Broadcast payload missing 'is_full' field — only sends participants_count and going_count. If a spot was 'full' and a member leaves (cancelling their attendance), the is_full flag won't update in real-time on connected WS clients until next refresh. going/not-going broadcasts include is_full correctly.",
+        "priority": "LOW"
+      },
+      {
+        "file": "test_spotyou_websocket_concurrency.py",
+        "issue": "WS_BASE was set to old URL 'wss://spotu-staging.preview.emergentagent.com/api' — fixed to 'wss://realtime-events-4.preview.emergentagent.com/api'",
+        "priority": "FIXED"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "WS reconnect on unexpected drop",
+        "issue": "spot-me.tsx and saved.tsx: ws.onclose only removes WS from wsMap but doesn't attempt reconnect. If network drops during session, WS connections are gone and won't reconnect until user navigates away and back. useFocusEffect reconnects on focus, so UX impact is limited.",
+        "affected_selectors": ["wsMap connectLiveAll in spot-me.tsx:91, saved.tsx:168"],
+        "priority": "LOW"
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_realtime_list_screens_iter83.py",
+    "/app/backend/tests/test_spotyou_websocket_concurrency.py",
+    "/app/test_reports/pytest/iter83_realtime_lists.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: Add is_full field to leave broadcast in spot_you_routes.py (join post-leave still gets is_full from going/not-going broadcasts). Low priority.",
+    "OPTIONAL: Add reconnect logic in ws.onclose handlers in spot-me.tsx and saved.tsx for resilience against network drops."
+  ],
+  "critical_code_review_comments": [
+    "spot-me.tsx/saved.tsx: Pattern is correct — wsMap<string, WebSocket>, connectLiveAll(pts), cap at 15, auth via onopen, only updates going_count/participants_count/is_full fields on spotyou_update messages.",
+    "WebSocket lifecycle is correct: useFocusEffect connects on focus, closes all on blur. useEffect([list.length]) triggers connectLiveAll on data load.",
+    "Backend transaction + asyncio.create_task(broadcast) after commit is correct pattern — avoids deadlocks.",
+    "SpotYouCard correctly uses going_count ?? 0 and is_full || false to handle null/undefined values from API.",
+    "pt_demo003 in saved list has going_count=null and can_participate=false (user is not a member) — handled correctly in SpotYouCard, no 'Je participe' button shown, 0 participant displayed."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_spotyou_websocket_concurrency.py (fixed WS_BASE URL)",
+    "/app/backend/tests/test_realtime_list_screens_iter83.py (new file)"
+  ],
+  "success_rate": {
+    "backend": "100% (38/38 tests passed: 21 existing + 17 new)",
+    "frontend": "100% — both screens load correctly, cards display properly, tabs work"
+  },
+  "test_credentials": "user@winek.app / WinekUser2024!, coach@winek.app / WinekCoach2024!",
+  "seed_data_creation": "None — used existing demo data (pt_demo001-015)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "WebSocket real-time on list screens fully tested. spot-me.tsx: 4 SpotYou cards show for user (pt_demo014, pt_demo010, pt_demo002, pt_demo001), all with participants_count, going_count, going buttons. saved.tsx: 3 saved SpotYous + Services tab (empty). WS broadcast: join → participants_count update, going → going_count+is_full update, leave → participants_count+going_count (no is_full), not-going → going_count+is_full. All 38 backend tests pass. Frontend UI renders correctly. Test files: test_realtime_list_screens_iter83.py (17 tests) and test_spotyou_websocket_concurrency.py (21 tests).",
+  "tests_executed": [
+    {
+      "file": "test_spotyou_websocket_concurrency.py",
+      "count": 21,
+      "result": "21/21 PASS",
+      "covers": "regression (login, tag-points, going list), join/leave fields, going/not-going fields, concurrency, WebSocket (connect, invalid token, broadcast after join/leave)"
+    },
+    {
+      "file": "test_realtime_list_screens_iter83.py",
+      "count": 17,
+      "result": "17/17 PASS",
+      "covers": "GET /tag-points/mine required fields, GET /tag-points/saved required fields, WS connects for all mine items (wsMap pattern), WS broadcast received on mine list after going, WS connects for all saved items, WS broadcast received on saved list after join, cross-user broadcast (coach going → user WS receives), join broadcast on coach WS, is_full field in broadcast"
+    },
+    {
+      "file": "playwright (browser)",
+      "count": "manual",
+      "result": "PASS",
+      "covers": "spot-me.tsx renders 4 SpotYou cards with correct data, saved.tsx renders 3 saved SpotYous + empty Services tab, navigation, login flow"
+    }
+  ]
+}

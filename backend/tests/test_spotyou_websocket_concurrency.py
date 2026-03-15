@@ -19,8 +19,8 @@ import os
 import time
 
 # ─── Configuration ─────────────────────────────────────────────────────────────
-API_BASE = "https://spotu-staging.preview.emergentagent.com/api"
-WS_BASE  = "wss://spotu-staging.preview.emergentagent.com/api"
+API_BASE = "https://realtime-events-4.preview.emergentagent.com/api"
+WS_BASE  = "wss://realtime-events-4.preview.emergentagent.com/api"
 
 COACH_EMAIL = "coach@winek.app"
 COACH_PASS  = "WinekCoach2024!"
