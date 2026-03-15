@@ -28,6 +28,16 @@ Fonctionnalités : création/découverte de services et SpotYous, système de r�
 
 ## What's Been Implemented
 
+### Phase 14 — Indicateur de participants en direct sur la MAP (2026-03-15)
+| Date | Composant | Changement |
+|------|-----------|-----------|
+| 2026-03-15 | `frontend/app/(tabs)/map.tsx` | Ajout imports `Animated`, `useFocusEffect`, `BASE_WS` |
+| 2026-03-15 | `frontend/app/(tabs)/map.tsx` | Composant `PulseDot` — animation scale+opacity en boucle (900ms) |
+| 2026-03-15 | `frontend/app/(tabs)/map.tsx` | Composant `LiveBadge` — variants `default` et `compact`, badge vert "X membres" |
+| 2026-03-15 | `frontend/app/(tabs)/map.tsx` | `HeroCard` : badge compact en coin inférieur droit |
+| 2026-03-15 | `frontend/app/(tabs)/map.tsx` | `RecentRow` : `livePill` en superposition sur la miniature |
+| 2026-03-15 | `frontend/app/(tabs)/map.tsx` | `HomeScreen` : `liveCountsMap` + `wsMap` (max 10 WS) — connecte au chargement, déconnecte au blur |
+
 ### Phase 13 — Concurrence safe + Temps réel WebSocket SpotYou (2026-03-15)
 | Date | Composant | Changement |
 |------|-----------|-----------|

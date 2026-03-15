@@ -2,10 +2,10 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   RefreshControl, Dimensions, FlatList,
-  Image, ActivityIndicator,
+  Image, ActivityIndicator, Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-;
+import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
 import { useLang } from '../../context/LanguageContext';
@@ -17,6 +17,9 @@ import { buildCacheKey, cacheGet, cacheSet, isFresh, cacheAgeMinutes, getTtl, SC
 import { StaleBanner, ErrorNoData } from '../../components/OfflineBanner';
 import { registerScreenRefresh } from '../../hooks/useNetwork';
 import { useGuardedRouter } from '../../hooks/useGuardedRouter';
+
+const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+const BASE_WS = BASE_URL.replace('https://', 'wss://').replace('http://', 'ws://');
 
 const { width: SW } = Dimensions.get('window');
 const HERO_H = 280;
@@ -54,6 +57,69 @@ function distPipe(userLat: number, userLng: number, point: any): string {
   return formatDistance(haversineDistance(userLat, userLng, lat, lng));
 }
 
+// ── PulseDot — point animé temps réel ──────────────────────
+function PulseDot({ color = '#00E676' }: { color?: string }) {
+  const scale = useRef(new Animated.Value(1)).current;
+  const opacity = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.parallel([
+        Animated.sequence([
+          Animated.timing(scale, { toValue: 1.8, duration: 900, useNativeDriver: true }),
+          Animated.timing(scale, { toValue: 1, duration: 900, useNativeDriver: true }),
+        ]),
+        Animated.sequence([
+          Animated.timing(opacity, { toValue: 0.4, duration: 900, useNativeDriver: true }),
+          Animated.timing(opacity, { toValue: 1, duration: 900, useNativeDriver: true }),
+        ]),
+      ])
+    ).start();
+  }, []);
+  return (
+    <Animated.View style={{
+      width: 6, height: 6, borderRadius: 3,
+      backgroundColor: color,
+      transform: [{ scale }],
+      opacity,
+    }} />
+  );
+}
+
+// ── LiveBadge — badge membres en direct ────────────────────
+function LiveBadge({ count, variant = 'default' }: { count: number; variant?: 'default' | 'compact' }) {
+  if (!count || count <= 0) return null;
+  if (variant === 'compact') {
+    return (
+      <View style={liveSt.compact}>
+        <PulseDot />
+        <Text style={liveSt.compactTxt}>{count}</Text>
+      </View>
+    );
+  }
+  return (
+    <View style={liveSt.badge}>
+      <PulseDot />
+      <Text style={liveSt.badgeTxt}>{count} membre{count > 1 ? 's' : ''}</Text>
+    </View>
+  );
+}
+const liveSt = StyleSheet.create({
+  badge: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: 'rgba(0,230,118,0.12)',
+    borderRadius: 12, paddingHorizontal: 9, paddingVertical: 4,
+    borderWidth: 1, borderColor: 'rgba(0,230,118,0.28)',
+  },
+  badgeTxt: { fontSize: 11, fontWeight: '700', color: '#00E676' },
+  compact: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: 10, paddingHorizontal: 7, paddingVertical: 3,
+    borderWidth: 1, borderColor: 'rgba(0,230,118,0.35)',
+  },
+  compactTxt: { fontSize: 11, fontWeight: '800', color: '#00E676' },
+});
+
 // ── Skeleton (minimal) ──────────────────────────────────────
 function Skeleton({ w, h, radius = 10 }: { w: number | string; h: number; radius?: number }) {
   return <View style={{ width: w as any, height: h, borderRadius: radius, backgroundColor: Colors.card }} />;
@@ -85,11 +151,12 @@ function SkeletonScreen() {
 }
 
 // ── Hero Card (pleine largeur) ──────────────────────────────
-function HeroCard({ point, onPress }: { point: any; onPress: () => void }) {
+function HeroCard({ point, onPress, liveCount }: { point: any; onPress: () => void; liveCount?: number }) {
   const bg = DOMAIN_COLORS[point.domain_id] || '#1A3A3A';
   const icon = DOMAIN_ICONS[point.domain_id] || 'location-outline';
   const tag = point.tags?.[0];
   const votes = (point.upvotes ?? 0) - (point.downvotes ?? 0);
+  const count = liveCount ?? point.participants_count ?? 0;
   return (
     <TouchableOpacity style={[heroSt.card, { width: SW - 32 }]} onPress={onPress} activeOpacity={0.94} testID={`hero-card-${point.point_id}`}>
       {point.images?.[0]
@@ -111,6 +178,12 @@ function HeroCard({ point, onPress }: { point: any; onPress: () => void }) {
         <View style={heroSt.voteBadge}>
           <Ionicons name={votes > 0 ? 'arrow-up' : 'arrow-down'} size={10} color={votes > 0 ? Colors.primary : '#ff4444'} />
           <Text style={[heroSt.voteText, { color: votes > 0 ? Colors.primary : '#ff4444' }]}>{votes > 0 ? '+' : ''}{votes}</Text>
+        </View>
+      )}
+      {/* Live membres badge — coin inférieur droit */}
+      {count > 0 && (
+        <View style={heroSt.liveBadgeWrap}>
+          <LiveBadge count={count} variant="compact" />
         </View>
       )}
       {/* Bottom info */}
@@ -140,6 +213,7 @@ const heroSt = StyleSheet.create({
   tagText: { fontSize: 11, fontWeight: '700', color: Colors.primary },
   voteBadge: { position: 'absolute', top: 14, right: 14, flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(13,17,23,0.7)', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4 },
   voteText: { fontSize: 11, fontWeight: '700', color: Colors.primary },
+  liveBadgeWrap: { position: 'absolute', bottom: 72, right: 14 },
   bottom: { position: 'absolute', bottom: 16, left: 16, right: 16 },
   title: { fontSize: 22, fontWeight: '800', color: '#fff', letterSpacing: -0.5, marginBottom: 10 },
   meta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -222,12 +296,13 @@ const svcSt = StyleSheet.create({
 });
 
 // ── Recent Row (vertical feed) ──────────────────────────────
-function RecentRow({ point, userLat, userLng, onPress }: { point: any; userLat: number; userLng: number; onPress: () => void }) {
+function RecentRow({ point, userLat, userLng, onPress, liveCount }: { point: any; userLat: number; userLng: number; onPress: () => void; liveCount?: number }) {
   const bg = DOMAIN_COLORS[point.domain_id] || '#1A3A3A';
   const icon = DOMAIN_ICONS[point.domain_id] || 'location-outline';
   const dist = distPipe(userLat, userLng, point);
   const votes = (point.upvotes ?? 0) - (point.downvotes ?? 0);
   const tag = point.tags?.[0];
+  const count = liveCount ?? point.participants_count ?? 0;
   return (
     <TouchableOpacity style={recSt.row} onPress={onPress} activeOpacity={0.82} testID={`recent-row-${point.point_id}`}>
       {/* Thumb */}
@@ -238,6 +313,13 @@ function RecentRow({ point, userLat, userLng, onPress }: { point: any; userLat: 
               <Ionicons name={icon} size={22} color="rgba(255,255,255,0.4)" />
             </View>
         }
+        {/* Badge membres en direct sur la miniature */}
+        {count > 0 && (
+          <View style={recSt.livePill}>
+            <PulseDot />
+            <Text style={recSt.livePillTxt}>{count}</Text>
+          </View>
+        )}
       </View>
       {/* Info */}
       <View style={recSt.info}>
@@ -264,6 +346,8 @@ function RecentRow({ point, userLat, userLng, onPress }: { point: any; userLat: 
 const recSt = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.border },
   thumb: { width: 72, height: 64, borderRadius: 12, overflow: 'hidden', backgroundColor: Colors.card },
+  livePill: { position: 'absolute', bottom: 4, left: 4, flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(0,0,0,0.65)', borderRadius: 8, paddingHorizontal: 5, paddingVertical: 2 },
+  livePillTxt: { fontSize: 10, fontWeight: '800', color: '#00E676' },
   info: { flex: 1 },
   title: { fontSize: 14, fontWeight: '700', color: Colors.foreground },
   sub: { flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 6 },
@@ -293,6 +377,56 @@ export default function HomeScreen() {
   const [heroIndex, setHeroIndex] = useState(0);
   const carouselRef = useRef<FlatList>(null);
   const autoTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ── Indicateur membres temps réel ──────────────────────────────────────────
+  const [liveCountsMap, setLiveCountsMap] = useState<Record<string, number>>({});
+  const wsMap = useRef<Map<string, WebSocket>>(new Map());
+
+  const connectLiveAll = useCallback(async (points: any[]) => {
+    // Authentification via le token JWT stocké
+    const token = await import('../../lib/storage').then(m => m.storage.get('spotu_token'));
+    if (!token || !BASE_WS) return;
+
+    const ids = points.map(p => p.point_id as string);
+
+    // Déconnecter les WS obsolètes (SpotYou qui ne sont plus visibles)
+    for (const [pid, ws] of wsMap.current) {
+      if (!ids.includes(pid)) { ws.close(); wsMap.current.delete(pid); }
+    }
+
+    // Connecter les nouveaux SpotYou (cap à 10)
+    for (const pid of ids.slice(0, 10)) {
+      if (wsMap.current.has(pid)) continue;
+      const ws = new WebSocket(`${BASE_WS}/api/ws/spot-you/${pid}`);
+      wsMap.current.set(pid, ws);
+      ws.onopen = () => ws.send(JSON.stringify({ token }));
+      ws.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data.type === 'spotyou_update' && data.participants_count !== undefined) {
+            setLiveCountsMap(prev => ({ ...prev, [pid]: data.participants_count }));
+          }
+        } catch {}
+      };
+      ws.onerror = () => {};
+      ws.onclose = () => { wsMap.current.delete(pid); };
+    }
+  }, []);
+
+  // Connexion WS quand la liste SpotYou se charge
+  useEffect(() => {
+    if (SpotYou.length > 0) connectLiveAll(SpotYou);
+  }, [SpotYou]);
+
+  // Nettoyage WS quand l'écran perd le focus
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        for (const ws of wsMap.current.values()) ws.close();
+        wsMap.current.clear();
+      };
+    }, [])
+  );
 
   useEffect(() => {
     if (!locLoading) loadData();
@@ -462,7 +596,7 @@ export default function HomeScreen() {
                 showsHorizontalScrollIndicator={false}
                 keyExtractor={i => i.point_id}
                 renderItem={({ item }) => (
-                  <HeroCard point={item} onPress={() => router.push(`/spot-you/${item.point_id}` as any)} />
+                  <HeroCard point={item} onPress={() => router.push(`/spot-you/${item.point_id}` as any)} liveCount={liveCountsMap[item.point_id]} />
                 )}
                 onMomentumScrollEnd={e => {
                   const idx = Math.round(e.nativeEvent.contentOffset.x / (SW - 32 + 12));
@@ -599,6 +733,8 @@ export default function HomeScreen() {
                   userLat={location.lat}
                   userLng={location.lng}
                   onPress={() => router.push(`/spot-you/${pt.point_id}` as any)}
+                  liveCount={liveCountsMap[pt.point_id]}
+                />
                 />
               ))}
             </View>
