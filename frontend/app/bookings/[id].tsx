@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Alert, Linking, Image,
+  ActivityIndicator, Alert, Linking, Image, RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useFocusEffect } from 'expo-router';
@@ -78,6 +78,13 @@ export default function BookingDetailScreen() {
   const [isNetworkError, setIsNetworkError] = useState(false);
   const [paying, setPaying]   = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadBooking();
+    setTimeout(() => setRefreshing(false), 800);
+  }, [loadBooking]);
 
   const loadBooking = useCallback(() => {
     setLoading(true);
@@ -185,7 +192,9 @@ export default function BookingDetailScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+      >
 
         {/* ── Statut hero ─────────────────────────────────────────────── */}
         <View style={[s.statusHero, { borderColor: bStatus.color + '44' }]}>

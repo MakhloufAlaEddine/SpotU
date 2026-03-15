@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Alert, TextInput, Modal, Image,
-  KeyboardAvoidingView, Platform, FlatList, Dimensions,
+  KeyboardAvoidingView, Platform, FlatList, Dimensions, RefreshControl,
 } from 'react-native';
 
 const { width: SW } = Dimensions.get('window');
@@ -86,7 +86,13 @@ export default function ServiceDetailScreen() {
   const [photoIdx, setPhotoIdx] = useState(0);
   const [isSaved, setIsSaved] = useState(false);
   const [savingInProgress, setSavingInProgress] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const photoListRef = useRef<FlatList>(null);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try { await loadService(); } finally { setRefreshing(false); }
+  };
   const bookingCfg = useBookingConfig();
   const showManualBadge = bookingCfg.enable_manual_approval_for_services;
   const showPayLaterBadge = bookingCfg.enable_pay_later_for_services;
@@ -269,7 +275,9 @@ export default function ServiceDetailScreen() {
         </View>
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+      >
 
         {/* ── Carrousel photos ─────────────────────────────────────────────── */}
         {Array.isArray(service.images) && service.images.length > 0 && (() => {

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, FlatList, Dimensions,
   ActivityIndicator, TouchableOpacity, Alert, Image, Share,
-  TextInput, Modal, KeyboardAvoidingView, Platform, Animated,
+  TextInput, Modal, KeyboardAvoidingView, Platform, Animated, RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useFocusEffect } from 'expo-router';
@@ -406,6 +406,17 @@ export default function SpotYouDetail() {
       }, 200);
     };
   });
+
+  // Pull-to-refresh manuel
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([loadPoint(true), loadParticipants(), loadGoingList()]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [id]);
 
   // ── WebSocket avec auto-reconnect ──────────────────────────────────────────
   const wsRef = useRef<WebSocket | null>(null);
@@ -1001,7 +1012,9 @@ export default function SpotYouDetail() {
         </View>
       )}
 
-      <ScrollView style={st.scroll} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+      <ScrollView style={st.scroll} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+      >
 
         {/* 1. Image Carousel */}
         <View style={{ marginHorizontal: Spacing.md, marginTop: Spacing.md }}>

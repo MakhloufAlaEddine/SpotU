@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Alert, Linking, Dimensions, Platform, Animated,
+  Alert, Linking, Dimensions, Platform, Animated, RefreshControl,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -52,6 +52,12 @@ export default function UserProfileScreen() {
   const [followLoading, setFollowLoading] = useState(false);
   const [showFollowModal, setShowFollowModal] = useState(false);
   const [followModalTab, setFollowModalTab] = useState<'followers' | 'following' | 'suggestions'>('followers');
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await load(); } finally { setRefreshing(false); }
+  }, [id]);
   const [coverOffsetY, setCoverOffsetY] = useState(0.5);
   const [coverScale, setCoverScale] = useState(1.0);
   const [repositioning, setRepositioning] = useState(false);
@@ -301,7 +307,9 @@ export default function UserProfileScreen() {
           : <View style={{ width: 40 }} />}
       </View>
 
-      <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+      >
         <ProfileHero
           profile={profile} isOwnProfile={!!isOwnProfile} isCoach={isCoach}
           me={me} badge={badge} avgRating={avgRating} reviewsCount={reviews.length}
