@@ -28,6 +28,18 @@ Fonctionnalités : création/découverte de services et SpotYous, système de r�
 
 ## What's Been Implemented
 
+### Phase 15 — Temps réel WebSocket sur écrans liste (2026-03-15)
+| Date | Composant | Changement |
+|------|-----------|-----------|
+| 2026-03-15 | `frontend/app/spot-me.tsx` | Ajout `wsMap`, `connectLiveAll` (cap 15 WS), `pointsRef` stable pour `useFocusEffect` |
+| 2026-03-15 | `frontend/app/spot-me.tsx` | `useFocusEffect` reconnect au focus, cleanup au blur |
+| 2026-03-15 | `frontend/app/spot-me.tsx` | `useEffect([points.length])` connecte WS après chargement données |
+| 2026-03-15 | `frontend/app/saved.tsx` | Ajout `wsMap`, `connectLiveAll` (cap 15 WS), `spotYouRef` stable |
+| 2026-03-15 | `frontend/app/saved.tsx` | `useFocusEffect` reload + reconnect WS au focus, cleanup au blur |
+| 2026-03-15 | `frontend/app/saved.tsx` | `useEffect([SpotYou.length])` connecte WS après chargement données |
+| 2026-03-15 | `backend/routes/spot_you_routes.py` | Endpoint `leave` : ajout `is_full` dans le broadcast (fix minor) |
+| 2026-03-15 | `backend/tests/test_realtime_list_screens_iter83.py` | 17 nouveaux tests — 38/38 PASS (21 existants + 17 nouveaux) |
+
 ### Phase 14 — Indicateur de participants en direct sur la MAP (2026-03-15)
 | Date | Composant | Changement |
 |------|-----------|-----------|

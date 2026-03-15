@@ -251,6 +251,12 @@ async def leave_spot_you(point_id: str, request: Request):
                 point_id,
             ) or 0
 
+            # Récupère la capacité max pour calculer is_full
+            max_p = await conn.fetchval(
+                "SELECT maximum_participants FROM tag_points WHERE point_id = $1", point_id
+            )
+            is_full_after_leave = max_p is not None and (next_going_count or 0) >= max_p
+
             # Bloquer l'utilisateur dans la conversation de groupe (sans le supprimer)
             group_conv = await conn.fetchrow(
                 "SELECT conversation_id FROM conversations WHERE type='tagpoint_group' AND context_id=$1",
@@ -270,6 +276,7 @@ async def leave_spot_you(point_id: str, request: Request):
         "point_id": point_id,
         "participants_count": int(count),
         "going_count": int(next_going_count),
+        "is_full": is_full_after_leave,
     }))
 
     return {"success": True, "participants_count": int(count), "is_member": False}
