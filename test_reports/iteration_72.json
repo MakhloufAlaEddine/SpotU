@@ -51,7 +51,7 @@
   "seed_data_creation": "Aucune.",
   "retest_needed": true,
   "should_main_agent_self_test": true,
-  "context_for_next_testing_agent": "Iteration 72: 60/61 PASS. Seul échec: user/[id].tsx ligne 179 manque onBack sur ErrorNoData. Fix attendu: ajouter onBack={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/map' as any)} à l'ErrorNoData dans le bloc if (!profile). Après fix, relancer: cd /app/frontend/e2e && python -m pytest test_16_spotyou_cache_onback.py -v -k 'not TestRegressionOnline'. Playwright tests: SpotYou pt_demo015 PASS, ErrorNoData back-nav-btn PASS (spot-you), SpotMe PASS. APP_URL=https://realtime-events-4.preview.emergentagent.com",
+  "context_for_next_testing_agent": "Iteration 72: 60/61 PASS. Seul échec: user/[id].tsx ligne 179 manque onBack sur ErrorNoData. Fix attendu: ajouter onBack={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/map' as any)} à l'ErrorNoData dans le bloc if (!profile). Après fix, relancer: cd /app/frontend/e2e && python -m pytest test_16_spotyou_cache_onback.py -v -k 'not TestRegressionOnline'. Playwright tests: SpotYou pt_demo015 PASS, ErrorNoData back-nav-btn PASS (spot-you), SpotMe PASS. APP_URL=https://spotu-feed.preview.emergentagent.com",
   "rca_of_the_issue": {
     "bug": "user/[id].tsx ErrorNoData missing onBack prop",
     "location": "/app/frontend/app/user/[id].tsx line ~179",

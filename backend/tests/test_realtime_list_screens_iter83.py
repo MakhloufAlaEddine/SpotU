@@ -18,7 +18,7 @@ import json
 import os
 
 # ─── Configuration ─────────────────────────────────────────────────────────────
-BASE_URL = "https://realtime-events-4.preview.emergentagent.com"
+BASE_URL = "https://spotu-feed.preview.emergentagent.com"
 API_BASE = f"{BASE_URL}/api"
 WS_BASE  = "wss://realtime-events-4.preview.emergentagent.com/api"
 

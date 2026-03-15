@@ -137,7 +137,7 @@ def api_url():
     """URL de l'API backend (depuis env ou valeur par défaut)."""
     return os.environ.get(
         "BACKEND_URL",
-        "https://realtime-events-4.preview.emergentagent.com/api",
+        "https://spotu-feed.preview.emergentagent.com/api",
     )
 
 
