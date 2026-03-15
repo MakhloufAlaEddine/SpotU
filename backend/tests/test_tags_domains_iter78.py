@@ -6,7 +6,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = "https://onboarding-flow-82.preview.emergentagent.com"
+BASE_URL = "https://spotu-staging.preview.emergentagent.com"
 
 ADMIN_EMAIL = "admin@winek.app"
 ADMIN_PASS = "WinekAdmin2024!"

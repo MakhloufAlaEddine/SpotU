@@ -10,7 +10,7 @@ import os
 
 BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "").rstrip("/")
 if not BASE_URL:
-    BASE_URL = "https://onboarding-flow-82.preview.emergentagent.com"
+    BASE_URL = "https://spotu-staging.preview.emergentagent.com"
 
 AUTH_URL = f"{BASE_URL}/api/auth/login"
 TP_URL = f"{BASE_URL}/api/tag-points"

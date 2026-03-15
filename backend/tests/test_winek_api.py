@@ -20,7 +20,7 @@ def _load_base_url():
                     return line.split('=', 1)[1].strip().rstrip('/')
     except Exception:
         pass
-    return 'https://onboarding-flow-82.preview.emergentagent.com'
+    return 'https://spotu-staging.preview.emergentagent.com'
 
 BASE_URL = _load_base_url()
 
