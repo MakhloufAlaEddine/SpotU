@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Image, Modal, FlatList,
+  ActivityIndicator, Image, Modal, FlatList, RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 ;
@@ -165,6 +165,7 @@ export default function SearchScreen() {
   const [SpotYou, setSpotYou] = useState<any[]>([]);
   const [services, setServices] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const { location } = useLocation();
 
   // Vue : liste ou carte
@@ -413,7 +414,9 @@ export default function SearchScreen() {
         </View>
       ) : (
         /* ─── VUE LISTE ─────────────────────────────────────── */
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await doSearch(); setRefreshing(false); }} tintColor={Colors.primary} />}
+      >
         {/* Tag search row */}
         <View style={styles.tagInputRow}>
           <TouchableOpacity
