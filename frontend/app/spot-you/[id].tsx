@@ -391,23 +391,30 @@ export default function SpotYouDetail() {
   const [isPublic, setIsPublic] = useState(true);
   const [ownerActionLoading, setOwnerActionLoading] = useState(false);
 
-  // ── WebSocket temps réel ────────────────────────────────────────────────────
-  const wsRef = useRef<WebSocket | null>(null);
-  const wsPointIdRef = useRef<string | null>(null);
-
-  // Référence toujours fraîche vers refreshAll — évite les stale closures dans le WS
+  // ── Refresh debounced — une seule source de vérité ────────────────────────
+  // Ref toujours fraîche (pas de stale closure). Debounce 200ms pour éviter
+  // des fetches concurrents quand WS + doRSVP déclenchent un refresh simultané.
   const refreshAllRef = useRef<() => void>(() => {});
+  const refreshDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     refreshAllRef.current = () => {
-      loadPoint(true);   // force bypass cache → met à jour tous les compteurs
-      loadParticipants();
-      loadGoingList();
+      if (refreshDebounceRef.current) clearTimeout(refreshDebounceRef.current);
+      refreshDebounceRef.current = setTimeout(() => {
+        loadPoint(true);
+        loadParticipants();
+        loadGoingList();
+      }, 200);
     };
-  }); // sans dépendances → se met à jour à chaque render
+  });
+
+  // ── WebSocket avec auto-reconnect ──────────────────────────────────────────
+  const wsRef = useRef<WebSocket | null>(null);
+  const wsPointIdRef = useRef<string | null>(null);
+  const shouldReconnectRef = useRef(false);
 
   const connectLive = useCallback(async (pointId: string) => {
-    // Éviter double connexion pour le même point
-    if (wsRef.current && wsPointIdRef.current === pointId) return;
+    // Ne pas recréer si déjà connecté sur ce point
+    if (wsRef.current?.readyState === WebSocket.OPEN && wsPointIdRef.current === pointId) return;
     wsRef.current?.close();
     wsRef.current = null;
 
@@ -418,32 +425,47 @@ export default function SpotYouDetail() {
     wsRef.current = ws;
     wsPointIdRef.current = pointId;
 
-    ws.onopen = () => {
-      ws.send(JSON.stringify({ token }));
-    };
+    ws.onopen = () => ws.send(JSON.stringify({ token }));
 
     ws.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data);
         if (data.type === 'spotyou_update') {
+          // Feedback immédiat sur les compteurs
           if (data.participants_count !== undefined) setParticipantsCount(data.participants_count);
           if (data.going_count !== undefined) setGoingCount(data.going_count);
           if (data.is_full !== undefined) setIsFull(data.is_full);
-          // Refresh complet via la ref toujours fraîche (sans stale closure)
+          // Un seul refresh debounced pour les listes (pas de fetch concurrent)
           refreshAllRef.current();
         }
       } catch {}
     };
 
     ws.onerror = () => {};
-    ws.onclose = () => {};
+
+    ws.onclose = () => {
+      wsRef.current = null;
+      wsPointIdRef.current = null;
+      // Auto-reconnect si l'écran est encore visible
+      if (shouldReconnectRef.current) {
+        setTimeout(() => {
+          if (shouldReconnectRef.current) connectLive(pointId);
+        }, 2000);
+      }
+    };
   }, []);
 
-  // Connexion live à l'entrée de l'écran, déconnexion à la sortie
+  // useFocusEffect unique : WS + refresh au focus, cleanup au blur
   useFocusEffect(
     useCallback(() => {
-      if (id) connectLive(id);
+      shouldReconnectRef.current = true;
+      if (id) {
+        connectLive(id);
+        refreshAllRef.current(); // données fraîches au retour sur l'écran
+      }
       return () => {
+        shouldReconnectRef.current = false;
+        if (refreshDebounceRef.current) clearTimeout(refreshDebounceRef.current);
         wsRef.current?.close();
         wsRef.current = null;
         wsPointIdRef.current = null;
@@ -451,16 +473,10 @@ export default function SpotYouDetail() {
     }, [id, connectLive])
   );
 
+  // Chargement initial (premier montage uniquement)
   useEffect(() => {
     if (id) { loadPoint(); loadVotes(); loadParticipants(); loadGoingList(); if (user) loadMyVote(); }
   }, [id, user]);
-
-  // Reload data when screen comes back into focus (e.g. after editing)
-  useFocusEffect(
-    useCallback(() => {
-      if (id) { loadPoint(); if (user) loadMyVote(); loadVotes(); loadParticipants(); loadGoingList(); }
-    }, [id, user])
-  );
 
   const loadPoint = async (isRefresh = false) => {
     const userId = user?.user_id;
