@@ -1,6 +1,6 @@
 import { Stack, useRouter, useSegments, useRootNavigationState } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Platform, View } from 'react-native';
+import { Platform, View, LogBox } from 'react-native';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { RefreshProvider } from '../context/RefreshContext';
 import { LanguageProvider } from '../context/LanguageContext';
@@ -14,8 +14,15 @@ import {
 } from '../lib/push-notifications';
 import { OfflineBanner } from '../components/OfflineBanner';
 
+// Supprime l'overlay rouge pour l'erreur splash iOS (Expo Go / hot-reload)
+LogBox.ignoreLogs(['No native splash screen registered']);
+
 // Empêche le splash natif de disparaître automatiquement
-SplashScreen.preventAutoHideAsync();
+// .catch() : évite l'erreur "No native splash screen registered" lors des hot-reloads
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
+// Variable module-level : persiste même si NavigationGuard re-monte (retour OAuth, etc.)
+let _splashHidden = false;
 
 // Source unique de vérité pour la navigation auth
 function NavigationGuard() {
@@ -25,7 +32,8 @@ function NavigationGuard() {
   const navigationState = useRootNavigationState();
   const pushTokenRef = useRef<string | null>(null);
   const [splashReady, setSplashReady] = useState(false);
-  const splashHiddenRef = useRef(false);
+  // Note: utilise _splashHidden (module-level) au lieu de useRef
+  // pour survivre au re-mount du composant (ex: retour depuis OAuth Google)
 
   // Durée minimale du splash : 1.8s pour que l'utilisateur voie le logo
   useEffect(() => {
@@ -54,9 +62,9 @@ function NavigationGuard() {
     const hasExistingProfile = Boolean(user?.bio?.trim()) || Boolean(user?.coach_tags?.length) || user?.role !== 'user';
     const shouldGoToOnboarding = Boolean(user) && user?.onboarding_done !== true && !hasExistingProfile;
 
-    // Cacher le splash screen natif une seule fois
-    if (!splashHiddenRef.current) {
-      splashHiddenRef.current = true;
+    // Cacher le splash screen natif une seule fois (même après re-mount OAuth)
+    if (!_splashHidden) {
+      _splashHidden = true;
       SplashScreen.hideAsync().catch(() => {});
     }
 
