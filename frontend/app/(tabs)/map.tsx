@@ -151,12 +151,13 @@ function SkeletonScreen() {
 }
 
 // ── Hero Card (pleine largeur) ──────────────────────────────
-function HeroCard({ point, onPress, liveCount }: { point: any; onPress: () => void; liveCount?: number }) {
+function HeroCard({ point, onPress, liveCount, userLat, userLng }: { point: any; onPress: () => void; liveCount?: number; userLat?: number; userLng?: number }) {
   const bg = DOMAIN_COLORS[point.domain_id] || '#1A3A3A';
   const icon = DOMAIN_ICONS[point.domain_id] || 'location-outline';
   const tag = point.tags?.[0];
   const votes = (point.upvotes ?? 0) - (point.downvotes ?? 0);
   const count = liveCount ?? point.participants_count ?? 0;
+  const dist = (userLat != null && userLng != null) ? distPipe(userLat, userLng, point) : (point.distance != null ? formatDistance(point.distance) : '');
   return (
     <TouchableOpacity style={[heroSt.card, { width: SW - 32 }]} onPress={onPress} activeOpacity={0.94} testID={`hero-card-${point.point_id}`}>
       {point.images?.[0]
@@ -201,6 +202,12 @@ function HeroCard({ point, onPress, liveCount }: { point: any; onPress: () => vo
               <Text style={heroSt.ownerName}>{point.owner.name}</Text>
             </View>
           )}
+          {dist ? (
+            <View style={heroSt.distChip}>
+              <Ionicons name="navigate-outline" size={11} color={Colors.primary} />
+              <Text style={heroSt.distTxt}>{dist}</Text>
+            </View>
+          ) : null}
         </View>
       </View>
     </TouchableOpacity>
@@ -221,12 +228,23 @@ const heroSt = StyleSheet.create({
   avatar: { width: 26, height: 26, borderRadius: 13, backgroundColor: Colors.primary, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
   avatarTxt: { fontSize: 11, fontWeight: '800', color: '#0D1117' },
   ownerName: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.85)' },
+  distChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    backgroundColor: 'rgba(0,0,0,0.40)',
+    borderRadius: 10, paddingHorizontal: 7, paddingVertical: 3,
+  },
+  distTxt: { color: '#fff', fontSize: 11, fontWeight: '700' },
 });
 
 // ── Service Card (landscape compact) ───────────────────────
 function ServiceCard({ svc, userLat, userLng, onPress }: { svc: any; userLat: number; userLng: number; onPress: () => void }) {
   const loc = svc.locations?.[0];
-  const dist = loc ? formatDistance(haversineDistance(userLat, userLng, loc.latitude, loc.longitude)) : '';
+  // Priorité: haversine depuis coords précises, sinon distance retournée par l'API (en mètres)
+  const dist = loc
+    ? formatDistance(haversineDistance(userLat, userLng, loc.latitude, loc.longitude))
+    : svc.distance != null
+      ? formatDistance(svc.distance)
+      : '';
   const image = svc.images?.[0];
   const slotCount = svc.slots?.length ?? 0;
   return (
@@ -673,7 +691,7 @@ export default function HomeScreen() {
                 showsHorizontalScrollIndicator={false}
                 keyExtractor={i => i.point_id}
                 renderItem={({ item }) => (
-                  <HeroCard point={item} onPress={() => router.push(`/spot-you/${item.point_id}` as any)} liveCount={liveCountsMap[item.point_id]} />
+                  <HeroCard point={item} onPress={() => router.push(`/spot-you/${item.point_id}` as any)} liveCount={liveCountsMap[item.point_id]} userLat={location.lat} userLng={location.lng} />
                 )}
                 onMomentumScrollEnd={e => {
                   const idx = Math.round(e.nativeEvent.contentOffset.x / (SW - 32 + 12));
