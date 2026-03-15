@@ -229,8 +229,8 @@ export function SpotYouCard({
             </View>
           ) : canParticipate ? (
             <View style={sc.actionBar}>
-              <View style={sc.participantChip}>
-                <Ionicons name="people-outline" size={13} color={Colors.primary} />
+              <View style={[sc.participantChip, isLive && sc.participantChipLive]}>
+                {isLive ? <PulseDot /> : <Ionicons name="people-outline" size={13} color={Colors.primary} />}
                 <Text style={sc.participantChipText}>
                   {goingCount} participant{goingCount > 1 ? 's' : ''}{maxP ? ` / ${maxP}` : ''}
                 </Text>
@@ -376,6 +376,10 @@ export const sc = StyleSheet.create({
     borderRadius: Radius.full,
     paddingHorizontal: 10, paddingVertical: 5,
     borderWidth: 1, borderColor: Colors.primary + '30',
+  },
+  participantChipLive: {
+    borderColor: '#00E676' + '60',
+    backgroundColor: '#00E676' + '10',
   },
   participantChipText: { fontSize: 12, fontWeight: '600', color: Colors.primary },
   goingBtn: {
