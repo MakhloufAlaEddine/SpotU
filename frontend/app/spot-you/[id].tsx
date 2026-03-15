@@ -671,7 +671,9 @@ export default function SpotYouDetail() {
     setGoingListLoading(true);
     try {
       const data = await api.get(`/spot-you/${id}/going`);
-      setGoingList(data.going || []);
+      const list = data.going || [];
+      setGoingList(list);
+      setGoingCount(list.length); // sync le compteur affiché avec la liste réelle
     } catch {}
     finally { setGoingListLoading(false); }
   };
@@ -714,7 +716,7 @@ export default function SpotYouDetail() {
       setIsMember(res.is_member);
       setIsParticipant(res.is_member);
       setCanParticipate(res.is_member);
-      setParticipantsCount(res.participants_count || participantsCount);
+      setParticipantsCount(res.participants_count ?? participantsCount);
       if (!res.is_member) {
         setIsGoing(false);
         loadGoingList(); // mise à jour de la liste des présences si on quitte

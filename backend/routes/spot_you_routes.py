@@ -241,6 +241,16 @@ async def leave_spot_you(point_id: str, request: Request):
                 "SELECT COUNT(*) FROM spot_you_members WHERE spot_you_id = $1", point_id
             )
 
+            # Recalcule le going_count pour la prochaine séance (après suppression des attendances)
+            next_going_count = await conn.fetchval(
+                """SELECT COUNT(*) FROM spot_you_attendance sa
+                   JOIN tag_points tp ON tp.point_id = sa.spot_you_id
+                   WHERE sa.spot_you_id = $1 AND sa.status = 'going'
+                     AND sa.session_date >= (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Paris')::date
+                """,
+                point_id,
+            ) or 0
+
             # Bloquer l'utilisateur dans la conversation de groupe (sans le supprimer)
             group_conv = await conn.fetchrow(
                 "SELECT conversation_id FROM conversations WHERE type='tagpoint_group' AND context_id=$1",
@@ -259,6 +269,7 @@ async def leave_spot_you(point_id: str, request: Request):
         "type": "spotyou_update",
         "point_id": point_id,
         "participants_count": int(count),
+        "going_count": int(next_going_count),
     }))
 
     return {"success": True, "participants_count": int(count), "is_member": False}
