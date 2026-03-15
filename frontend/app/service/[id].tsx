@@ -15,10 +15,12 @@ import { api } from '../../lib/api';
 import { useBookingConfig } from '../../lib/useBookingConfig';
 import { getOrCreateConversation } from '../../lib/chat';
 import { useAuth } from '../../context/AuthContext';
+import { useLocation } from '../../context/LocationContext';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 import { classifyFetchError, isOfflineOrTimeout } from '../../lib/network-error';
 import { ErrorNoData } from '../../components/OfflineBanner';
+import { haversineDistance, formatDistance } from '../../utils/distance';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 const ORANGE = '#FF9500';
@@ -74,6 +76,7 @@ export default function ServiceDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useGuardedRouter();
   const { user } = useAuth();
+  const { location } = useLocation();
 
   const [service, setService] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -355,6 +358,20 @@ export default function ServiceDetailScreen() {
                 </View>
               </>
             )}
+            {(() => {
+              const loc = locations[0];
+              if (!loc?.latitude || !loc?.longitude) return null;
+              const dist = formatDistance(haversineDistance(location.lat, location.lng, loc.latitude, loc.longitude));
+              return (
+                <>
+                  <View style={s.metaDot} />
+                  <View style={s.metaItem}>
+                    <Ionicons name="navigate-outline" size={13} color={Colors.primary} />
+                    <Text style={[s.metaText, { color: Colors.primary, fontWeight: '600' }]}>{dist}</Text>
+                  </View>
+                </>
+              );
+            })()}
           </View>
         </View>
 
