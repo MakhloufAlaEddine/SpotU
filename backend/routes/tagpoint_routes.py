@@ -21,7 +21,8 @@ TP_FIELDS = """
     ST_X(tp.location::geometry) as longitude,
     u.name as owner_name, u.picture as owner_picture, u.role as owner_role,
     COALESCE((SELECT ROUND(AVG(v.rating)::numeric, 1) FROM tag_point_votes v WHERE v.point_id = tp.point_id), 0) as rating,
-    COALESCE((SELECT COUNT(*) FROM tag_point_votes v WHERE v.point_id = tp.point_id), 0) as vote_count
+    COALESCE((SELECT COUNT(*) FROM tag_point_votes v WHERE v.point_id = tp.point_id), 0) as vote_count,
+    COALESCE((SELECT COUNT(*) FROM spot_you_members WHERE spot_you_id = tp.point_id), 0) as participants_count
 """
 
 TP_FIELDS_SIMPLE = """

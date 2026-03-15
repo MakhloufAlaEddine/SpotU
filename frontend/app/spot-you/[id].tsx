@@ -394,15 +394,16 @@ export default function SpotYouDetail() {
   // ── WebSocket temps réel ────────────────────────────────────────────────────
   const wsRef = useRef<WebSocket | null>(null);
   const wsPointIdRef = useRef<string | null>(null);
-  // Tick incrémenté par le WS pour déclencher le rechargement des listes
-  const [wsUpdateTick, setWsUpdateTick] = useState(0);
 
-  // Recharge participants + goingList à chaque update WS (sans stale closure)
+  // Référence toujours fraîche vers refreshAll — évite les stale closures dans le WS
+  const refreshAllRef = useRef<() => void>(() => {});
   useEffect(() => {
-    if (wsUpdateTick === 0) return;
-    loadParticipants();
-    loadGoingList();
-  }, [wsUpdateTick]);
+    refreshAllRef.current = () => {
+      loadPoint(true);   // force bypass cache → met à jour tous les compteurs
+      loadParticipants();
+      loadGoingList();
+    };
+  }); // sans dépendances → se met à jour à chaque render
 
   const connectLive = useCallback(async (pointId: string) => {
     // Éviter double connexion pour le même point
@@ -428,8 +429,8 @@ export default function SpotYouDetail() {
           if (data.participants_count !== undefined) setParticipantsCount(data.participants_count);
           if (data.going_count !== undefined) setGoingCount(data.going_count);
           if (data.is_full !== undefined) setIsFull(data.is_full);
-          // Recharger les listes pour afficher les noms/avatars mis à jour
-          setWsUpdateTick(t => t + 1);
+          // Refresh complet via la ref toujours fraîche (sans stale closure)
+          refreshAllRef.current();
         }
       } catch {}
     };
@@ -713,17 +714,14 @@ export default function SpotYouDetail() {
       const res = isMember
         ? await api.delete(`/spot-you/${id}/leave`)
         : await api.post(`/spot-you/${id}/join`, {});
+      // Optimistic : met à jour l'état de membership immédiatement
       setIsMember(res.is_member);
       setIsParticipant(res.is_member);
       setCanParticipate(res.is_member);
-      setParticipantsCount(res.participants_count ?? participantsCount);
-      if (!res.is_member) {
-        setIsGoing(false);
-        loadGoingList(); // mise à jour de la liste des présences si on quitte
-      }
-      loadParticipants();
+      if (!res.is_member) setIsGoing(false);
+      // Refresh complet — source de vérité unique
+      refreshAllRef.current();
       if (res.is_member) loadActivity();
-      // Invalidation ciblée des caches impactés par ce changement de membership
       await cacheInvalidate([`/tag-points/${id}`, '/tag-points', '/planning', '/conversations']);
     } catch (e: any) { Alert.alert('Erreur', e.message); }
     finally { setRsvpLoading(false); }
@@ -777,18 +775,12 @@ export default function SpotYouDetail() {
       const res = isGoing
         ? await api.delete(`/spot-you/${id}/going`)
         : await api.post(`/spot-you/${id}/going`, {});
+      // Optimistic : feedback immédiat
       setIsGoing(res.is_going);
-      setGoingCount(res.going_count ?? goingCount);
-      setIsFull(res.is_full || false);
-      if (res.is_member !== undefined) {
-        setIsMember(res.is_member);
-        setIsParticipant(res.is_member);
-      }
-      if (res.participants_count !== undefined) setParticipantsCount(res.participants_count);
+      if (res.is_full !== undefined) setIsFull(res.is_full);
+      // Refresh complet — source de vérité unique
+      refreshAllRef.current();
       loadActivity();
-      loadGoingList();
-      loadParticipants();
-      // Invalidation ciblée : la participation impacte planning et tag-points/mine
       await cacheInvalidate([`/tag-points/${id}`, '/planning', '/tag-points/mine']);
     } catch (e: any) { Alert.alert('Erreur', e.message); }
     finally { setGoingLoading(false); }

@@ -419,14 +419,15 @@ export default function HomeScreen() {
     if (SpotYou.length > 0) connectLiveAll(SpotYou);
   }, [SpotYou]);
 
-  // Nettoyage WS quand l'écran perd le focus
+  // Reconnect WS au retour sur la map (focus), déconnect au départ (blur)
   useFocusEffect(
     useCallback(() => {
+      if (SpotYou.length > 0) connectLiveAll(SpotYou);
       return () => {
         for (const ws of wsMap.current.values()) ws.close();
         wsMap.current.clear();
       };
-    }, [])
+    }, [SpotYou, connectLiveAll])
   );
 
   useEffect(() => {
