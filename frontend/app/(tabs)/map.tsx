@@ -5,10 +5,8 @@ import {
   Image, ActivityIndicator, Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
-import { storage } from '../../lib/storage';
 import { useLang } from '../../context/LanguageContext';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { useLocation } from '../../context/LocationContext';
@@ -18,9 +16,9 @@ import { buildCacheKey, cacheGet, cacheSet, isFresh, cacheAgeMinutes, getTtl, SC
 import { StaleBanner, ErrorNoData } from '../../components/OfflineBanner';
 import { registerScreenRefresh } from '../../hooks/useNetwork';
 import { useGuardedRouter } from '../../hooks/useGuardedRouter';
+import { useSpotYouListLive } from '../../hooks/useSpotYouListLive';
 
 const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
-const BASE_WS = BASE_URL.replace('https://', 'wss://').replace('http://', 'ws://');
 
 const { width: SW } = Dimensions.get('window');
 const HERO_H = 280;
@@ -379,56 +377,14 @@ export default function HomeScreen() {
   const carouselRef = useRef<FlatList>(null);
   const autoTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // ── Indicateur membres temps réel ──────────────────────────────────────────
+  // ── Indicateur membres temps réel (via hook centralisé, cap à 10 pour la map) ──
   const [liveCountsMap, setLiveCountsMap] = useState<Record<string, number>>({});
-  const wsMap = useRef<Map<string, WebSocket>>(new Map());
 
-  const connectLiveAll = useCallback(async (points: any[]) => {
-    // Authentification via le token JWT stocké
-    const token = await storage.get('spotu_token');
-    if (!token || !BASE_WS) return;
-
-    const ids = points.map(p => p.point_id as string);
-
-    // Déconnecter les WS obsolètes (SpotYou qui ne sont plus visibles)
-    for (const [pid, ws] of wsMap.current) {
-      if (!ids.includes(pid)) { ws.close(); wsMap.current.delete(pid); }
+  useSpotYouListLive(SpotYou, (pid, update) => {
+    if (update.participants_count !== undefined) {
+      setLiveCountsMap(prev => ({ ...prev, [pid]: update.participants_count! }));
     }
-
-    // Connecter les nouveaux SpotYou (cap à 10)
-    for (const pid of ids.slice(0, 10)) {
-      if (wsMap.current.has(pid)) continue;
-      const ws = new WebSocket(`${BASE_WS}/api/ws/spot-you/${pid}`);
-      wsMap.current.set(pid, ws);
-      ws.onopen = () => ws.send(JSON.stringify({ token }));
-      ws.onmessage = (e) => {
-        try {
-          const data = JSON.parse(e.data);
-          if (data.type === 'spotyou_update' && data.participants_count !== undefined) {
-            setLiveCountsMap(prev => ({ ...prev, [pid]: data.participants_count }));
-          }
-        } catch {}
-      };
-      ws.onerror = () => {};
-      ws.onclose = () => { wsMap.current.delete(pid); };
-    }
-  }, []);
-
-  // Connexion WS quand la liste SpotYou se charge
-  useEffect(() => {
-    if (SpotYou.length > 0) connectLiveAll(SpotYou);
-  }, [SpotYou]);
-
-  // Reconnect WS au retour sur la map (focus), déconnect au départ (blur)
-  useFocusEffect(
-    useCallback(() => {
-      if (SpotYou.length > 0) connectLiveAll(SpotYou);
-      return () => {
-        for (const ws of wsMap.current.values()) ws.close();
-        wsMap.current.clear();
-      };
-    }, [SpotYou, connectLiveAll])
-  );
+  }, 10);
 
   useEffect(() => {
     if (!locLoading) loadData();
