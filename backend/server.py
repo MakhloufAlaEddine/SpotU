@@ -25,6 +25,7 @@ from routes.push_routes import router as push_router
 from routes.payment_routes import router as payment_router
 from routes.subscription_routes import router as subscription_router
 from routes.spot_you_routes import router as spot_you_router
+from routes.home_routes import router as home_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -64,6 +65,7 @@ api_router.include_router(user_router, prefix="/users", tags=["users"])
 api_router.include_router(domain_router, tags=["domains"])
 api_router.include_router(tagpoint_router, tags=["tagpoints"])
 api_router.include_router(spot_you_router, tags=["spot-you"])
+api_router.include_router(home_router, tags=["home"])
 api_router.include_router(service_router, tags=["services"])
 api_router.include_router(booking_router, tags=["bookings"])
 api_router.include_router(admin_router, prefix="/admin", tags=["admin"])

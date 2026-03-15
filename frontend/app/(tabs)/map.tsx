@@ -12,7 +12,7 @@ import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { useLocation } from '../../context/LocationContext';
 import { useAuth } from '../../context/AuthContext';
 import { haversineDistance, formatDistance } from '../../utils/distance';
-import { buildCacheKey, cacheGet, cacheSet, isFresh, cacheAgeMinutes, getTtl, SCHEMA_VERSION } from '../../lib/cache';
+import { buildCacheKey, cacheGet, cacheSet, isFresh, cacheAgeMinutes, SCHEMA_VERSION } from '../../lib/cache';
 import { StaleBanner, ErrorNoData } from '../../components/OfflineBanner';
 import { registerScreenRefresh } from '../../hooks/useNetwork';
 import { useGuardedRouter } from '../../hooks/useGuardedRouter';
@@ -372,6 +372,10 @@ export default function HomeScreen() {
   const [services, setServices] = useState<any[]>([]);
   const [activityFeed, setActivityFeed] = useState<any[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
+  // Métadonnées fil personnalisé
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [actualRadiusKm, setActualRadiusKm] = useState(50);
+  const [hasPersonalization, setHasPersonalization] = useState(false);
 
   const [heroIndex, setHeroIndex] = useState(0);
   const carouselRef = useRef<FlatList>(null);
@@ -418,29 +422,26 @@ export default function HomeScreen() {
     const lngStr = String(location.lng);
     const userId = user?.user_id;
 
-    const tpKey = buildCacheKey({ path: '/tag-points', params: { lat: latStr, lng: lngStr, radius: '50000' }, userId, schemaVersion: SCHEMA_VERSION });
-    const svcKey = buildCacheKey({ path: '/services', params: { lat: latStr, lng: lngStr, radius: '50000' }, userId, schemaVersion: SCHEMA_VERSION });
-    const tpTtl = getTtl('/tag-points')!;
-    const svcTtl = getTtl('/services')!;
+    const feedKey = buildCacheKey({ path: '/home/feed', params: { lat: latStr, lng: lngStr }, userId, schemaVersion: SCHEMA_VERSION });
+    const feedTtl = 5; // minutes
 
     // ── 1. Cache immédiat sur premier chargement ──────────────────────────────
     if (!isRefresh) {
-      const [cachedTp, cachedSvc] = await Promise.all([cacheGet(tpKey), cacheGet(svcKey)]);
-      if (cachedTp || cachedSvc) {
-        if (cachedTp) setSpotYou(Array.isArray(cachedTp.data) ? cachedTp.data as any[] : []);
-        if (cachedSvc) setServices(Array.isArray(cachedSvc.data) ? cachedSvc.data as any[] : []);
-        const bothFresh = (cachedTp ? isFresh(cachedTp) : true) && (cachedSvc ? isFresh(cachedSvc) : true);
-        if (bothFresh) {
+      const cached = await cacheGet(feedKey);
+      if (cached) {
+        const feed = cached.data as any;
+        setSpotYou(feed.spotyou || []);
+        setServices(feed.services || []);
+        setIsExpanded(feed.is_expanded || false);
+        setActualRadiusKm(feed.actual_radius_km || 50);
+        setHasPersonalization(feed.has_personalization || false);
+        if (isFresh(cached)) {
           setScreenState('ready_fresh');
           setStaleMinutes(null);
-          return; // Données fraîches — pas besoin de fetch
+          return;
         }
-        const oldestAge = Math.max(
-          cachedTp ? cacheAgeMinutes(cachedTp) : 0,
-          cachedSvc ? cacheAgeMinutes(cachedSvc) : 0,
-        );
         setScreenState('ready_cached');
-        setStaleMinutes(oldestAge);
+        setStaleMinutes(cacheAgeMinutes(cached));
         // Continuer pour rafraîchir en arrière-plan
       }
     }
@@ -449,26 +450,19 @@ export default function HomeScreen() {
 
     // ── 2. Fetch réseau ───────────────────────────────────────────────────────
     try {
-      const [nearby, svcs] = await Promise.all([
-        api.get(`/tag-points?lat=${location.lat}&lng=${location.lng}&radius=50000`).catch(() => null),
-        api.get(`/services?lat=${location.lat}&lng=${location.lng}&radius=50000`).catch(() => null),
-      ]);
-      if (nearby !== null) {
-        setSpotYou(Array.isArray(nearby) ? nearby : []);
-        await cacheSet(tpKey, nearby, tpTtl);
-      }
-      if (svcs !== null) {
-        setServices(Array.isArray(svcs) ? svcs : []);
-        await cacheSet(svcKey, svcs, svcTtl);
-      }
+      const feed = await api.get(`/home/feed?lat=${location.lat}&lng=${location.lng}`);
+      setSpotYou(Array.isArray(feed.spotyou) ? feed.spotyou : []);
+      setServices(Array.isArray(feed.services) ? feed.services : []);
+      setIsExpanded(feed.is_expanded || false);
+      setActualRadiusKm(feed.actual_radius_km || 50);
+      setHasPersonalization(feed.has_personalization || false);
+      await cacheSet(feedKey, feed, feedTtl);
       setScreenState('ready_fresh');
       setStaleMinutes(null);
     } catch {
-      // Si on n'a pas de données du tout → error_no_data
       if (SpotYou.length === 0 && services.length === 0) {
         setScreenState('error_no_data');
       }
-      // Sinon on reste en ready_cached (données du cache déjà affichées)
     } finally {
       setRefreshing(false);
     }
@@ -535,7 +529,22 @@ export default function HomeScreen() {
       {isStale && <StaleBanner staleMinutes={staleMinutes} />}
 
       {isLoading ? <SkeletonScreen /> : screenState === 'error_no_data' ? (
-        <ErrorNoData onRetry={() => loadData(false)} testID="home-error-no-data" />
+        // ── Aucun SpotYou nulle part → inviter à créer ───────────────────────
+        <ScrollView
+          contentContainerStyle={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+        >
+          <View style={ctaSt.wrap}>
+            <Ionicons name="map-outline" size={52} color={Colors.primary} style={{ marginBottom: 16 }} />
+            <Text style={ctaSt.headline}>Intégrez votre secteur{'\n'}dans l'univers SpotU</Text>
+            <Text style={ctaSt.sub}>Aucun SpotYou n'existe encore près de chez vous.{'\n'}Soyez le premier à en créer un !</Text>
+            <TouchableOpacity style={ctaSt.btn} onPress={() => router.push('/(tabs)/map' as any)} testID="create-spotyou-cta">
+              <Ionicons name="add-circle-outline" size={18} color="#fff" />
+              <Text style={ctaSt.btnTxt}>Créer un SpotYou</Text>
+            </TouchableOpacity>
+            <Text style={ctaSt.hint}>Un SpotYou, c'est votre espace de rencontre sportif : running club, yoga en plein air, séance crossfit…</Text>
+          </View>
+        </ScrollView>
       ) : (
         <ScrollView
           style={{ flex: 1 }}
@@ -543,9 +552,25 @@ export default function HomeScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
         >
 
+          {/* ── Bannière : contenu étendu au-delà du secteur ────────────── */}
+          {isExpanded && (
+            <View style={expandSt.banner}>
+              <Ionicons name="compass-outline" size={15} color={Colors.primary} />
+              <Text style={expandSt.txt}>
+                Rien dans votre secteur — suggestions à {actualRadiusKm < 1000 ? `${actualRadiusKm} km` : 'plus de 200 km'}
+              </Text>
+            </View>
+          )}
+
           {/* ── Section 1 : Hero Carousel ── */}
           {heroPoints.length > 0 && (
             <View style={{ marginTop: 16 }}>
+              <View style={[secSt.header, { paddingHorizontal: 16, marginBottom: 8 }]}>
+                <View>
+                  <Text style={secSt.title}>{hasPersonalization ? 'Pour vous' : 'Près de vous'}</Text>
+                  <Text style={secSt.sub}>{heroPoints.length} SpotYou {isExpanded ? `à ~${actualRadiusKm}km` : 'dans votre secteur'}</Text>
+                </View>
+              </View>
               <FlatList
                 ref={carouselRef}
                 data={heroPoints}
@@ -799,5 +824,35 @@ const actSt = StyleSheet.create({
   },
   spotName: { fontSize: 11, color: Colors.primary, fontWeight: '600', flexShrink: 1 },
   time: { fontSize: 11, color: Colors.muted, flexShrink: 0 },
+});
+
+const expandSt = StyleSheet.create({
+  banner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginHorizontal: 16, marginTop: 12, marginBottom: 4,
+    backgroundColor: Colors.primary + '12',
+    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 9,
+    borderWidth: 1, borderColor: Colors.primary + '25',
+  },
+  txt: { fontSize: 13, color: Colors.primary, fontWeight: '600', flex: 1 },
+});
+
+const ctaSt = StyleSheet.create({
+  wrap: { alignItems: 'center', gap: 14 },
+  headline: {
+    fontSize: 22, fontWeight: '800', color: Colors.foreground,
+    textAlign: 'center', letterSpacing: -0.5, lineHeight: 30,
+  },
+  sub: { fontSize: 14, color: Colors.muted, textAlign: 'center', lineHeight: 21 },
+  btn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: Colors.primary, paddingHorizontal: 24, paddingVertical: 14,
+    borderRadius: 100, marginTop: 4,
+  },
+  btnTxt: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  hint: {
+    fontSize: 12, color: Colors.muted, textAlign: 'center',
+    lineHeight: 18, fontStyle: 'italic', maxWidth: 280,
+  },
 });
 
