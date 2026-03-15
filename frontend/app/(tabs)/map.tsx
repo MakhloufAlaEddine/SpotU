@@ -17,6 +17,7 @@ import { StaleBanner, ErrorNoData } from '../../components/OfflineBanner';
 import { registerScreenRefresh } from '../../hooks/useNetwork';
 import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 import { useSpotYouListLive } from '../../hooks/useSpotYouListLive';
+import { reverseGeocodeGoogle } from '../../services/googlePlacesService';
 
 const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
@@ -377,6 +378,13 @@ export default function HomeScreen() {
   const [actualRadiusKm, setActualRadiusKm] = useState(50);
   const [hasPersonalization, setHasPersonalization] = useState(false);
 
+  // Secteur le plus proche (affiché quand écran vide)
+  const [nearestSector, setNearestSector] = useState<{
+    lat: number; lng: number; distance_km: number; spot_count: number; city_name: string;
+  } | null>(null);
+  const [nearestLoading, setNearestLoading] = useState(false);
+  const [teleporting, setTeleporting] = useState(false);
+
   const [heroIndex, setHeroIndex] = useState(0);
   const carouselRef = useRef<FlatList>(null);
   const autoTimer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -485,6 +493,55 @@ export default function HomeScreen() {
     if (user) loadActivity();
   }, [location.lat, location.lng, user]);
 
+  // Fetcher le secteur le plus proche quand l'écran est vide
+  useEffect(() => {
+    const isEmpty = SpotYou.length === 0 && services.length === 0;
+    const isReady = screenState === 'ready_fresh' || screenState === 'ready_cached' || screenState === 'error_no_data';
+    if (isEmpty && isReady && !nearestLoading && !nearestSector) {
+      fetchNearestSector();
+    }
+    // Si on a trouvé du contenu, réinitialiser le secteur proche
+    if (!isEmpty) {
+      setNearestSector(null);
+    }
+  }, [SpotYou.length, services.length, screenState]);
+
+  const fetchNearestSector = async () => {
+    setNearestLoading(true);
+    try {
+      const data = await api.get(
+        `/home/nearest-sector?lat=${location.lat}&lng=${location.lng}`
+      );
+      if (data && data.lat !== undefined) {
+        // Reverse geocoding pour obtenir le nom de la ville
+        let city_name = 'Ce secteur';
+        try {
+          const addr = await reverseGeocodeGoogle(data.lat, data.lng);
+          if (addr) {
+            // Extraire juste la ville (premier mot ou partie avant la virgule)
+            city_name = addr.split(',')[0].trim();
+          }
+        } catch {}
+        setNearestSector({ ...data, city_name });
+      }
+    } catch {}
+    setNearestLoading(false);
+  };
+
+  const handleTeleport = async () => {
+    if (!nearestSector || teleporting) return;
+    setTeleporting(true);
+    await setLocation({
+      lat: nearestSector.lat,
+      lng: nearestSector.lng,
+      address: nearestSector.city_name,
+      isGPS: false,
+    });
+    setNearestSector(null);
+    setTeleporting(false);
+    // loadData sera déclenché par le useEffect([location.lat, location.lng])
+  };
+
   const isLoading = screenState === 'loading_initial';
   const isStale = screenState === 'ready_cached';
 
@@ -531,7 +588,7 @@ export default function HomeScreen() {
       {isLoading ? <SkeletonScreen /> : screenState === 'error_no_data' ? (
         // ── Aucun SpotYou nulle part → inviter à créer ───────────────────────
         <ScrollView
-          contentContainerStyle={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 }}
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 32 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
         >
           <View style={ctaSt.wrap}>
@@ -542,6 +599,50 @@ export default function HomeScreen() {
               <Ionicons name="add-circle-outline" size={18} color="#fff" />
               <Text style={ctaSt.btnTxt}>Créer un SpotYou</Text>
             </TouchableOpacity>
+
+            {/* Secteur le plus proche */}
+            {nearestLoading && (
+              <View style={nearSt.loadingWrap}>
+                <ActivityIndicator size="small" color={Colors.muted} />
+                <Text style={nearSt.loadingTxt}>Recherche du secteur le plus proche…</Text>
+              </View>
+            )}
+            {nearestSector && !nearestLoading && (
+              <View style={nearSt.card}>
+                <View style={nearSt.header}>
+                  <Ionicons name="compass-outline" size={16} color={Colors.primary} />
+                  <Text style={nearSt.headerTxt}>Secteur le plus proche</Text>
+                </View>
+                <Text style={nearSt.city}>{nearestSector.city_name}</Text>
+                <View style={nearSt.meta}>
+                  <View style={nearSt.metaChip}>
+                    <Ionicons name="location-outline" size={12} color={Colors.muted} />
+                    <Text style={nearSt.metaTxt}>
+                      {nearestSector.distance_km < 1 ? `< 1 km` : `~${Math.round(nearestSector.distance_km)} km`}
+                    </Text>
+                  </View>
+                  <View style={nearSt.metaChip}>
+                    <Ionicons name="people-outline" size={12} color={Colors.muted} />
+                    <Text style={nearSt.metaTxt}>{nearestSector.spot_count} SpotYou</Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={nearSt.btn}
+                  onPress={handleTeleport}
+                  disabled={teleporting}
+                  testID="explore-nearest-sector-cta-btn"
+                >
+                  {teleporting
+                    ? <ActivityIndicator size="small" color={Colors.background} />
+                    : <Ionicons name="navigate" size={16} color={Colors.background} />
+                  }
+                  <Text style={nearSt.btnTxt}>
+                    {teleporting ? 'Chargement…' : `Explorer ${nearestSector.city_name}`}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
             <Text style={ctaSt.hint}>Un SpotYou, c'est votre espace de rencontre sportif : running club, yoga en plein air, séance crossfit…</Text>
           </View>
         </ScrollView>
@@ -728,10 +829,57 @@ export default function HomeScreen() {
               <Ionicons name="location-outline" size={56} color={Colors.muted} />
               <Text style={emptySt.title}>Aucun contenu trouvé</Text>
               <Text style={emptySt.desc}>Sois le premier à créer un SpotYou près de toi !</Text>
-              <TouchableOpacity style={emptySt.btn} onPress={() => router.push('/(tabs)/create' as any)}>
+              <TouchableOpacity style={emptySt.btn} onPress={() => router.push('/(tabs)/create' as any)} testID="create-spotyou-empty-btn">
                 <Ionicons name="add" size={18} color={Colors.background} />
                 <Text style={emptySt.btnTxt}>Créer un SpotYou</Text>
               </TouchableOpacity>
+
+              {/* Secteur le plus proche */}
+              {nearestLoading && (
+                <View style={nearSt.loadingWrap}>
+                  <ActivityIndicator size="small" color={Colors.muted} />
+                  <Text style={nearSt.loadingTxt}>Recherche du secteur le plus proche…</Text>
+                </View>
+              )}
+              {nearestSector && !nearestLoading && (
+                <View style={nearSt.card}>
+                  <View style={nearSt.header}>
+                    <Ionicons name="compass-outline" size={16} color={Colors.primary} />
+                    <Text style={nearSt.headerTxt}>Secteur le plus proche</Text>
+                  </View>
+                  <Text style={nearSt.city}>{nearestSector.city_name}</Text>
+                  <View style={nearSt.meta}>
+                    <View style={nearSt.metaChip}>
+                      <Ionicons name="location-outline" size={12} color={Colors.muted} />
+                      <Text style={nearSt.metaTxt}>
+                        {nearestSector.distance_km < 1
+                          ? `< 1 km`
+                          : `~${Math.round(nearestSector.distance_km)} km`}
+                      </Text>
+                    </View>
+                    <View style={nearSt.metaChip}>
+                      <Ionicons name="people-outline" size={12} color={Colors.muted} />
+                      <Text style={nearSt.metaTxt}>
+                        {nearestSector.spot_count} SpotYou
+                      </Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    style={nearSt.btn}
+                    onPress={handleTeleport}
+                    disabled={teleporting}
+                    testID="explore-nearest-sector-btn"
+                  >
+                    {teleporting
+                      ? <ActivityIndicator size="small" color={Colors.background} />
+                      : <Ionicons name="navigate" size={16} color={Colors.background} />
+                    }
+                    <Text style={nearSt.btnTxt}>
+                      {teleporting ? 'Chargement…' : `Explorer ${nearestSector.city_name}`}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           )}
 
@@ -854,5 +1002,41 @@ const ctaSt = StyleSheet.create({
     fontSize: 12, color: Colors.muted, textAlign: 'center',
     lineHeight: 18, fontStyle: 'italic', maxWidth: 280,
   },
+});
+
+const nearSt = StyleSheet.create({
+  loadingWrap: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8,
+  },
+  loadingTxt: { fontSize: 12, color: Colors.muted },
+  card: {
+    width: '100%', marginTop: 12,
+    backgroundColor: Colors.card,
+    borderRadius: 16, padding: 16,
+    borderWidth: 1.5, borderColor: Colors.primary + '30',
+    alignItems: 'center', gap: 8,
+  },
+  header: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+  },
+  headerTxt: { fontSize: 12, fontWeight: '700', color: Colors.primary, textTransform: 'uppercase', letterSpacing: 0.5 },
+  city: {
+    fontSize: 22, fontWeight: '800', color: Colors.foreground,
+    letterSpacing: -0.5, textAlign: 'center',
+  },
+  meta: { flexDirection: 'row', gap: 10, flexWrap: 'wrap', justifyContent: 'center' },
+  metaChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: Colors.backgroundSecondary,
+    borderRadius: 10, paddingHorizontal: 9, paddingVertical: 4,
+  },
+  metaTxt: { fontSize: 12, color: Colors.muted, fontWeight: '600' },
+  btn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 22, paddingVertical: 12,
+    borderRadius: 100, marginTop: 4,
+  },
+  btnTxt: { fontSize: 14, fontWeight: '700', color: Colors.background },
 });
 

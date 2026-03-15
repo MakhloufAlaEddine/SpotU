@@ -25,6 +25,78 @@ RADIUS_STEPS = [50_000, 100_000, 200_000, 500_000]   # mètres
 MIN_RESULTS   = 3                                      # seuil déclenchant l'expansion
 
 
+# ── Endpoint : secteur le plus proche avec du contenu ──────────────────────
+
+@router.get("/home/nearest-sector")
+async def nearest_sector(
+    lat: float = Query(...),
+    lng: float = Query(...),
+    request: Request = None,
+):
+    """
+    Retourne les coordonnées du secteur le plus proche ayant au moins
+    un SpotYou actif, ainsi que le nombre de SpotYou à 50 km autour.
+    Utilisé pour l'état vide de l'écran d'accueil.
+    """
+    pool = get_pool()
+
+    current_user_id: Optional[str] = None
+    try:
+        token = get_token_from_request(request)
+        if token:
+            payload = decode_jwt(token)
+            current_user_id = payload.get("user_id")
+    except Exception:
+        pass
+
+    async with pool.acquire() as conn:
+        params: list = [lng, lat]
+        user_cond = ""
+        if current_user_id:
+            user_cond = "AND tp.user_id != $3"
+            params.append(current_user_id)
+
+        nearest = await conn.fetchrow(f"""
+            SELECT
+                ST_Y(tp.location::geometry) AS near_lat,
+                ST_X(tp.location::geometry) AS near_lng,
+                ST_Distance(
+                    tp.location::geography,
+                    ST_SetSRID(ST_MakePoint($1::float8, $2::float8), 4326)::geography
+                ) AS distance_m
+            FROM tag_points tp
+            WHERE tp.active = TRUE AND tp.is_public = TRUE
+            {user_cond}
+            ORDER BY distance_m ASC
+            LIMIT 1
+        """, *params)
+
+        if not nearest:
+            return None
+
+        near_lat = float(nearest["near_lat"])
+        near_lng = float(nearest["near_lng"])
+        distance_km = float(nearest["distance_m"]) / 1000.0
+
+        # Compter les SpotYou dans un rayon de 50 km autour du point le plus proche
+        count = await conn.fetchval("""
+            SELECT COUNT(*) FROM tag_points
+            WHERE active = TRUE AND is_public = TRUE
+              AND ST_DWithin(
+                location::geography,
+                ST_SetSRID(ST_MakePoint($1::float8, $2::float8), 4326)::geography,
+                50000
+              )
+        """, near_lng, near_lat)
+
+        return {
+            "lat": near_lat,
+            "lng": near_lng,
+            "distance_km": round(distance_km, 1),
+            "spot_count": int(count or 0),
+        }
+
+
 # ── Helpers ────────────────────────────────────────────────────────────────
 
 def _parse_tags(raw) -> list:

@@ -28,7 +28,17 @@ Fonctionnalités : création/découverte de services et SpotYous, système de r�
 
 ## What's Been Implemented
 
-### Phase 15 — Temps réel WebSocket sur écrans liste (2026-03-15)
+### Phase 16 — Suggestion de secteur proche sur écran vide (2026-03-15)
+| Date | Composant | Changement |
+|------|-----------|-----------|
+| 2026-03-15 | `backend/routes/home_routes.py` | Ajout endpoint `GET /api/home/nearest-sector` : trouve le SpotYou le plus proche (sans limite de rayon) et retourne lat/lng, distance, nombre de SpotYou dans un rayon 50km |
+| 2026-03-15 | `frontend/app/(tabs)/map.tsx` | Ajout import `reverseGeocodeGoogle` + états `nearestSector`, `nearestLoading`, `teleporting` |
+| 2026-03-15 | `frontend/app/(tabs)/map.tsx` | `useEffect` auto-déclenche `fetchNearestSector` quand `SpotYou.length===0 && services.length===0` |
+| 2026-03-15 | `frontend/app/(tabs)/map.tsx` | `handleTeleport` : 1 clic → `setLocation` → reload automatique du feed via `useEffect([location.lat, location.lng])` |
+| 2026-03-15 | `frontend/app/(tabs)/map.tsx` | Carte "Secteur le plus proche" dans les 2 états vides (inline + error_no_data) avec nom de ville (reverse geocoding), distance, compteur SpotYou, bouton "Explorer [Ville]" |
+| 2026-03-15 | `frontend/app/(tabs)/map.tsx` | Ajout stylesheet `nearSt` pour la carte de suggestion |
+
+
 | Date | Composant | Changement |
 |------|-----------|-----------|
 | 2026-03-15 | `frontend/app/spot-me.tsx` | Ajout `wsMap`, `connectLiveAll` (cap 15 WS), `pointsRef` stable pour `useFocusEffect` |
