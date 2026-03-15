@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { api } from '../lib/api';
+import { useLocation } from '../context/LocationContext';
 import { Colors, Spacing, Radius } from '../constants/Colors';
 import { SpotYouCard } from '../components/SpotYouCard';
 import ConfirmActionModal, { ConfirmAction } from '../components/ConfirmActionModal';
@@ -110,6 +111,7 @@ type Tab = 'spotyou' | 'services';
 
 export default function SavedScreen() {
   const router = useGuardedRouter();
+  const { location } = useLocation();
   const { isOnline } = useNetwork();
   const { playClickSound } = useClickSound();
 
@@ -308,6 +310,8 @@ export default function SavedScreen() {
                   onToggleGoing={toggleGoing}
                   togglingId={togglingId}
                   isLive
+                  userLat={location.lat}
+                  userLng={location.lng}
                 />
                 <TouchableOpacity
                   style={s.unsaveOverlay}

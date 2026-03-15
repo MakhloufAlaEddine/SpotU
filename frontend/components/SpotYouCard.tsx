@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../constants/Colors';
+import { haversineDistance, formatDistance } from '../utils/distance';
 
 // ─── PulseDot ───────────────────────────────────────────────────────────────
 
@@ -86,6 +87,9 @@ export interface SpotYouCardProps {
   headerAction?: React.ReactNode;
   /** Affiche un indicateur de mise à jour temps réel */
   isLive?: boolean;
+  /** Position de l'utilisateur pour afficher la distance */
+  userLat?: number;
+  userLng?: number;
 }
 
 export function SpotYouCard({
@@ -97,6 +101,8 @@ export function SpotYouCard({
   testID,
   headerAction,
   isLive = false,
+  userLat,
+  userLng,
 }: SpotYouCardProps) {
   const isRecurring = !!item.event_schedule;
   const past = isPastDate(item.event_date, item.event_schedule);
@@ -109,6 +115,15 @@ export function SpotYouCard({
   const isGoing = item.is_going || false;
   const isLoading = togglingId === item.point_id;
   const canParticipate = item.can_participate ?? false;
+
+  // Calcul de la distance
+  const dist = (() => {
+    if (userLat == null || userLng == null) return '';
+    const lat = item.latitude ?? item.location?.coordinates?.[1];
+    const lng = item.longitude ?? item.location?.coordinates?.[0];
+    if (lat == null || lng == null) return '';
+    return formatDistance(haversineDistance(userLat, userLng, lat, lng));
+  })();
 
   const handleViewMembers = () => {
     if (onViewMembers) {
@@ -171,7 +186,7 @@ export function SpotYouCard({
             </View>
           )}
 
-          {/* Badges: visibilité + membres */}
+          {/* Badges: visibilité + membres + distance */}
           <View style={sc.metaBadgesRow}>
             {item.is_public === false && (
               <View style={sc.badge}>
@@ -190,6 +205,12 @@ export function SpotYouCard({
               </Text>
               <Ionicons name="chevron-forward" size={10} color={Colors.primary} />
             </TouchableOpacity>
+            {dist ? (
+              <View style={sc.distChip}>
+                <Ionicons name="navigate-outline" size={10} color={Colors.muted} />
+                <Text style={sc.distChipText}>{dist}</Text>
+              </View>
+            ) : null}
           </View>
         </View>
       </View>
@@ -393,4 +414,11 @@ export const sc = StyleSheet.create({
   goingBtnText: { fontSize: 12, fontWeight: '700', color: Colors.background },
   goingBtnCancelText: { color: Colors.muted },
   pastText: { fontSize: 11, color: Colors.muted, fontStyle: 'italic' },
+  distChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    backgroundColor: Colors.background,
+    borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2,
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  distChipText: { fontSize: 10, color: Colors.muted, fontWeight: '600' },
 });

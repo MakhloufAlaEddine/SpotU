@@ -6,6 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
+import { useLocation } from '../context/LocationContext';
 import { api } from '../lib/api';
 import { Colors, Spacing, Radius } from '../constants/Colors';
 import ConfirmActionModal, { ConfirmAction } from '../components/ConfirmActionModal';
@@ -25,6 +26,7 @@ import { useSpotYouListLive } from '../hooks/useSpotYouListLive';
 export default function MySpotYouScreen() {
   const router = useGuardedRouter();
   const { user } = useAuth();
+  const { location } = useLocation();
   const { playClickSound } = useClickSound();
 
   const { isOnline } = useNetwork();
@@ -200,6 +202,8 @@ export default function MySpotYouScreen() {
               onViewMembers={openMembersModal}
               testID={`my-tp-${item.point_id}`}
               isLive
+              userLat={location.lat}
+              userLng={location.lng}
             />
           )}
           contentContainerStyle={{ padding: Spacing.md, gap: 12, paddingBottom: 48 }}
