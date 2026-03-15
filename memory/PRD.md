@@ -28,7 +28,18 @@ Fonctionnalités : création/découverte de services et SpotYous, système de r�
 
 ## What's Been Implemented
 
-### Phase 12 — Fix routage onboarding au démarrage + redesign onboarding (2026-03-14)
+### Phase 13 — Concurrence safe + Temps réel WebSocket SpotYou (2026-03-15)
+| Date | Composant | Changement |
+|------|-----------|-----------|
+| 2026-03-15 | `backend/chat_manager.py` | Ajout `spotyou_manager = ConnectionManager()` — rooms par point_id |
+| 2026-03-15 | `backend/routes/chat_routes.py` | Ajout endpoint `/ws/spot-you/{point_id}` — auth JWT, keep-alive, broadcast spotyou_update |
+| 2026-03-15 | `backend/routes/spot_you_routes.py` | join/leave/going/not_going enveloppés dans `conn.transaction()` |
+| 2026-03-15 | `backend/routes/spot_you_routes.py` | `going_spot_you` : `SELECT ... FOR UPDATE` sur tag_points pour prévenir race conditions de capacité |
+| 2026-03-15 | `backend/routes/spot_you_routes.py` | `asyncio.create_task(spotyou_manager.broadcast(...))` après commit de chaque transaction |
+| 2026-03-15 | `frontend/app/spot-you/[id].tsx` | Connexion WebSocket `useFocusEffect` — update participants_count, going_count, is_full en temps réel |
+| 2026-03-15 | `backend/tests/test_spotyou_websocket_concurrency.py` | 21 nouveaux tests : WS broadcast, concurrence, regression — 40/40 PASS |
+
+
 | Date | Composant | Changement |
 |------|-----------|-----------|
 | 2026-03-14 | `frontend/app/_layout.tsx` | Garde de navigation durcie : onboarding affiché uniquement si `onboarding_done !== true` **et** aucun profil existant détecté (bio/tags/rôle) |
