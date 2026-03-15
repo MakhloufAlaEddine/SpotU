@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
+import { storage } from '../../lib/storage';
 import { useLang } from '../../context/LanguageContext';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { useLocation } from '../../context/LocationContext';
@@ -384,7 +385,7 @@ export default function HomeScreen() {
 
   const connectLiveAll = useCallback(async (points: any[]) => {
     // Authentification via le token JWT stocké
-    const token = await import('../../lib/storage').then(m => m.storage.get('spotu_token'));
+    const token = await storage.get('spotu_token');
     if (!token || !BASE_WS) return;
 
     const ids = points.map(p => p.point_id as string);
@@ -734,7 +735,6 @@ export default function HomeScreen() {
                   userLng={location.lng}
                   onPress={() => router.push(`/spot-you/${pt.point_id}` as any)}
                   liveCount={liveCountsMap[pt.point_id]}
-                />
                 />
               ))}
             </View>
