@@ -17,7 +17,7 @@ import { StaleBanner, ErrorNoData } from '../../components/OfflineBanner';
 import { registerScreenRefresh } from '../../hooks/useNetwork';
 import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 import { useSpotYouListLive } from '../../hooks/useSpotYouListLive';
-import { reverseGeocodeGoogle } from '../../services/googlePlacesService';
+import { reverseGeocodeGoogle, getCityFromCoords } from '../../services/googlePlacesService';
 
 const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
@@ -365,7 +365,7 @@ export default function HomeScreen() {
   const router = useGuardedRouter();
   const { t } = useLang();
   const { user } = useAuth();
-  const { location, loading: locLoading } = useLocation();
+  const { location, loading: locLoading, setLocation } = useLocation();
   const [screenState, setScreenState] = useState<'loading_initial' | 'ready_fresh' | 'ready_cached' | 'error_no_data'>('loading_initial');
   const [staleMinutes, setStaleMinutes] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -513,15 +513,8 @@ export default function HomeScreen() {
         `/home/nearest-sector?lat=${location.lat}&lng=${location.lng}`
       );
       if (data && data.lat !== undefined) {
-        // Reverse geocoding pour obtenir le nom de la ville
-        let city_name = 'Ce secteur';
-        try {
-          const addr = await reverseGeocodeGoogle(data.lat, data.lng);
-          if (addr) {
-            // Extraire juste la ville (premier mot ou partie avant la virgule)
-            city_name = addr.split(',')[0].trim();
-          }
-        } catch {}
+        // Utiliser getCityFromCoords pour avoir le vrai nom de ville (pas de code Plus)
+        const city_name = await getCityFromCoords(data.lat, data.lng);
         setNearestSector({ ...data, city_name });
       }
     } catch {}

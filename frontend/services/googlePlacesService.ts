@@ -83,3 +83,41 @@ export async function reverseGeocodeGoogle(lat: number, lng: number): Promise<st
     return '';
   }
 }
+
+/**
+ * Extrait le nom de la ville à partir de coordonnées GPS.
+ * Utilise les address_components pour éviter les codes Plus (ex: Q7GW+9G).
+ */
+export async function getCityFromCoords(lat: number, lng: number): Promise<string> {
+  try {
+    const params = new URLSearchParams({
+      latlng: `${lat},${lng}`,
+      key: API_KEY,
+      language: 'fr',
+      result_type: 'locality|administrative_area_level_2|administrative_area_level_1',
+    });
+    const res = await fetch(`${BASE}/geocode/json?${params}`);
+    const data = await res.json();
+    if (data.status !== 'OK' || !data.results?.length) return 'Ce secteur';
+    // Chercher le composant 'locality' en priorité
+    for (const result of data.results) {
+      for (const comp of (result.address_components || [])) {
+        if (comp.types?.includes('locality')) return comp.long_name as string;
+      }
+    }
+    // Fallback : admin_level_2 (département/arrondissement)
+    for (const result of data.results) {
+      for (const comp of (result.address_components || [])) {
+        if (comp.types?.includes('administrative_area_level_2')) return comp.long_name as string;
+      }
+    }
+    // Dernier fallback : formatted_address du 1er résultat non-plus-code
+    for (const result of data.results) {
+      const addr: string = result.formatted_address || '';
+      if (addr && !/^[A-Z0-9]{4}\+/.test(addr)) return addr.split(',')[0].trim();
+    }
+    return 'Ce secteur';
+  } catch {
+    return 'Ce secteur';
+  }
+}
