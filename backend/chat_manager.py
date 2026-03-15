@@ -85,3 +85,4 @@ class NotificationManager:
 
 manager = ConnectionManager()
 notif_manager = NotificationManager()
+spotyou_manager = ConnectionManager()  # rooms par point_id — mises à jour temps réel SpotYou

@@ -13,6 +13,7 @@ from typing import Optional
 from auth_utils import require_auth
 from database import get_pool, rows_to_list
 from models import new_id
+import asyncio
 import json as _json
 import logging
 
@@ -132,50 +133,60 @@ async def join_spot_you(point_id: str, request: Request):
     """
     Rejoindre la communauté d'un SpotYou.
     Idempotent : si déjà membre, ne fait rien.
+    Exécuté dans une transaction pour la cohérence.
     """
+    from chat_manager import spotyou_manager
     pool = get_pool()
     user = await require_auth(request, pool)
 
+    count = 0
+    point = None
     async with pool.acquire() as conn:
-        point = await conn.fetchrow(
-            "SELECT point_id, user_id, title FROM tag_points WHERE point_id = $1 AND active = TRUE",
-            point_id,
-        )
-        if not point:
-            raise HTTPException(status_code=404, detail="SpotYou introuvable")
+        async with conn.transaction():
+            point = await conn.fetchrow(
+                "SELECT point_id, user_id, title FROM tag_points WHERE point_id = $1 AND active = TRUE",
+                point_id,
+            )
+            if not point:
+                raise HTTPException(status_code=404, detail="SpotYou introuvable")
 
-        sid = new_id("syp")
-        await conn.execute(
-            """INSERT INTO spot_you_members (id, spot_you_id, user_id)
-               VALUES ($1, $2, $3) ON CONFLICT (spot_you_id, user_id) DO NOTHING""",
-            sid, point_id, user["user_id"],
-        )
-
-        count = await conn.fetchval(
-            "SELECT COUNT(*) FROM spot_you_members WHERE spot_you_id = $1", point_id
-        )
-
-        # Auto-ajouter l'utilisateur dans la conversation de groupe si elle existe
-        group_conv = await conn.fetchrow(
-            "SELECT conversation_id FROM conversations WHERE type='tagpoint_group' AND context_id=$1",
-            point_id,
-        )
-        if group_conv:
-            conv_id = group_conv["conversation_id"]
-            # UPSERT: si déjà présent (même bloqué), remettre à 'active'
+            sid = new_id("syp")
             await conn.execute(
-                """INSERT INTO conversation_participants (conversation_id, user_id, status)
-                   VALUES ($1, $2, 'active')
-                   ON CONFLICT (conversation_id, user_id)
-                   DO UPDATE SET status = 'active'""",
-                conv_id, user["user_id"],
+                """INSERT INTO spot_you_members (id, spot_you_id, user_id)
+                   VALUES ($1, $2, $3) ON CONFLICT (spot_you_id, user_id) DO NOTHING""",
+                sid, point_id, user["user_id"],
             )
 
+            count = await conn.fetchval(
+                "SELECT COUNT(*) FROM spot_you_members WHERE spot_you_id = $1", point_id
+            )
+
+            # Auto-ajouter l'utilisateur dans la conversation de groupe si elle existe
+            group_conv = await conn.fetchrow(
+                "SELECT conversation_id FROM conversations WHERE type='tagpoint_group' AND context_id=$1",
+                point_id,
+            )
+            if group_conv:
+                conv_id = group_conv["conversation_id"]
+                await conn.execute(
+                    """INSERT INTO conversation_participants (conversation_id, user_id, status)
+                       VALUES ($1, $2, 'active')
+                       ON CONFLICT (conversation_id, user_id)
+                       DO UPDATE SET status = 'active'""",
+                    conv_id, user["user_id"],
+                )
+
+    # Broadcast temps réel après commit de la transaction
+    asyncio.create_task(spotyou_manager.broadcast(point_id, {
+        "type": "spotyou_update",
+        "point_id": point_id,
+        "participants_count": int(count),
+    }))
+
     # Notifier le créateur (si différent)
-    if point["user_id"] != user["user_id"]:
+    if point and point["user_id"] != user["user_id"]:
         try:
             from push_service import send_push_to_user
-            import asyncio
             title_str = point["title"] or "SpotYou"
             asyncio.create_task(send_push_to_user(
                 pool, point["user_id"],
@@ -198,48 +209,57 @@ async def join_spot_you(point_id: str, request: Request):
 
 @router.delete("/spot-you/{point_id}/leave")
 async def leave_spot_you(point_id: str, request: Request):
-    """Quitter la communauté d'un SpotYou."""
+    """Quitter la communauté d'un SpotYou. Exécuté dans une transaction."""
+    from chat_manager import spotyou_manager
     pool = get_pool()
     user = await require_auth(request, pool)
 
+    count = 0
     async with pool.acquire() as conn:
-        # Le propriétaire ne peut pas quitter sa propre communauté
-        owner_id = await conn.fetchval(
-            "SELECT user_id FROM tag_points WHERE point_id = $1", point_id
-        )
-        if owner_id and str(owner_id) == str(user["user_id"]):
-            from fastapi import HTTPException
-            raise HTTPException(status_code=403, detail="Le propriétaire ne peut pas quitter sa propre communauté.")
-
-        await conn.execute(
-            "DELETE FROM spot_you_members WHERE spot_you_id = $1 AND user_id = $2",
-            point_id, user["user_id"],
-        )
-
-        # Annuler les participations futures aux séances
-        await conn.execute(
-            """DELETE FROM spot_you_attendance
-               WHERE spot_you_id = $1 AND user_id = $2
-                 AND session_date >= (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Paris')::date""",
-            point_id, user["user_id"],
-        )
-
-        count = await conn.fetchval(
-            "SELECT COUNT(*) FROM spot_you_members WHERE spot_you_id = $1", point_id
-        )
-
-        # Bloquer l'utilisateur dans la conversation de groupe (sans le supprimer)
-        group_conv = await conn.fetchrow(
-            "SELECT conversation_id FROM conversations WHERE type='tagpoint_group' AND context_id=$1",
-            point_id,
-        )
-        if group_conv:
-            await conn.execute(
-                """UPDATE conversation_participants
-                   SET status = 'blocked'
-                   WHERE conversation_id = $1 AND user_id = $2""",
-                group_conv["conversation_id"], user["user_id"],
+        async with conn.transaction():
+            # Le propriétaire ne peut pas quitter sa propre communauté
+            owner_id = await conn.fetchval(
+                "SELECT user_id FROM tag_points WHERE point_id = $1", point_id
             )
+            if owner_id and str(owner_id) == str(user["user_id"]):
+                raise HTTPException(status_code=403, detail="Le propriétaire ne peut pas quitter sa propre communauté.")
+
+            await conn.execute(
+                "DELETE FROM spot_you_members WHERE spot_you_id = $1 AND user_id = $2",
+                point_id, user["user_id"],
+            )
+
+            # Annuler les participations futures aux séances
+            await conn.execute(
+                """DELETE FROM spot_you_attendance
+                   WHERE spot_you_id = $1 AND user_id = $2
+                     AND session_date >= (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Paris')::date""",
+                point_id, user["user_id"],
+            )
+
+            count = await conn.fetchval(
+                "SELECT COUNT(*) FROM spot_you_members WHERE spot_you_id = $1", point_id
+            )
+
+            # Bloquer l'utilisateur dans la conversation de groupe (sans le supprimer)
+            group_conv = await conn.fetchrow(
+                "SELECT conversation_id FROM conversations WHERE type='tagpoint_group' AND context_id=$1",
+                point_id,
+            )
+            if group_conv:
+                await conn.execute(
+                    """UPDATE conversation_participants
+                       SET status = 'blocked'
+                       WHERE conversation_id = $1 AND user_id = $2""",
+                    group_conv["conversation_id"], user["user_id"],
+                )
+
+    # Broadcast temps réel après commit
+    asyncio.create_task(spotyou_manager.broadcast(point_id, {
+        "type": "spotyou_update",
+        "point_id": point_id,
+        "participants_count": int(count),
+    }))
 
     return {"success": True, "participants_count": int(count), "is_member": False}
 
@@ -248,121 +268,162 @@ async def leave_spot_you(point_id: str, request: Request):
 async def going_spot_you(point_id: str, request: Request):
     """
     Indiquer sa présence à la prochaine séance.
-    Auto-rejoint la communauté si pas encore membre.
-    Vérifie la capacité maximale.
+    Utilise SELECT FOR UPDATE pour éviter les race conditions de capacité.
+    Transaction atomique : vérification capacité + insertion en un seul bloc.
     """
+    from chat_manager import spotyou_manager
     pool = get_pool()
     user = await require_auth(request, pool)
 
-    async with pool.acquire() as conn:
-        point = await conn.fetchrow(
-            """SELECT point_id, user_id, title, event_date, event_schedule,
-                      minimum_participants, maximum_participants
-               FROM tag_points WHERE point_id = $1 AND active = TRUE""",
-            point_id,
-        )
-        if not point:
-            raise HTTPException(status_code=404, detail="SpotYou introuvable")
+    going_count_final = 0
+    members_count_final = 0
+    is_full_final = False
+    next_date_final = None
 
-        # Règle métier : l'utilisateur doit être membre pour participer à une séance
-        is_member = await conn.fetchval(
-            "SELECT EXISTS(SELECT 1 FROM spot_you_members WHERE spot_you_id=$1 AND user_id=$2)",
-            point_id, user["user_id"],
-        )
-        if not is_member:
-            raise HTTPException(
-                status_code=403,
-                detail="Vous devez rejoindre ce SpotYou avant de pouvoir participer à une séance",
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            # Verrouiller la ligne tag_points pour éviter les race conditions de capacité
+            point = await conn.fetchrow(
+                """SELECT point_id, user_id, title, event_date, event_schedule,
+                          minimum_participants, maximum_participants
+                   FROM tag_points WHERE point_id = $1 AND active = TRUE
+                   FOR UPDATE""",
+                point_id,
+            )
+            if not point:
+                raise HTTPException(status_code=404, detail="SpotYou introuvable")
+
+            # Règle métier : l'utilisateur doit être membre pour participer à une séance
+            is_member = await conn.fetchval(
+                "SELECT EXISTS(SELECT 1 FROM spot_you_members WHERE spot_you_id=$1 AND user_id=$2)",
+                point_id, user["user_id"],
+            )
+            if not is_member:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Vous devez rejoindre ce SpotYou avant de pouvoir participer à une séance",
+                )
+
+            point_dict = dict(point)
+            next_date = get_next_session_date(point_dict)
+            if not next_date:
+                raise HTTPException(status_code=400, detail="Pas de prochaine séance trouvée")
+
+            max_p = point_dict.get("maximum_participants")
+
+            # Vérifier la capacité — au sein de la transaction (cohérent avec le verrou FOR UPDATE)
+            if max_p is not None:
+                going_count = await conn.fetchval(
+                    """SELECT COUNT(*) FROM spot_you_attendance
+                       WHERE spot_you_id = $1 AND session_date = $2 AND status = 'going'""",
+                    point_id, next_date,
+                )
+                if going_count >= max_p:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Capacité maximale atteinte pour cette séance",
+                    )
+
+            # Upsert de la présence
+            att_id = new_id("att")
+            await conn.execute(
+                """INSERT INTO spot_you_attendance (id, spot_you_id, user_id, session_date, status)
+                   VALUES ($1, $2, $3, $4, 'going')
+                   ON CONFLICT (spot_you_id, user_id, session_date)
+                   DO UPDATE SET status = 'going'""",
+                att_id, point_id, user["user_id"], next_date,
             )
 
-        point_dict = dict(point)
-        next_date = get_next_session_date(point_dict)
-        if not next_date:
-            raise HTTPException(status_code=400, detail="Pas de prochaine séance trouvée")
-
-        max_p = point_dict.get("maximum_participants")
-
-        # Vérifier la capacité
-        if max_p is not None:
-            going_count = await conn.fetchval(
+            going_count_final = await conn.fetchval(
                 """SELECT COUNT(*) FROM spot_you_attendance
                    WHERE spot_you_id = $1 AND session_date = $2 AND status = 'going'""",
                 point_id, next_date,
             )
-            if going_count >= max_p:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Capacité maximale atteinte pour cette séance",
-                )
+            members_count_final = await conn.fetchval(
+                "SELECT COUNT(*) FROM spot_you_members WHERE spot_you_id = $1", point_id
+            )
+            is_full_final = max_p is not None and going_count_final >= max_p
+            next_date_final = next_date
 
-        # Upsert de la présence
-        att_id = new_id("att")
-        await conn.execute(
-            """INSERT INTO spot_you_attendance (id, spot_you_id, user_id, session_date, status)
-               VALUES ($1, $2, $3, $4, 'going')
-               ON CONFLICT (spot_you_id, user_id, session_date)
-               DO UPDATE SET status = 'going'""",
-            att_id, point_id, user["user_id"], next_date,
-        )
-
-        going_count = await conn.fetchval(
-            """SELECT COUNT(*) FROM spot_you_attendance
-               WHERE spot_you_id = $1 AND session_date = $2 AND status = 'going'""",
-            point_id, next_date,
-        )
-        members_count = await conn.fetchval(
-            "SELECT COUNT(*) FROM spot_you_members WHERE spot_you_id = $1", point_id
-        )
-        is_full = max_p is not None and going_count >= max_p
+    # Broadcast temps réel après commit de la transaction
+    asyncio.create_task(spotyou_manager.broadcast(point_id, {
+        "type": "spotyou_update",
+        "point_id": point_id,
+        "going_count": int(going_count_final),
+        "participants_count": int(members_count_final),
+        "is_full": is_full_final,
+        "session_date": next_date_final.isoformat() if next_date_final else None,
+    }))
 
     return {
         "success": True,
         "is_going": True,
         "is_member": True,
-        "going_count": int(going_count),
-        "participants_count": int(members_count),
-        "session_date": next_date.isoformat(),
-        "is_full": is_full,
+        "going_count": int(going_count_final),
+        "participants_count": int(members_count_final),
+        "session_date": next_date_final.isoformat() if next_date_final else None,
+        "is_full": is_full_final,
     }
 
 
 @router.delete("/spot-you/{point_id}/going")
 async def not_going_spot_you(point_id: str, request: Request):
-    """Retirer sa présence à la prochaine séance."""
+    """Retirer sa présence à la prochaine séance. Transaction + broadcast temps réel."""
+    from chat_manager import spotyou_manager
     pool = get_pool()
     user = await require_auth(request, pool)
 
+    going_count_final = 0
+    is_full_final = False
+    next_date_final = None
+    members_count_final = 0
+
     async with pool.acquire() as conn:
-        point = await conn.fetchrow(
-            "SELECT event_date, event_schedule, maximum_participants FROM tag_points WHERE point_id = $1 AND active = TRUE",
-            point_id,
-        )
-        if not point:
-            raise HTTPException(status_code=404, detail="SpotYou introuvable")
-
-        next_date = get_next_session_date(dict(point))
-        if next_date:
-            await conn.execute(
-                """DELETE FROM spot_you_attendance
-                   WHERE spot_you_id = $1 AND user_id = $2 AND session_date = $3""",
-                point_id, user["user_id"], next_date,
+        async with conn.transaction():
+            point = await conn.fetchrow(
+                "SELECT event_date, event_schedule, maximum_participants FROM tag_points WHERE point_id = $1 AND active = TRUE",
+                point_id,
             )
+            if not point:
+                raise HTTPException(status_code=404, detail="SpotYou introuvable")
 
-        going_count = await conn.fetchval(
-            """SELECT COUNT(*) FROM spot_you_attendance
-               WHERE spot_you_id = $1 AND session_date = $2 AND status = 'going'""",
-            point_id, next_date,
-        ) if next_date else 0
+            next_date = get_next_session_date(dict(point))
+            if next_date:
+                await conn.execute(
+                    """DELETE FROM spot_you_attendance
+                       WHERE spot_you_id = $1 AND user_id = $2 AND session_date = $3""",
+                    point_id, user["user_id"], next_date,
+                )
 
-        max_p = point["maximum_participants"]
-        is_full = max_p is not None and (going_count or 0) >= max_p
+            going_count_final = await conn.fetchval(
+                """SELECT COUNT(*) FROM spot_you_attendance
+                   WHERE spot_you_id = $1 AND session_date = $2 AND status = 'going'""",
+                point_id, next_date,
+            ) if next_date else 0
+
+            members_count_final = await conn.fetchval(
+                "SELECT COUNT(*) FROM spot_you_members WHERE spot_you_id = $1", point_id
+            )
+            max_p = point["maximum_participants"]
+            is_full_final = max_p is not None and (going_count_final or 0) >= max_p
+            next_date_final = next_date
+
+    # Broadcast temps réel après commit
+    asyncio.create_task(spotyou_manager.broadcast(point_id, {
+        "type": "spotyou_update",
+        "point_id": point_id,
+        "going_count": int(going_count_final or 0),
+        "participants_count": int(members_count_final),
+        "is_full": is_full_final,
+        "session_date": next_date_final.isoformat() if next_date_final else None,
+    }))
 
     return {
         "success": True,
         "is_going": False,
-        "going_count": int(going_count or 0),
-        "is_full": is_full,
-        "session_date": next_date.isoformat() if next_date else None,
+        "going_count": int(going_count_final or 0),
+        "is_full": is_full_final,
+        "session_date": next_date_final.isoformat() if next_date_final else None,
     }
 
 

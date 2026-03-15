@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from models import new_id
 from auth_utils import require_auth, decode_jwt
 from database import get_pool, row_to_dict, rows_to_list
-from chat_manager import manager, notif_manager
+from chat_manager import manager, notif_manager, spotyou_manager
 from push_service import send_push_to_user
 import asyncio
 import time
@@ -520,3 +520,57 @@ async def ws_notifications(websocket: WebSocket):
     finally:
         # [SEC-16] Garantir le nettoyage
         notif_manager.disconnect(user_id, websocket)
+
+
+
+# ── WebSocket SpotYou (mises à jour temps réel) ────────────────────────────────
+
+@router.websocket("/ws/spot-you/{point_id}")
+async def ws_spot_you(websocket: WebSocket, point_id: str):
+    """
+    Canal temps réel pour un SpotYou.
+    [SEC-14] Authentification via premier message JSON {token}.
+    Reçoit les événements spotyou_update : participants_count, going_count, is_full.
+    Pas d'envoi de messages depuis le client (lecture seule).
+    """
+    pool = get_pool()
+    await websocket.accept()
+
+    try:
+        auth_msg = await asyncio.wait_for(websocket.receive_json(), timeout=5.0)
+        token = auth_msg.get("token", "")
+    except asyncio.TimeoutError:
+        logger.warning("[WS spotyou] Timeout handshake (point=%s)", point_id)
+        await websocket.close(code=4001)
+        return
+    except Exception as exc:
+        logger.warning("[WS spotyou] Erreur handshake (point=%s): %s", point_id, exc)
+        await websocket.close(code=4001)
+        return
+
+    try:
+        payload = decode_jwt(token)
+    except Exception:
+        await websocket.close(code=4001)
+        return
+
+    user_id = payload.get("user_id")
+    if not user_id:
+        await websocket.close(code=4001)
+        return
+
+    spotyou_manager.add(point_id, websocket)
+    logger.info("[WS spotyou] Connecté (user=%s, point=%s)", user_id, point_id)
+
+    try:
+        # Keep-alive : le client ne doit pas envoyer de messages —
+        # on attend juste la déconnexion ou un ping optionnel.
+        while True:
+            await websocket.receive_text()
+
+    except WebSocketDisconnect:
+        logger.info("[WS spotyou] Déconnexion propre (user=%s, point=%s)", user_id, point_id)
+    except Exception as exc:
+        logger.warning("[WS spotyou] Erreur inattendue (user=%s, point=%s): %s", user_id, point_id, exc)
+    finally:
+        spotyou_manager.disconnect(point_id, websocket)

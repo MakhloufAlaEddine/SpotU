@@ -12,6 +12,7 @@ import { MarkdownText } from '../../components/RichTextInput';
 import ConfirmActionModal, { ConfirmAction } from '../../components/ConfirmActionModal';
 import { api } from '../../lib/api';
 import { getOrCreateConversation } from '../../lib/chat';
+import { storage } from '../../lib/storage';
 import { useAuth } from '../../context/AuthContext';
 import { useLocation } from '../../context/LocationContext';
 import { useLang } from '../../context/LanguageContext';
@@ -23,6 +24,9 @@ import { useNetwork } from '../../hooks/useNetwork';
 import { StaleBanner, ErrorNoData } from '../../components/OfflineBanner';
 import { buildCacheKey, cacheGet, cacheSet, isFresh, cacheAgeMinutes, getTtl, SCHEMA_VERSION, cacheInvalidate } from '../../lib/cache';
 import { useGuardedRouter } from '../../hooks/useGuardedRouter';
+
+const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+const BASE_WS = BASE_URL.replace('https://', 'wss://').replace('http://', 'ws://');
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -386,6 +390,54 @@ export default function SpotYouDetail() {
   const [goingLoading, setGoingLoading] = useState(false);
   const [isPublic, setIsPublic] = useState(true);
   const [ownerActionLoading, setOwnerActionLoading] = useState(false);
+
+  // ── WebSocket temps réel ────────────────────────────────────────────────────
+  const wsRef = useRef<WebSocket | null>(null);
+  const wsPointIdRef = useRef<string | null>(null);
+
+  const connectLive = useCallback(async (pointId: string) => {
+    // Éviter double connexion pour le même point
+    if (wsRef.current && wsPointIdRef.current === pointId) return;
+    wsRef.current?.close();
+    wsRef.current = null;
+
+    const token = await storage.get('spotu_token');
+    if (!token) return;
+
+    const ws = new WebSocket(`${BASE_WS}/api/ws/spot-you/${pointId}`);
+    wsRef.current = ws;
+    wsPointIdRef.current = pointId;
+
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ token }));
+    };
+
+    ws.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.type === 'spotyou_update') {
+          if (data.participants_count !== undefined) setParticipantsCount(data.participants_count);
+          if (data.going_count !== undefined) setGoingCount(data.going_count);
+          if (data.is_full !== undefined) setIsFull(data.is_full);
+        }
+      } catch {}
+    };
+
+    ws.onerror = () => {};
+    ws.onclose = () => {};
+  }, []);
+
+  // Connexion live à l'entrée de l'écran, déconnexion à la sortie
+  useFocusEffect(
+    useCallback(() => {
+      if (id) connectLive(id);
+      return () => {
+        wsRef.current?.close();
+        wsRef.current = null;
+        wsPointIdRef.current = null;
+      };
+    }, [id, connectLive])
+  );
 
   useEffect(() => {
     if (id) { loadPoint(); loadVotes(); loadParticipants(); loadGoingList(); if (user) loadMyVote(); }
