@@ -23,9 +23,11 @@ config.watcher = {
 
 // Block heavy node_modules sub-trees that contain ios/android native code
 // This dramatically reduces the number of inotify watches needed
+// NOTE: expo/node_modules is excluded from the nested-modules block because
+// Metro itself needs expo/node_modules/@expo/cli/build/metro-require/require.js
 config.resolver.blockList = [
   /node_modules\/.*\/local-maven-repo\/.*/,
-  /node_modules\/.*\/node_modules\/.*/,
+  /node_modules\/(?!expo[/\\]).*\/node_modules\/.*/,
   /node_modules\/.*\/\.bin\/.*/,
   /node_modules\/.*\/android\/.*/,
   /node_modules\/.*\/ios\/.*/,
