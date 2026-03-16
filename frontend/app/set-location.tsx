@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator,
   TextInput, FlatList, Keyboard,
@@ -11,25 +11,8 @@ import { MapViewComponent } from '../components/MapViewComponent';
 import { useLocation } from '../context/LocationContext';
 import { searchPlaces, getPlaceDetails, reverseGeocodeGoogle, type PlaceSuggestion } from '../services/googlePlacesService';
 import { useGuardedRouter } from '../hooks/useGuardedRouter';
+import { api } from '../lib/api';
 
-const SAVED_ADDRESSES = [
-  {
-    id: 'home',
-    label: 'Home',
-    icon: 'home-outline' as const,
-    address: '27 Bis Boulevard de la République, 78360 Montesson',
-    lat: 48.9041,
-    lng: 2.1499,
-  },
-  {
-    id: 'work',
-    label: 'work',
-    icon: 'briefcase-outline' as const,
-    address: '53 Boulevard Brune, 75014 Paris',
-    lat: 48.8232,
-    lng: 2.3214,
-  },
-];
 
 export default function SetLocationScreen() {
   const router = useGuardedRouter();
@@ -38,6 +21,17 @@ export default function SetLocationScreen() {
   const [currentAddress, setCurrentAddress] = useState(location.address);
   const [selectedLat, setSelectedLat] = useState(location.lat);
   const [selectedLng, setSelectedLng] = useState(location.lng);
+
+  // Saved addresses from API
+  const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
+  const [savedLoading, setSavedLoading] = useState(true);
+
+  useEffect(() => {
+    api.get('/addresses')
+      .then(data => setSavedAddresses(data || []))
+      .catch(() => {})
+      .finally(() => setSavedLoading(false));
+  }, []);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -131,7 +125,7 @@ export default function SetLocationScreen() {
     }
   };
 
-  const handleSaved = (addr: (typeof SAVED_ADDRESSES)[0]) => {
+  const handleSaved = (addr: { address: string; lat: number; lng: number }) => {
     setSelectedLat(addr.lat);
     setSelectedLng(addr.lng);
     setCurrentAddress(addr.address);
@@ -254,26 +248,38 @@ export default function SetLocationScreen() {
 
         {/* Saved addresses */}
         <View style={styles.savedSection}>
-          <Text style={styles.savedTitle}>Adresses enregistrées</Text>
-          {SAVED_ADDRESSES.map((addr) => (
-            <TouchableOpacity
-              key={addr.id}
-              style={styles.savedRow}
-              onPress={() => handleSaved(addr)}
-              testID={`saved-address-${addr.id}`}
-            >
-              <View style={styles.savedIcon}>
-                <Ionicons name={addr.icon} size={20} color={Colors.foreground} />
-              </View>
-              <View style={styles.savedInfo}>
-                <Text style={styles.savedLabel}>{addr.label}</Text>
-                <Text style={styles.savedAddress} numberOfLines={1}>
-                  {addr.address}
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={Colors.muted} />
+          <View style={styles.savedHeader}>
+            <Text style={styles.savedTitle}>Adresses enregistrées</Text>
+            <TouchableOpacity onPress={() => router.push('/manage-addresses' as any)} testID="manage-addresses-btn">
+              <Text style={styles.savedManage}>Gérer</Text>
             </TouchableOpacity>
-          ))}
+          </View>
+          {savedLoading ? (
+            <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: 8 }} />
+          ) : savedAddresses.length === 0 ? (
+            <TouchableOpacity style={styles.savedEmpty} onPress={() => router.push('/manage-addresses' as any)} testID="add-first-address-btn">
+              <Ionicons name="add-circle-outline" size={18} color={Colors.primary} />
+              <Text style={styles.savedEmptyTxt}>Ajouter une adresse favorite</Text>
+            </TouchableOpacity>
+          ) : (
+            savedAddresses.map((addr) => (
+              <TouchableOpacity
+                key={addr.address_id}
+                style={styles.savedRow}
+                onPress={() => handleSaved(addr)}
+                testID={`saved-address-${addr.address_id}`}
+              >
+                <View style={styles.savedIcon}>
+                  <Ionicons name={addr.icon || 'location-outline'} size={20} color={Colors.foreground} />
+                </View>
+                <View style={styles.savedInfo}>
+                  <Text style={styles.savedLabel}>{addr.label}</Text>
+                  <Text style={styles.savedAddress} numberOfLines={1}>{addr.address}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={Colors.muted} />
+              </TouchableOpacity>
+            ))
+          )}
         </View>
 
         <View style={{ height: 40 }} />
@@ -392,12 +398,9 @@ const styles = StyleSheet.create({
   addressText: { flex: 1, fontSize: 14, color: Colors.foreground, lineHeight: 20 },
 
   savedSection: { paddingHorizontal: Spacing.md, marginTop: Spacing.lg },
-  savedTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: Colors.foreground,
-    marginBottom: Spacing.sm,
-  },
+  savedHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.sm },
+  savedTitle: { fontSize: 15, fontWeight: '700', color: Colors.foreground },
+  savedManage: { fontSize: 13, fontWeight: '600', color: Colors.primary },
   savedRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -407,14 +410,15 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   savedIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: Radius.sm,
-    backgroundColor: Colors.card,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 40, height: 40, borderRadius: Radius.sm,
+    backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center',
   },
   savedInfo: { flex: 1 },
   savedLabel: { fontSize: 15, fontWeight: '600', color: Colors.foreground },
   savedAddress: { fontSize: 13, color: Colors.muted, marginTop: 2 },
+  savedEmpty: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingVertical: 14, justifyContent: 'center',
+  },
+  savedEmptyTxt: { fontSize: 14, color: Colors.primary, fontWeight: '600' },
 });

@@ -26,6 +26,7 @@ from routes.payment_routes import router as payment_router
 from routes.subscription_routes import router as subscription_router
 from routes.spot_you_routes import router as spot_you_router
 from routes.home_routes import router as home_router
+from routes.address_routes import router as address_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -74,6 +75,7 @@ api_router.include_router(push_router, prefix="/users", tags=["push"])
 api_router.include_router(upload_router)
 api_router.include_router(payment_router, tags=["payments"])
 api_router.include_router(subscription_router, tags=["subscriptions"])
+api_router.include_router(address_router, tags=["addresses"])
 
 
 # ── Endpoint public : configuration des fonctionnalités de réservation ─────────

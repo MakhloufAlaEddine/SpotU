@@ -434,7 +434,7 @@ export default function MenuScreen() {
                 <Ionicons name="chevron-forward" size={16} color={Colors.muted} />
               </TouchableOpacity>
             )}
-            <TouchableOpacity style={st.settingRow} onPress={() => {}} activeOpacity={0.7} testID="addresses-btn">
+            <TouchableOpacity style={st.settingRow} onPress={() => router.push('/manage-addresses' as any)} activeOpacity={0.7} testID="addresses-btn">
               <View style={st.settingLeft}>
                 <View style={st.settingIconBox}>
                   <Ionicons name="location-outline" size={18} color={Colors.primary} />

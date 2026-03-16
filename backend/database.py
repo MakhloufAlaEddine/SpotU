@@ -736,6 +736,19 @@ async def connect_to_db():
             );
             CREATE INDEX IF NOT EXISTS idx_blocks_blocker ON user_blocks(blocker_id);
             CREATE INDEX IF NOT EXISTS idx_blocks_blocked ON user_blocks(blocked_id);
+
+            CREATE TABLE IF NOT EXISTS user_saved_addresses (
+                address_id  TEXT PRIMARY KEY,
+                user_id     TEXT REFERENCES users(user_id) ON DELETE CASCADE,
+                label       TEXT NOT NULL,
+                address     TEXT NOT NULL,
+                lat         FLOAT8 NOT NULL,
+                lng         FLOAT8 NOT NULL,
+                icon        TEXT NOT NULL DEFAULT 'location-outline',
+                position    INT NOT NULL DEFAULT 0,
+                created_at  TIMESTAMPTZ DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS idx_saved_addresses_user ON user_saved_addresses(user_id);
         """)
 
         # Seed quelques relations follow pour les démos (ON CONFLICT DO NOTHING = idempotent)
