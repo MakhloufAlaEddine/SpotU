@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Alert, Linking, Image, RefreshControl,
+  ActivityIndicator, Alert, Linking, Image, RefreshControl, AppState,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useFocusEffect } from 'expo-router';
@@ -187,6 +187,7 @@ export default function BookingDetailScreen() {
     try {
       const originUrl = typeof window !== 'undefined' ? window.location.origin : '';
       const res = await api.post<{ url: string }>(`/bookings/${id}/pay`, { origin_url: originUrl });
+      paymentPendingRef.current = true;
       await Linking.openURL(res.url);
     } catch (err: any) {
       Alert.alert('Paiement impossible', err.message || 'Une erreur est survenue.');
@@ -194,6 +195,18 @@ export default function BookingDetailScreen() {
       setPaying(false);
     }
   };
+
+  // Rafraîchir quand l'utilisateur revient du navigateur de paiement
+  const paymentPendingRef = React.useRef(false);
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && paymentPendingRef.current) {
+        paymentPendingRef.current = false;
+        loadBooking();
+      }
+    });
+    return () => sub.remove();
+  }, [loadBooking]);
 
   const handleCancel = () => {
     Alert.alert(
