@@ -198,102 +198,162 @@ export default function BookingDetailScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
       >
 
-        {/* ── Statut hero ─────────────────────────────────────────────── */}
-        <View style={[s.statusHero, { borderColor: bStatus.color + '44' }]}>
-          <View style={[s.statusIconWrap, { backgroundColor: bStatus.color + '22' }]}>
-            <Ionicons name={bStatus.icon as any} size={28} color={bStatus.color} />
+        {/* ── Status Hero ─────────────────────────────────────────────── */}
+        <View style={[s.statusHero, { backgroundColor: bStatus.color + '12' }]} testID="booking-status-hero">
+          <View style={[s.statusIconCircle, { backgroundColor: bStatus.color + '22', borderColor: bStatus.color + '33' }]}>
+            <Ionicons name={bStatus.icon as any} size={26} color={bStatus.color} />
           </View>
-          <View style={{ flex: 1 }}>
+          <View style={s.statusContent}>
             <Text style={[s.statusLabel, { color: bStatus.color }]}>{bStatus.label}</Text>
-            <Text style={s.statusDesc}>{bStatus.desc}</Text>
-          </View>
-          {amount != null && (
-            <Text style={s.heroAmount}>{amount.toFixed(2)} €</Text>
-          )}
-        </View>
-
-        {/* ── Prestation ──────────────────────────────────────────────── */}
-        <View style={s.section}>
-          <Text style={s.sectionLabel}>Prestation</Text>
-          <Text style={s.sectionValue}>{booking.service_title || '—'}</Text>
-        </View>
-
-        {/* ── Coach ───────────────────────────────────────────────────── */}
-        <View style={s.section}>
-          <Text style={s.sectionLabel}>Coach</Text>
-          <View style={s.coachRow}>
-            <UserAvatar uri={booking.receiver_picture} name={booking.receiver_name} size={40} />
-            <Text style={s.sectionValue}>{booking.receiver_name || '—'}</Text>
-          </View>
-        </View>
-
-        {/* ── Date & Heure ────────────────────────────────────────────── */}
-        <View style={s.section}>
-          <Text style={s.sectionLabel}>Date & Heure</Text>
-          <View style={s.infoRow}>
-            <Ionicons name="calendar-outline" size={16} color={Colors.primary} />
-            <Text style={s.sectionValue}>
-              {booking.slot_date
-                ? formatFullDate(booking.slot_date)
-                : booking.scheduled_at
-                  ? formatFullDate(booking.scheduled_at)
-                  : 'Non défini'}
-            </Text>
-          </View>
-          {timeStr ? (
-            <View style={s.infoRow}>
-              <Ionicons name="time-outline" size={16} color={Colors.primary} />
-              <Text style={s.sectionValue}>{timeStr}</Text>
-            </View>
-          ) : null}
-        </View>
-
-        {/* ── Lieu ────────────────────────────────────────────────────── */}
-        {booking.address ? (
-          <View style={s.section}>
-            <Text style={s.sectionLabel}>Lieu</Text>
-            <View style={s.infoRow}>
-              <Ionicons name="location-outline" size={16} color={Colors.primary} />
-              <Text style={s.sectionValue}>{booking.address}</Text>
-            </View>
-          </View>
-        ) : null}
-
-        {/* ── Notes ───────────────────────────────────────────────────── */}
-        {booking.notes ? (
-          <View style={s.section}>
-            <Text style={s.sectionLabel}>Notes</Text>
-            <Text style={s.noteText}>{booking.notes}</Text>
-          </View>
-        ) : null}
-
-        {/* ── Paiement ────────────────────────────────────────────────── */}
-        <View style={s.section}>
-          <Text style={s.sectionLabel}>Paiement</Text>
-          <View style={s.payRow}>
-            <Text style={s.sectionValue}>
-              {amount != null ? `${amount.toFixed(2)} €` : '—'}
-            </Text>
-            {pStatus && (
-              <View style={[s.payBadge, { backgroundColor: pStatus.color + '22' }]}>
-                <Text style={[s.payBadgeText, { color: pStatus.color }]}>{pStatus.label}</Text>
+            {bStatus.desc ? <Text style={s.statusDesc}>{bStatus.desc}</Text> : null}
+            {countdown && !isExpired && (
+              <View style={s.countdownRow}>
+                <Ionicons name="timer-outline" size={13} color="#FF9500" />
+                <Text style={s.countdownText}>Expire dans {countdown}</Text>
               </View>
             )}
           </View>
-          <Text style={s.mutedText}>
-            Mode : {booking.payment_mode === 'pay_now' ? 'Paiement immédiat' : 'Paiement différé'}
-          </Text>
+        </View>
+
+        {/* ── Montant principal ────────────────────────────────────────── */}
+        {amount != null && (
+          <View style={s.amountCard} testID="booking-amount">
+            <Text style={s.amountLabel}>Montant total</Text>
+            <Text style={s.amountValue}>{amount.toFixed(2)} €</Text>
+            {pStatus && (
+              <View style={[s.badge, { backgroundColor: pStatus.color + '18' }]}>
+                <View style={[s.badgeDot, { backgroundColor: pStatus.color }]} />
+                <Text style={[s.badgeText, { color: pStatus.color }]}>{pStatus.label}</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* ── Détails ─────────────────────────────────────────────────── */}
+        <View style={s.card} testID="booking-details-card">
+
+          {/* Prestation */}
+          <View style={s.detailRow}>
+            <View style={s.detailIcon}>
+              <Ionicons name="briefcase-outline" size={18} color={Colors.primary} />
+            </View>
+            <View style={s.detailContent}>
+              <Text style={s.detailLabel}>Prestation</Text>
+              <Text style={s.detailValue}>{booking.service_title || '—'}</Text>
+            </View>
+          </View>
+
+          <View style={s.divider} />
+
+          {/* Coach */}
+          <TouchableOpacity
+            style={s.detailRow}
+            onPress={() => booking.receiver_id && router.push(`/user/${booking.receiver_id}` as any)}
+            activeOpacity={0.7}
+          >
+            <View style={s.detailIcon}>
+              <UserAvatar uri={booking.receiver_picture} name={booking.receiver_name} size={36} />
+            </View>
+            <View style={s.detailContent}>
+              <Text style={s.detailLabel}>Coach</Text>
+              <Text style={s.detailValue}>{booking.receiver_name || '—'}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={Colors.muted} />
+          </TouchableOpacity>
+
+          <View style={s.divider} />
+
+          {/* Date & Heure */}
+          <View style={s.detailRow}>
+            <View style={s.detailIcon}>
+              <Ionicons name="calendar-outline" size={18} color={Colors.primary} />
+            </View>
+            <View style={s.detailContent}>
+              <Text style={s.detailLabel}>Date & Heure</Text>
+              <Text style={s.detailValue}>
+                {booking.slot_date
+                  ? formatFullDate(booking.slot_date)
+                  : booking.scheduled_at
+                    ? formatFullDate(booking.scheduled_at)
+                    : 'Non défini'}
+              </Text>
+              {timeStr ? <Text style={s.detailSub}>{timeStr}</Text> : null}
+            </View>
+          </View>
+
+          {/* Lieu */}
+          {booking.address ? (
+            <>
+              <View style={s.divider} />
+              <View style={s.detailRow}>
+                <View style={s.detailIcon}>
+                  <Ionicons name="location-outline" size={18} color={Colors.primary} />
+                </View>
+                <View style={s.detailContent}>
+                  <Text style={s.detailLabel}>Lieu</Text>
+                  <Text style={s.detailValue}>{booking.address}</Text>
+                </View>
+              </View>
+            </>
+          ) : null}
+
+          {/* Notes */}
+          {booking.notes ? (
+            <>
+              <View style={s.divider} />
+              <View style={s.detailRow}>
+                <View style={s.detailIcon}>
+                  <Ionicons name="document-text-outline" size={18} color={Colors.primary} />
+                </View>
+                <View style={s.detailContent}>
+                  <Text style={s.detailLabel}>Notes</Text>
+                  <Text style={s.detailSub}>{booking.notes}</Text>
+                </View>
+              </View>
+            </>
+          ) : null}
+        </View>
+
+        {/* ── Paiement ────────────────────────────────────────────────── */}
+        <View style={s.card} testID="booking-payment-card">
+          <View style={s.cardHeader}>
+            <Ionicons name="card-outline" size={16} color={Colors.muted} />
+            <Text style={s.cardHeaderText}>Paiement</Text>
+          </View>
+          <View style={s.paymentRow}>
+            <Text style={s.paymentLabel}>Mode</Text>
+            <Text style={s.paymentValue}>
+              {booking.payment_mode === 'pay_now' ? 'Paiement immédiat' : 'Paiement différé'}
+            </Text>
+          </View>
+          {booking.pricing_snapshot?.base_amount != null && (
+            <>
+              <View style={s.paymentRow}>
+                <Text style={s.paymentLabel}>Prix de base</Text>
+                <Text style={s.paymentValue}>{booking.pricing_snapshot.base_amount.toFixed(2)} €</Text>
+              </View>
+              {booking.pricing_snapshot.payer_percent_fee_amount > 0 && (
+                <View style={s.paymentRow}>
+                  <Text style={s.paymentLabel}>Frais de service</Text>
+                  <Text style={[s.paymentValue, { color: '#FF9500' }]}>+{booking.pricing_snapshot.payer_percent_fee_amount.toFixed(2)} €</Text>
+                </View>
+              )}
+              <View style={s.paymentDivider} />
+              <View style={s.paymentRow}>
+                <Text style={s.paymentTotalLabel}>Total</Text>
+                <Text style={s.paymentTotalValue}>{booking.pricing_snapshot.payer_total_amount.toFixed(2)} €</Text>
+              </View>
+            </>
+          )}
         </View>
 
         {/* ── Référence ───────────────────────────────────────────────── */}
-        <View style={s.section}>
-          <Text style={s.sectionLabel}>Référence</Text>
-          <Text style={[s.sectionValue, { fontFamily: 'monospace', fontSize: 12, color: Colors.muted }]}>
-            {booking.booking_id}
-          </Text>
-          <Text style={s.mutedText}>
-            Créée le {formatFullDate(booking.created_at)}
-          </Text>
+        <View style={s.refCard} testID="booking-reference">
+          <Ionicons name="receipt-outline" size={14} color={Colors.muted} />
+          <View style={{ flex: 1 }}>
+            <Text style={s.refId}>{booking.booking_id}</Text>
+            <Text style={s.refDate}>Créée le {formatFullDate(booking.created_at)}</Text>
+          </View>
         </View>
 
         <View style={{ height: 120 }} />
@@ -304,7 +364,7 @@ export default function BookingDetailScreen() {
         <View style={s.actionsBar}>
           {canPay && (
             <TouchableOpacity
-              style={[s.payBtn, paying && s.btnLoading]}
+              style={[s.payBtn, paying && s.btnDisabled]}
               onPress={handlePay}
               disabled={paying || cancelling}
               testID="booking-pay-btn"
@@ -314,13 +374,13 @@ export default function BookingDetailScreen() {
                 : <Ionicons name="card" size={18} color="#fff" />
               }
               <Text style={s.payBtnText}>
-                {paying ? 'Ouverture...' : needsAuthorization ? 'Confirmer le paiement' : 'Payer maintenant'}
+                {paying ? 'Ouverture...' : needsAuthorization ? 'Confirmer le paiement' : `Payer${amount ? ` ${amount.toFixed(2)} €` : ''}`}
               </Text>
             </TouchableOpacity>
           )}
           {canCancel && (
             <TouchableOpacity
-              style={[s.cancelBtn, cancelling && s.btnLoading, canPay && { flex: 0.6 }]}
+              style={[s.cancelBtn, cancelling && s.btnDisabled, canPay && { flex: 0.55 }]}
               onPress={handleCancel}
               disabled={paying || cancelling}
               testID="booking-cancel-btn"
@@ -329,7 +389,7 @@ export default function BookingDetailScreen() {
                 ? <ActivityIndicator size="small" color="#FF3B30" />
                 : <Ionicons name="close-circle-outline" size={18} color="#FF3B30" />
               }
-              <Text style={s.cancelBtnText}>{cancelling ? 'Annulation...' : 'Annuler'}</Text>
+              <Text style={s.cancelBtnText}>{cancelling ? '...' : 'Annuler'}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -347,42 +407,84 @@ const s = StyleSheet.create({
   },
   headerTitle: { fontSize: 17, fontWeight: '700', color: Colors.foreground },
   backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  scroll: { paddingHorizontal: 16, paddingTop: 16 },
+  scroll: { paddingHorizontal: 16, paddingTop: 20 },
 
-  // Status hero
+  // ── Status hero
   statusHero: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
+    flexDirection: 'row', alignItems: 'flex-start', gap: 14,
     padding: 16, borderRadius: 16,
-    borderWidth: 1,
-    backgroundColor: Colors.card,
-    marginBottom: 16,
+    marginBottom: 12,
   },
-  statusIconWrap: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
-  statusLabel: { fontSize: 16, fontWeight: '700' },
-  statusDesc: { fontSize: 12, color: Colors.muted, marginTop: 2, lineHeight: 16 },
-  heroAmount: { fontSize: 22, fontWeight: '800', color: Colors.primary },
-
-  // Sections
-  section: {
-    backgroundColor: Colors.card,
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 10,
-    gap: 6,
+  statusIconCircle: {
+    width: 48, height: 48, borderRadius: 24,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1.5,
   },
-  sectionLabel: { fontSize: 11, fontWeight: '700', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.8 },
-  sectionValue: { fontSize: 15, fontWeight: '600', color: Colors.foreground },
-  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  coachRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 },
-  noteText: { fontSize: 14, color: Colors.foreground, lineHeight: 20 },
-  mutedText: { fontSize: 12, color: Colors.muted },
+  statusContent: { flex: 1, gap: 3 },
+  statusLabel: { fontSize: 18, fontWeight: '800', letterSpacing: 0.2 },
+  statusDesc: { fontSize: 13, color: Colors.muted, lineHeight: 18 },
+  countdownRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4 },
+  countdownText: { fontSize: 13, fontWeight: '700', color: '#FF9500' },
 
-  // Paiement
-  payRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  payBadge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: Radius.full },
-  payBadgeText: { fontSize: 12, fontWeight: '600' },
+  // ── Amount card
+  amountCard: {
+    backgroundColor: Colors.card, borderRadius: 16,
+    padding: 18, marginBottom: 12,
+    alignItems: 'center', gap: 4,
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  amountLabel: { fontSize: 12, fontWeight: '600', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.6 },
+  amountValue: { fontSize: 32, fontWeight: '900', color: Colors.primary, letterSpacing: -0.5 },
+  badge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, marginTop: 4 },
+  badgeDot: { width: 6, height: 6, borderRadius: 3 },
+  badgeText: { fontSize: 12, fontWeight: '700' },
 
-  // Actions bar
+  // ── Card
+  card: {
+    backgroundColor: Colors.card, borderRadius: 16,
+    paddingVertical: 4, marginBottom: 12,
+    borderWidth: 1, borderColor: Colors.border,
+    overflow: 'hidden',
+  },
+  cardHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 7,
+    paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10,
+  },
+  cardHeaderText: { fontSize: 13, fontWeight: '700', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.5 },
+  divider: { height: 1, backgroundColor: Colors.border, marginHorizontal: 16 },
+
+  // ── Detail rows
+  detailRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    paddingHorizontal: 16, paddingVertical: 14,
+  },
+  detailIcon: { width: 36, alignItems: 'center' },
+  detailContent: { flex: 1, gap: 2 },
+  detailLabel: { fontSize: 11, fontWeight: '700', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.5 },
+  detailValue: { fontSize: 15, fontWeight: '600', color: Colors.foreground, lineHeight: 21 },
+  detailSub: { fontSize: 13, color: Colors.muted, lineHeight: 19, marginTop: 1 },
+
+  // ── Payment section
+  paymentRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8 },
+  paymentLabel: { fontSize: 14, color: Colors.muted, fontWeight: '500' },
+  paymentValue: { fontSize: 14, fontWeight: '600', color: Colors.foreground },
+  paymentDivider: { height: 1, backgroundColor: Colors.border, marginHorizontal: 16, marginVertical: 4 },
+  paymentTotalLabel: { fontSize: 15, fontWeight: '800', color: Colors.foreground },
+  paymentTotalValue: { fontSize: 17, fontWeight: '800', color: Colors.primary },
+
+  // ── Reference
+  refCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: Colors.card, borderRadius: 12,
+    paddingHorizontal: 14, paddingVertical: 12,
+    marginBottom: 12,
+    borderWidth: 1, borderColor: Colors.border,
+    opacity: 0.75,
+  },
+  refId: { fontSize: 12, fontWeight: '600', color: Colors.muted, fontFamily: 'monospace' },
+  refDate: { fontSize: 11, color: Colors.muted, marginTop: 2 },
+
+  // ── Actions bar
   actionsBar: {
     position: 'absolute',
     bottom: 0, left: 0, right: 0,
@@ -395,16 +497,16 @@ const s = StyleSheet.create({
   payBtn: {
     flex: 1,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: '#635BFF', borderRadius: Radius.full, paddingVertical: 14,
+    backgroundColor: '#635BFF', borderRadius: 14, paddingVertical: 15,
   },
   payBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
   cancelBtn: {
     flex: 1,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
-    backgroundColor: 'rgba(255,59,48,0.08)',
-    borderWidth: 1, borderColor: 'rgba(255,59,48,0.3)',
-    borderRadius: Radius.full, paddingVertical: 14,
+    backgroundColor: 'rgba(255,59,48,0.06)',
+    borderWidth: 1, borderColor: 'rgba(255,59,48,0.25)',
+    borderRadius: 14, paddingVertical: 15,
   },
   cancelBtnText: { fontSize: 15, fontWeight: '600', color: '#FF3B30' },
-  btnLoading: { opacity: 0.65 },
+  btnDisabled: { opacity: 0.55 },
 });
