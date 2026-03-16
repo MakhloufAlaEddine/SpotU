@@ -80,6 +80,9 @@ export default function BookingDetailScreen() {
   const [cancelling, setCancelling] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Hook countdown — DOIT être appelé avant tout return conditionnel
+  const { expired: isExpired, countdown } = useExpired(booking?.expires_at);
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     loadBooking();
@@ -135,7 +138,6 @@ export default function BookingDetailScreen() {
   const timeStr = startT && endT ? `${startT} – ${endT}` : startT || '';
 
   const needsAuthorization = booking.status === 'requested' && booking.payment_mode === 'pay_now';
-  const { expired: isExpired, countdown } = useExpired(booking.expires_at);
   const canPay = !isExpired && (
     booking.status === 'awaiting_payment' ||
     (booking.status === 'accepted' && ['pending', 'unpaid'].includes(booking.payment_status ?? '')) ||
