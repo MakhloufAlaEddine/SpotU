@@ -360,6 +360,13 @@ export default function CreateSpotYouScreen() {
         return;
       }
     }
+    // Étape 2 (Le contenu) : au moins un tag requis
+    if (step === 1) {
+      if (selectedTagIds.length === 0) {
+        Alert.alert('Tag requis', 'Sélectionnez au moins un tag pour continuer.');
+        return;
+      }
+    }
     // Step 3 = bouton "Aperçu": valider les dates avant la preview
     if (step === 3) {
       if (scheduleType === 'once' && !eventDateTime) {
