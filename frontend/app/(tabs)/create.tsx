@@ -1179,7 +1179,8 @@ function StepDate({ scheduleType, setScheduleType, eventDateTime, onOpenDatePick
         <View style={{ gap: Spacing.md }}>
           {/* Day selector */}
           <View>
-            <Text style={sc.scheduleFieldLabel}>Jours actifs</Text>            <View style={sc.daysRow}>
+            <Text style={sc.scheduleFieldLabel}>Jours actifs</Text>
+            <View style={sc.daysRow}>
               {DAYS.map((d, i) => {
                 const active = recurringSchedule[i] !== undefined;
                 return (
