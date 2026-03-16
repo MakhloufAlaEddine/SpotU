@@ -32,15 +32,19 @@ function useExpired(expiresAt: string | null | undefined): { expired: boolean; c
 
 // ── Status maps ────────────────────────────────────────────────────────────────
 const BOOKING_STATUS: Record<string, { label: string; color: string; icon: string; desc: string }> = {
-  requested:        { label: 'En attente',       color: '#FF9500', icon: 'time-outline',           desc: 'Votre demande est en attente de confirmation du coach.' },
-  pending:          { label: 'En attente',       color: '#FF9500', icon: 'time-outline',           desc: 'Votre demande est en attente de confirmation du coach.' },
-  accepted:         { label: 'Acceptée',          color: '#34C759', icon: 'checkmark-circle-outline', desc: 'Votre réservation est confirmée.' },
-  awaiting_payment: { label: 'Paiement requis',   color: '#0A84FF', icon: 'card-outline',            desc: 'Le créneau est réservé, finalisez le paiement.' },
-  completed:        { label: 'Terminée',           color: Colors.primary, icon: 'trophy-outline',   desc: 'La séance est terminée.' },
-  refused:          { label: 'Refusée',            color: '#FF3B30', icon: 'close-circle-outline',   desc: 'Le coach n\'a pas accepté cette demande.' },
-  cancelled:        { label: 'Annulée',            color: '#636366', icon: 'ban-outline',            desc: 'Cette réservation a été annulée.' },
-  expired:          { label: 'Expirée',            color: '#636366', icon: 'alert-circle-outline',   desc: 'Le délai de paiement est dépassé.' },
+  requested:        { label: 'En attente',       color: '#FF9500', icon: 'time-outline',             desc: 'Votre demande est en attente de confirmation du coach.' },
+  pending:          { label: 'En attente',       color: '#FF9500', icon: 'time-outline',             desc: 'Votre demande est en attente de confirmation du coach.' },
+  accepted:         { label: 'Acceptée',         color: '#34C759', icon: 'checkmark-circle-outline', desc: 'Votre réservation est confirmée.' },
+  confirmed:        { label: 'Confirmée',        color: '#34C759', icon: 'checkmark-circle',         desc: 'Réservation confirmée et payée.' },
+  awaiting_payment: { label: 'Paiement requis',  color: '#0A84FF', icon: 'card-outline',             desc: 'Le créneau est réservé, finalisez le paiement.' },
+  completed:        { label: 'Terminée',         color: Colors.primary, icon: 'trophy-outline',      desc: 'La séance est terminée.' },
+  refused:          { label: 'Refusée',          color: '#FF3B30', icon: 'close-circle-outline',     desc: 'Le coach n\'a pas accepté cette demande.' },
+  cancelled:        { label: 'Annulée',          color: '#636366', icon: 'ban-outline',              desc: 'Cette réservation a été annulée.' },
+  expired:          { label: 'Expirée',          color: '#636366', icon: 'alert-circle-outline',     desc: 'Le délai de paiement est dépassé.' },
 };
+
+// Statuts pour lesquels le countdown n'a pas de sens
+const NO_COUNTDOWN_STATUSES = new Set(['confirmed', 'accepted', 'completed', 'refused', 'cancelled', 'expired']);
 
 const PAYMENT_STATUS: Record<string, { label: string; color: string }> = {
   pending:   { label: 'En attente', color: '#FF9500' },
@@ -198,6 +202,14 @@ export default function BookingDetailScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
       >
 
+        {/* ── Photo service ───────────────────────────────────────────── */}
+        {booking.service_images?.[0] && (
+          <View style={s.heroImageWrap}>
+            <Image source={{ uri: booking.service_images[0] }} style={s.heroImage} resizeMode="cover" />
+            <View style={s.heroImageOverlay} />
+          </View>
+        )}
+
         {/* ── Status Hero ─────────────────────────────────────────────── */}
         <View style={[s.statusHero, { backgroundColor: bStatus.color + '12' }]} testID="booking-status-hero">
           <View style={[s.statusIconCircle, { backgroundColor: bStatus.color + '22', borderColor: bStatus.color + '33' }]}>
@@ -206,7 +218,7 @@ export default function BookingDetailScreen() {
           <View style={s.statusContent}>
             <Text style={[s.statusLabel, { color: bStatus.color }]}>{bStatus.label}</Text>
             {bStatus.desc ? <Text style={s.statusDesc}>{bStatus.desc}</Text> : null}
-            {countdown && !isExpired && (
+            {countdown && !isExpired && !NO_COUNTDOWN_STATUSES.has(booking.status) && (
               <View style={s.countdownRow}>
                 <Ionicons name="timer-outline" size={13} color="#FF9500" />
                 <Text style={s.countdownText}>Expire dans {countdown}</Text>
@@ -214,20 +226,6 @@ export default function BookingDetailScreen() {
             )}
           </View>
         </View>
-
-        {/* ── Montant principal ────────────────────────────────────────── */}
-        {amount != null && (
-          <View style={s.amountCard} testID="booking-amount">
-            <Text style={s.amountLabel}>Montant total</Text>
-            <Text style={s.amountValue}>{amount.toFixed(2)} €</Text>
-            {pStatus && (
-              <View style={[s.badge, { backgroundColor: pStatus.color + '18' }]}>
-                <View style={[s.badgeDot, { backgroundColor: pStatus.color }]} />
-                <Text style={[s.badgeText, { color: pStatus.color }]}>{pStatus.label}</Text>
-              </View>
-            )}
-          </View>
-        )}
 
         {/* ── Détails ─────────────────────────────────────────────────── */}
         <View style={s.card} testID="booking-details-card">
@@ -407,7 +405,18 @@ const s = StyleSheet.create({
   },
   headerTitle: { fontSize: 17, fontWeight: '700', color: Colors.foreground },
   backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  scroll: { paddingHorizontal: 16, paddingTop: 20 },
+  scroll: { paddingHorizontal: 16, paddingTop: 0 },
+
+  // ── Hero image
+  heroImageWrap: {
+    height: 180, borderRadius: 16, overflow: 'hidden',
+    marginTop: 16, marginBottom: 12,
+  },
+  heroImage: { width: '100%', height: '100%' },
+  heroImageOverlay: {
+    position: 'absolute', bottom: 0, left: 0, right: 0, height: 60,
+    backgroundColor: 'transparent',
+  },
 
   // ── Status hero
   statusHero: {
@@ -425,19 +434,6 @@ const s = StyleSheet.create({
   statusDesc: { fontSize: 13, color: Colors.muted, lineHeight: 18 },
   countdownRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4 },
   countdownText: { fontSize: 13, fontWeight: '700', color: '#FF9500' },
-
-  // ── Amount card
-  amountCard: {
-    backgroundColor: Colors.card, borderRadius: 16,
-    padding: 18, marginBottom: 12,
-    alignItems: 'center', gap: 4,
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  amountLabel: { fontSize: 12, fontWeight: '600', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.6 },
-  amountValue: { fontSize: 32, fontWeight: '900', color: Colors.primary, letterSpacing: -0.5 },
-  badge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, marginTop: 4 },
-  badgeDot: { width: 6, height: 6, borderRadius: 3 },
-  badgeText: { fontSize: 12, fontWeight: '700' },
 
   // ── Card
   card: {
