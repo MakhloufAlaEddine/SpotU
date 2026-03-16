@@ -635,12 +635,12 @@ export default function ServiceDetailScreen() {
           </View>
         )}
 
-        {/* ── Commission info ────────────────────────────────────────────────── */}
-        {hasCommissionRule && receiverPct > 0 && (
+        {/* ── Commission info (visible uniquement par le coach propriétaire) ── */}
+        {isOwnService && hasCommissionRule && receiverPct > 0 && (
         <View style={s.commNote}>
           <Ionicons name="shield-checkmark-outline" size={14} color={Colors.muted} />
           <Text style={s.commText}>
-            Paiement sécurisé · Commission {receiverPct}% · Net coach : {(service.price * (1 - receiverPct / 100)).toFixed(2)}€
+            Commission {receiverPct}% · Net coach : {(service.price * (1 - receiverPct / 100)).toFixed(2)}€
           </Text>
         </View>
         )}
