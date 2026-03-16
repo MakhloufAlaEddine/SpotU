@@ -524,7 +524,7 @@ function PaymentsTab({ payments }: { payments: any[] }) {
 
 // ── Onglet Configuration des réservations ────────────────────────────────────
 function BookingConfigTab() {
-  const [cfg, setCfg] = useState({ enable_manual_approval_for_services: false, enable_pay_later_for_services: false });
+  const [cfg, setCfg] = useState({ enable_manual_approval_for_services: false, enable_pay_later_for_services: false, pay_now_checkout_minutes: 30 });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
 
@@ -534,13 +534,12 @@ function BookingConfigTab() {
       .catch(() => setLoading(false));
   }, []);
 
-  const toggle = async (key: keyof typeof cfg) => {
+  const toggle = async (key: 'enable_manual_approval_for_services' | 'enable_pay_later_for_services') => {
     setSaving(key);
     const newVal = !cfg[key];
     try {
       await api.put('/admin/app-config', { [key]: newVal });
       setCfg(prev => ({ ...prev, [key]: newVal }));
-      // Invalider le cache frontend
       const { invalidateBookingConfig } = await import('../../lib/useBookingConfig');
       invalidateBookingConfig();
       Alert.alert('Sauvegardé', `Configuration mise à jour.`);
@@ -551,9 +550,25 @@ function BookingConfigTab() {
     }
   };
 
+  const saveMinutes = async (val: number) => {
+    if (val < 5 || val > 1440) return Alert.alert('Erreur', 'Le délai doit être entre 5 et 1440 minutes');
+    setSaving('pay_now_checkout_minutes');
+    try {
+      await api.put('/admin/app-config', { pay_now_checkout_minutes: val });
+      setCfg(prev => ({ ...prev, pay_now_checkout_minutes: val }));
+      const { invalidateBookingConfig } = await import('../../lib/useBookingConfig');
+      invalidateBookingConfig();
+      Alert.alert('Sauvegardé', `Délai de paiement : ${val} minutes`);
+    } catch {
+      Alert.alert('Erreur', 'Impossible de sauvegarder');
+    } finally {
+      setSaving(null);
+    }
+  };
+
   if (loading) return <View style={s.center}><ActivityIndicator color={Colors.primary} /></View>;
 
-  const rows: { key: keyof typeof cfg; label: string; help: string; icon: string; color: string }[] = [
+  const rows: { key: 'enable_manual_approval_for_services' | 'enable_pay_later_for_services'; label: string; help: string; icon: string; color: string }[] = [
     {
       key: 'enable_manual_approval_for_services',
       label: 'Validation manuelle',
@@ -612,6 +627,35 @@ function BookingConfigTab() {
           </View>
         </View>
       ))}
+
+      {/* Délai de paiement */}
+      <View style={bc.row} testID="config-row-pay-now-checkout-minutes">
+        <View style={[bc.iconWrap, { backgroundColor: '#AF52DE18' }]}>
+          <Ionicons name="timer-outline" size={22} color="#AF52DE" />
+        </View>
+        <View style={{ flex: 1, gap: 4 }}>
+          <Text style={bc.rowLabel}>Délai de paiement</Text>
+          <Text style={bc.rowHelp}>Temps accordé au payeur pour finaliser son paiement après réservation (en minutes).</Text>
+        </View>
+        <View style={{ alignItems: 'center', gap: 6 }}>
+          {saving === 'pay_now_checkout_minutes'
+            ? <ActivityIndicator size="small" color="#AF52DE" />
+            : <View style={bc.minutesInputRow}>
+                <TouchableOpacity style={bc.minuteBtn}
+                  onPress={() => { const v = Math.max(5, cfg.pay_now_checkout_minutes - 5); setCfg(p => ({ ...p, pay_now_checkout_minutes: v })); saveMinutes(v); }}
+                  testID="pay-minutes-minus">
+                  <Ionicons name="remove" size={16} color={Colors.foreground} />
+                </TouchableOpacity>
+                <Text style={bc.minutesValue} testID="pay-minutes-value">{cfg.pay_now_checkout_minutes} min</Text>
+                <TouchableOpacity style={bc.minuteBtn}
+                  onPress={() => { const v = Math.min(1440, cfg.pay_now_checkout_minutes + 5); setCfg(p => ({ ...p, pay_now_checkout_minutes: v })); saveMinutes(v); }}
+                  testID="pay-minutes-plus">
+                  <Ionicons name="add" size={16} color={Colors.foreground} />
+                </TouchableOpacity>
+              </View>
+          }
+        </View>
+      </View>
 
       <View style={bc.footer}>
         <Ionicons name="information-circle-outline" size={14} color={Colors.muted} />
@@ -1454,6 +1498,9 @@ const bc = StyleSheet.create({
   rowStatus:   { fontSize: 11, fontWeight: '600' },
   footer:      { flexDirection: 'row', alignItems: 'flex-start', gap: 6, paddingTop: 8, paddingHorizontal: 4 },
   footerText:  { flex: 1, fontSize: 11, color: Colors.muted, lineHeight: 16 },
+  minutesInputRow: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.background, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, padding: 4 },
+  minuteBtn:   { width: 30, height: 30, borderRadius: 8, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
+  minutesValue:{ fontSize: 14, fontWeight: '700', color: Colors.foreground, minWidth: 55, textAlign: 'center' },
 });
 
 const mf = StyleSheet.create({
