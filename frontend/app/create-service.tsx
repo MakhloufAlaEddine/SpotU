@@ -267,12 +267,17 @@ export default function CreateServiceScreen() {
           : []
       );
       if (data.domain_id) {
-        // Stocker les tags AVANT de changer le domainId pour que useEffect les restaure
         const parsedTags = Array.isArray(data.tag_ids) ? data.tag_ids
           : typeof data.tag_ids === 'string' ? (() => { try { return JSON.parse(data.tag_ids); } catch { return []; } })()
           : [];
-        pendingTagIdsRef.current = parsedTags;
-        setDomainId(data.domain_id);
+        if (data.domain_id === domainId) {
+          // Domaine identique au défaut → useEffect[domainId] ne se déclenchera pas
+          // Appliquer les tags directement
+          setSelectedTagIds(parsedTags);
+        } else {
+          pendingTagIdsRef.current = parsedTags;
+          setDomainId(data.domain_id);
+        }
       }
       // Address from first location
       const firstLoc = (data.locations || [])[0];

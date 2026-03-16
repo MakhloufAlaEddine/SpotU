@@ -1,0 +1,51 @@
+{
+  "summary": "Tested service creation/edit form for lazy upload and tags pre-fill bugs. Backend tests: 12/12 passed. Frontend: Edit service form loads correctly with all fields. Lazy upload pattern verified via code review. Tags pre-fill working (shows '4 tags sélectionnés') but data integrity issue exists - service has tags from wrong domain.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "edit-service/[id].tsx",
+        "issue": "EditServiceRedirect throws 'Attempted to navigate before mounting Root Layout' error when accessed directly via URL. The useEffect with router.replace runs before root layout mounts.",
+        "selector": "N/A - routing issue",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Tags display in edit mode",
+        "issue": "Service svc_demo001 has 4 tags selected (shown in banner as '4 tags sélectionnés') but only 1 tag (Coach personnel) is visible in tag picker. 3 tags (musculation, cardio, hiit) belong to dom_sport but service uses dom_coaching domain. This is DATA INTEGRITY issue, not code bug.",
+        "affected_selectors": ["[data-testid='open-tags-btn']", "tag-modal"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_service_crud_iter85.py",
+    "/app/test_reports/pytest/iter85_service_crud.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: Fix edit-service/[id].tsx redirect - add isMounted check or use setTimeout/InteractionManager to delay router.replace until root layout is ready",
+    "DATA FIX: Service svc_demo001 has cross-domain tags (tag_musculation, tag_cardio, tag_hiit from dom_sport but domain is dom_coaching). Either update service domain to dom_sport OR change tags to dom_coaching tags."
+  ],
+  "critical_code_review_comments": [
+    "Bug Fix 1 (Lazy Upload) VERIFIED: pickImages() at line 173-191 only stores local URIs, NOT calling uploadImage. Upload only happens in handleSubmit() at line 372-378. Pattern is correct.",
+    "Bug Fix 2 (Tags Pre-fill) VERIFIED: loadServiceForEdit() lines 269-281 correctly handles both cases - direct setSelectedTagIds when domain matches default, or pendingTagIdsRef when domain differs. The code is correct.",
+    "edit-service/[id].tsx line 15-22: useEffect runs router.replace() immediately which can race with root layout mounting. Consider adding isReady check or using setTimeout(0) for safety."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_service_crud_iter85.py"
+  ],
+  "success_rate": {
+    "backend": "100% (12/12 tests passed)",
+    "frontend": "90% - edit form loads and pre-fills correctly, minor redirect issue"
+  },
+  "test_credentials": "coach@winek.app / WinekCoach2024!",
+  "seed_data_creation": "None - used existing svc_demo001",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Service edit form tested. svc_demo001 used for testing has data integrity issue: domain is dom_coaching but 3/4 tags belong to dom_sport. The tags ARE being loaded (banner shows 4 selected) but not all visible in picker due to cross-domain tags. Lazy upload pattern confirmed correct via code review - pickImages stores local URIs, handleSubmit does the R2 upload.",
+  "rca_of_issue": "Bug 1 (Lazy Upload): Code is correct - pickImages() only stores URIs, uploadImage() only called in handleSubmit(). Bug 2 (Tags Pre-fill): Code is correct - uses pendingTagIdsRef pattern. The 'only 1 tag visible' issue is due to test data having tags from wrong domain (dom_sport tags on dom_coaching service). Edit-service redirect error: useEffect with router.replace races with root layout mounting."
+}
