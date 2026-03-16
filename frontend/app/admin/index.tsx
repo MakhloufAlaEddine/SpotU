@@ -550,8 +550,12 @@ function BookingConfigTab() {
     }
   };
 
-  const saveMinutes = async (val: number) => {
-    if (val < 5 || val > 1440) return Alert.alert('Erreur', 'Le délai doit être entre 5 et 1440 minutes');
+  const [draftMinutes, setDraftMinutes] = useState(String(cfg.pay_now_checkout_minutes));
+  const minutesDirty = parseInt(draftMinutes) !== cfg.pay_now_checkout_minutes && !isNaN(parseInt(draftMinutes));
+
+  const saveMinutes = async () => {
+    const val = parseInt(draftMinutes);
+    if (isNaN(val) || val < 5 || val > 1440) return Alert.alert('Erreur', 'Le délai doit être entre 5 et 1440 minutes');
     setSaving('pay_now_checkout_minutes');
     try {
       await api.put('/admin/app-config', { pay_now_checkout_minutes: val });
@@ -565,6 +569,9 @@ function BookingConfigTab() {
       setSaving(null);
     }
   };
+
+  // Sync draft when cfg loads from API
+  useEffect(() => { setDraftMinutes(String(cfg.pay_now_checkout_minutes)); }, [cfg.pay_now_checkout_minutes]);
 
   if (loading) return <View style={s.center}><ActivityIndicator color={Colors.primary} /></View>;
 
@@ -636,24 +643,37 @@ function BookingConfigTab() {
         <View style={{ flex: 1, gap: 4 }}>
           <Text style={bc.rowLabel}>Délai de paiement</Text>
           <Text style={bc.rowHelp}>Temps accordé au payeur pour finaliser son paiement après réservation (en minutes).</Text>
-        </View>
-        <View style={{ alignItems: 'center', gap: 6 }}>
-          {saving === 'pay_now_checkout_minutes'
-            ? <ActivityIndicator size="small" color="#AF52DE" />
-            : <View style={bc.minutesInputRow}>
-                <TouchableOpacity style={bc.minuteBtn}
-                  onPress={() => { const v = Math.max(5, cfg.pay_now_checkout_minutes - 5); setCfg(p => ({ ...p, pay_now_checkout_minutes: v })); saveMinutes(v); }}
-                  testID="pay-minutes-minus">
-                  <Ionicons name="remove" size={16} color={Colors.foreground} />
+          <View style={bc.minutesRow}>
+            <TouchableOpacity style={bc.minuteBtn}
+              onPress={() => setDraftMinutes(String(Math.max(5, parseInt(draftMinutes) - 5 || 5)))}
+              testID="pay-minutes-minus">
+              <Ionicons name="remove" size={16} color={Colors.foreground} />
+            </TouchableOpacity>
+            <TextInput
+              style={bc.minutesInput}
+              value={draftMinutes}
+              onChangeText={setDraftMinutes}
+              keyboardType="number-pad"
+              selectTextOnFocus
+              testID="pay-minutes-input"
+            />
+            <Text style={bc.minutesUnit}>min</Text>
+            <TouchableOpacity style={bc.minuteBtn}
+              onPress={() => setDraftMinutes(String(Math.min(1440, (parseInt(draftMinutes) || 0) + 5)))}
+              testID="pay-minutes-plus">
+              <Ionicons name="add" size={16} color={Colors.foreground} />
+            </TouchableOpacity>
+            {saving === 'pay_now_checkout_minutes'
+              ? <ActivityIndicator size="small" color="#AF52DE" style={{ marginLeft: 8 }} />
+              : <TouchableOpacity
+                  style={[bc.minutesSaveBtn, !minutesDirty && bc.minutesSaveBtnDisabled]}
+                  onPress={saveMinutes}
+                  disabled={!minutesDirty}
+                  testID="pay-minutes-save">
+                  <Ionicons name="checkmark" size={16} color={minutesDirty ? '#fff' : Colors.muted} />
                 </TouchableOpacity>
-                <Text style={bc.minutesValue} testID="pay-minutes-value">{cfg.pay_now_checkout_minutes} min</Text>
-                <TouchableOpacity style={bc.minuteBtn}
-                  onPress={() => { const v = Math.min(1440, cfg.pay_now_checkout_minutes + 5); setCfg(p => ({ ...p, pay_now_checkout_minutes: v })); saveMinutes(v); }}
-                  testID="pay-minutes-plus">
-                  <Ionicons name="add" size={16} color={Colors.foreground} />
-                </TouchableOpacity>
-              </View>
-          }
+            }
+          </View>
         </View>
       </View>
 
@@ -1498,9 +1518,12 @@ const bc = StyleSheet.create({
   rowStatus:   { fontSize: 11, fontWeight: '600' },
   footer:      { flexDirection: 'row', alignItems: 'flex-start', gap: 6, paddingTop: 8, paddingHorizontal: 4 },
   footerText:  { flex: 1, fontSize: 11, color: Colors.muted, lineHeight: 16 },
-  minutesInputRow: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.background, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, padding: 4 },
-  minuteBtn:   { width: 30, height: 30, borderRadius: 8, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
-  minutesValue:{ fontSize: 14, fontWeight: '700', color: Colors.foreground, minWidth: 55, textAlign: 'center' },
+  minutesRow:  { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
+  minuteBtn:   { width: 32, height: 32, borderRadius: 8, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
+  minutesInput:{ backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, fontSize: 16, fontWeight: '700', color: Colors.foreground, width: 60, textAlign: 'center' },
+  minutesUnit: { fontSize: 14, color: Colors.muted, fontWeight: '600' },
+  minutesSaveBtn: { width: 32, height: 32, borderRadius: 8, backgroundColor: '#AF52DE', alignItems: 'center', justifyContent: 'center', marginLeft: 4 },
+  minutesSaveBtnDisabled: { backgroundColor: Colors.border },
 });
 
 const mf = StyleSheet.create({
