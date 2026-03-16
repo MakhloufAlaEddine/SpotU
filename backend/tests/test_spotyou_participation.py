@@ -18,7 +18,7 @@ import uuid
 import json
 
 # URL de l'API
-API_BASE = "https://stripe-payment-debug-1.preview.emergentagent.com/api"
+API_BASE = "https://cloudflare-uploads.preview.emergentagent.com/api"
 
 
 def _get_valid_tag_ids():

@@ -23,7 +23,7 @@ import pytest
 API_URL = "http://localhost:8001"
 
 # Origines définies dans .env ALLOWED_ORIGINS
-ALLOWED_ORIGIN  = "https://stripe-payment-debug-1.preview.emergentagent.com"
+ALLOWED_ORIGIN  = "https://cloudflare-uploads.preview.emergentagent.com"
 DEV_ORIGIN      = "http://localhost:3000"
 EVIL_ORIGIN     = "https://evil.com"
 

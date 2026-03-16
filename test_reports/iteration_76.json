@@ -46,6 +46,6 @@
   "seed_data_creation": "Données de test utilisées: coach@winek.app a 2 abonnés (Camille Durand, Mohamed Benali). user@winek.app suit Mohamed Benali (1 abonnement).",
   "retest_needed": false,
   "should_main_agent_self_test": false,
-  "context_for_next_testing_agent": "Iteration 76: 100% PASS backend + frontend. Feature followers/following Instagram-style complète et validée. Stats cliquables (followers-count-btn, following-count-btn) → FollowListModal. Filtres, recherche, Suivre/Abonné, 3-dots propriétaire OK. user@winek.app = user_demo001 (Thomas Dupont, Coach). coach@winek.app = user_coach001 (Sophie Martin, Coach). APP_URL=https://stripe-payment-debug-1.preview.emergentagent.com",
+  "context_for_next_testing_agent": "Iteration 76: 100% PASS backend + frontend. Feature followers/following Instagram-style complète et validée. Stats cliquables (followers-count-btn, following-count-btn) → FollowListModal. Filtres, recherche, Suivre/Abonné, 3-dots propriétaire OK. user@winek.app = user_demo001 (Thomas Dupont, Coach). coach@winek.app = user_coach001 (Sophie Martin, Coach). APP_URL=https://cloudflare-uploads.preview.emergentagent.com",
   "rca_of_the_issue": null
 }

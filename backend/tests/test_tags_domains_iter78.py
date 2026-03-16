@@ -6,7 +6,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = "https://stripe-payment-debug-1.preview.emergentagent.com"
+BASE_URL = "https://cloudflare-uploads.preview.emergentagent.com"
 
 ADMIN_EMAIL = "admin@winek.app"
 ADMIN_PASS = "WinekAdmin2024!"
