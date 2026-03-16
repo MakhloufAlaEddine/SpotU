@@ -30,7 +30,14 @@ async function request<T = any>(
       let detail = 'Une erreur est survenue';
       try {
         const err = await res.json();
-        detail = err.detail || detail;
+        if (Array.isArray(err.detail)) {
+          // FastAPI 422 — detail est un tableau d'erreurs de validation
+          detail = err.detail.map((e: any) => e.msg || JSON.stringify(e)).join(', ');
+        } else if (typeof err.detail === 'string') {
+          detail = err.detail;
+        } else if (err.detail) {
+          detail = JSON.stringify(err.detail);
+        }
       } catch {}
       throw classifyHttpError(res.status, detail);
     }

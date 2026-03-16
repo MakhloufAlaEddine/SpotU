@@ -66,7 +66,7 @@ async def update_profile(data: UserUpdate, request: Request):
     for key, val in update_fields.items():
         if key in JSONB_FIELDS and isinstance(val, list):
             set_clauses.append(f"{key} = ${i}::jsonb")
-            values.append(json.dumps(val))
+            values.append(val)  # passer la liste Python directement — asyncpg JSONB codec gère la sérialisation
         else:
             set_clauses.append(f"{key} = ${i}")
             values.append(val)
