@@ -90,12 +90,13 @@ async def public_booking_config():
     pool = get_pool()
     async with pool.acquire() as conn:
         rows = await conn.fetch(
-            "SELECT config_key, config_value FROM app_config WHERE config_key IN ('enable_manual_approval_for_services','enable_pay_later_for_services')"
+            "SELECT config_key, config_value FROM app_config WHERE config_key IN ('enable_manual_approval_for_services','enable_pay_later_for_services','pay_now_checkout_minutes')"
         )
-    cfg = {r["config_key"]: r["config_value"] == "true" for r in rows}
+    cfg = {r["config_key"]: r["config_value"] for r in rows}
     return {
-        "enable_manual_approval_for_services": cfg.get("enable_manual_approval_for_services", False),
-        "enable_pay_later_for_services":       cfg.get("enable_pay_later_for_services", False),
+        "enable_manual_approval_for_services": cfg.get("enable_manual_approval_for_services", "false") == "true",
+        "enable_pay_later_for_services":       cfg.get("enable_pay_later_for_services", "false") == "true",
+        "pay_now_checkout_minutes":            int(cfg.get("pay_now_checkout_minutes", "30")),
     }
 
 @api_router.get("/config/commission", tags=["config"])

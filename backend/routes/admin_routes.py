@@ -424,15 +424,16 @@ async def admin_all_tags(request: Request):
 # ── Configuration globale de l'application ─────────────────────────────────────
 
 async def _get_booking_flags(conn) -> dict:
-    """Retourne les flags de configuration booking sous forme de dict bool."""
+    """Retourne les flags de configuration booking sous forme de dict."""
     rows = await conn.fetch(
         """SELECT config_key, config_value FROM app_config
-           WHERE config_key IN ('enable_manual_approval_for_services', 'enable_pay_later_for_services')"""
+           WHERE config_key IN ('enable_manual_approval_for_services', 'enable_pay_later_for_services', 'pay_now_checkout_minutes')"""
     )
-    cfg = {r["config_key"]: r["config_value"] == "true" for r in rows}
+    cfg = {r["config_key"]: r["config_value"] for r in rows}
     return {
-        "enable_manual_approval_for_services": cfg.get("enable_manual_approval_for_services", False),
-        "enable_pay_later_for_services":       cfg.get("enable_pay_later_for_services", False),
+        "enable_manual_approval_for_services": cfg.get("enable_manual_approval_for_services", "false") == "true",
+        "enable_pay_later_for_services":       cfg.get("enable_pay_later_for_services", "false") == "true",
+        "pay_now_checkout_minutes":            int(cfg.get("pay_now_checkout_minutes", "30")),
     }
 
 
@@ -451,16 +452,17 @@ async def update_app_config(request: Request):
     pool = get_pool()
     await require_role(request, pool, "admin")
     body = await request.json()
-    allowed_keys = {"enable_manual_approval_for_services", "enable_pay_later_for_services"}
+    allowed_keys = {"enable_manual_approval_for_services", "enable_pay_later_for_services", "pay_now_checkout_minutes"}
     updates = {k: v for k, v in body.items() if k in allowed_keys}
     if not updates:
         raise HTTPException(400, "Aucune clé valide fournie")
     async with pool.acquire() as conn:
         for key, value in updates.items():
+            str_value = str(value) if key == "pay_now_checkout_minutes" else ("true" if value else "false")
             await conn.execute(
                 """INSERT INTO app_config (config_key, config_value, updated_at)
                    VALUES ($1, $2, NOW())
                    ON CONFLICT (config_key) DO UPDATE SET config_value=$2, updated_at=NOW()""",
-                key, "true" if value else "false",
+                key, str_value,
             )
-    return {"success": True, **{k: bool(v) for k, v in updates.items()}}
+    return {"success": True, **{k: v for k, v in updates.items()}}

@@ -47,10 +47,23 @@ router = APIRouter()
 
 # TTL configuré dans .env — utilisé pour calculer expires_at à l'INSERT
 BOOKING_EXPIRY_HOURS = int(os.environ.get("BOOKING_EXPIRY_HOURS", "48"))
-# Délai pour payer immédiatement (pay_now) : 30 minutes
-PAY_NOW_CHECKOUT_MINUTES = 30
+# Valeur par défaut si non configuré dans app_config
+DEFAULT_PAY_NOW_CHECKOUT_MINUTES = 30
 # Délai minimum pour pay_later si non configuré par le service
 DEFAULT_PAY_LATER_MINUTES = 1440  # 24h
+
+
+async def _get_pay_now_minutes(conn) -> int:
+    """Lit le délai pay_now depuis app_config, sinon retourne le défaut."""
+    row = await conn.fetchrow(
+        "SELECT config_value FROM app_config WHERE config_key = 'pay_now_checkout_minutes'"
+    )
+    if row:
+        try:
+            return int(row["config_value"])
+        except (ValueError, TypeError):
+            pass
+    return DEFAULT_PAY_NOW_CHECKOUT_MINUTES
 
 # ── Projection commune ─────────────────────────────────────────────────────────
 BOOKING_FIELDS = """
@@ -191,6 +204,9 @@ async def _do_booking_request(data: BookingRequest, request: Request):
         global_allow_manual = cfg.get("enable_manual_approval_for_services", False)
         global_allow_pay_later = cfg.get("enable_pay_later_for_services", False)
 
+        # Délai paiement configurable par l'admin
+        pay_now_checkout_minutes = await _get_pay_now_minutes(conn)
+
         approval_mode    = svc["booking_approval_mode"] or "manual_approval"
         allow_pay_later  = bool(svc["allow_pay_later"])
         expiry_minutes   = int(svc["pay_later_expiration_minutes"] or DEFAULT_PAY_LATER_MINUTES)
@@ -279,7 +295,7 @@ async def _do_booking_request(data: BookingRequest, request: Request):
             if approval_mode == "instant_booking":
                 initial_status      = "awaiting_payment"
                 initial_slot_status = "reserved"
-                mins = PAY_NOW_CHECKOUT_MINUTES if payment_mode == "pay_now" else expiry_minutes
+                mins = pay_now_checkout_minutes if payment_mode == "pay_now" else expiry_minutes
                 expires_at_dt = datetime.now(timezone.utc) + timedelta(minutes=mins)
                 expires_interval = f"{mins} minutes"  # pour les logs seulement
             else:
@@ -484,7 +500,7 @@ async def accept_booking(booking_id: str, request: Request):
         else:
             do_capture = False
             exp_min = int(bk.get("pay_later_expiration_minutes") or DEFAULT_PAY_LATER_MINUTES)
-            pay_expiry_minutes  = PAY_NOW_CHECKOUT_MINUTES if payment_mode == "pay_now" else exp_min
+            pay_expiry_minutes  = await _get_pay_now_minutes(conn) if payment_mode == "pay_now" else exp_min
             pay_expiry_interval = f"{pay_expiry_minutes} minutes"
             from datetime import timedelta
             new_expires_at = datetime.now(timezone.utc) + timedelta(minutes=pay_expiry_minutes)
@@ -526,7 +542,7 @@ async def accept_booking(booking_id: str, request: Request):
 
     _push(pool, bk["payer_user_id"],
           title="Réservation acceptée — paiement requis",
-          body=f"Votre demande a été acceptée. Vous avez {exp_min if payment_mode == 'pay_later' else PAY_NOW_CHECKOUT_MINUTES} min pour payer.",
+          body=f"Votre demande a été acceptée. Vous avez {pay_expiry_minutes} min pour payer.",
           data={"type": "booking_accepted", "bookingId": booking_id,
                 "requires_payment": True, "action_text": "a accepté votre demande"},
           notif_type="booking_accepted")
