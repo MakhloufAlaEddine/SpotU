@@ -120,6 +120,18 @@ export default function BookingDetailScreen() {
   const { expired: isExpired, countdown } = useExpired(booking?.expires_at);
   const sessionCountdown = useSessionCountdown(booking?.slot_date || booking?.scheduled_at);
 
+  // Ref + listener AppState pour refresh après paiement
+  const paymentPendingRef = React.useRef(false);
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && paymentPendingRef.current) {
+        paymentPendingRef.current = false;
+        loadBooking();
+      }
+    });
+    return () => sub.remove();
+  }, [loadBooking]);
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     loadBooking();
@@ -195,18 +207,6 @@ export default function BookingDetailScreen() {
       setPaying(false);
     }
   };
-
-  // Rafraîchir quand l'utilisateur revient du navigateur de paiement
-  const paymentPendingRef = React.useRef(false);
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active' && paymentPendingRef.current) {
-        paymentPendingRef.current = false;
-        loadBooking();
-      }
-    });
-    return () => sub.remove();
-  }, [loadBooking]);
 
   const handleCancel = () => {
     Alert.alert(
