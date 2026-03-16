@@ -12,6 +12,22 @@ import os
 
 BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "").rstrip("/")
 
+
+def _get_valid_tag_ids():
+    """Récupère un tag valide depuis l'API pour respecter la règle métier (au moins 1 tag requis)."""
+    try:
+        resp = requests.get(f"{BASE_URL}/api/tags/categories?domain_id=dom_sport", timeout=5)
+        if resp.status_code == 200:
+            for cat in resp.json():
+                for tag in cat.get("tags", []):
+                    return [tag["tag_id"]]
+    except Exception:
+        pass
+    return ["tag_3x3"]  # fallback hardcodé
+
+
+VALID_TAG_IDS = _get_valid_tag_ids()
+
 SERVICE_ID = "svc_demo001"
 COACH_EMAIL = "coach@winek.app"
 COACH_PASSWORD = "WinekCoach2024!"

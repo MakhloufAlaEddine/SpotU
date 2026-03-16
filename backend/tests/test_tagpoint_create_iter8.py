@@ -20,13 +20,29 @@ def _load_base_url():
                     return line.split('=', 1)[1].strip().rstrip('/')
     except Exception:
         pass
-    return 'https://spotu-capacity-fix.preview.emergentagent.com'
+    return 'https://stripe-payment-debug-1.preview.emergentagent.com'
 
 BASE_URL = _load_base_url()
 USER_EMAIL = "user@winek.app"
 USER_PASS = "WinekUser2024!"
 PARIS_LAT = 48.8566
 PARIS_LNG = 2.3522
+
+
+def _get_valid_tag_ids():
+    """Récupère un tag valide depuis l'API pour respecter la règle métier (au moins 1 tag requis)."""
+    try:
+        resp = requests.get(f"{BASE_URL}/api/tags/categories?domain_id=dom_sport", timeout=5)
+        if resp.status_code == 200:
+            for cat in resp.json():
+                for tag in cat.get("tags", []):
+                    return [tag["tag_id"]]
+    except Exception:
+        pass
+    return ["tag_3x3"]  # fallback hardcodé
+
+
+VALID_TAG_IDS = _get_valid_tag_ids()
 
 
 @pytest.fixture(scope="module")
@@ -57,7 +73,7 @@ class TestNewRecurringScheduleFormat:
             "latitude": PARIS_LAT,
             "longitude": PARIS_LNG,
             "precision": "exact",
-            "tag_ids": [],
+            "tag_ids": VALID_TAG_IDS,
             "domain_id": "dom_sport",
             "images": [],
             "event_schedule": {
@@ -85,7 +101,7 @@ class TestNewRecurringScheduleFormat:
             "latitude": PARIS_LAT,
             "longitude": PARIS_LNG,
             "precision": "exact",
-            "tag_ids": [],
+            "tag_ids": VALID_TAG_IDS,
             "domain_id": "dom_sport",
             "images": [],
             "event_schedule": {
@@ -119,7 +135,7 @@ class TestNewRecurringScheduleFormat:
             "latitude": PARIS_LAT,
             "longitude": PARIS_LNG,
             "precision": "exact",
-            "tag_ids": [],
+            "tag_ids": VALID_TAG_IDS,
             "domain_id": "dom_sport",
             "images": [],
             "event_schedule": {
@@ -143,7 +159,7 @@ class TestNewRecurringScheduleFormat:
             "latitude": PARIS_LAT,
             "longitude": PARIS_LNG,
             "precision": "exact",
-            "tag_ids": [],
+            "tag_ids": VALID_TAG_IDS,
             "domain_id": "dom_sport",
             "images": [],
             "event_schedule": {
@@ -167,7 +183,7 @@ class TestNewRecurringScheduleFormat:
             "latitude": PARIS_LAT,
             "longitude": PARIS_LNG,
             "precision": "exact",
-            "tag_ids": [],
+            "tag_ids": VALID_TAG_IDS,
             "domain_id": "dom_sport",
             "images": [],
             "event_schedule": {"type": "weekly", "day": 0, "time": "18:30"}
@@ -187,7 +203,7 @@ class TestNewRecurringScheduleFormat:
             "latitude": PARIS_LAT,
             "longitude": PARIS_LNG,
             "precision": "100m",
-            "tag_ids": [],
+            "tag_ids": VALID_TAG_IDS,
             "domain_id": "dom_coaching",
             "images": [],
             "event_schedule": {

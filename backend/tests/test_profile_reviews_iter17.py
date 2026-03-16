@@ -13,7 +13,7 @@ import os
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
 if not BASE_URL:
-    BASE_URL = "https://spotu-capacity-fix.preview.emergentagent.com"
+    BASE_URL = "https://stripe-payment-debug-1.preview.emergentagent.com"
 
 USER_EMAIL = "user@winek.app"
 USER_PASSWORD = "WinekUser2024!"
@@ -23,7 +23,43 @@ COACH_PASSWORD = "WinekCoach2024!"
 USER_DEMO001 = "user_demo001"
 USER_DEMO002 = "user_demo002"
 USER_COACH001 = "user_coach001"
-REVIEW_ID_DEMO001_TO_DEMO002 = "rev_5e079e168725"
+REVIEW_ID_DEMO001_TO_DEMO002 = None  # défini dynamiquement dans setup_module
+
+
+def setup_module(module):
+    """Crée un avis de user_demo001 sur user_demo002 pour les tests de mise à jour."""
+    global REVIEW_ID_DEMO001_TO_DEMO002
+    import sys
+
+    login_resp = requests.post(
+        f"{BASE_URL}/api/auth/login",
+        json={"email": USER_EMAIL, "password": USER_PASSWORD}
+    )
+    assert login_resp.status_code == 200, f"Login failed: {login_resp.text}"
+    token = login_resp.json().get("token") or login_resp.json().get("access_token")
+    hdrs = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+
+    # Cherche un avis existant de user_demo001 sur user_demo002
+    r = requests.get(f"{BASE_URL}/api/users/{USER_DEMO002}/reviews", timeout=10)
+    if r.status_code == 200:
+        for rev in r.json():
+            if rev.get("reviewer_id") == USER_DEMO001:
+                REVIEW_ID_DEMO001_TO_DEMO002 = rev["review_id"]
+                sys.modules[__name__].REVIEW_ID_DEMO001_TO_DEMO002 = REVIEW_ID_DEMO001_TO_DEMO002
+                print(f"setup_module: found existing review {REVIEW_ID_DEMO001_TO_DEMO002}")
+                return
+
+    # Crée un nouvel avis si aucun n'existe
+    create_resp = requests.post(
+        f"{BASE_URL}/api/users/{USER_DEMO002}/reviews",
+        json={"rating": 5, "comment": "TEST_Avis créé automatiquement pour iter17"},
+        headers=hdrs,
+        timeout=10,
+    )
+    assert create_resp.status_code in [200, 201], f"Create review failed: {create_resp.text}"
+    REVIEW_ID_DEMO001_TO_DEMO002 = create_resp.json()["review_id"]
+    sys.modules[__name__].REVIEW_ID_DEMO001_TO_DEMO002 = REVIEW_ID_DEMO001_TO_DEMO002
+    print(f"setup_module: created review {REVIEW_ID_DEMO001_TO_DEMO002}")
 
 
 @pytest.fixture(scope="module")

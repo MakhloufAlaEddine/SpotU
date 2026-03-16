@@ -12,7 +12,23 @@ import os
 
 BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "").rstrip("/")
 if not BASE_URL:
-    BASE_URL = "https://spotu-capacity-fix.preview.emergentagent.com"
+    BASE_URL = "https://stripe-payment-debug-1.preview.emergentagent.com"
+
+
+def _get_valid_tag_ids():
+    """Récupère un tag valide depuis l'API pour respecter la règle métier (au moins 1 tag requis)."""
+    try:
+        resp = requests.get(f"{BASE_URL}/api/tags/categories?domain_id=dom_sport", timeout=5)
+        if resp.status_code == 200:
+            for cat in resp.json():
+                for tag in cat.get("tags", []):
+                    return [tag["tag_id"]]
+    except Exception:
+        pass
+    return ["tag_3x3"]  # fallback hardcodé
+
+
+VALID_TAG_IDS = _get_valid_tag_ids()
 
 COACH_EMAIL = "coach@winek.app"
 COACH_PASSWORD = "WinekCoach2024!"
@@ -90,7 +106,7 @@ class TestCreateService:
             "duration_min": 60,
             "max_participants": 5,
             "domain_id": domain_id,
-            "tag_ids": [],
+            "tag_ids": VALID_TAG_IDS,
             "locations": [
                 {
                     "latitude": 48.8566,
@@ -138,7 +154,7 @@ class TestCreateService:
             "title": "TEST_Basic Service No Locations",
             "price": 50.0,
             "domain_id": domain_id,
-            "tag_ids": [],
+            "tag_ids": VALID_TAG_IDS,
             "locations": [],
             "slots": []
         }
@@ -151,15 +167,25 @@ class TestCreateService:
         assert data["slots"] == []
         print("PASS: Service created with empty locations and slots")
 
-    def test_create_service_requires_coach_role(self, user_headers, domain_id):
-        """Regular user should not be able to create a service."""
+    def test_create_service_requires_coach_role(self, domain_id):
+        """Regular user (non-coach) should not be able to create a service."""
+        import uuid
+        # Create a fresh non-coach user to test this restriction
+        temp_email = f"test_nocoach_{uuid.uuid4().hex[:8]}@test.com"
+        reg = requests.post(f"{BASE_URL}/api/auth/register", json={
+            "email": temp_email, "password": "TestPass1234!", "name": "Temp NoCoach", "language": "fr"
+        }, timeout=10)
+        assert reg.status_code == 200, f"Register failed: {reg.text}"
+        token = reg.json().get("token") or reg.json().get("access_token")
+        hdrs = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+
         payload = {
             "title": "TEST_Unauthorized Service",
             "price": 30.0,
             "domain_id": domain_id,
             "tag_ids": []
         }
-        resp = requests.post(f"{BASE_URL}/api/services", json=payload, headers=user_headers)
+        resp = requests.post(f"{BASE_URL}/api/services", json=payload, headers=hdrs)
         assert resp.status_code == 403, f"Expected 403, got {resp.status_code}"
         print("PASS: Non-coach user gets 403 on service creation")
 
@@ -278,7 +304,7 @@ class TestServicePersistence:
             "title": "TEST_Persistence Check Service",
             "price": 100.0,
             "domain_id": domain_id,
-            "tag_ids": [],
+            "tag_ids": VALID_TAG_IDS,
             "locations": [
                 {
                     "latitude": 48.8738,
@@ -328,7 +354,7 @@ class TestServiceMine:
             "title": "TEST_Mine Check Service",
             "price": 80.0,
             "domain_id": domain_id,
-            "tag_ids": [],
+            "tag_ids": VALID_TAG_IDS,
             "locations": [],
             "slots": []
         }

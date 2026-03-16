@@ -47,7 +47,7 @@ def _login(ip: str, creds: dict = BAD_CREDS) -> httpx.Response:
     return httpx.post(
         f"{API_URL}/api/auth/login",
         json=creds,
-        headers={"X-Forwarded-For": ip},
+        headers={"X-Forwarded-For": ip, "X-Test-Rate-Limit": "true"},
         timeout=10,
     )
 
@@ -61,7 +61,7 @@ def _register(ip: str, email_suffix: str = "") -> httpx.Response:
             "name":     "Test User",
             "language": "fr",
         },
-        headers={"X-Forwarded-For": ip},
+        headers={"X-Forwarded-For": ip, "X-Test-Rate-Limit": "true"},
         timeout=10,
     )
 

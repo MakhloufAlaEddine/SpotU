@@ -12,6 +12,22 @@ import os
 
 BASE_URL = os.environ.get('EXPO_PUBLIC_BACKEND_URL', '').rstrip('/')
 
+
+def _get_valid_tag_ids():
+    """Récupère un tag valide depuis l'API pour respecter la règle métier (au moins 1 tag requis)."""
+    try:
+        resp = requests.get(f"{BASE_URL}/api/tags/categories?domain_id=dom_sport", timeout=5)
+        if resp.status_code == 200:
+            for cat in resp.json():
+                for tag in cat.get("tags", []):
+                    return [tag["tag_id"]]
+    except Exception:
+        pass
+    return ["tag_3x3"]  # fallback hardcodé
+
+
+VALID_TAG_IDS = _get_valid_tag_ids()
+
 COACH_EMAIL = "coach@winek.app"
 COACH_PASSWORD = "WinekCoach2024!"
 SVC_DEMO_ID = "svc_demo001"
@@ -45,7 +61,7 @@ class TestMultiDayRecurringSlot:
             "price": 50.0,
             "duration_min": 60,
             "domain_id": "dom_coaching",
-            "tag_ids": [],
+            "tag_ids": VALID_TAG_IDS,
             "max_participants": 1,
             "locations": [],
             "slots": [
@@ -117,7 +133,7 @@ class TestSingleSlotWithDate:
             "price": 75.0,
             "duration_min": 90,
             "domain_id": "dom_coaching",
-            "tag_ids": [],
+            "tag_ids": VALID_TAG_IDS,
             "max_participants": 5,
             "locations": [],
             "slots": [
@@ -127,7 +143,7 @@ class TestSingleSlotWithDate:
                     "day_of_week": None,
                     "start_time": "14:00",
                     "end_time": "15:30",
-                    "slot_date": "2026-03-15"
+                    "slot_date": "2026-06-15"
                 }
             ]
         }
@@ -139,7 +155,7 @@ class TestSingleSlotWithDate:
 
         slot = data["slots"][0]
         assert slot["slot_type"] == "single", f"Expected 'single', got '{slot['slot_type']}'"
-        assert slot["slot_date"] == "2026-03-15", f"Expected '2026-03-15', got '{slot['slot_date']}'"
+        assert slot["slot_date"] == "2026-06-15", f"Expected '2026-06-15', got '{slot['slot_date']}'"
         print(f"PASS: Single slot with slot_date='{slot['slot_date']}'")
 
     def test_get_single_slot_returns_slot_date(self):
@@ -150,7 +166,7 @@ class TestSingleSlotWithDate:
         assert resp.status_code == 200
         data = resp.json()
         slot = data["slots"][0]
-        assert slot["slot_date"] == "2026-03-15", \
+        assert slot["slot_date"] == "2026-06-15", \
             f"slot_date persistence failed, got: {slot['slot_date']}"
         print(f"PASS: GET returns slot_date='{slot['slot_date']}'")
 
@@ -178,7 +194,7 @@ class TestAvailabilityMultiDay:
             "price": 40.0,
             "duration_min": 60,
             "domain_id": "dom_coaching",
-            "tag_ids": [],
+            "tag_ids": VALID_TAG_IDS,
             "max_participants": 1,
             "locations": [],
             "slots": [

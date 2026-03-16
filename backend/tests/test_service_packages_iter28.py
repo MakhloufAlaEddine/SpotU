@@ -9,7 +9,7 @@ import os
 
 BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "").rstrip("/")
 if not BASE_URL:
-    BASE_URL = "https://spotu-capacity-fix.preview.emergentagent.com"
+    BASE_URL = "https://stripe-payment-debug-1.preview.emergentagent.com"
 
 
 @pytest.fixture(scope="module")

@@ -6,7 +6,23 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://spotu-capacity-fix.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://stripe-payment-debug-1.preview.emergentagent.com').rstrip('/')
+
+
+def _get_valid_tag_ids():
+    """Récupère un tag valide depuis l'API pour respecter la règle métier (au moins 1 tag requis)."""
+    try:
+        resp = requests.get(f"{BASE_URL}/api/tags/categories?domain_id=dom_sport", timeout=5)
+        if resp.status_code == 200:
+            for cat in resp.json():
+                for tag in cat.get("tags", []):
+                    return [tag["tag_id"]]
+    except Exception:
+        pass
+    return ["tag_3x3"]  # fallback hardcodé
+
+
+VALID_TAG_IDS = _get_valid_tag_ids()
 
 TEST_USER_EMAIL = "user@winek.app"
 TEST_USER_PASSWORD = "WinekUser2024!"
@@ -44,7 +60,7 @@ class TestCreateTagPointWithEndDate:
             "longitude": 2.3522,
             "precision": "exact",
             "domain_id": "dom_sport",
-            "tag_ids": [],
+            "tag_ids": VALID_TAG_IDS,
             "event_date": "2026-03-15T14:00:00Z",
             "event_end_date": "2026-03-15T15:30:00Z",
             "images": []
@@ -79,7 +95,7 @@ class TestCreateTagPointWithEndDate:
             "longitude": 2.3522,
             "precision": "exact",
             "domain_id": "dom_sport",
-            "tag_ids": [],
+            "tag_ids": VALID_TAG_IDS,
             "event_date": "2026-03-20T10:00:00Z",
             "images": []
         }
@@ -111,7 +127,7 @@ class TestGetTagPointWithEndDate:
             "longitude": 2.3522,
             "precision": "exact",
             "domain_id": "dom_sport",
-            "tag_ids": [],
+            "tag_ids": VALID_TAG_IDS,
             "event_date": "2026-04-10T09:00:00Z",
             "event_end_date": "2026-04-10T11:00:00Z",
             "images": []
@@ -139,7 +155,7 @@ class TestGetTagPointWithEndDate:
             "longitude": 2.3522,
             "precision": "exact",
             "domain_id": "dom_sport",
-            "tag_ids": [],
+            "tag_ids": VALID_TAG_IDS,
             "event_date": "2026-04-15T09:00:00Z",
             "images": []
         }
@@ -170,7 +186,7 @@ class TestUpdateTagPointWithEndDate:
             "longitude": 2.3522,
             "precision": "exact",
             "domain_id": "dom_sport",
-            "tag_ids": [],
+            "tag_ids": VALID_TAG_IDS,
             "event_date": "2026-05-01T14:00:00Z",
             "images": []
         }
@@ -209,7 +225,7 @@ class TestUpdateTagPointWithEndDate:
             "longitude": 2.3522,
             "precision": "exact",
             "domain_id": "dom_sport",
-            "tag_ids": [],
+            "tag_ids": VALID_TAG_IDS,
             "event_date": "2026-05-10T10:00:00Z",
             "event_end_date": "2026-05-10T12:00:00Z",
             "images": []
@@ -246,7 +262,7 @@ class TestUpdateTagPointWithEndDate:
             "longitude": 2.3522,
             "precision": "exact",
             "domain_id": "dom_sport",
-            "tag_ids": [],
+            "tag_ids": VALID_TAG_IDS,
             "event_date": "2026-06-01T09:00:00Z",
             "event_end_date": "2026-06-01T10:30:00Z",
             "images": []

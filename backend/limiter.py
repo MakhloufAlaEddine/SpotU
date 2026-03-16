@@ -11,16 +11,38 @@ Ce comportement permet :
   - La production derrière un ingress K8s d'avoir le bon IP client
   - Les tests d'utiliser des IPs fictives via X-Forwarded-For pour
     s'isoler les uns des autres sans Redux en mémoire partagée
+
+En mode TESTING=true, chaque requête reçoit une clé unique → jamais limité.
 """
+import os
+import uuid
 from fastapi import Request
 from slowapi import Limiter
+
+_TESTING = os.environ.get("TESTING", "").lower() in ("1", "true", "yes")
 
 
 def _get_client_ip(request: Request) -> str:
     """
     Retourne l'IP réelle du client.
-    Préfère X-Forwarded-For (premier hop) si disponible.
+
+    En mode TESTING :
+    - Si le header X-Test-Rate-Limit est présent → tests de rate-limiting explicites,
+      on utilise le X-Forwarded-For tel quel (permet de tester que le rate limit fonctionne).
+    - Sinon → clé unique par requête, jamais rate-limité
+      (permet aux autres tests de s'authentifier librement).
+
+    En production, préfère X-Forwarded-For (premier hop) si disponible.
     """
+    if _TESTING:
+        if request.headers.get("X-Test-Rate-Limit"):
+            # Test de rate-limiting explicite : on respecte le X-Forwarded-For fourni
+            forwarded_for = request.headers.get("X-Forwarded-For", "").strip()
+            if forwarded_for:
+                return forwarded_for.split(",")[0].strip()
+        # Tous les autres tests : clé unique → jamais rate-limité
+        return f"test_{uuid.uuid4().hex}"
+
     forwarded_for = request.headers.get("X-Forwarded-For", "").strip()
     if forwarded_for:
         return forwarded_for.split(",")[0].strip()

@@ -20,12 +20,73 @@ def _load_base_url():
                     return line.split('=', 1)[1].strip().rstrip('/')
     except Exception:
         pass
-    return 'https://spotu-capacity-fix.preview.emergentagent.com'
+    return 'https://stripe-payment-debug-1.preview.emergentagent.com'
 
 BASE_URL = _load_base_url()
+
+
+def _get_valid_tag_ids():
+    """Récupère un tag valide depuis l'API pour respecter la règle métier (au moins 1 tag requis)."""
+    try:
+        resp = requests.get(f"{BASE_URL}/api/tags/categories?domain_id=dom_sport", timeout=5)
+        if resp.status_code == 200:
+            for cat in resp.json():
+                for tag in cat.get("tags", []):
+                    return [tag["tag_id"]]
+    except Exception:
+        pass
+    return ["tag_3x3"]  # fallback hardcodé
+
+
+VALID_TAG_IDS = _get_valid_tag_ids()
 USER_EMAIL = "user@winek.app"
 USER_PASS = "WinekUser2024!"
-OWNED_POINT_ID = "pt_f3d97e5b3271"
+OWNED_POINT_ID = None  # sera défini dans setup_module
+
+
+def setup_module(module):
+    """Crée un tag-point pour les tests de cette suite (règle métier : tag requis)."""
+    global OWNED_POINT_ID
+    login = requests.post(
+        f"{BASE_URL}/api/auth/login",
+        json={"email": USER_EMAIL, "password": USER_PASS},
+        headers={"Content-Type": "application/json"},
+    )
+    assert login.status_code == 200, f"Login failed in setup_module: {login.text}"
+    token = login.json()["token"]
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    payload = {
+        "title": "TEST_Owned Point owner_actions",
+        "latitude": 48.8566,
+        "longitude": 2.3522,
+        "precision": "exact",
+        "tag_ids": VALID_TAG_IDS,
+        "domain_id": "dom_sport",
+        "images": [],
+    }
+    create_resp = requests.post(f"{BASE_URL}/api/tag-points", json=payload, headers=headers)
+    assert create_resp.status_code == 200, f"Setup create failed: {create_resp.text}"
+    OWNED_POINT_ID = create_resp.json()["point_id"]
+    print(f"setup_module: created OWNED_POINT_ID={OWNED_POINT_ID}")
+
+
+def teardown_module(module):
+    """Supprime le tag-point créé dans setup_module."""
+    if not OWNED_POINT_ID:
+        return
+    login = requests.post(
+        f"{BASE_URL}/api/auth/login",
+        json={"email": USER_EMAIL, "password": USER_PASS},
+        headers={"Content-Type": "application/json"},
+    )
+    if login.status_code != 200:
+        return
+    token = login.json()["token"]
+    requests.delete(
+        f"{BASE_URL}/api/tag-points/{OWNED_POINT_ID}",
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+    )
+    print(f"teardown_module: deleted OWNED_POINT_ID={OWNED_POINT_ID}")
 
 
 @pytest.fixture(scope="module")
@@ -227,7 +288,7 @@ class TestDeleteTagPoint:
                 "latitude": 48.8566,
                 "longitude": 2.3522,
                 "precision": "exact",
-                "tag_ids": [],
+                "tag_ids": VALID_TAG_IDS,
                 "domain_id": "dom_sport"
             },
             headers=auth_headers

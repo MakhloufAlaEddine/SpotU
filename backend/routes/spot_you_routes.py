@@ -329,8 +329,17 @@ async def going_spot_you(point_id: str, request: Request):
 
             max_p = point_dict.get("maximum_participants")
 
-            # Vérifier la capacité — au sein de la transaction (cohérent avec le verrou FOR UPDATE)
-            if max_p is not None:
+            # Vérifier si l'utilisateur est déjà inscrit (pour idempotence)
+            is_already_going = await conn.fetchval(
+                """SELECT EXISTS(
+                    SELECT 1 FROM spot_you_attendance
+                    WHERE spot_you_id = $1 AND user_id = $2 AND session_date = $3 AND status = 'going'
+                )""",
+                point_id, user["user_id"], next_date,
+            )
+
+            # Vérifier la capacité uniquement si l'utilisateur n'est pas déjà inscrit
+            if max_p is not None and not is_already_going:
                 going_count = await conn.fetchval(
                     """SELECT COUNT(*) FROM spot_you_attendance
                        WHERE spot_you_id = $1 AND session_date = $2 AND status = 'going'""",

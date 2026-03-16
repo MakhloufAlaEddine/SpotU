@@ -9,7 +9,23 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('EXPO_PUBLIC_BACKEND_URL', 'https://spotu-capacity-fix.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('EXPO_PUBLIC_BACKEND_URL', 'https://stripe-payment-debug-1.preview.emergentagent.com').rstrip('/')
+
+
+def _get_valid_tag_ids():
+    """Récupère un tag valide depuis l'API pour respecter la règle métier (au moins 1 tag requis)."""
+    try:
+        resp = requests.get(f"{BASE_URL}/api/tags/categories?domain_id=dom_sport", timeout=5)
+        if resp.status_code == 200:
+            for cat in resp.json():
+                for tag in cat.get("tags", []):
+                    return [tag["tag_id"]]
+    except Exception:
+        pass
+    return ["tag_3x3"]  # fallback hardcodé
+
+
+VALID_TAG_IDS = _get_valid_tag_ids()
 
 COACH_EMAIL = "coach@winek.app"
 COACH_PASSWORD = "WinekCoach2024!"
@@ -50,7 +66,7 @@ class TestCreateServiceWithLocationIndex:
             "duration_min": 60,
             "max_participants": 5,
             "domain_id": "dom_coaching",
-            "tag_ids": [],
+            "tag_ids": VALID_TAG_IDS,
             "locations": [
                 {"latitude": 48.8566, "longitude": 2.3522, "precision": "exact", "description": "Lieu A - Paris Centre"},
                 {"latitude": 48.8737, "longitude": 2.2950, "precision": "100m", "description": "Lieu B - Bois de Boulogne"},
@@ -185,7 +201,7 @@ class TestUpdateServiceWithLocationIndex:
             "duration_min": 45,
             "max_participants": 3,
             "domain_id": "dom_coaching",
-            "tag_ids": [],
+            "tag_ids": VALID_TAG_IDS,
             "locations": [
                 {"latitude": 48.8500, "longitude": 2.3500, "precision": "exact", "description": "Location Initiale"},
             ],
@@ -332,7 +348,7 @@ class TestGetServiceLocationId:
             "duration_min": 30,
             "max_participants": 1,
             "domain_id": "dom_sport",
-            "tag_ids": [],
+            "tag_ids": VALID_TAG_IDS,
             "locations": [
                 {"latitude": 48.8400, "longitude": 2.3200, "precision": "exact", "description": "Lieu Test GET"},
                 {"latitude": 48.8650, "longitude": 2.3700, "precision": "1000m", "description": "Lieu Test GET 2"},

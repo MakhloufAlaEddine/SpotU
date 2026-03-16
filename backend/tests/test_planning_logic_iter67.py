@@ -23,6 +23,9 @@ SPOT_NOT_JOINED_YOGA   = "pt_demo003"   # Yoga en plein air (Mon/Wed/Fri recurri
 # SpotYou owned by user_demo001 — single-date (for is_own test)
 SPOT_OWN_SINGLE        = "pt_demo001"   # Footing au Parc de la Villette (2026-03-12)
 
+# Module-level state pour partager les session_dates entre tests séquentiels
+_GOING_STATE: dict = {}
+
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -71,6 +74,23 @@ def booking_events(events: list) -> list:
 class TestPlanningReturnsOnlyAttendanceGoing:
     """GET /api/users/me/planning-events should only return sessions with status=going."""
 
+    def test_setup_create_going_record(self, user_client):
+        """
+        Setup : rejoindre SPOT_RECURRING_GOING (pt_demo013) et marquer going.
+        Règle métier : doit rejoindre avant de marquer going.
+        """
+        # Clean state
+        user_client.delete(f"{BASE_URL}/api/spot-you/{SPOT_RECURRING_GOING}/going")
+        user_client.delete(f"{BASE_URL}/api/spot-you/{SPOT_RECURRING_GOING}/leave")
+        # Join first (business rule)
+        resp_join = user_client.post(f"{BASE_URL}/api/spot-you/{SPOT_RECURRING_GOING}/join")
+        assert resp_join.status_code == 200, f"Join failed: {resp_join.status_code}: {resp_join.text}"
+        # Mark going and store session_date for later assertions
+        resp_going = user_client.post(f"{BASE_URL}/api/spot-you/{SPOT_RECURRING_GOING}/going")
+        assert resp_going.status_code == 200, f"Going failed: {resp_going.status_code}: {resp_going.text}"
+        _GOING_STATE[SPOT_RECURRING_GOING] = resp_going.json().get("session_date")
+        print(f"Setup: {SPOT_RECURRING_GOING} going, session_date={_GOING_STATE[SPOT_RECURRING_GOING]}")
+
     def test_planning_returns_200(self, user_client):
         resp = user_client.get(f"{BASE_URL}/api/users/me/planning-events")
         assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
@@ -82,15 +102,14 @@ class TestPlanningReturnsOnlyAttendanceGoing:
         print(f"PASS: Planning returns list of {len(events)} events")
 
     def test_planning_has_going_spotyou_events(self, user_client):
-        """pt_demo012 and pt_demo013 have status=going so should appear in planning."""
+        """SPOT_RECURRING_GOING a été rejoint+going dans test_setup — doit apparaître dans planning."""
         events = get_planning(user_client)
         sy_events = spot_you_events(events)
         point_ids = [e["point_id"] for e in sy_events]
-        
-        # Both existing going sessions should appear
-        assert SPOT_RECURRING_GOING in point_ids or SPOT_RECURRING_GOING2 in point_ids, \
-            f"Expected at least one of {SPOT_RECURRING_GOING}/{SPOT_RECURRING_GOING2} in planning. Got point_ids: {point_ids}"
-        print(f"PASS: SpotYou going sessions appear in planning: {point_ids}")
+
+        assert SPOT_RECURRING_GOING in point_ids, \
+            f"Expected {SPOT_RECURRING_GOING} in planning after going. Got point_ids: {point_ids}"
+        print(f"PASS: SpotYou going session appears in planning: {point_ids}")
 
     def test_planning_spotyou_events_count_matches_attendance(self, user_client):
         """
@@ -107,33 +126,28 @@ class TestPlanningReturnsOnlyAttendanceGoing:
 
     def test_planning_recurring_event_has_precise_session_date(self, user_client):
         """
-        For a recurring SpotYou, the date in planning must be the exact session_date from
-        spot_you_attendance, not a generated recurring occurrence.
+        Pour un SpotYou récurrent, la date dans le planning doit être la session_date exacte
+        retournée par /going (pas une occurrence générée).
         """
         events = get_planning(user_client)
-        # pt_demo013 session_date = 2026-03-10 (today)
         demo013_events = [e for e in events if e.get("point_id") == SPOT_RECURRING_GOING]
-        
-        # pt_demo012 session_date = 2026-03-13
-        demo012_events = [e for e in events if e.get("point_id") == SPOT_RECURRING_GOING2]
 
-        # At least one should be present
-        assert demo013_events or demo012_events, \
-            "Neither pt_demo013 nor pt_demo012 found in planning"
+        assert demo013_events, f"pt_demo013 should be in planning after setup. Got: {[e.get('point_id') for e in events]}"
 
-        if demo013_events:
-            evt = demo013_events[0]
-            assert evt["date"] == "2026-03-10", \
-                f"pt_demo013 date should be 2026-03-10 (precise session_date), got {evt['date']}"
-            assert evt["type"] == "recurring", f"Expected type=recurring, got {evt['type']}"
-            print(f"PASS: pt_demo013 has precise session_date 2026-03-10, type=recurring")
+        evt = demo013_events[0]
+        expected_date = _GOING_STATE.get(SPOT_RECURRING_GOING)
+        assert expected_date, "session_date from /going not stored in _GOING_STATE (setup failed?)"
+        assert evt["date"] == expected_date, \
+            f"pt_demo013 date should match session_date returned by /going ({expected_date}), got {evt['date']}"
+        assert evt["type"] == "recurring", f"Expected type=recurring, got {evt['type']}"
+        print(f"PASS: pt_demo013 has precise session_date {expected_date}, type=recurring")
 
-        if demo012_events:
-            evt = demo012_events[0]
-            assert evt["date"] == "2026-03-13", \
-                f"pt_demo012 date should be 2026-03-13 (precise session_date), got {evt['date']}"
-            assert evt["type"] == "recurring", f"Expected type=recurring, got {evt['type']}"
-            print(f"PASS: pt_demo012 has precise session_date 2026-03-13, type=recurring")
+    def test_cleanup_going_records(self, user_client):
+        """Nettoyer les enregistrements going créés dans test_setup_create_going_record."""
+        user_client.delete(f"{BASE_URL}/api/spot-you/{SPOT_RECURRING_GOING}/going")
+        user_client.delete(f"{BASE_URL}/api/spot-you/{SPOT_RECURRING_GOING}/leave")
+        _GOING_STATE.pop(SPOT_RECURRING_GOING, None)
+        print(f"Cleanup: {SPOT_RECURRING_GOING} going/leave supprimés")
 
 
 class TestJoinDoesNotAddToPlanning:
@@ -171,17 +185,20 @@ class TestGoingAddsToPlanning:
     """POST /api/spot-you/{id}/going should add the specific session to planning."""
 
     def test_setup_ensure_not_going(self, user_client):
-        """Ensure clean state: not going to SPOT_NOT_JOINED_YOGA."""
+        """Ensure clean state: not going to SPOT_NOT_JOINED_YOGA, then join (règle métier)."""
         # Delete going first (idempotent)
         user_client.delete(f"{BASE_URL}/api/spot-you/{SPOT_NOT_JOINED_YOGA}/going")
         user_client.delete(f"{BASE_URL}/api/spot-you/{SPOT_NOT_JOINED_YOGA}/leave")
-        
+        # Règle métier : must join before going
+        resp_join = user_client.post(f"{BASE_URL}/api/spot-you/{SPOT_NOT_JOINED_YOGA}/join")
+        assert resp_join.status_code == 200, f"Join failed: {resp_join.status_code}: {resp_join.text}"
+
         events = get_planning(user_client)
         sy_events = spot_you_events(events)
         ids = {e["point_id"] for e in sy_events}
         assert SPOT_NOT_JOINED_YOGA not in ids, \
             f"Clean state: {SPOT_NOT_JOINED_YOGA} should not be in planning before test"
-        print(f"PASS: Setup — {SPOT_NOT_JOINED_YOGA} not in planning")
+        print(f"PASS: Setup — {SPOT_NOT_JOINED_YOGA} not in planning, joined ✓")
 
     def test_going_adds_to_planning(self, user_client):
         """POST /going → spot appears in planning."""
@@ -246,12 +263,18 @@ class TestIsOwnForOwner:
 
     def test_owner_going_to_own_spotyou_has_is_own_true(self, user_client):
         """
-        user_demo001 owns pt_demo001 (Footing, single-date 2026-03-12).
-        After /going, the event in planning should have is_own=true.
+        user_demo001 owns pt_demo001 (Footing, single-date).
+        Règle métier : doit rejoindre avant de marquer going (même en tant que propriétaire).
+        Après /going, l'événement dans le planning doit avoir is_own=true.
         """
         # Clean state
         user_client.delete(f"{BASE_URL}/api/spot-you/{SPOT_OWN_SINGLE}/going")
-        
+        user_client.delete(f"{BASE_URL}/api/spot-you/{SPOT_OWN_SINGLE}/leave")
+
+        # Règle métier : must join before going
+        resp_join = user_client.post(f"{BASE_URL}/api/spot-you/{SPOT_OWN_SINGLE}/join")
+        assert resp_join.status_code == 200, f"Join (owner) failed: {resp_join.status_code}: {resp_join.text}"
+
         resp = user_client.post(f"{BASE_URL}/api/spot-you/{SPOT_OWN_SINGLE}/going")
         assert resp.status_code == 200, f"Going on own spot failed: {resp.status_code}: {resp.text}"
         
@@ -267,10 +290,10 @@ class TestIsOwnForOwner:
         print(f"PASS: Owner going to own SpotYou → is_own=True, type=single, date={evt['date']}")
 
     def test_cleanup_owner_not_going(self, user_client):
-        """Clean up: remove going status for SPOT_OWN_SINGLE."""
-        resp = user_client.delete(f"{BASE_URL}/api/spot-you/{SPOT_OWN_SINGLE}/going")
-        assert resp.status_code == 200
-        print(f"PASS: Cleanup — not going {SPOT_OWN_SINGLE}")
+        """Clean up: remove going status and leave for SPOT_OWN_SINGLE."""
+        user_client.delete(f"{BASE_URL}/api/spot-you/{SPOT_OWN_SINGLE}/going")
+        user_client.delete(f"{BASE_URL}/api/spot-you/{SPOT_OWN_SINGLE}/leave")
+        print(f"PASS: Cleanup — not going and left {SPOT_OWN_SINGLE}")
 
 
 class TestBookingsStillAppear:
@@ -316,27 +339,34 @@ class TestSingleDateSpotYouPlanning:
 
     def test_single_date_going_appears_with_correct_date(self, user_client):
         """
-        pt_demo006 (Sortie vélo 2026-03-14 09:00 UTC) → Paris = 10:00 (UTC+1)
-        This spot is NOT owned by user_demo001, so is_own should be False.
+        pt_demo006 (Sortie vélo, single-date) — la date est dynamique (mise à jour par le seed).
+        Règle métier : doit rejoindre avant de marquer going.
         """
-        SPOT_SINGLE = "pt_demo006"  # Sortie vélo
-        
+        SPOT_SINGLE = "pt_demo006"
+
         # Clean state
         user_client.delete(f"{BASE_URL}/api/spot-you/{SPOT_SINGLE}/going")
         user_client.delete(f"{BASE_URL}/api/spot-you/{SPOT_SINGLE}/leave")
-        
+
+        # Règle métier : must join before going
+        resp_join = user_client.post(f"{BASE_URL}/api/spot-you/{SPOT_SINGLE}/join")
+        assert resp_join.status_code == 200, f"Join failed: {resp_join.status_code}: {resp_join.text}"
+
         resp = user_client.post(f"{BASE_URL}/api/spot-you/{SPOT_SINGLE}/going")
         assert resp.status_code == 200, f"Going on single-date spot failed: {resp.status_code}: {resp.text}"
-        
+
+        # La date attendue est celle retournée par /going (dynamique)
+        expected_date = resp.json().get("session_date", "")
+
         events = get_planning(user_client)
         single_events = [e for e in events if e.get("point_id") == SPOT_SINGLE]
-        
+
         assert len(single_events) == 1, \
             f"Expected 1 event for {SPOT_SINGLE}, got {len(single_events)}: {single_events}"
         evt = single_events[0]
-        
+
         assert evt["type"] == "single", f"Expected type=single, got {evt['type']}"
-        assert evt["date"] == "2026-03-14", f"Expected date=2026-03-14, got {evt['date']}"
+        assert evt["date"] == expected_date, f"Expected date={expected_date} (from /going), got {evt['date']}"
         assert evt.get("is_own") is False, f"Expected is_own=False for non-owned spot, got {evt.get('is_own')}"
         print(f"PASS: Single-date SpotYou appears with correct date {evt['date']}, is_own=False, time={evt.get('time')}")
 
@@ -355,7 +385,11 @@ class TestGoingEndpointDetails:
         # Clean state
         user_client.delete(f"{BASE_URL}/api/spot-you/{SPOT_NOT_JOINED}/going")
         user_client.delete(f"{BASE_URL}/api/spot-you/{SPOT_NOT_JOINED}/leave")
-        
+
+        # Règle métier : must join before going
+        resp_join = user_client.post(f"{BASE_URL}/api/spot-you/{SPOT_NOT_JOINED}/join")
+        assert resp_join.status_code == 200, f"Join failed: {resp_join.status_code}: {resp_join.text}"
+
         resp = user_client.post(f"{BASE_URL}/api/spot-you/{SPOT_NOT_JOINED}/going")
         assert resp.status_code == 200, f"Going failed: {resp.status_code}: {resp.text}"
         data = resp.json()

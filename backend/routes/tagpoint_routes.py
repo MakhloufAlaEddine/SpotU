@@ -1113,19 +1113,25 @@ async def create_tag_point(data: TagPointCreate, request: Request):
     if data.images and len(data.images) > 10:
         raise HTTPException(status_code=400, detail="Maximum 10 images autorisées")
 
+    # Validation : au moins un tag requis (règle métier)
+    if not data.tag_ids:
+        raise HTTPException(status_code=400, detail="Au moins un tag est requis.")
+
+    # Validation capacité : min ne peut pas dépasser max
+    min_p, max_p = data.minimum_participants, data.maximum_participants
+    if min_p is not None and max_p is not None and min_p > max_p:
+        raise HTTPException(status_code=400, detail="Le nombre minimum de participants ne peut pas dépasser le maximum.")
+
     stored_lat, stored_lng = randomize_for_storage(data.latitude, data.longitude, data.precision)
     event_schedule_val = data.event_schedule
 
-    # Règles métier capacité
-    min_p, max_p = data.minimum_participants, data.maximum_participants
+    # Valeurs par défaut capacité (si un seul champ fourni)
     if min_p is not None and max_p is None:
         max_p = min_p
     elif max_p is not None and min_p is None:
         min_p = max_p
     if min_p is not None and min_p < 1:
         min_p = 1
-    if min_p is not None and max_p is not None and max_p < min_p:
-        max_p = min_p
 
     async with pool.acquire() as conn:
         await conn.execute(
@@ -1201,6 +1207,10 @@ async def update_tag_point(point_id: str, data: TagPointUpdate, request: Request
         if 'images' in raw and raw['images'] is not None and len(raw['images']) > 10:
             raise HTTPException(status_code=400, detail="Maximum 10 images autorisées")
 
+        # Validation : tag_ids ne peut pas être vidé (règle métier)
+        if 'tag_ids' in raw and raw['tag_ids'] is not None and len(raw['tag_ids']) == 0:
+            raise HTTPException(status_code=400, detail="Au moins un tag est requis.")
+
         # Appliquer les règles métier capacité si l'un des deux champs est fourni
         if 'minimum_participants' in raw or 'maximum_participants' in raw:
             # Récupérer les valeurs existantes pour compléter les non-fournies
@@ -1213,6 +1223,9 @@ async def update_tag_point(point_id: str, data: TagPointUpdate, request: Request
                 ex_min_db, ex_max_db = None, None
             min_p = raw.get('minimum_participants', ex_min_db)
             max_p = raw.get('maximum_participants', ex_max_db)
+            # Validation : min ne peut pas dépasser max
+            if min_p is not None and max_p is not None and min_p > max_p:
+                raise HTTPException(status_code=400, detail="Le nombre minimum de participants ne peut pas dépasser le maximum.")
             if min_p is not None and max_p is None:
                 max_p = min_p
                 raw['maximum_participants'] = max_p
@@ -1221,8 +1234,6 @@ async def update_tag_point(point_id: str, data: TagPointUpdate, request: Request
                 raw['minimum_participants'] = min_p
             if min_p is not None and min_p < 1:
                 raw['minimum_participants'] = 1
-            if min_p is not None and max_p is not None and max_p < min_p:
-                raw['maximum_participants'] = min_p
 
         # Détecter les vrais changements avant de construire la requête
         lat = raw.pop('latitude', None)

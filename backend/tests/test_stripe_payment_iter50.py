@@ -30,7 +30,7 @@ import json
 
 BASE_URL = os.environ.get(
     "EXPO_PUBLIC_BACKEND_URL",
-    "https://spotu-capacity-fix.preview.emergentagent.com"
+    "https://stripe-payment-debug-1.preview.emergentagent.com"
 ).rstrip("/")
 
 # ── Credentials ────────────────────────────────────────────────────────────────
@@ -38,11 +38,75 @@ USER_CREDS  = {"email": "user@winek.app",  "password": "WinekUser2024!"}
 COACH_CREDS = {"email": "coach@winek.app", "password": "WinekCoach2024!"}
 ADMIN_CREDS = {"email": "admin@winek.app", "password": "WinekAdmin2024!"}
 
-# svc_demo001 owned by coach@winek.app (user_coach001)
+# svc_demo001 owned by coach@winek.app (user_coach001) — may be overridden by setup_module
 TEST_SERVICE_ID = "svc_demo001"
 
 _token_cache: dict = {}
 _cleanup_bookings: list = []
+_SETUP_SVC_ID: str = None  # set in setup_module
+
+
+def setup_module(module):
+    """
+    Crée un service de test dédié en mode 'requires_approval' pour les tests de booking.
+    Active le flag global 'enable_manual_approval_for_services' via l'admin.
+    """
+    global TEST_SERVICE_ID, _SETUP_SVC_ID
+    import sys
+    from datetime import datetime, timedelta
+
+    # 1. Activer le flag global manual approval via admin
+    admin_tok = requests.post(f"{BASE_URL}/api/auth/login", json=ADMIN_CREDS, timeout=15)
+    assert admin_tok.status_code == 200, f"Admin login failed: {admin_tok.text}"
+    admin_token = admin_tok.json().get("token") or admin_tok.json().get("access_token")
+    admin_hdrs = {"Authorization": f"Bearer {admin_token}", "Content-Type": "application/json"}
+    r = requests.put(f"{BASE_URL}/api/admin/app-config",
+                     json={"enable_manual_approval_for_services": True},
+                     headers=admin_hdrs, timeout=10)
+    assert r.status_code == 200, f"Enable manual approval failed: {r.text}"
+
+    # 2. Créer un service de test en mode requires_approval
+    coach_tok = requests.post(f"{BASE_URL}/api/auth/login", json=COACH_CREDS, timeout=15)
+    assert coach_tok.status_code == 200, f"Coach login failed: {coach_tok.text}"
+    coach_token = coach_tok.json().get("token") or coach_tok.json().get("access_token")
+    coach_hdrs = {"Authorization": f"Bearer {coach_token}", "Content-Type": "application/json"}
+
+    future_dates = [(datetime.now() + timedelta(days=40+i)).strftime("%Y-%m-%d") for i in range(15)]
+    slots = [{"slot_date": d, "start_time": "10:00", "end_time": "11:00", "capacity": 5} for d in future_dates]
+    payload = {
+        "title": "TEST Stripe Payment Service iter50",
+        "description": "Service temporaire pour les tests Stripe",
+        "price": 50.0,
+        "duration_min": 60,
+        "domain_id": "dom_coaching",
+        "tag_ids": ["tag_coaching_perf"],
+        "images": [],
+        "booking_approval_mode": "requires_approval",
+        "locations": [{"address": "Paris", "latitude": 48.8566, "longitude": 2.3522}],
+        "slots": slots,
+    }
+    svc_resp = requests.post(f"{BASE_URL}/api/services", json=payload, headers=coach_hdrs, timeout=15)
+    assert svc_resp.status_code == 200, f"Create service failed: {svc_resp.text}"
+    _SETUP_SVC_ID = svc_resp.json()["service_id"]
+    TEST_SERVICE_ID = _SETUP_SVC_ID
+    sys.modules[__name__].TEST_SERVICE_ID = TEST_SERVICE_ID
+    sys.modules[__name__]._SETUP_SVC_ID = _SETUP_SVC_ID
+    print(f"setup_module: service {TEST_SERVICE_ID} created (requires_approval mode)")
+
+
+def teardown_module(module):
+    """Supprime le service de test et remet le flag à sa valeur par défaut."""
+    if not _SETUP_SVC_ID:
+        return
+    try:
+        coach_tok = requests.post(f"{BASE_URL}/api/auth/login", json=COACH_CREDS, timeout=10)
+        if coach_tok.status_code == 200:
+            token = coach_tok.json().get("token") or coach_tok.json().get("access_token")
+            requests.delete(f"{BASE_URL}/api/services/{_SETUP_SVC_ID}",
+                            headers={"Authorization": f"Bearer {token}"}, timeout=10)
+            print(f"teardown_module: service {_SETUP_SVC_ID} supprimé")
+    except Exception as e:
+        print(f"teardown_module warning: {e}")
 
 
 # ── Auth helpers ───────────────────────────────────────────────────────────────
@@ -60,8 +124,10 @@ def auth_headers(token: str) -> dict:
     return {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
 
-def create_test_booking(headers: dict, notes: str = "TEST_iter50", service_id: str = TEST_SERVICE_ID) -> dict:
+def create_test_booking(headers: dict, notes: str = "TEST_iter50", service_id: str = None) -> dict:
     """Helper: crée une réservation sans slot_id pour éviter les conflits."""
+    if service_id is None:
+        service_id = TEST_SERVICE_ID  # Utilise la valeur courante au moment de l'appel
     resp = requests.post(
         f"{BASE_URL}/api/bookings/request",
         headers=headers,

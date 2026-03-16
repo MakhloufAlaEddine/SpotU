@@ -11,7 +11,23 @@ import requests
 import os
 import json
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://spotu-capacity-fix.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://stripe-payment-debug-1.preview.emergentagent.com').rstrip('/')
+
+
+def _get_valid_tag_ids():
+    """Récupère un tag valide depuis l'API pour respecter la règle métier (au moins 1 tag requis)."""
+    try:
+        resp = requests.get(f"{BASE_URL}/api/tags/categories?domain_id=dom_sport", timeout=5)
+        if resp.status_code == 200:
+            for cat in resp.json():
+                for tag in cat.get("tags", []):
+                    return [tag["tag_id"]]
+    except Exception:
+        pass
+    return ["tag_3x3"]  # fallback hardcodé
+
+
+VALID_TAG_IDS = _get_valid_tag_ids()
 SERVICE_ID = "svc_b184a9f7f6db"  # owned by user_demo001 (user@winek.app)
 
 # ─── Fixtures ─────────────────────────────────────────────────────────────────
@@ -135,7 +151,7 @@ class TestServiceImagesPost:
             "price": 50.0,
             "duration_min": 60,
             "domain_id": "dom_sport",
-            "tag_ids": [],
+            "tag_ids": VALID_TAG_IDS,
             "images": test_images,
             "locations": [],
             "packages": [{

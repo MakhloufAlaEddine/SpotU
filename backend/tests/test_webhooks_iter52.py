@@ -52,7 +52,7 @@ import pytest
 
 API_BASE = os.environ.get(
     "EXPO_PUBLIC_BACKEND_URL",
-    "https://spotu-capacity-fix.preview.emergentagent.com",
+    "https://stripe-payment-debug-1.preview.emergentagent.com",
 ).rstrip("/")
 
 DB_URL = os.environ.get(

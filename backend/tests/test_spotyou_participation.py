@@ -18,7 +18,23 @@ import uuid
 import json
 
 # URL de l'API
-API_BASE = "https://spotu-capacity-fix.preview.emergentagent.com/api"
+API_BASE = "https://stripe-payment-debug-1.preview.emergentagent.com/api"
+
+
+def _get_valid_tag_ids():
+    """Récupère un tag valide depuis l'API pour respecter la règle métier (au moins 1 tag requis)."""
+    try:
+        resp = requests.get(f"{BASE_URL}/api/tags/categories?domain_id=dom_sport", timeout=5)
+        if resp.status_code == 200:
+            for cat in resp.json():
+                for tag in cat.get("tags", []):
+                    return [tag["tag_id"]]
+    except Exception:
+        pass
+    return ["tag_3x3"]  # fallback hardcodé
+
+
+VALID_TAG_IDS = _get_valid_tag_ids()
 
 # Credentials
 COACH_EMAIL = "coach@winek.app"
@@ -54,14 +70,24 @@ def user_auth(user_token):
 
 
 def get_spot_with_schedule(client, auth) -> str:
-    """Récupère un SpotYou avec event_schedule pour les tests."""
-    r = client.get("/tag-points?limit=20", headers=auth)
+    """Récupère un SpotYou non-plein avec event_schedule, en supprimant l'éventuel 'going' préalable."""
+    r = client.get("/tag-points?limit=30", headers=auth)
     assert r.status_code == 200
     pts = r.json()
     pts_list = pts.get("points", pts) if isinstance(pts, dict) else pts
+    # Cherche un SpotYou avec schedule qui n'est pas plein
+    for p in pts_list:
+        if p.get("event_schedule") and not p.get("is_full", False):
+            point_id = p["point_id"]
+            # Nettoyer un éventuel going préalable pour garantir la disponibilité
+            client.delete(f"/spot-you/{point_id}/going", headers=auth)
+            return point_id
+    # Fallback : n'importe quel SpotYou avec schedule (en nettoyant)
     for p in pts_list:
         if p.get("event_schedule"):
-            return p["point_id"]
+            point_id = p["point_id"]
+            client.delete(f"/spot-you/{point_id}/going", headers=auth)
+            return point_id
     pytest.skip("Aucun SpotYou avec event_schedule disponible")
 
 
@@ -215,7 +241,7 @@ class TestCapacityLimit:
             "latitude": 48.8566,
             "longitude": 2.3522,
             "domain_id": "dom_sport",
-            "tag_ids": [],
+            "tag_ids": VALID_TAG_IDS,
             "event_schedule": {
                 "type": "weekly",
                 "schedule": {"0": [{"start": "10:00", "end": "11:00"}]}
@@ -234,7 +260,7 @@ class TestCapacityLimit:
         r = client.post("/tag-points", headers=coach_auth, json={
             "title": "Test auto-fill " + str(uuid.uuid4())[:8],
             "latitude": 48.8566, "longitude": 2.3522,
-            "domain_id": "dom_sport", "tag_ids": [],
+            "domain_id": "dom_sport", "tag_ids": VALID_TAG_IDS,
             "maximum_participants": 5,
         })
         assert r.status_code == 200
@@ -247,7 +273,7 @@ class TestCapacityLimit:
         r = client.post("/tag-points", headers=coach_auth, json={
             "title": "Test auto-fill min " + str(uuid.uuid4())[:8],
             "latitude": 48.8566, "longitude": 2.3522,
-            "domain_id": "dom_sport", "tag_ids": [],
+            "domain_id": "dom_sport", "tag_ids": VALID_TAG_IDS,
             "minimum_participants": 3,
         })
         assert r.status_code == 200

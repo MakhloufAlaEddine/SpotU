@@ -12,7 +12,23 @@ import io
 
 BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "").rstrip("/")
 if not BASE_URL:
-    BASE_URL = "https://spotu-capacity-fix.preview.emergentagent.com"
+    BASE_URL = "https://stripe-payment-debug-1.preview.emergentagent.com"
+
+
+def _get_valid_tag_ids():
+    """Récupère un tag valide depuis l'API pour respecter la règle métier (au moins 1 tag requis)."""
+    try:
+        resp = requests.get(f"{BASE_URL}/api/tags/categories?domain_id=dom_sport", timeout=5)
+        if resp.status_code == 200:
+            for cat in resp.json():
+                for tag in cat.get("tags", []):
+                    return [tag["tag_id"]]
+    except Exception:
+        pass
+    return ["tag_3x3"]  # fallback hardcodé
+
+
+VALID_TAG_IDS = _get_valid_tag_ids()
 
 AUTH_URL = f"{BASE_URL}/api/auth/login"
 UPLOAD_URL = f"{BASE_URL}/api/upload-image"
@@ -171,7 +187,7 @@ class TestTagPointWithImages:
             "longitude": 2.3522,
             "precision": "exact",
             "domain_id": "dom_sport",
-            "tag_ids": [],
+            "tag_ids": VALID_TAG_IDS,
             "images": [image_url],
         }
         headers = {**auth_headers, "Content-Type": "application/json"}
@@ -195,7 +211,7 @@ class TestTagPointWithImages:
             "longitude": 2.3522,
             "precision": "exact",
             "domain_id": "dom_sport",
-            "tag_ids": [],
+            "tag_ids": VALID_TAG_IDS,
             "images": [image_url],
         }
         headers = {**auth_headers, "Content-Type": "application/json"}
@@ -216,7 +232,7 @@ class TestTagPointWithImages:
             "longitude": 2.3522,
             "precision": "exact",
             "domain_id": "dom_sport",
-            "tag_ids": [],
+            "tag_ids": VALID_TAG_IDS,
             "images": [image_url],
         }
         headers = {**auth_headers, "Content-Type": "application/json"}
@@ -291,7 +307,7 @@ class TestTagPointWithImages:
             "longitude": 2.3522,
             "precision": "exact",
             "domain_id": "dom_sport",
-            "tag_ids": [],
+            "tag_ids": VALID_TAG_IDS,
             "images": [],
         }
         headers = {**auth_headers, "Content-Type": "application/json"}
@@ -320,7 +336,7 @@ class TestTagPointWithImages:
             "longitude": 2.3522,
             "precision": "exact",
             "domain_id": "dom_sport",
-            "tag_ids": [],
+            "tag_ids": VALID_TAG_IDS,
             "images": [image_url, image_url],  # Duplicate URL is OK for test
         }
         headers = {**auth_headers, "Content-Type": "application/json"}

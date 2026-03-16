@@ -11,6 +11,22 @@ import os
 
 BASE_URL = os.environ.get('EXPO_PUBLIC_BACKEND_URL', '').rstrip('/')
 
+
+def _get_valid_tag_ids():
+    """Récupère un tag valide depuis l'API pour respecter la règle métier (au moins 1 tag requis)."""
+    try:
+        resp = requests.get(f"{BASE_URL}/api/tags/categories?domain_id=dom_sport", timeout=5)
+        if resp.status_code == 200:
+            for cat in resp.json():
+                for tag in cat.get("tags", []):
+                    return [tag["tag_id"]]
+    except Exception:
+        pass
+    return ["tag_3x3"]  # fallback hardcodé
+
+
+VALID_TAG_IDS = _get_valid_tag_ids()
+
 COACH_EMAIL = "coach@winek.app"
 COACH_PASSWORD = "WinekCoach2024!"
 USER_EMAIL = "user@winek.app"
@@ -63,7 +79,7 @@ class TestCreateServiceSlotTypes:
             "price": 50.0,
             "duration_min": 60,
             "domain_id": "dom_coaching",
-            "tag_ids": [],
+            "tag_ids": VALID_TAG_IDS,
             "max_participants": 1,
             "locations": [],
             "slots": [
@@ -115,7 +131,7 @@ class TestCreateServiceSlotTypes:
             "price": 75.0,
             "duration_min": 90,
             "domain_id": "dom_coaching",
-            "tag_ids": [],
+            "tag_ids": VALID_TAG_IDS,
             "max_participants": 5,
             "locations": [],
             "slots": [
@@ -124,7 +140,7 @@ class TestCreateServiceSlotTypes:
                     "day_of_week": None,
                     "start_time": "14:00",
                     "end_time": "15:30",
-                    "slot_date": "2026-03-15"
+                    "slot_date": "2026-06-15"
                 }
             ]
         }
@@ -135,7 +151,7 @@ class TestCreateServiceSlotTypes:
 
         slot = data["slots"][0]
         assert slot["slot_type"] == "single", f"Expected 'single', got '{slot['slot_type']}'"
-        assert slot["slot_date"] == "2026-03-15", f"Expected '2026-03-15', got '{slot['slot_date']}'"
+        assert slot["slot_date"] == "2026-06-15", f"Expected '2026-06-15', got '{slot['slot_date']}'"
         assert slot["day_of_week"] is None
         print(f"PASS: Created service with single slot, slot_date='{slot['slot_date']}'")
 
@@ -150,7 +166,7 @@ class TestCreateServiceSlotTypes:
             "price": 40.0,
             "duration_min": 60,
             "domain_id": "dom_coaching",
-            "tag_ids": [],
+            "tag_ids": VALID_TAG_IDS,
             "max_participants": 1,
             "locations": [],
             "slots": [

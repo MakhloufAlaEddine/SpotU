@@ -5,15 +5,72 @@ Tests: title/price update, locations/slots replacement, owner check
 import pytest
 import requests
 import os
+from datetime import datetime, timedelta
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://spotu-capacity-fix.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", os.environ.get("REACT_APP_BACKEND_URL", "")).rstrip("/")
 
-SERVICE_ID = "svc_4842a8361c1f"  # Coaching Running Paris - coach@winek.app owns this
+SERVICE_ID = None  # défini dynamiquement dans setup_module
 
 COACH_EMAIL = "coach@winek.app"
 COACH_PWD = "WinekCoach2024!"
 USER_EMAIL = "user@winek.app"
 USER_PWD = "WinekUser2024!"
+
+
+def setup_module(module):
+    """Crée un service de test dédié pour éviter les conflits avec les données seed."""
+    global SERVICE_ID
+    import sys
+
+    resp = requests.post(f"{BASE_URL}/api/auth/login",
+                         json={"email": COACH_EMAIL, "password": COACH_PWD})
+    assert resp.status_code == 200, f"Login coach failed: {resp.text}"
+    token = resp.json().get("token") or resp.json().get("access_token")
+    hdrs = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+
+    # Récupère un tag valide
+    tag_ids = ["tag_3x3"]
+    try:
+        r = requests.get(f"{BASE_URL}/api/tags/categories?domain_id=dom_sport", timeout=5)
+        if r.status_code == 200:
+            for cat in r.json():
+                for tag in cat.get("tags", []):
+                    tag_ids = [tag["tag_id"]]
+                    break
+    except Exception:
+        pass
+
+    future_date = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
+    payload = {
+        "title": "TEST Edit Service iter22",
+        "description": "Service temporaire pour tests",
+        "price": 50.0,
+        "duration_min": 60,
+        "domain_id": "dom_sport",
+        "tag_ids": tag_ids,
+        "images": [],
+        "booking_approval_mode": "instant",
+        "locations": [{"address": "Paris", "latitude": 48.8566, "longitude": 2.3522}],
+        "slots": [{"slot_date": future_date, "start_time": "09:00", "end_time": "10:00", "capacity": 5}],
+    }
+    resp = requests.post(f"{BASE_URL}/api/services", json=payload, headers=hdrs, timeout=15)
+    assert resp.status_code == 200, f"Create service failed: {resp.text}"
+    SERVICE_ID = resp.json()["service_id"]
+    sys.modules[__name__].SERVICE_ID = SERVICE_ID
+    print(f"setup_module: service {SERVICE_ID} created")
+
+
+def teardown_module(module):
+    """Supprime le service créé dans setup_module."""
+    if not SERVICE_ID:
+        return
+    resp = requests.post(f"{BASE_URL}/api/auth/login",
+                         json={"email": COACH_EMAIL, "password": COACH_PWD})
+    if resp.status_code == 200:
+        token = resp.json().get("token") or resp.json().get("access_token")
+        requests.delete(f"{BASE_URL}/api/services/{SERVICE_ID}",
+                        headers={"Authorization": f"Bearer {token}"})
+        print(f"teardown_module: service {SERVICE_ID} supprimé")
 
 
 # ─── Fixtures ─────────────────────────────────────────────────────────────────

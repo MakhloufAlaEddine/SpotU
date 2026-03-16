@@ -137,7 +137,7 @@ def api_url():
     """URL de l'API backend (depuis env ou valeur par défaut)."""
     return os.environ.get(
         "BACKEND_URL",
-        "https://spotu-capacity-fix.preview.emergentagent.com/api",
+        "https://stripe-payment-debug-1.preview.emergentagent.com/api",
     )
 
 
@@ -153,7 +153,8 @@ def tokens(api_url):
             timeout=15,
         )
         r.raise_for_status()
-        return r.json()["access_token"]
+        data = r.json()
+        return data.get("access_token") or data.get("token")
 
     return {
         "user":  login("user@winek.app",  "WinekUser2024!"),

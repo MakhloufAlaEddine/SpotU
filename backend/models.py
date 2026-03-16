@@ -166,10 +166,14 @@ class TagPointCreate(BaseModel):
             for day_key, slots in v["schedule"].items():
                 if isinstance(slots, list):
                     for slot in slots:
+                        # Compatibilité ascendante : format string "HH:MM" ou dict {start, end}
+                        if isinstance(slot, str):
+                            continue  # Pas de fin à valider sur le format string
                         start = slot.get("start", "")
                         end = slot.get("end", "")
                         if start and end and end <= start:
                             raise ValueError(f"L'heure de fin ({end}) doit être après l'heure de début ({start})")
+        return v
         return v
 
 

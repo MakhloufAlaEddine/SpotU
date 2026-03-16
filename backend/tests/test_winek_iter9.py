@@ -10,13 +10,40 @@ import os
 
 BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "").rstrip("/")
 if not BASE_URL:
-    BASE_URL = "https://spotu-capacity-fix.preview.emergentagent.com"
+    env_path = os.path.join(os.path.dirname(__file__), '../../frontend/.env')
+    try:
+        with open(env_path) as _f:
+            for _line in _f:
+                _line = _line.strip()
+                if _line.startswith('EXPO_PUBLIC_BACKEND_URL='):
+                    BASE_URL = _line.split('=', 1)[1].strip().rstrip('/')
+                    break
+    except Exception:
+        pass
+if not BASE_URL:
+    BASE_URL = "http://localhost:8001"
 
 AUTH_URL = f"{BASE_URL}/api/auth/login"
 TP_URL = f"{BASE_URL}/api/tag-points"
 
 TEST_CREDENTIALS = {"email": "user@winek.app", "password": "WinekUser2024!"}
 CREATED_IDS = []
+
+
+def _get_valid_tag_ids():
+    """Récupère un tag valide depuis l'API pour respecter la règle métier (au moins 1 tag requis)."""
+    try:
+        resp = requests.get(f"{BASE_URL}/api/tags/categories?domain_id=dom_sport", timeout=5)
+        if resp.status_code == 200:
+            for cat in resp.json():
+                for tag in cat.get("tags", []):
+                    return [tag["tag_id"]]
+    except Exception:
+        pass
+    return ["tag_3x3"]  # fallback hardcodé
+
+
+VALID_TAG_IDS = _get_valid_tag_ids()
 
 
 @pytest.fixture(scope="module")
@@ -45,7 +72,7 @@ class TestRecurringPerDayFormat:
             "longitude": 2.3522,
             "precision": "exact",
             "domain_id": "dom_sport",
-            "tag_ids": [],
+            "tag_ids": VALID_TAG_IDS,
             "images": [],
             "event_schedule": {
                 "type": "weekly",
@@ -89,7 +116,7 @@ class TestRecurringPerDayFormat:
             "title": "TEST_Iter9 Monday Only",
             "latitude": 48.8566, "longitude": 2.3522,
             "precision": "exact", "domain_id": "dom_sport",
-            "tag_ids": [], "images": [],
+            "tag_ids": VALID_TAG_IDS, "images": [],
             "event_schedule": {
                 "type": "weekly",
                 "schedule": {"0": ["09:00"]}
@@ -111,7 +138,7 @@ class TestRecurringPerDayFormat:
             "title": "TEST_Iter9 Wednesday Two Times",
             "latitude": 48.8566, "longitude": 2.3522,
             "precision": "exact", "domain_id": "dom_sport",
-            "tag_ids": [], "images": [],
+            "tag_ids": VALID_TAG_IDS, "images": [],
             "event_schedule": {
                 "type": "weekly",
                 "schedule": {"2": ["12:00", "18:00"]}
@@ -133,7 +160,7 @@ class TestRecurringPerDayFormat:
             "title": "TEST_Iter9 Spec Check",
             "latitude": 48.8566, "longitude": 2.3522,
             "precision": "exact", "domain_id": "dom_sport",
-            "tag_ids": [], "images": [],
+            "tag_ids": VALID_TAG_IDS, "images": [],
             "event_schedule": {
                 "type": "weekly",
                 "schedule": {
@@ -162,7 +189,7 @@ class TestRecurringPerDayFormat:
             "title": "TEST_Iter9 All Days",
             "latitude": 48.8566, "longitude": 2.3522,
             "precision": "exact", "domain_id": "dom_sport",
-            "tag_ids": [], "images": [],
+            "tag_ids": VALID_TAG_IDS, "images": [],
             "event_schedule": {"type": "weekly", "schedule": schedule}
         }
         resp = requests.post(TP_URL, json=payload, headers=headers)
@@ -182,7 +209,7 @@ class TestBackwardCompatibility:
             "title": "TEST_Iter9 Legacy Format",
             "latitude": 48.8566, "longitude": 2.3522,
             "precision": "exact", "domain_id": "dom_sport",
-            "tag_ids": [], "images": [],
+            "tag_ids": VALID_TAG_IDS, "images": [],
             "event_schedule": {"type": "weekly", "day": 0, "time": "09:00"}
         }
         resp = requests.post(TP_URL, json=payload, headers=headers)
@@ -198,7 +225,7 @@ class TestBackwardCompatibility:
             "title": "TEST_Iter9 Intermediate Format",
             "latitude": 48.8566, "longitude": 2.3522,
             "precision": "exact", "domain_id": "dom_sport",
-            "tag_ids": [], "images": [],
+            "tag_ids": VALID_TAG_IDS, "images": [],
             "event_schedule": {"type": "weekly", "days": [0, 2], "times": ["09:00"]}
         }
         resp = requests.post(TP_URL, json=payload, headers=headers)
