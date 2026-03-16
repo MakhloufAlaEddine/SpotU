@@ -201,12 +201,12 @@ export default function UserProfileScreen() {
         const blobRes = await fetch(asset.uri); const blob = await blobRes.blob();
         const file = new File([blob], `cover.${ext}`, { type: blob.type || mimeType });
         const formData = new FormData(); formData.append('file', file);
-        const res = await fetch(`${BASE_URL}/api/upload-image`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData });
+        const res = await fetch(`${BASE_URL}/api/upload-image?category=profiles`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData });
         if (!res.ok) throw new Error('Upload échoué');
         uploadUrl = (await res.json()).url;
       } else {
         const form = new FormData(); form.append('file', { uri: asset.uri, name: `cover.${ext}`, type: mimeType } as any);
-        const res = await fetch(`${BASE_URL}/api/upload-image`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
+        const res = await fetch(`${BASE_URL}/api/upload-image?category=profiles`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
         if (!res.ok) throw new Error('Upload échoué');
         uploadUrl = (await res.json()).url;
       }

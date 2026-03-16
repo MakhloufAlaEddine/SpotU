@@ -67,7 +67,7 @@ function SwitchRow({ label, desc, value, onValueChange, testID }: any) {
 // ── Main screen ───────────────────────────────────────────────────────────────
 export default function EditProfileScreen() {
   const router = useGuardedRouter();
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, token } = useAuth();
 
   // Profile fields
   const [name, setName] = useState('');
@@ -151,11 +151,37 @@ export default function EditProfileScreen() {
       mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.5,
-      base64: true,
+      quality: 0.85,
     });
-    if (!result.canceled && result.assets[0]?.base64) {
-      setPictureUri(`data:image/jpeg;base64,${result.assets[0].base64}`);
+    if (result.canceled || !result.assets?.[0]) return;
+
+    const asset = result.assets[0];
+    const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+    const ext = (asset.uri.split('.').pop() || 'jpg').toLowerCase();
+    const mimeMap: Record<string, string> = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', heic: 'image/heic' };
+    const mimeType = mimeMap[ext] || 'image/jpeg';
+
+    try {
+      let uploadUrl = '';
+      if (Platform.OS === 'web') {
+        const blobRes = await fetch(asset.uri);
+        const blob = await blobRes.blob();
+        const file = new File([blob], `avatar.${ext}`, { type: blob.type || mimeType });
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await fetch(`${BASE_URL}/api/upload-image?category=profiles`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData });
+        if (!res.ok) throw new Error('Upload échoué');
+        uploadUrl = (await res.json()).url;
+      } else {
+        const form = new FormData();
+        form.append('file', { uri: asset.uri, name: `avatar.${ext}`, type: mimeType } as any);
+        const res = await fetch(`${BASE_URL}/api/upload-image?category=profiles`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
+        if (!res.ok) throw new Error('Upload échoué');
+        uploadUrl = (await res.json()).url;
+      }
+      setPictureUri(uploadUrl);
+    } catch (e: any) {
+      Alert.alert('Erreur', e.message || "Impossible d'uploader la photo.");
     }
   };
 

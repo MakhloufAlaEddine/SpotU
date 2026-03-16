@@ -148,7 +148,7 @@ export default function CreateServiceScreen() {
       const file = new File([blob], `photo.${ext}`, { type: blob.type || mimeType });
       const formData = new FormData();
       formData.append('file', file);
-      const res = await fetch(`${BASE_URL}/api/upload-image`, {
+      const res = await fetch(`${BASE_URL}/api/upload-image?category=services`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
@@ -160,7 +160,7 @@ export default function CreateServiceScreen() {
     // Native iOS/Android: pattern RN FormData officiel
     const form = new FormData();
     form.append('file', { uri, name: `photo.${ext}`, type: mimeType } as any);
-    const res = await fetch(`${BASE_URL}/api/upload-image`, {
+    const res = await fetch(`${BASE_URL}/api/upload-image?category=services`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: form,

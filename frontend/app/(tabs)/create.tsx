@@ -882,7 +882,7 @@ async function uploadImage(uri: string, token: string): Promise<string | null> {
       const file = new File([blob], `photo.${ext}`, { type: blob.type || mimeType });
       const formData = new FormData();
       formData.append('file', file);
-      const res = await fetch(`${BASE_URL}/api/upload-image`, {
+      const res = await fetch(`${BASE_URL}/api/upload-image?category=spotyou`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
@@ -894,7 +894,7 @@ async function uploadImage(uri: string, token: string): Promise<string | null> {
     // Native iOS/Android: RN FormData avec { uri, name, type } — pattern officiel React Native
     const formData = new FormData();
     formData.append('file', { uri, name: `photo.${ext}`, type: mimeType } as any);
-    const res = await fetch(`${BASE_URL}/api/upload-image`, {
+    const res = await fetch(`${BASE_URL}/api/upload-image?category=spotyou`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: formData,
