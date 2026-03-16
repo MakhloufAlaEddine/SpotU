@@ -157,9 +157,15 @@ export default function BookingDetailScreen() {
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    loadBooking();
-    setTimeout(() => setRefreshing(false), 800);
-  }, [loadBooking]);
+    setIsNetworkError(false);
+    api.get(`/bookings/${id}`)
+      .then((data: any) => setBooking(data))
+      .catch((e: any) => {
+        const classified = classifyFetchError(e);
+        if (isOfflineOrTimeout(classified)) setIsNetworkError(true);
+      })
+      .finally(() => setRefreshing(false));
+  }, [id]);
 
   const loadBooking = useCallback(() => {
     setLoading(true);
