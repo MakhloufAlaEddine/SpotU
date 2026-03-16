@@ -74,6 +74,10 @@ export default function EditProfileScreen() {
   const [bio, setBio] = useState('');
   const [phone, setPhone] = useState('');
   const [pictureUri, setPictureUri] = useState<string | undefined>(undefined);
+  // URI locale de la photo choisie (pas encore uploadée). null = pas de changement en attente.
+  const [pendingPictureAsset, setPendingPictureAsset] = useState<{
+    uri: string; ext: string; mimeType: string;
+  } | null>(null);
 
   // Privacy
   const [showPhone, setShowPhone] = useState(false);
@@ -156,33 +160,13 @@ export default function EditProfileScreen() {
     if (result.canceled || !result.assets?.[0]) return;
 
     const asset = result.assets[0];
-    const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
     const ext = (asset.uri.split('.').pop() || 'jpg').toLowerCase();
     const mimeMap: Record<string, string> = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', heic: 'image/heic' };
     const mimeType = mimeMap[ext] || 'image/jpeg';
 
-    try {
-      let uploadUrl = '';
-      if (Platform.OS === 'web') {
-        const blobRes = await fetch(asset.uri);
-        const blob = await blobRes.blob();
-        const file = new File([blob], `avatar.${ext}`, { type: blob.type || mimeType });
-        const formData = new FormData();
-        formData.append('file', file);
-        const res = await fetch(`${BASE_URL}/api/upload-image?category=profiles`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData });
-        if (!res.ok) throw new Error('Upload échoué');
-        uploadUrl = (await res.json()).url;
-      } else {
-        const form = new FormData();
-        form.append('file', { uri: asset.uri, name: `avatar.${ext}`, type: mimeType } as any);
-        const res = await fetch(`${BASE_URL}/api/upload-image?category=profiles`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
-        if (!res.ok) throw new Error('Upload échoué');
-        uploadUrl = (await res.json()).url;
-      }
-      setPictureUri(uploadUrl);
-    } catch (e: any) {
-      Alert.alert('Erreur', e.message || "Impossible d'uploader la photo.");
-    }
+    // Stocker l'URI locale pour la prévisualisation — l'upload R2 se fait au "Enregistrer"
+    setPendingPictureAsset({ uri: asset.uri, ext, mimeType });
+    setPictureUri(asset.uri);
   };
 
   const toggleTag = (id: string) => {
@@ -195,6 +179,29 @@ export default function EditProfileScreen() {
     if (!name.trim()) { Alert.alert('Requis', 'Le nom est obligatoire.'); return; }
     setSaving(true);
     try {
+      // Upload R2 déclenché uniquement au clic "Enregistrer", pas à la sélection de photo
+      let finalPictureUrl = pictureUri;
+      if (pendingPictureAsset) {
+        const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+        const { uri, ext, mimeType } = pendingPictureAsset;
+        if (Platform.OS === 'web') {
+          const blobRes = await fetch(uri);
+          const blob = await blobRes.blob();
+          const file = new File([blob], `avatar.${ext}`, { type: blob.type || mimeType });
+          const formData = new FormData();
+          formData.append('file', file);
+          const res = await fetch(`${BASE_URL}/api/upload-image?category=profiles`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData });
+          if (!res.ok) throw new Error('Échec upload photo');
+          finalPictureUrl = (await res.json()).url;
+        } else {
+          const form = new FormData();
+          form.append('file', { uri, name: `avatar.${ext}`, type: mimeType } as any);
+          const res = await fetch(`${BASE_URL}/api/upload-image?category=profiles`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
+          if (!res.ok) throw new Error('Échec upload photo');
+          finalPictureUrl = (await res.json()).url;
+        }
+      }
+
       await api.put('/users/profile', {
         name: name.trim(),
         bio: bio.trim() || null,
@@ -205,7 +212,7 @@ export default function EditProfileScreen() {
         iban: iban.trim() || null,
         bic: bic.trim() || null,
         iban_name: ibanName.trim() || null,
-        ...(pictureUri !== user?.picture ? { picture: pictureUri || null } : {}),
+        ...(finalPictureUrl !== user?.picture ? { picture: finalPictureUrl || null } : {}),
       });
       await refreshUser();
       Alert.alert('Succès', 'Profil mis à jour !');
