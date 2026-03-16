@@ -14,7 +14,7 @@ import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 import { classifyFetchError, isOfflineOrTimeout } from '../../lib/network-error';
 import { ErrorNoData } from '../../components/OfflineBanner';
 
-// ── Countdown hook ──
+// ── Countdown hook (expiration paiement) ──
 function useExpired(expiresAt: string | null | undefined): { expired: boolean; countdown: string | null } {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -28,6 +28,38 @@ function useExpired(expiresAt: string | null | undefined): { expired: boolean; c
   const m = Math.floor(diff / 60000);
   const s = Math.floor((diff % 60000) / 1000);
   return { expired: false, countdown: `${m}:${s.toString().padStart(2, '0')}` };
+}
+
+// ── Countdown hook (compte à rebours jusqu'à la séance) ──
+function useSessionCountdown(sessionDate: string | null | undefined): string | null {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!sessionDate) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [sessionDate]);
+  if (!sessionDate) return null;
+  const diff = new Date(sessionDate).getTime() - now;
+  if (diff <= 0) return null;
+  const d = Math.floor(diff / 86400000);
+  const h = Math.floor((diff % 86400000) / 3600000);
+  const m = Math.floor((diff % 3600000) / 60000);
+  const sec = Math.floor((diff % 60000) / 1000);
+  const parts: string[] = [];
+  if (d > 0) parts.push(`${d}j`);
+  if (h > 0 || d > 0) parts.push(`${h}h`);
+  parts.push(`${m.toString().padStart(2, '0')}min`);
+  parts.push(`${sec.toString().padStart(2, '0')}s`);
+  return parts.join(' ');
+}
+
+// ── Parse service_images (peut être string JSON ou array) ──
+function parseImages(raw: any): string[] {
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === 'string') {
+    try { const parsed = JSON.parse(raw); if (Array.isArray(parsed)) return parsed; } catch {}
+  }
+  return [];
 }
 
 // ── Status maps ────────────────────────────────────────────────────────────────
@@ -86,6 +118,7 @@ export default function BookingDetailScreen() {
 
   // Hook countdown — DOIT être appelé avant tout return conditionnel
   const { expired: isExpired, countdown } = useExpired(booking?.expires_at);
+  const sessionCountdown = useSessionCountdown(booking?.slot_date || booking?.scheduled_at);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -203,11 +236,14 @@ export default function BookingDetailScreen() {
       >
 
         {/* ── Photo service ───────────────────────────────────────────── */}
-        {booking.service_images?.[0] && (
-          <View style={s.heroImageWrap}>
-            <Image source={{ uri: booking.service_images[0] }} style={s.heroImage} resizeMode="cover" />
-            <View style={s.heroImageOverlay} />
-          </View>
+        {parseImages(booking.service_images)[0] && (
+          <TouchableOpacity
+            style={s.heroImageWrap}
+            onPress={() => booking.service_id && router.push(`/service/${booking.service_id}` as any)}
+            activeOpacity={0.85}
+          >
+            <Image source={{ uri: parseImages(booking.service_images)[0] }} style={s.heroImage} resizeMode="cover" />
+          </TouchableOpacity>
         )}
 
         {/* ── Status Hero ─────────────────────────────────────────────── */}
@@ -230,8 +266,12 @@ export default function BookingDetailScreen() {
         {/* ── Détails ─────────────────────────────────────────────────── */}
         <View style={s.card} testID="booking-details-card">
 
-          {/* Prestation */}
-          <View style={s.detailRow}>
+          {/* Prestation — cliquable → détail service */}
+          <TouchableOpacity
+            style={s.detailRow}
+            onPress={() => booking.service_id && router.push(`/service/${booking.service_id}` as any)}
+            activeOpacity={0.7}
+          >
             <View style={s.detailIcon}>
               <Ionicons name="briefcase-outline" size={18} color={Colors.primary} />
             </View>
@@ -239,14 +279,18 @@ export default function BookingDetailScreen() {
               <Text style={s.detailLabel}>Prestation</Text>
               <Text style={s.detailValue}>{booking.service_title || '—'}</Text>
             </View>
-          </View>
+            <Ionicons name="chevron-forward" size={16} color={Colors.muted} />
+          </TouchableOpacity>
 
           <View style={s.divider} />
 
-          {/* Coach */}
+          {/* Coach — cliquable → profil coach */}
           <TouchableOpacity
             style={s.detailRow}
-            onPress={() => booking.receiver_id && router.push(`/user/${booking.receiver_id}` as any)}
+            onPress={() => {
+              const coachId = booking.coach_id || booking.receiver_id;
+              if (coachId) router.push(`/user/${coachId}` as any);
+            }}
             activeOpacity={0.7}
           >
             <View style={s.detailIcon}>
@@ -261,7 +305,7 @@ export default function BookingDetailScreen() {
 
           <View style={s.divider} />
 
-          {/* Date & Heure */}
+          {/* Date & Heure + Countdown séance */}
           <View style={s.detailRow}>
             <View style={s.detailIcon}>
               <Ionicons name="calendar-outline" size={18} color={Colors.primary} />
@@ -276,22 +320,37 @@ export default function BookingDetailScreen() {
                     : 'Non défini'}
               </Text>
               {timeStr ? <Text style={s.detailSub}>{timeStr}</Text> : null}
+              {sessionCountdown && !['completed', 'cancelled', 'expired', 'refused'].includes(booking.status) && (
+                <View style={s.sessionCountdownRow}>
+                  <Ionicons name="hourglass-outline" size={13} color={Colors.primary} />
+                  <Text style={s.sessionCountdownText}>Dans {sessionCountdown}</Text>
+                </View>
+              )}
             </View>
           </View>
 
-          {/* Lieu */}
+          {/* Lieu — cliquable → Google Maps */}
           {booking.address ? (
             <>
               <View style={s.divider} />
-              <View style={s.detailRow}>
+              <TouchableOpacity
+                style={s.detailRow}
+                onPress={() => {
+                  const encoded = encodeURIComponent(booking.address);
+                  Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${encoded}`);
+                }}
+                activeOpacity={0.7}
+              >
                 <View style={s.detailIcon}>
-                  <Ionicons name="location-outline" size={18} color={Colors.primary} />
+                  <Ionicons name="navigate-outline" size={18} color={Colors.primary} />
                 </View>
                 <View style={s.detailContent}>
                   <Text style={s.detailLabel}>Lieu</Text>
                   <Text style={s.detailValue}>{booking.address}</Text>
+                  <Text style={s.detailLink}>Voir l'itinéraire</Text>
                 </View>
-              </View>
+                <Ionicons name="chevron-forward" size={16} color={Colors.muted} />
+              </TouchableOpacity>
             </>
           ) : null}
 
@@ -459,6 +518,9 @@ const s = StyleSheet.create({
   detailLabel: { fontSize: 11, fontWeight: '700', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.5 },
   detailValue: { fontSize: 15, fontWeight: '600', color: Colors.foreground, lineHeight: 21 },
   detailSub: { fontSize: 13, color: Colors.muted, lineHeight: 19, marginTop: 1 },
+  detailLink: { fontSize: 12, fontWeight: '600', color: Colors.primary, marginTop: 3 },
+  sessionCountdownRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6, backgroundColor: Colors.primary + '12', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, alignSelf: 'flex-start' },
+  sessionCountdownText: { fontSize: 13, fontWeight: '700', color: Colors.primary, fontVariant: ['tabular-nums'] },
 
   // ── Payment section
   paymentRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8 },
