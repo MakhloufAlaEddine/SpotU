@@ -21,20 +21,21 @@ import { useBookingConfig } from '../lib/useBookingConfig';
 import { useGuardedRouter } from '../hooks/useGuardedRouter';
 
 // ─── Hook pour charger la commission dynamique ────────────────────────────────
-let _commissionCache: { pct: number; hasRule: boolean } | null = null;
+let _commissionCache: { receiverPct: number; payerPct: number; hasRule: boolean } | null = null;
 function useCommission() {
-  const [pct, setPct] = useState(_commissionCache?.pct ?? 0);
+  const [receiverPct, setReceiverPct] = useState(_commissionCache?.receiverPct ?? 0);
+  const [payerPct, setPayerPct] = useState(_commissionCache?.payerPct ?? 0);
   const [hasRule, setHasRule] = useState(_commissionCache?.hasRule ?? false);
   useEffect(() => {
-    if (_commissionCache) { setPct(_commissionCache.pct); setHasRule(_commissionCache.hasRule); return; }
+    if (_commissionCache) { setReceiverPct(_commissionCache.receiverPct); setPayerPct(_commissionCache.payerPct); setHasRule(_commissionCache.hasRule); return; }
     api.get('/config/commission').then((d: any) => {
-      const val = d.total_percent_fee ?? 0;
-      _commissionCache = { pct: val, hasRule: !!d.has_rule };
-      setPct(val);
+      _commissionCache = { receiverPct: d.receiver_percent_fee ?? 0, payerPct: d.payer_percent_fee ?? 0, hasRule: !!d.has_rule };
+      setReceiverPct(d.receiver_percent_fee ?? 0);
+      setPayerPct(d.payer_percent_fee ?? 0);
       setHasRule(!!d.has_rule);
     }).catch(() => {});
   }, []);
-  return { commissionPct: pct, hasCommissionRule: hasRule };
+  return { receiverPct, payerPct, hasCommissionRule: hasRule };
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -126,7 +127,7 @@ export default function CreateServiceScreen() {
   const { serviceId } = useLocalSearchParams<{ serviceId?: string }>();
   const isEditMode = !!serviceId;
   const bookingCfg = useBookingConfig();
-  const { commissionPct, hasCommissionRule } = useCommission();
+  const { receiverPct, payerPct, hasCommissionRule } = useCommission();
   // Flags globaux MVP
   const enableManualApproval = bookingCfg.enable_manual_approval_for_services;
   const enablePayLater       = bookingCfg.enable_pay_later_for_services;
@@ -672,9 +673,9 @@ export default function CreateServiceScreen() {
             keyboardType="decimal-pad"
             testID="service-price-input"
           />
-          {price && !isNaN(parseFloat(price)) && parseFloat(price) > 0 && hasCommissionRule && commissionPct > 0 && (
+          {price && !isNaN(parseFloat(price)) && parseFloat(price) > 0 && hasCommissionRule && receiverPct > 0 && (
             <Text style={s.netEarning}>
-              Commission {commissionPct} % · Gain net : <Text style={{ fontWeight: '700', color: GREEN }}>{(parseFloat(price) * (1 - commissionPct / 100)).toFixed(2)} €</Text>
+              Commission {receiverPct} % · Gain net : <Text style={{ fontWeight: '700', color: GREEN }}>{(parseFloat(price) * (1 - receiverPct / 100)).toFixed(2)} €</Text>
             </Text>
           )}
         </View>

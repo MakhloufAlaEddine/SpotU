@@ -100,11 +100,13 @@ export default function ServiceDetailScreen() {
   const showManualBadge = bookingCfg.enable_manual_approval_for_services;
 
   // Commission dynamique depuis pricing_rules
-  const [commissionPct, setCommissionPct] = useState(0);
+  const [receiverPct, setReceiverPct] = useState(0);
+  const [payerPct, setPayerPct] = useState(0);
   const [hasCommissionRule, setHasCommissionRule] = useState(false);
   useEffect(() => {
     api.get('/config/commission').then((d: any) => {
-      setCommissionPct(d.total_percent_fee ?? 0);
+      setReceiverPct(d.receiver_percent_fee ?? 0);
+      setPayerPct(d.payer_percent_fee ?? 0);
       setHasCommissionRule(!!d.has_rule);
     }).catch(() => {});
   }, []);
@@ -634,11 +636,11 @@ export default function ServiceDetailScreen() {
         )}
 
         {/* ── Commission info ────────────────────────────────────────────────── */}
-        {hasCommissionRule && commissionPct > 0 && (
+        {hasCommissionRule && receiverPct > 0 && (
         <View style={s.commNote}>
           <Ionicons name="shield-checkmark-outline" size={14} color={Colors.muted} />
           <Text style={s.commText}>
-            Paiement sécurisé · Commission {commissionPct}% · Net coach : {(service.price * (1 - commissionPct / 100)).toFixed(2)}€
+            Paiement sécurisé · Commission {receiverPct}% · Net coach : {(service.price * (1 - receiverPct / 100)).toFixed(2)}€
           </Text>
         </View>
         )}
