@@ -6,7 +6,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = "https://spotu-feed.preview.emergentagent.com"
+BASE_URL = "https://spotu-capacity-fix.preview.emergentagent.com"
 
 ADMIN_EMAIL = "admin@winek.app"
 ADMIN_PASS = "WinekAdmin2024!"

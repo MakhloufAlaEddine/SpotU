@@ -344,9 +344,21 @@ export default function CreateSpotYouScreen() {
   };
 
   const goNext = () => {
-    if (step === 0 && !title.trim()) {
-      Alert.alert('Titre requis', 'Ajoutez un titre pour continuer.');
-      return;
+    if (step === 0) {
+      if (!title.trim()) {
+        Alert.alert('Titre requis', 'Ajoutez un titre pour continuer.');
+        return;
+      }
+      // Validation capacité : min ne peut pas dépasser max
+      const minVal = minParticipants.trim() ? parseInt(minParticipants, 10) : null;
+      const maxVal = maxParticipants.trim() ? parseInt(maxParticipants, 10) : null;
+      if (minVal !== null && maxVal !== null && minVal > maxVal) {
+        Alert.alert(
+          'Capacité invalide',
+          'Le nombre minimum de participants ne peut pas être supérieur au maximum.'
+        );
+        return;
+      }
     }
     // Step 3 = bouton "Aperçu": valider les dates avant la preview
     if (step === 3) {

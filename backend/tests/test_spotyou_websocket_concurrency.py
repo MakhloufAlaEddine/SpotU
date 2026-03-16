@@ -19,7 +19,7 @@ import os
 import time
 
 # ─── Configuration ─────────────────────────────────────────────────────────────
-API_BASE = "https://spotu-feed.preview.emergentagent.com/api"
+API_BASE = "https://spotu-capacity-fix.preview.emergentagent.com/api"
 WS_BASE  = "wss://realtime-events-4.preview.emergentagent.com/api"
 
 COACH_EMAIL = "coach@winek.app"
