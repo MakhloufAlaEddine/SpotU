@@ -17,6 +17,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/LanguageContext';
 import { useRefresh } from '../../context/RefreshContext';
 import { reverseGeocodeGoogle } from '../../services/googlePlacesService';
+import * as Location from 'expo-location';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 
@@ -289,10 +290,9 @@ export default function CreateSpotYouScreen() {
   const loadGPS = async () => {
     if (isEditMode) return; // Don't override pre-filled coordinates in edit mode
     try {
-      const Loc = await import('expo-location');
-      const { status } = await Loc.requestForegroundPermissionsAsync();
+      const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === 'granted') {
-        const loc = await Loc.getCurrentPositionAsync({ accuracy: Loc.Accuracy.Balanced });
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
         setSelectedLat(loc.coords.latitude); setSelectedLng(loc.coords.longitude);
         reverseGeocode(loc.coords.latitude, loc.coords.longitude);
       }

@@ -115,7 +115,6 @@ export default function RootLayout() {
                   animation: 'slide_from_right'
                 }}
               />
-              <Stack.Screen name="coach/[id]" />
               <Stack.Screen name="booking/confirm" />
               <Stack.Screen name="admin/index" />
               <Stack.Screen
