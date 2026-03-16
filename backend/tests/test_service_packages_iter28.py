@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 
 BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "").rstrip("/")
 if not BASE_URL:
-    BASE_URL = "https://cloudflare-uploads.preview.emergentagent.com"
+    BASE_URL = "https://create-service-debug.preview.emergentagent.com"
 
 # Dates dynamiques (toujours dans le futur)
 _FUTURE_DATE_1 = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")

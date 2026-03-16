@@ -175,29 +175,19 @@ export default function CreateServiceScreen() {
     if (status !== 'granted') { Alert.alert('Permission refusée', 'Accès à la galerie nécessaire'); return; }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'], allowsMultipleSelection: true,
-      quality: 0.7, selectionLimit: 5 - images.length,
+      quality: 0.9, selectionLimit: 5 - images.length,
     });
     if (result.canceled || !result.assets?.length) return;
-    const MAX_SIZE = 5 * 1024 * 1024; // 5 Mo
+    const MAX_SIZE = 5 * 1024 * 1024;
     const oversized = result.assets.filter(a => a.fileSize && a.fileSize > MAX_SIZE);
     if (oversized.length > 0) {
       Alert.alert('Fichier trop volumineux', `${oversized.length} image(s) dépassent 5 Mo et ont été ignorées.`);
     }
     const valid = result.assets.filter(a => !a.fileSize || a.fileSize <= MAX_SIZE);
     if (!valid.length) return;
-    setUploadingImages(true);
-    try {
-      const urls: string[] = [];
-      for (const asset of valid) {
-        const url = await uploadImage(asset.uri);
-        urls.push(url);
-      }
-      setImages(prev => [...prev, ...urls].slice(0, 5));
-    } catch (e: any) {
-      Alert.alert('Erreur upload', e.message || 'Échec de l\'envoi de l\'image');
-    } finally {
-      setUploadingImages(false);
-    }
+    // Stocker les URI locales — l'upload R2 se fera au clic "Sauvegarder"
+    const localUris = valid.map(a => a.uri);
+    setImages(prev => [...prev, ...localUris].slice(0, 5));
   };
 
   // Step 2 - Domain & Tags
@@ -371,6 +361,18 @@ export default function CreateServiceScreen() {
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
+      // Upload des images locales (pas encore sur R2) → se fait uniquement au "Sauvegarder"
+      const isLocalUri = (uri: string) => !uri.startsWith('http') && !uri.startsWith('data:');
+      const finalImages: string[] = [];
+      for (const img of images) {
+        if (isLocalUri(img)) {
+          const r2Url = await uploadImage(img);
+          finalImages.push(r2Url);
+        } else {
+          finalImages.push(img); // URL R2/CDN déjà valide
+        }
+      }
+
       const priceNum = parseFloat(price) || 0;
       const payload = {
         title: title.trim(),
@@ -381,7 +383,7 @@ export default function CreateServiceScreen() {
         max_participants: maxParticipants,
         domain_id: domainId,
         tag_ids: selectedTagIds,
-        images,
+        images: finalImages,
         booking_approval_mode: bookingApprovalMode,
         allow_pay_later: allowPayLater,
         pay_later_expiration_minutes: allowPayLater ? payLaterExpirationMinutes : null,
@@ -404,8 +406,6 @@ export default function CreateServiceScreen() {
         slots: [],
       };
       if (isEditMode) {
-        // For edit mode: build ServiceSlotItem[] (slot_type:'single') from DaySlot[] state
-        // Backend PUT: slots=null keeps existing; slots=[] deletes all; slots=[...] replaces
         const editSlots = slots.map(s => ({
           slot_type: 'single',
           slot_date: s.date,

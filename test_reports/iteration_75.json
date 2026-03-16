@@ -34,6 +34,6 @@
   "seed_data_creation": "",
   "retest_needed": false,
   "should_main_agent_self_test": false,
-  "context_for_next_testing_agent": "Iteration 75: 100% PASS. Barrel index.ts validé (7 exports). Labels boutons harmonisés confirmés visuellement: SpotYouCard ('Je participe'/'Annuler'), spot-you/[id] RSVP ('Rejoindre'/'Quitter') + session ('Je participe'/'Annuler'). Tests visuels Playwright sur: saved (4 SpotYou HIIT=Annuler, 3=Je participe), spot-me (même résultat), spot-you/[id] Boxe&MMA (Quitter+Je participe) et Yoga Trocadéro (Rejoindre+Je participe). APP_URL=https://cloudflare-uploads.preview.emergentagent.com",
+  "context_for_next_testing_agent": "Iteration 75: 100% PASS. Barrel index.ts validé (7 exports). Labels boutons harmonisés confirmés visuellement: SpotYouCard ('Je participe'/'Annuler'), spot-you/[id] RSVP ('Rejoindre'/'Quitter') + session ('Je participe'/'Annuler'). Tests visuels Playwright sur: saved (4 SpotYou HIIT=Annuler, 3=Je participe), spot-me (même résultat), spot-you/[id] Boxe&MMA (Quitter+Je participe) et Yoga Trocadéro (Rejoindre+Je participe). APP_URL=https://create-service-debug.preview.emergentagent.com",
   "rca_of_the_issue": null
 }

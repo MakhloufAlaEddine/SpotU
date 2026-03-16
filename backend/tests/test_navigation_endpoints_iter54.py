@@ -15,7 +15,7 @@ import os
 import httpx
 import pytest
 
-API_BASE = os.environ.get("API_BASE", "https://cloudflare-uploads.preview.emergentagent.com")
+API_BASE = os.environ.get("API_BASE", "https://create-service-debug.preview.emergentagent.com")
 
 ADMIN_EMAIL = "admin@winek.app"
 ADMIN_PASS  = "WinekAdmin2024!"

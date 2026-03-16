@@ -14,7 +14,7 @@ import pytest
 import time
 from playwright.sync_api import Page, expect
 
-APP_URL = "https://cloudflare-uploads.preview.emergentagent.com"
+APP_URL = "https://create-service-debug.preview.emergentagent.com"
 
 CREDENTIALS = {
     "user":  {"email": "user@winek.app",  "password": "WinekUser2024!"},

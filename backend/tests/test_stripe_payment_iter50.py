@@ -30,7 +30,7 @@ import json
 
 BASE_URL = os.environ.get(
     "EXPO_PUBLIC_BACKEND_URL",
-    "https://cloudflare-uploads.preview.emergentagent.com"
+    "https://create-service-debug.preview.emergentagent.com"
 ).rstrip("/")
 
 # ── Credentials ────────────────────────────────────────────────────────────────
