@@ -96,6 +96,56 @@ def _push(pool, user_id, title, body, data, notif_type):
 
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║  POST /bookings/price-preview  — Aperçu du pricing (pas de réservation)   ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+
+@router.post("/bookings/price-preview")
+async def booking_price_preview(request: Request, body: dict = Body(...)):
+    """
+    Calcule le pricing complet pour un service SANS créer de réservation.
+    Retourne la ventilation : base_amount, frais payeur, frais coach, total payeur, net coach.
+    Authentification requise pour que le pricing_engine puisse appliquer d'éventuels avantages abonnement.
+    """
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    payer_user_id = user["user_id"]
+    service_id = body.get("service_id")
+    if not service_id:
+        raise HTTPException(400, "service_id requis")
+
+    async with pool.acquire() as conn:
+        svc_row = await conn.fetchrow(
+            "SELECT service_id, coach_id, price FROM services WHERE service_id = $1 AND active = TRUE",
+            service_id,
+        )
+        if not svc_row:
+            raise HTTPException(404, "Service introuvable ou inactif")
+
+        svc = dict(svc_row)
+        pricing = await pricing_engine.compute_pricing(
+            conn=conn,
+            payer_user_id=payer_user_id,
+            receiver_user_id=svc["coach_id"],
+            product_type="service_booking",
+            base_amount=float(svc["price"]),
+            currency="EUR",
+        )
+
+    snap = pricing.to_snapshot()
+    return {
+        "base_amount":                snap["base_amount"],
+        "payer_fixed_fee":            snap["payer_fixed_fee"],
+        "payer_percent_fee_amount":   snap["payer_percent_fee_amount"],
+        "receiver_fixed_fee":         snap["receiver_fixed_fee"],
+        "receiver_percent_fee_amount":snap["receiver_percent_fee_amount"],
+        "platform_total_fee":         snap["platform_total_fee"],
+        "receiver_net_amount":        snap["receiver_net_amount"],
+        "payer_total_amount":         snap["payer_total_amount"],
+        "currency":                   snap["currency"],
+    }
+
+
+# ╔══════════════════════════════════════════════════════════════════════════════╗
 # ║  POST /bookings/request  (+ alias POST /bookings pour rétrocompat)         ║
 # ╚══════════════════════════════════════════════════════════════════════════════╝
 

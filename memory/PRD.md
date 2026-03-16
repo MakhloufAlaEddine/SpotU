@@ -17,61 +17,42 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 - **Coach** (coach@winek.app / WinekCoach2024!): Cree et gere des SpotYous/services, recoit les paiements
 - **Admin** (admin@winek.app / WinekAdmin2024!): Gestion admin dashboard, configure les tarifs
 
-## Core Requirements
-1. SpotYou & Service CRUD (creation, decouverte, mise a jour, suppression)
-2. Decouverte sur carte + recherche par tags
-3. Systeme de reservation (bookings) - atomique, idempotent, row-level locking
-4. Chat temps reel + notifications
-5. Upload securise d'images (profil, service, SpotYou) via Cloudflare R2
-6. Tests E2E complets
-7. Moteur de monetisation generique (pricing_engine.py)
-8. Paiements Stripe PaymentIntent (capture_method=manual) + webhooks
-
 ## What's Been Implemented
 
-### Completed Features (All phases 1-18)
-- Auth JWT, SpotYou/Service CRUD, Carte interactive, Chat/Notifications WS
-- Stripe PaymentIntent + manual capture, Booking workflows (4 flux)
-- Admin Dashboard (monetisation, tags, domaines, analytics)
-- Cloudflare R2 image storage + compression (Pillow)
-- Lazy upload pattern (profile + services)
-- Participation system, WebSocket temps reel
-- Protection reseau, cache, offline guards
-- Navigation anti-double-tap, onboarding multi-etapes
-- Followers/Following, Suggestions d'abonnements
-- Profile refactoring, Cover photo repositioning
-- Tags pre-fill en mode edition service (fix domainId par defaut)
+### Commission Dynamique (2026-03-16)
+| Composant | Changement |
+|-----------|-----------|
+| `backend/server.py` | `GET /api/config/commission` - taux depuis pricing_rules |
+| `backend/routes/booking_routes.py` | `POST /api/bookings/price-preview` - apercu pricing complet avant reservation |
+| `frontend/app/create-service.tsx` | Hook useCommission avec receiverPct (commission coach 10%) |
+| `frontend/app/service/[id].tsx` | Commission dynamique receiverPct dans detail service |
+| `frontend/app/booking/confirm.tsx` | Ventilation prix : base + frais service + total a payer |
+| `backend/tests/test_commission_e2e.py` | 6 tests E2E : taux, calculs, coherence preview vs config |
 
-### Phase 19 - Commission Dynamique (2026-03-16)
-| Date | Composant | Changement |
-|------|-----------|-----------|
-| 2026-03-16 | `backend/server.py` | Nouvel endpoint public `GET /api/config/commission` - lit pricing_rules active pour service_booking |
-| 2026-03-16 | `frontend/app/create-service.tsx` | Hook `useCommission()` avec cache - remplace commission 15% en dur |
-| 2026-03-16 | `frontend/app/service/[id].tsx` | Commission dynamique via `/config/commission` - masquee si aucune regle |
-
-**Tests**: 9/9 backend PASS (test_commission_iter86.py), code review confirme 0 reference hardcoded restante
+**Calcul pour un service a 60€ (regle: 5% payeur, 10% coach):**
+- Payeur voit : 60€ + 3€ frais = **63€ total**
+- Coach voit : Commission 10% · Net **54€**
+- Plateforme : 9€ total
 
 ## Key API Endpoints
-- `GET /api/config/commission` - (PUBLIC) Retourne le taux de commission actif depuis pricing_rules
-- `POST /api/upload-image?category={cat}` - Upload image to R2 with compression
+- `GET /api/config/commission` - (PUBLIC) Taux commission actif
+- `POST /api/bookings/price-preview` - (AUTH) Apercu pricing complet avant reservation
+- `POST /api/bookings/request` - Creer une reservation (pricing_engine interne)
 - `GET/POST/PUT/DELETE /api/services/{id}` - Service CRUD
-- `GET/PUT /api/users/profile` - Profile management
-- `POST /api/auth/login` - Authentication
+- `GET/PUT /api/users/profile` - Profile
 - `GET/POST/PUT/DELETE /api/admin/pricing-rules` - Admin gestion tarifs
 
 ## Prioritized Backlog
 
 ### P0 - Critique (TOUS COMPLETES)
-- [x] Upload web (blob URI fix)
-- [x] Suite E2E Playwright
-- [x] Integration Stripe PaymentIntent + manual capture
-- [x] Cloudflare R2 image storage
-- [x] Lazy upload pattern (profile + services)
-- [x] Tags pre-fill en mode edition service
-- [x] Commission dynamique (remplacer 15% en dur par pricing_rules admin)
+- [x] Commission dynamique depuis pricing_rules admin
+- [x] Double verification back/front (price-preview endpoint)
+- [x] Tests E2E commission (6/6 pass)
+- [x] Affichage commission payeur sur ecran reservation
+- [x] Correction calcul (receiverPct vs total_percent_fee)
 
 ### P1 - Important
-- [ ] Flow abonnement utilisateur (souscrire/gerer un plan Stripe Subscription)
+- [ ] Flow abonnement utilisateur (Stripe Subscription)
 - [ ] Sauvegardes automatiques DB
 - [ ] Pipeline CI automatise
 
@@ -89,26 +70,20 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 ```
 /app
 ├── backend/
-│   ├── server.py                  # GET /api/config/commission endpoint
-│   ├── pricing_engine.py          # Moteur de calcul tarifs generique
+│   ├── server.py                  # GET /api/config/commission
+│   ├── pricing_engine.py          # Moteur calcul tarifs generique
 │   ├── routes/
-│   │   ├── upload_routes.py       # POST /api/upload-image (R2 + compression)
-│   │   ├── service_routes.py      # CRUD services + R2 deletion
-│   │   ├── admin_routes.py        # Admin pricing-rules CRUD
-│   │   ├── user_routes.py         # Profile + followers/suggestions
-│   │   └── tagpoint_routes.py     # SpotYou CRUD + R2 deletion
+│   │   ├── booking_routes.py      # POST /api/bookings/price-preview + request
+│   │   ├── service_routes.py      # CRUD services
+│   │   └── admin_routes.py        # Admin pricing-rules CRUD
 │   └── tests/
-│       ├── test_commission_iter86.py  # 9 tests commission dynamique
-│       └── test_service_crud_iter85.py
+│       └── test_commission_e2e.py # 6 tests E2E commission
 └── frontend/
     └── app/
-        ├── create-service.tsx     # useCommission hook + lazy upload + tags fix
-        ├── service/[id].tsx       # Commission dynamique dans detail service
-        ├── edit-profile.tsx       # Lazy upload reference
-        └── edit-service/[id].tsx  # Redirect to create-service in edit mode
+        ├── create-service.tsx     # useCommission(receiverPct) + lazy upload
+        ├── service/[id].tsx       # Commission dynamique detail service
+        └── booking/confirm.tsx    # Ventilation prix + total avant paiement
 ```
 
 ## Known Issues
 - ngrok tunnel instability (infrastructure, not code)
-- edit-service/[id].tsx redirect can race with root layout mount (MEDIUM, pre-existing)
-- svc_demo001 seed data has cross-domain tags (data integrity, not code bug)

@@ -70,6 +70,9 @@ export default function BookingConfirmScreen() {
   const [booking, setBooking] = useState<any>(null);
   const [pricing, setPricing] = useState<{ payer_total_amount: number } | null>(null);
 
+  // Aperçu pricing (avant réservation)
+  const [pricePreview, setPricePreview] = useState<any>(null);
+
   // Mode paiement choisi par l'user (forcé à 'pay_now' si pay_later désactivé)
   const [paymentMode, setPaymentMode] = useState<'pay_now' | 'pay_later'>('pay_now');
 
@@ -191,6 +194,11 @@ export default function BookingConfirmScreen() {
       setSlot(foundSlot || null);
       const foundLoc = svc.locations?.find((l: any) => l.location_id === locationId);
       setLocation(foundLoc || svc.locations?.[0] || null);
+      // Charger l'aperçu pricing (double vérification back/front)
+      try {
+        const preview = await api.post('/bookings/price-preview', { service_id: serviceId });
+        setPricePreview(preview);
+      } catch {}
     } catch {}
     finally { setLoading(false); }
   };
@@ -334,11 +342,32 @@ export default function BookingConfirmScreen() {
             </View>
           </View>
 
-          {/* Prix */}
+          {/* Prix — détail avec commission */}
           {service && (
-            <View style={s.priceCard}>
-              <Text style={s.priceLbl}>Prix de la séance</Text>
-              <Text style={s.priceVal}>{service.price}€</Text>
+            <View style={s.priceBreakdown} testID="price-breakdown">
+              <View style={s.priceBreakdownRow}>
+                <Text style={s.priceBreakdownLabel}>Prix de la séance</Text>
+                <Text style={s.priceBreakdownVal}>{service.price.toFixed(2)} €</Text>
+              </View>
+              {pricePreview && pricePreview.payer_percent_fee_amount > 0 && (
+                <View style={s.priceBreakdownRow}>
+                  <Text style={s.priceBreakdownLabel}>Frais de service</Text>
+                  <Text style={s.priceBreakdownFee}>+{pricePreview.payer_percent_fee_amount.toFixed(2)} €</Text>
+                </View>
+              )}
+              {pricePreview && pricePreview.payer_fixed_fee > 0 && (
+                <View style={s.priceBreakdownRow}>
+                  <Text style={s.priceBreakdownLabel}>Frais fixes</Text>
+                  <Text style={s.priceBreakdownFee}>+{pricePreview.payer_fixed_fee.toFixed(2)} €</Text>
+                </View>
+              )}
+              <View style={s.priceBreakdownDivider} />
+              <View style={s.priceBreakdownRow}>
+                <Text style={s.priceBreakdownTotal}>Total à payer</Text>
+                <Text style={s.priceBreakdownTotalVal} testID="total-to-pay">
+                  {pricePreview ? pricePreview.payer_total_amount.toFixed(2) : service.price.toFixed(2)} €
+                </Text>
+              </View>
             </View>
           )}
 
@@ -521,7 +550,7 @@ export default function BookingConfirmScreen() {
                     />
                     <Text style={s.confirmBtnText}>
                       {effectiveApprovalMode === 'instant_booking'
-                        ? 'Réserver et payer maintenant'
+                        ? `Réserver et payer ${pricePreview ? pricePreview.payer_total_amount.toFixed(2) + ' €' : ''}`
                         : 'Envoyer la demande'}
                     </Text>
                   </>
@@ -691,9 +720,15 @@ const s = StyleSheet.create({
   locRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 8 },
   locText: { fontSize: 12, color: Colors.muted, flex: 1 },
 
-  priceCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors.card, borderRadius: 14, padding: 16, marginBottom: 20 },
-  priceLbl: { fontSize: 14, color: Colors.muted, fontWeight: '500' },
-  priceVal: { fontSize: 22, fontWeight: '800', color: ORANGE },
+  // Price breakdown
+  priceBreakdown: { backgroundColor: Colors.card, borderRadius: 14, padding: 16, marginBottom: 20, borderWidth: 1, borderColor: Colors.border, gap: 10 },
+  priceBreakdownRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  priceBreakdownLabel: { fontSize: 14, color: Colors.muted, fontWeight: '500' },
+  priceBreakdownVal: { fontSize: 15, fontWeight: '600', color: Colors.foreground },
+  priceBreakdownFee: { fontSize: 14, fontWeight: '600', color: ORANGE },
+  priceBreakdownDivider: { height: 1, backgroundColor: Colors.border },
+  priceBreakdownTotal: { fontSize: 16, fontWeight: '800', color: Colors.foreground },
+  priceBreakdownTotalVal: { fontSize: 22, fontWeight: '800', color: ORANGE },
 
   // Payment mode selector
   payModeRow: { flexDirection: 'row', gap: 10 },
