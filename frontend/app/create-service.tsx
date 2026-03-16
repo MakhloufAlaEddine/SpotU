@@ -20,6 +20,23 @@ import { Colors, Spacing, Radius } from '../constants/Colors';
 import { useBookingConfig } from '../lib/useBookingConfig';
 import { useGuardedRouter } from '../hooks/useGuardedRouter';
 
+// ─── Hook pour charger la commission dynamique ────────────────────────────────
+let _commissionCache: { pct: number; hasRule: boolean } | null = null;
+function useCommission() {
+  const [pct, setPct] = useState(_commissionCache?.pct ?? 0);
+  const [hasRule, setHasRule] = useState(_commissionCache?.hasRule ?? false);
+  useEffect(() => {
+    if (_commissionCache) { setPct(_commissionCache.pct); setHasRule(_commissionCache.hasRule); return; }
+    api.get('/config/commission').then((d: any) => {
+      const val = d.total_percent_fee ?? 0;
+      _commissionCache = { pct: val, hasRule: !!d.has_rule };
+      setPct(val);
+      setHasRule(!!d.has_rule);
+    }).catch(() => {});
+  }, []);
+  return { commissionPct: pct, hasCommissionRule: hasRule };
+}
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ORANGE = '#FF9500';
 const ORANGE_LIGHT = 'rgba(255,149,0,0.12)';
@@ -109,6 +126,7 @@ export default function CreateServiceScreen() {
   const { serviceId } = useLocalSearchParams<{ serviceId?: string }>();
   const isEditMode = !!serviceId;
   const bookingCfg = useBookingConfig();
+  const { commissionPct, hasCommissionRule } = useCommission();
   // Flags globaux MVP
   const enableManualApproval = bookingCfg.enable_manual_approval_for_services;
   const enablePayLater       = bookingCfg.enable_pay_later_for_services;
@@ -654,9 +672,9 @@ export default function CreateServiceScreen() {
             keyboardType="decimal-pad"
             testID="service-price-input"
           />
-          {price && !isNaN(parseFloat(price)) && parseFloat(price) > 0 && (
+          {price && !isNaN(parseFloat(price)) && parseFloat(price) > 0 && hasCommissionRule && commissionPct > 0 && (
             <Text style={s.netEarning}>
-              Commission 15 % · Gain net : <Text style={{ fontWeight: '700', color: GREEN }}>{(parseFloat(price) * 0.85).toFixed(2)} €</Text>
+              Commission {commissionPct} % · Gain net : <Text style={{ fontWeight: '700', color: GREEN }}>{(parseFloat(price) * (1 - commissionPct / 100)).toFixed(2)} €</Text>
             </Text>
           )}
         </View>

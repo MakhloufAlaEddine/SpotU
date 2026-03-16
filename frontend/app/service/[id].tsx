@@ -98,6 +98,16 @@ export default function ServiceDetailScreen() {
   };
   const bookingCfg = useBookingConfig();
   const showManualBadge = bookingCfg.enable_manual_approval_for_services;
+
+  // Commission dynamique depuis pricing_rules
+  const [commissionPct, setCommissionPct] = useState(0);
+  const [hasCommissionRule, setHasCommissionRule] = useState(false);
+  useEffect(() => {
+    api.get('/config/commission').then((d: any) => {
+      setCommissionPct(d.total_percent_fee ?? 0);
+      setHasCommissionRule(!!d.has_rule);
+    }).catch(() => {});
+  }, []);
   const showPayLaterBadge = bookingCfg.enable_pay_later_for_services;
 
   // ── États pour les demandes/réservations supprimés (géré dans booking/confirm) ──
@@ -624,12 +634,14 @@ export default function ServiceDetailScreen() {
         )}
 
         {/* ── Commission info ────────────────────────────────────────────────── */}
+        {hasCommissionRule && commissionPct > 0 && (
         <View style={s.commNote}>
           <Ionicons name="shield-checkmark-outline" size={14} color={Colors.muted} />
           <Text style={s.commText}>
-            Paiement sécurisé · Commission 15% · Net coach : {(service.price * 0.85).toFixed(2)}€
+            Paiement sécurisé · Commission {commissionPct}% · Net coach : {(service.price * (1 - commissionPct / 100)).toFixed(2)}€
           </Text>
         </View>
+        )}
 
         <View style={{ height: 100 }} />
       </ScrollView>

@@ -98,6 +98,43 @@ async def public_booking_config():
         "enable_pay_later_for_services":       cfg.get("enable_pay_later_for_services", False),
     }
 
+@api_router.get("/config/commission", tags=["config"])
+async def public_commission_config():
+    """
+    Retourne le taux de commission actif pour les services (pas d'auth requise).
+    Lit la pricing_rule active pour 'service_booking'.
+    Si aucune règle n'existe, retourne 0 (pas de commission configurée).
+    """
+    from database import get_pool
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """SELECT payer_fixed_fee, payer_percent_fee,
+                      receiver_fixed_fee, receiver_percent_fee
+               FROM pricing_rules
+               WHERE product_type = 'service_booking' AND active = TRUE
+               ORDER BY priority DESC, created_at DESC
+               LIMIT 1"""
+        )
+    if not row:
+        return {
+            "payer_percent_fee": 0,
+            "payer_fixed_fee": 0,
+            "receiver_percent_fee": 0,
+            "receiver_fixed_fee": 0,
+            "total_percent_fee": 0,
+            "has_rule": False,
+        }
+    total_pct = float(row["payer_percent_fee"]) + float(row["receiver_percent_fee"])
+    return {
+        "payer_percent_fee": float(row["payer_percent_fee"]),
+        "payer_fixed_fee": float(row["payer_fixed_fee"]),
+        "receiver_percent_fee": float(row["receiver_percent_fee"]),
+        "receiver_fixed_fee": float(row["receiver_fixed_fee"]),
+        "total_percent_fee": total_pct,
+        "has_rule": True,
+    }
+
 app.include_router(api_router)
 
 # Serve uploaded images at /api/uploads/*

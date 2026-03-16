@@ -29,7 +29,7 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 
 ## What's Been Implemented
 
-### Completed Features (All phases 1-17)
+### Completed Features (All phases 1-18)
 - Auth JWT, SpotYou/Service CRUD, Carte interactive, Chat/Notifications WS
 - Stripe PaymentIntent + manual capture, Booking workflows (4 flux)
 - Admin Dashboard (monetisation, tags, domaines, analytics)
@@ -40,14 +40,24 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 - Navigation anti-double-tap, onboarding multi-etapes
 - Followers/Following, Suggestions d'abonnements
 - Profile refactoring, Cover photo repositioning
+- Tags pre-fill en mode edition service (fix domainId par defaut)
 
-### Phase 18 - Bug Fixes Service Form (2026-03-16)
+### Phase 19 - Commission Dynamique (2026-03-16)
 | Date | Composant | Changement |
 |------|-----------|-----------|
-| 2026-03-16 | `frontend/app/create-service.tsx` | Fix: Tags pre-remplis en mode edition meme quand domain_id = defaut (setSelectedTagIds direct au lieu de pendingTagIdsRef) |
-| 2026-03-16 | `frontend/app/create-service.tsx` | Verifie: Lazy upload deja en place (pickImages stocke URIs locales, handleSubmit upload R2) |
+| 2026-03-16 | `backend/server.py` | Nouvel endpoint public `GET /api/config/commission` - lit pricing_rules active pour service_booking |
+| 2026-03-16 | `frontend/app/create-service.tsx` | Hook `useCommission()` avec cache - remplace commission 15% en dur |
+| 2026-03-16 | `frontend/app/service/[id].tsx` | Commission dynamique via `/config/commission` - masquee si aucune regle |
 
-**Tests**: 12/12 backend PASS, frontend verifie (tags banner "4 tags selectionnes")
+**Tests**: 9/9 backend PASS (test_commission_iter86.py), code review confirme 0 reference hardcoded restante
+
+## Key API Endpoints
+- `GET /api/config/commission` - (PUBLIC) Retourne le taux de commission actif depuis pricing_rules
+- `POST /api/upload-image?category={cat}` - Upload image to R2 with compression
+- `GET/POST/PUT/DELETE /api/services/{id}` - Service CRUD
+- `GET/PUT /api/users/profile` - Profile management
+- `POST /api/auth/login` - Authentication
+- `GET/POST/PUT/DELETE /api/admin/pricing-rules` - Admin gestion tarifs
 
 ## Prioritized Backlog
 
@@ -58,6 +68,7 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 - [x] Cloudflare R2 image storage
 - [x] Lazy upload pattern (profile + services)
 - [x] Tags pre-fill en mode edition service
+- [x] Commission dynamique (remplacer 15% en dur par pricing_rules admin)
 
 ### P1 - Important
 - [ ] Flow abonnement utilisateur (souscrire/gerer un plan Stripe Subscription)
@@ -78,26 +89,24 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 ```
 /app
 ├── backend/
-│   ├── r2_storage.py              # Module Cloudflare R2 (compress + upload + delete)
+│   ├── server.py                  # GET /api/config/commission endpoint
+│   ├── pricing_engine.py          # Moteur de calcul tarifs generique
 │   ├── routes/
 │   │   ├── upload_routes.py       # POST /api/upload-image (R2 + compression)
 │   │   ├── service_routes.py      # CRUD services + R2 deletion
+│   │   ├── admin_routes.py        # Admin pricing-rules CRUD
 │   │   ├── user_routes.py         # Profile + followers/suggestions
 │   │   └── tagpoint_routes.py     # SpotYou CRUD + R2 deletion
 │   └── tests/
-│       └── test_service_crud_iter85.py  # 12 tests service CRUD
+│       ├── test_commission_iter86.py  # 9 tests commission dynamique
+│       └── test_service_crud_iter85.py
 └── frontend/
     └── app/
-        ├── create-service.tsx     # Service creation/edit wizard (lazy upload + tags fix)
-        ├── edit-profile.tsx       # Profile edit (lazy upload reference)
+        ├── create-service.tsx     # useCommission hook + lazy upload + tags fix
+        ├── service/[id].tsx       # Commission dynamique dans detail service
+        ├── edit-profile.tsx       # Lazy upload reference
         └── edit-service/[id].tsx  # Redirect to create-service in edit mode
 ```
-
-## Key API Endpoints
-- `POST /api/upload-image?category={cat}` - Upload image to R2 with compression
-- `GET/POST/PUT/DELETE /api/services/{id}` - Service CRUD
-- `GET/PUT /api/users/profile` - Profile management
-- `POST /api/auth/login` - Authentication
 
 ## Known Issues
 - ngrok tunnel instability (infrastructure, not code)
