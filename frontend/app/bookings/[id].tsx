@@ -181,7 +181,7 @@ export default function BookingDetailScreen() {
 
   useFocusEffect(loadBooking);
 
-  if (loading) return <ScreenLoader />;
+  if (loading) return <SafeAreaView style={s.safe}><ScreenLoader /></SafeAreaView>;
   if (!booking) {
     const goBack = () => router.canGoBack() ? router.back() : router.replace('/bookings' as any);
     if (isNetworkError) {
