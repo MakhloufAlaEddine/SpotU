@@ -670,6 +670,8 @@ export default function SpotYouDetail() {
         eventSchedule: point.event_schedule ? JSON.stringify(point.event_schedule) : '',
         lat: String(point.latitude ?? ''),
         lng: String(point.longitude ?? ''),
+        minParticipants: String(point.minimum_participants ?? ''),
+        maxParticipants: String(point.maximum_participants ?? ''),
       },
     });
   };

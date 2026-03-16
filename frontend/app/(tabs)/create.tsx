@@ -103,6 +103,7 @@ export default function CreateSpotYouScreen() {
     editMode?: string; pointId?: string; title?: string; description?: string;
     domainId?: string; precision?: string; tagIds?: string; images?: string;
     eventDate?: string; eventEndDate?: string; eventSchedule?: string; lat?: string; lng?: string;
+    minParticipants?: string; maxParticipants?: string;
   }>();
   const isEditMode = params.editMode === 'true';
   // Prevents domainId-effect from clearing tags on the initial edit pre-fill
@@ -195,6 +196,13 @@ export default function CreateSpotYouScreen() {
       setSelectedLat(lat);
       setSelectedLng(lng);
       reverseGeocode(lat, lng);
+    }
+    // Capacité
+    if (params.minParticipants && params.minParticipants !== 'undefined' && params.minParticipants !== '0') {
+      setMinParticipants(params.minParticipants);
+    }
+    if (params.maxParticipants && params.maxParticipants !== 'undefined' && params.maxParticipants !== '0') {
+      setMaxParticipants(params.maxParticipants);
     }
     // Prefer event_schedule (recurring) over event_date (once) — mutual exclusivity
     if (params.eventSchedule) {
@@ -887,15 +895,33 @@ async function uploadImage(uri: string, token: string): Promise<string | null> {
 function StepEssentiel({ images, title, setTitle, onPickImages, onRemoveImage, minParticipants, setMinParticipants, maxParticipants, setMaxParticipants }: any) {
   const IMG = Math.floor((Math.min(SW, 500) - Spacing.md * 2 - 8 * 2) / 3);
 
+  const [capacityError, setCapacityError] = useState<string | null>(null);
+
   const handleMinChange = (val: string) => {
     const n = val.replace(/[^0-9]/g, '');
     setMinParticipants(n);
     if (n && !maxParticipants) setMaxParticipants(n);
+    // Validation
+    const min = parseInt(n, 10);
+    const max = parseInt(maxParticipants, 10);
+    if (n && maxParticipants && min > max) {
+      setCapacityError('Le minimum ne peut pas dépasser le maximum.');
+    } else {
+      setCapacityError(null);
+    }
   };
   const handleMaxChange = (val: string) => {
     const n = val.replace(/[^0-9]/g, '');
     setMaxParticipants(n);
     if (n && !minParticipants) setMinParticipants(n);
+    // Validation
+    const min = parseInt(minParticipants, 10);
+    const max = parseInt(n, 10);
+    if (minParticipants && n && min > max) {
+      setCapacityError('Le minimum ne peut pas dépasser le maximum.');
+    } else {
+      setCapacityError(null);
+    }
   };
   return (
     <View style={{ gap: Spacing.lg }}>
@@ -979,7 +1005,7 @@ function StepEssentiel({ images, title, setTitle, onPickImages, onRemoveImage, m
           <View style={{ flex: 1 }}>
             <Text style={sc.capacityFieldLabel}>Minimum</Text>
             <TextInput
-              style={sc.capacityInput}
+              style={[sc.capacityInput, capacityError ? { borderColor: '#FF453A', borderWidth: 1.5 } : null]}
               placeholder="ex: 3"
               placeholderTextColor={Colors.muted}
               keyboardType="number-pad"
@@ -991,7 +1017,7 @@ function StepEssentiel({ images, title, setTitle, onPickImages, onRemoveImage, m
           <View style={{ flex: 1 }}>
             <Text style={sc.capacityFieldLabel}>Maximum</Text>
             <TextInput
-              style={sc.capacityInput}
+              style={[sc.capacityInput, capacityError ? { borderColor: '#FF453A', borderWidth: 1.5 } : null]}
               placeholder="ex: 15"
               placeholderTextColor={Colors.muted}
               keyboardType="number-pad"
@@ -1001,6 +1027,12 @@ function StepEssentiel({ images, title, setTitle, onPickImages, onRemoveImage, m
             />
           </View>
         </View>
+        {capacityError ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+            <Ionicons name="alert-circle-outline" size={14} color="#FF453A" />
+            <Text style={{ fontSize: 12, color: '#FF453A', fontWeight: '500' }}>{capacityError}</Text>
+          </View>
+        ) : null}
         {!!(minParticipants || maxParticipants) && (
           <View style={sc.capacityPreview}>
             <Ionicons name="information-circle-outline" size={14} color={Colors.primary} />
