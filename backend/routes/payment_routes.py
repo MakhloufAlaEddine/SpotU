@@ -196,10 +196,15 @@ async def create_checkout_session(request: Request):
 async def get_checkout_status(session_id: str, request: Request):
     """
     Vérifie le statut d'une session Checkout et met à jour la BDD.
-    Compatible avec l'ancien polling frontend (session_id = cs_test_...).
+    Auth optionnelle : le session_id Stripe est un secret suffisant.
     """
     pool = get_pool()
-    user = await require_auth(request, pool)
+    # Auth optionnelle — le user peut appeler depuis mobile (token) ou web (redirect Stripe)
+    user = None
+    try:
+        user = await require_auth(request, pool)
+    except Exception:
+        pass
 
     # Chercher le paiement par session_id OU par payment_intent_id (rétrocompat)
     async with pool.acquire() as conn:
@@ -214,8 +219,6 @@ async def get_checkout_status(session_id: str, request: Request):
         raise HTTPException(status_code=404, detail="Session de paiement non trouvée")
 
     payment = row_to_dict(pay_row)
-    if payment["payer_user_id"] != user["user_id"] and user.get("role") != "admin":
-        raise HTTPException(status_code=403, detail="Accès refusé")
 
     # Récupérer la session depuis Stripe (utiliser le session_id réel)
     real_session_id = payment.get("stripe_checkout_session_id") or session_id

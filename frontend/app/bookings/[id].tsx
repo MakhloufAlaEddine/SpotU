@@ -120,17 +120,40 @@ export default function BookingDetailScreen() {
   const { expired: isExpired, countdown } = useExpired(booking?.expires_at);
   const sessionCountdown = useSessionCountdown(booking?.slot_date || booking?.scheduled_at);
 
-  // Ref + listener AppState pour refresh après paiement
+  // Ref + polling après retour de paiement
   const paymentPendingRef = React.useRef(false);
+  const checkoutSessionRef = React.useRef<string | null>(null);
+  const prevStatusRef = React.useRef<string | null>(null);
+
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active' && paymentPendingRef.current) {
         paymentPendingRef.current = false;
-        loadBooking();
+        prevStatusRef.current = booking?.status ?? null;
+        let attempts = 0;
+
+        const poll = async () => {
+          // D'abord déclencher checkout/status pour que le backend mette à jour la DB
+          if (checkoutSessionRef.current) {
+            try { await api.get(`/payments/checkout/status/${checkoutSessionRef.current}`); } catch {}
+          }
+          // Puis lire le booking mis à jour
+          try {
+            const data: any = await api.get(`/bookings/${id}`);
+            setBooking(data);
+            attempts++;
+            if (data.status === prevStatusRef.current && attempts < 6) {
+              setTimeout(poll, 2000);
+            } else {
+              checkoutSessionRef.current = null;
+            }
+          } catch {}
+        };
+        poll();
       }
     });
     return () => sub.remove();
-  }, [loadBooking]);
+  }, [id, booking?.status]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -198,7 +221,8 @@ export default function BookingDetailScreen() {
     setPaying(true);
     try {
       const originUrl = typeof window !== 'undefined' ? window.location.origin : '';
-      const res = await api.post<{ url: string }>(`/bookings/${id}/pay`, { origin_url: originUrl });
+      const res = await api.post<{ url: string; session_id: string }>(`/bookings/${id}/pay`, { origin_url: originUrl });
+      checkoutSessionRef.current = res.session_id;
       paymentPendingRef.current = true;
       await Linking.openURL(res.url);
     } catch (err: any) {
