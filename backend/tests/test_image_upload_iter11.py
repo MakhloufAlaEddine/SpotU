@@ -124,13 +124,15 @@ class TestUploadImage:
         assert data["filename"].endswith(".jpg"), f"Expected .jpg extension: {data['filename']}"
 
     def test_upload_image_url_contains_api_uploads(self, auth_headers):
-        """Returned URL should point to /api/uploads/ path."""
+        """Returned URL should point to R2 CDN or local /api/uploads/ fallback."""
         jpeg = create_test_jpeg_bytes()
         files = {"file": ("test_photo.jpg", io.BytesIO(jpeg), "image/jpeg")}
         resp = requests.post(UPLOAD_URL, files=files, headers=auth_headers)
         assert resp.status_code == 200
         url = resp.json()["url"]
-        assert "/api/uploads/" in url, f"URL does not contain /api/uploads/: {url}"
+        # R2 URL (production) ou fallback local (si R2 non configuré)
+        assert "images.winek.app" in url or "/api/uploads/" in url, \
+            f"URL doit pointer vers R2 ou le filesystem local: {url}"
 
 
 # ─── Test Suite 2: GET uploaded file URL ──────────────────────────────────────

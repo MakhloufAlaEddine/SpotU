@@ -780,9 +780,41 @@ Le proxy Emergent (`sk_test_emergent` → `https://integrations.emergentagent.co
 **Suite E2E backend : 1059 passés, 14 ignorés, 0 échec** ✅
 Voir `/app/memory/CHANGELOG.md` pour le détail des corrections.
 
+### Phase 17 — Compression d'images + Stockage Cloudflare R2 (2026-03-16) ✅
+
+| Fichier | Changement |
+|---------|-----------|
+| `backend/r2_storage.py` | NOUVEAU — module boto3 R2 : compress_image (Pillow), upload_to_r2, delete_from_r2 |
+| `backend/routes/upload_routes.py` | MODIFIÉ — param `?category=`, compression Pillow avant upload, stockage R2, fallback filesystem |
+| `frontend/app/create-service.tsx` | MODIFIÉ — `?category=services` |
+| `frontend/app/(tabs)/create.tsx` | MODIFIÉ — `?category=spotyou` |
+| `frontend/app/user/[id].tsx` | MODIFIÉ — `?category=profiles` (cover photo) |
+| `frontend/app/edit-profile.tsx` | MODIFIÉ — migration base64→R2 URL pour photo profil |
+| `backend/tests/test_r2_upload_iter87.py` | NOUVEAU — 12 tests R2 (12/12 PASS) |
+| `backend/tests/test_image_upload_iter11.py` | MODIFIÉ — assertion URL mise à jour (R2 ou fallback local) |
+
+**Architecture upload :**
+```
+Mobile App → POST /api/upload-image?category={cat} → FastAPI
+  → Pillow compression (JPEG 85%, max 2000px, PNG RGBA→WebP)
+  → Cloudflare R2 (boto3 S3-compatible)
+  → CDN → https://images.winek.app/{category}/img_{uuid}.{ext}
+```
+**Catégories R2 :** `profiles/` · `services/` · `spotyou/` · `other/`
+**Réduction typique :** 75–83% sur les grandes images
+**Compatibilité rétro :** anciennes URLs `/api/uploads/` toujours servies via StaticFiles
+
+### Variables d'environnement R2 ajoutées
+- `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_ACCOUNT_ID`
+- `R2_BUCKET_NAME=winek-images`, `R2_PUBLIC_URL=https://images.winek.app`
+- `R2_ENDPOINT=https://7727d77dc8c9c3db2b30527fa90e8f59.r2.cloudflarestorage.com`
+
 ### Backlog P1/P2/P3
-- P1 : Migration uploads images/fichiers vers S3
-- P2 : Compression d'images, Sauvegardes DB, i18n FR/EN, Offline Queue, Push Notifications
+- P1 : Sauvegardes automatiques DB
+- P1 : Pipeline CI automatisé
+- P2 : Support bilingue FR/EN (i18n)
+- P2 : File d'attente mutations offline
+- P2 : Push Notifications (EAS)
 - P3 : Refactorisation `frontend/app/create/create.tsx`
 
 
