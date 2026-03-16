@@ -1,16 +1,20 @@
 import { useEffect } from 'react';
-import { useLocalSearchParams } from 'expo-router';
-import { useGuardedRouter } from '../../hooks/useGuardedRouter';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { releaseNavLock } from '../../lib/navGuard';
 
 /**
- * Redirect to the shared create-service screen with serviceId param.
- * The create-service screen handles both create and edit modes.
+ * Redirect vers create-service en mode édition.
+ * Utilise useRouter() directement (pas useGuardedRouter) car c'est
+ * un redirect interne — pas un tap utilisateur. On libère aussi le
+ * navLock acquis par le tap précédent pour ne pas bloquer la navigation.
  */
 export default function EditServiceRedirect() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const router = useGuardedRouter();
+  const router = useRouter();
 
   useEffect(() => {
+    // Libérer le navLock acquis par le tap "Modifier service"
+    releaseNavLock();
     if (id) {
       router.replace(`/create-service?serviceId=${id}` as any);
     } else {
