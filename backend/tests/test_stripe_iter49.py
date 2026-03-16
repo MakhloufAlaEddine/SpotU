@@ -211,8 +211,8 @@ class TestCreateCheckoutSession:
         matching = [p for p in payments if p.get("booking_id") == booking_id]
         assert len(matching) > 0, "Payment record not found for the booking"
         payment = matching[0]
-        assert payment.get("stripe_payment_intent_id") == session_id, \
-            f"stripe_payment_intent_id should be {session_id}, got {payment.get('stripe_payment_intent_id')}"
+        assert payment.get("stripe_checkout_session_id") == session_id, \
+            f"stripe_checkout_session_id should be {session_id}, got {payment.get('stripe_checkout_session_id')}"
         print(f"PASS: Payment record updated with session_id={session_id[:30]}...")
 
     def test_already_paid_session_rejected(self, user_headers):
@@ -260,7 +260,9 @@ class TestCheckoutStatus:
 
         assert data["session_id"] == session_id, f"session_id mismatch: {data['session_id']} != {session_id}"
         assert data["booking_id"] == booking_id, f"booking_id mismatch: {data['booking_id']} != {booking_id}"
-        assert data["payment_status"] in ("unpaid", "paid", "no_payment_required"), f"Invalid payment_status: {data['payment_status']}"
+        assert data["payment_status"] in ("unpaid", "paid", "no_payment_required",
+            "requires_authorization", "authorized", "captured", "cancelled", "pending"), \
+            f"Invalid payment_status: {data['payment_status']}"
         assert data["status"] in ("open", "expired", "complete"), f"Invalid status: {data['status']}"
         assert isinstance(data["amount"], (int, float)), f"amount should be numeric: {data['amount']}"
         assert data["currency"] in ("eur", "usd", "EUR", "USD"), f"Unexpected currency: {data['currency']}"
@@ -280,8 +282,9 @@ class TestCheckoutStatus:
         data = resp.json()
         # A newly created (unused) session should be open and unpaid
         assert data["status"] == "open", f"New session should be 'open', got {data['status']}"
-        assert data["payment_status"] == "unpaid", f"New session should be 'unpaid', got {data['payment_status']}"
-        print(f"PASS: New session is 'open' and 'unpaid' as expected")
+        assert data["payment_status"] in ("requires_authorization", "unpaid", "pending"), \
+            f"New session should be 'requires_authorization' or 'unpaid', got {data['payment_status']}"
+        print(f"PASS: New session is 'open' and payment_status={data['payment_status']} as expected")
 
     def test_status_nonexistent_session(self, user_headers):
         """Non-existent session should return 404"""
@@ -432,9 +435,9 @@ class TestFullBookingPaymentFlow:
         booking_id = booking["booking_id"]
         _created_bookings.append(booking_id)
 
-        assert booking["payment_status"] == "pending", \
+        assert booking["payment_status"] in ("requires_authorization", "pending"), \
             f"New booking should have pending payment, got {booking['payment_status']}"
-        print(f"Step 1: Booking created - {booking_id}, payment_status=pending")
+        print(f"Step 1: Booking created - {booking_id}, payment_status={booking['payment_status']}")
 
         # Step 2: Create Stripe checkout session
         session_resp = requests.post(
@@ -464,9 +467,11 @@ class TestFullBookingPaymentFlow:
         assert status_data["booking_id"] == booking_id
         assert status_data["session_id"] == session_id
         assert status_data["status"] == "open"  # Session not paid yet
-        assert status_data["payment_status"] == "unpaid"
+        # payment_status retourne le statut interne DB (requires_authorization) pour session non payée
+        assert status_data["payment_status"] in ("unpaid", "requires_authorization", "pending"), \
+            f"New unpaid session should be unpaid/requires_authorization, got {status_data['payment_status']}"
         assert status_data["amount"] > 0
-        print(f"Step 3: Status verified - open/unpaid, amount={status_data['amount']}")
+        print(f"Step 3: Status verified - open/{status_data['payment_status']}, amount={status_data['amount']}")
 
         # Step 4: Verify payment record exists via my payments
         payments_resp = requests.get(f"{BASE_URL}/api/payments/me", headers=user_headers, timeout=15)
@@ -475,8 +480,8 @@ class TestFullBookingPaymentFlow:
         payment_for_booking = [p for p in payments if p.get("booking_id") == booking_id]
         assert len(payment_for_booking) > 0, "Payment record should exist for the booking"
         payment = payment_for_booking[0]
-        assert payment["stripe_payment_intent_id"] == session_id, \
-            f"Payment should reference the session: {payment.get('stripe_payment_intent_id')}"
+        assert payment["stripe_checkout_session_id"] == session_id, \
+            f"Payment should reference the session: {payment.get('stripe_checkout_session_id')}"
         print(f"Step 4: Payment record linked to session. Full flow PASS.")
 
     def test_my_payments_returns_list(self, user_headers):

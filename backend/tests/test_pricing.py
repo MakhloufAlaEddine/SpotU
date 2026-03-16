@@ -113,13 +113,13 @@ async def test_pricing_engine_no_rule():
             conn, 100.0, "user_test_payer", "user_test_receiver", "unknown_type"
         )
         assert result.payer_fixed_fee == 0.0
-        assert result.payer_percent_fee == 0.0
+        assert result.payer_percent_fee_amount == 0.0
         assert result.receiver_fixed_fee == 0.0
-        assert result.receiver_percent_fee == 0.0
+        assert result.receiver_percent_fee_amount == 0.0
         assert result.platform_total_fee == 0.0
         assert result.receiver_net_amount == 100.0
         assert result.payer_total_amount == 100.0
-        assert result.rule_id is None
+        assert result.applied_rules == []
     finally:
         # Réactiver les règles
         await conn.execute("UPDATE pricing_rules SET active = TRUE")
@@ -131,21 +131,32 @@ async def test_pricing_engine_with_rule():
     """Avec une règle active, vérifie le calcul exact des frais."""
     from pricing_engine import pricing_engine
     conn = await asyncpg.connect(DB_URL)
+    rule_id = None
     try:
-        # La règle "Standard" créée en session précédente : 2.5% payeur + 10% bénéficiaire
+        # Créer une règle de test : 2.5% payeur + 10% bénéficiaire
+        rule_id = f"rule_test_{int(__import__('time').time())}"
+        await conn.execute(
+            """INSERT INTO pricing_rules
+               (rule_id, product_type, name, payer_percent_fee, receiver_percent_fee,
+                payer_fixed_fee, receiver_fixed_fee, active, priority)
+               VALUES ($1, 'service_booking', 'Standard Test', 2.5, 10.0, 0.0, 0.0, TRUE, 100)""",
+            rule_id,
+        )
         result = await pricing_engine.calculate(
             conn, 60.0, "u_payer", "u_receiver", "service_booking"
         )
         assert result.base_amount == 60.0
         # 2.5% de 60 = 1.50
-        assert result.payer_percent_fee == 1.50
+        assert result.payer_percent_fee_amount == 1.50
         # 10% de 60 = 6.00
-        assert result.receiver_percent_fee == 6.00
+        assert result.receiver_percent_fee_amount == 6.00
         assert result.payer_total_amount == 61.50
         assert result.receiver_net_amount == 54.00
         assert result.platform_total_fee == 7.50
-        assert result.rule_id is not None
+        assert len(result.applied_rules) > 0
     finally:
+        if rule_id:
+            await conn.execute("DELETE FROM pricing_rules WHERE rule_id = $1", rule_id)
         await conn.close()
 
 
@@ -160,10 +171,10 @@ async def test_pricing_snapshot_immutable():
         )
         snap = result.to_snapshot()
         required_keys = {
-            "base_amount", "payer_fixed_fee", "payer_percent_fee",
-            "receiver_fixed_fee", "receiver_percent_fee",
+            "base_amount", "payer_fixed_fee", "payer_percent_fee_amount",
+            "receiver_fixed_fee", "receiver_percent_fee_amount",
             "platform_total_fee", "receiver_net_amount", "payer_total_amount",
-            "rule_id", "rule_name", "product_type", "subscription_exemptions",
+            "product_type", "currency", "applied_rules", "applied_subscription_benefits",
         }
         assert required_keys.issubset(snap.keys()), f"Clés manquantes: {required_keys - snap.keys()}"
         # Vérifier que c'est sérialisable JSON
@@ -242,7 +253,7 @@ def test_create_booking_creates_payment():
 
     pay = related[0]
     assert pay["product_type"] == "service_booking"
-    assert pay["status"] == "pending"
+    assert pay["status"] == "requires_authorization"
     assert pay["base_amount"] == snap["base_amount"]
     assert pay["payer_total_amount"] == snap["payer_total_amount"]
     assert pay["receiver_net_amount"] == snap["receiver_net_amount"]

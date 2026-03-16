@@ -19,8 +19,12 @@ import os
 import time
 
 # ─── Configuration ─────────────────────────────────────────────────────────────
-API_BASE = "https://stripe-payment-debug-1.preview.emergentagent.com/api"
-WS_BASE  = "wss://realtime-events-4.preview.emergentagent.com/api"
+# Dérivé depuis la variable d'environnement ou valeur de fallback
+_BASE_HTTPS = os.environ.get("EXPO_PUBLIC_BACKEND_URL",
+               "https://stripe-payment-debug-1.preview.emergentagent.com").rstrip("/")
+API_BASE = f"{_BASE_HTTPS}/api"
+# WebSocket : remplace 'https' → 'wss'
+WS_BASE  = _BASE_HTTPS.replace("https://", "wss://").replace("http://", "ws://") + "/api"
 
 COACH_EMAIL = "coach@winek.app"
 COACH_PASS  = "WinekCoach2024!"

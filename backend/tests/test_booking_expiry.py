@@ -190,9 +190,20 @@ def service_id(http, tok_coach):
     return svcs[0]["service_id"]
 
 
+@pytest.fixture(scope="module")
+def tok_admin(http):
+    return login(http, "admin@winek.app", "WinekAdmin2024!")
+
+
 @pytest.fixture(scope="module", autouse=True)
-def ensure_manual_approval_mode(http, tok_coach, service_id):
-    """Reset service to manual_approval + allow_pay_later=True before/after all tests in this module."""
+def ensure_manual_approval_mode(http, tok_coach, tok_admin, service_id):
+    """Reset service to manual_approval + set global flag=True before/after all tests in this module."""
+    # Set global flag to allow manual approval (required for 'requested' bookings)
+    http.put(
+        "/api/admin/app-config",
+        json={"enable_manual_approval_for_services": True, "enable_pay_later_for_services": True},
+        headers={"Authorization": f"Bearer {tok_admin}"},
+    )
     reset_payload = {
         "booking_approval_mode": "manual_approval",
         "allow_pay_later": True,
@@ -206,7 +217,12 @@ def ensure_manual_approval_mode(http, tok_coach, service_id):
     if r.status_code != 200:
         print(f"WARNING: Could not reset service mode to manual_approval: {r.text}")
     yield
-    # Restore after all tests
+    # Restore global flag to False after all tests
+    http.put(
+        "/api/admin/app-config",
+        json={"enable_manual_approval_for_services": False, "enable_pay_later_for_services": False},
+        headers={"Authorization": f"Bearer {tok_admin}"},
+    )
     http.patch(
         f"/api/services/{service_id}",
         json=reset_payload,

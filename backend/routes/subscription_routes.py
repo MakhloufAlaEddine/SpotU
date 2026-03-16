@@ -298,13 +298,16 @@ async def subscribe(request: Request):
         "product_type": "subscription",
     }
 
+    import time as _time
+    # Idempotency key includes a time window (5 min buckets) so expired sessions can be retried
+    _window = int(_time.time() // 300)
     session = await stripe_service.create_subscription_checkout_session(
         customer_id=customer_id,
         price_id=price_id,
         success_url=success_url,
         cancel_url=cancel_url,
         metadata=meta,
-        idempotency_key=f"{user['user_id']}_{plan_id}",
+        idempotency_key=f"{user['user_id']}_{plan_id}_{_window}",
     )
 
     log.info(

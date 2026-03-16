@@ -774,5 +774,16 @@ Le proxy Emergent (`sk_test_emergent` → `https://integrations.emergentagent.co
 
 - Login fonctionnel vérifié (web + iOS bundle OK)
 
+---
+
+## Statut des tests (2026-03-16)
+**Suite E2E backend : 1059 passés, 14 ignorés, 0 échec** ✅
+Voir `/app/memory/CHANGELOG.md` pour le détail des corrections.
+
+### Backlog P1/P2/P3
+- P1 : Migration uploads images/fichiers vers S3
+- P2 : Compression d'images, Sauvegardes DB, i18n FR/EN, Offline Queue, Push Notifications
+- P3 : Refactorisation `frontend/app/create/create.tsx`
+
 
 

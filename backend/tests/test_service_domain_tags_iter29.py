@@ -8,6 +8,7 @@ Backend tests for the new create-service flow (iter 29):
 import pytest
 import requests
 import os
+from datetime import datetime, timedelta
 
 BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://stripe-payment-debug-1.preview.emergentagent.com").rstrip("/")
 
@@ -186,7 +187,7 @@ class TestCreateServiceNewFlow:
                 "price": 60.0,
                 "slots": [
                     {
-                        "slot_date": "2026-03-15",
+                        "slot_date": (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d"),
                         "start_time": "10:00",
                         "end_time": "11:00"
                     }
@@ -249,7 +250,7 @@ class TestCreateServiceNewFlow:
             "duration_min": 45,
             "max_participants": 1,
             "domain_id": "dom_sport",
-            "tag_ids": VALID_TAG_IDS,
+            "tag_ids": [],
             "packages": [{
                 "type_id": "main",
                 "type_label": "Service principal",

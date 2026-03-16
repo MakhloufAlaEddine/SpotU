@@ -430,10 +430,24 @@ class TestBookingFlagEnforcement:
         if not svc:
             pytest.skip("No services available")
 
+        service_id = svc["service_id"]
+
+        # Cancel any pre-existing non-terminal bookings for this user on this service
+        # (avoids idempotency re-routing to old 'requested' bookings)
+        existing_resp = requests.get(f"{BASE_URL}/api/bookings/me", headers=user_headers)
+        if existing_resp.status_code == 200:
+            for bk in existing_resp.json():
+                if bk.get("service_id") == service_id and bk.get("status") in ("requested", "awaiting_payment"):
+                    requests.post(
+                        f"{BASE_URL}/api/bookings/{bk['booking_id']}/cancel",
+                        headers=user_headers,
+                        timeout=5,
+                    )
+
         # Use svc_demo001 if available or first service
         slot_id = self._get_slot_id(svc)
         booking_payload = {
-            "service_id": svc["service_id"],
+            "service_id": service_id,
             "payment_mode": "pay_now",
         }
         if slot_id:

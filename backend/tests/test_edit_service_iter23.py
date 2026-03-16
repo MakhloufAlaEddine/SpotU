@@ -109,8 +109,10 @@ class TestGetServices:
         data = resp.json()
         assert isinstance(data, list)
         assert len(data) >= 1, "Coach should have at least 1 service"
-        service = data[0]
-        assert service["service_id"] == SERVICE_ID
+        # Vérifie que svc_demo001 est dans la liste (pas forcément en premier)
+        service_ids = [s["service_id"] for s in data]
+        assert SERVICE_ID in service_ids, f"{SERVICE_ID} not found in {service_ids}"
+        service = next(s for s in data if s["service_id"] == SERVICE_ID)
         assert service["coach_id"] == "user_coach001"
         # Vérifier tag_ids - devrait être un type lisible (string ou list)
         tag_ids = service.get("tag_ids")

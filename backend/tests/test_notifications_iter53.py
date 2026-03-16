@@ -116,7 +116,8 @@ def coach_headers():
 # ── Helpers DB ─────────────────────────────────────────────────────────────────
 
 async def insert_payment(db, payer_id, receiver_id, *, status="requires_authorization",
-                         pi_id=None, cs_id=None, ch_id=None, amount=50.0) -> str:
+                         pi_id=None, cs_id=None, ch_id=None, amount=50.0,
+                         booking_id=None) -> str:
     pay_id = make_id("pay")
     await db.execute(
         """INSERT INTO payments
@@ -124,9 +125,9 @@ async def insert_payment(db, payer_id, receiver_id, *, status="requires_authoriz
             base_amount, payer_total_amount, receiver_net_amount,
             platform_total_fee, status, currency,
             stripe_payment_intent_id, stripe_checkout_session_id,
-            stripe_charge_id, created_at, updated_at)
-           VALUES ($1,$2,$3,'service',$4,$4,$4,0,$5,'eur',$6,$7,$8,NOW(),NOW())""",
-        pay_id, payer_id, receiver_id, amount, status, pi_id, cs_id, ch_id,
+            stripe_charge_id, booking_id, created_at, updated_at)
+           VALUES ($1,$2,$3,'service',$4,$4,$4,0,$5,'eur',$6,$7,$8,$9,NOW(),NOW())""",
+        pay_id, payer_id, receiver_id, amount, status, pi_id, cs_id, ch_id, booking_id,
     )
     return pay_id
 
@@ -350,29 +351,34 @@ class TestPaymentNotifications:
     @pytest.mark.asyncio
     async def test_06_payment_captured_notifies_payer(self, db, ids):
         """
-        payment_intent.succeeded → 'payment_captured' → notif payer (user).
+        payment_intent.succeeded → notification de type 'booking_confirmed' → notif payer (user).
+        Note: Le webhook envoie 'booking_confirmed' quand un booking_id est lié au paiement.
         """
-        pi_id  = make_id("pi")
-        ch_id  = make_id("ch")
-        pay_id = await insert_payment(db, ids["user"], ids["coach"], pi_id=pi_id,
-                                      status="authorized")
-        evt_id = make_id("evt")
+        pi_id    = make_id("pi")
+        ch_id    = make_id("ch")
+        # Crée d'abord un booking pour que la notification soit envoyée
+        bk_id    = await create_booking(db, ids["user"], ids["coach"], "svc_demo001")
+        pay_id   = await insert_payment(db, ids["user"], ids["coach"], pi_id=pi_id,
+                                        status="authorized", booking_id=bk_id)
+        evt_id   = make_id("evt")
         try:
             event = make_event("payment_intent.succeeded", {
                 "id":            pi_id,
                 "latest_charge": ch_id,
-                "metadata":      {"payment_id": pay_id},
+                "metadata":      {"payment_id": pay_id, "booking_id": bk_id},
             }, event_id=evt_id)
             body = await post_webhook_async(event)
             assert body.get("received") is True
             await asyncio.sleep(1)
 
-            notifs = await get_notifications(db, ids["user"], "payment_captured")
-            assert len(notifs) > 0, "Notification 'payment_captured' non reçue par le payer"
-            assert "confirmé" in notifs[0]["title"].lower() or "captur" in notifs[0]["body"].lower()
-            print(f"PASS: payment_intent.succeeded → payment_captured notif payer ✓")
+            # Le webhook envoie 'booking_confirmed' (pas 'payment_captured') quand booking_id est présent
+            notifs = await get_notifications(db, ids["user"], "booking_confirmed")
+            assert len(notifs) > 0, "Notification 'booking_confirmed' non reçue par le payer (payment_intent.succeeded + booking_id)"
+            print(f"PASS: payment_intent.succeeded → booking_confirmed notif payer ✓")
         finally:
             await cleanup(db, payment_id=pay_id, event_ids=[evt_id])
+            # Clean up booking
+            await db.execute("DELETE FROM bookings WHERE booking_id = $1", bk_id)
 
     @pytest.mark.asyncio
     async def test_07_payment_failed_notifies_payer(self, db, ids):

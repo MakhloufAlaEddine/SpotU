@@ -9,35 +9,86 @@ Iteration 39 - Backend tests for service images feature:
 import pytest
 import requests
 import os
-import json
 
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://stripe-payment-debug-1.preview.emergentagent.com').rstrip('/')
 
+SERVICE_ID = None  # Set dynamically in setup_module
 
-def _get_valid_tag_ids():
-    """Récupère un tag valide depuis l'API pour respecter la règle métier (au moins 1 tag requis)."""
-    try:
-        resp = requests.get(f"{BASE_URL}/api/tags/categories?domain_id=dom_sport", timeout=5)
-        if resp.status_code == 200:
-            for cat in resp.json():
-                for tag in cat.get("tags", []):
-                    return [tag["tag_id"]]
-    except Exception:
-        pass
-    return ["tag_3x3"]  # fallback hardcodé
+# ─── Setup / Teardown ────────────────────────────────────────────────────────
+
+def setup_module(module):
+    """Create a test service as coach@winek.app for image tests."""
+    global SERVICE_ID
+
+    tag_resp = requests.get(f"{BASE_URL}/api/tags/categories?domain_id=dom_sport", timeout=5)
+    tag_ids = ["tag_3x3"]
+    if tag_resp.status_code == 200:
+        for cat in tag_resp.json():
+            for tag in cat.get("tags", []):
+                tag_ids = [tag["tag_id"]]
+                break
+
+    r = requests.post(f"{BASE_URL}/api/auth/login", json={
+        "email": "coach@winek.app",
+        "password": "WinekCoach2024!"
+    })
+    assert r.status_code == 200, f"Coach login failed: {r.text}"
+    coach_token = r.json()["token"]
+
+    payload = {
+        "title": "TEST_Service Images Iter39",
+        "description": "Service de test pour les images",
+        "price": 60.0,
+        "duration_min": 60,
+        "domain_id": "dom_sport",
+        "tag_ids": tag_ids,
+        "images": [],
+        "locations": [],
+        "packages": [{
+            "type_id": "main",
+            "type_label": "Session",
+            "duration_min": 60,
+            "max_participants": 1,
+            "price": 60.0,
+            "slots": []
+        }],
+        "slots": []
+    }
+    svc_r = requests.post(
+        f"{BASE_URL}/api/services",
+        headers={"Authorization": f"Bearer {coach_token}", "Content-Type": "application/json"},
+        json=payload
+    )
+    assert svc_r.status_code == 200, f"Service creation failed: {svc_r.text}"
+    SERVICE_ID = svc_r.json()["service_id"]
+    print(f"[setup] Created test service: {SERVICE_ID}")
 
 
-VALID_TAG_IDS = _get_valid_tag_ids()
-SERVICE_ID = "svc_b184a9f7f6db"  # owned by user_demo001 (user@winek.app)
+def teardown_module(module):
+    """Delete the test service after all tests."""
+    if not SERVICE_ID:
+        return
+    r = requests.post(f"{BASE_URL}/api/auth/login", json={
+        "email": "coach@winek.app",
+        "password": "WinekCoach2024!"
+    })
+    if r.status_code == 200:
+        token = r.json()["token"]
+        requests.delete(
+            f"{BASE_URL}/api/services/{SERVICE_ID}",
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        print(f"[teardown] Deleted test service: {SERVICE_ID}")
+
 
 # ─── Fixtures ─────────────────────────────────────────────────────────────────
 
 @pytest.fixture(scope="module")
 def owner_token():
-    """user@winek.app = user_demo001 = owner of svc_b184a9f7f6db"""
+    """coach@winek.app = owner of the test service"""
     r = requests.post(f"{BASE_URL}/api/auth/login", json={
-        "email": "user@winek.app",
-        "password": "WinekUser2024!"
+        "email": "coach@winek.app",
+        "password": "WinekCoach2024!"
     })
     assert r.status_code == 200, f"Login failed: {r.text}"
     return r.json()["token"]
@@ -45,10 +96,10 @@ def owner_token():
 
 @pytest.fixture(scope="module")
 def nonowner_token():
-    """coach@winek.app = user_coach001 = NOT owner of svc_b184a9f7f6db"""
+    """user@winek.app = NOT owner of the test service"""
     r = requests.post(f"{BASE_URL}/api/auth/login", json={
-        "email": "coach@winek.app",
-        "password": "WinekCoach2024!"
+        "email": "user@winek.app",
+        "password": "WinekUser2024!"
     })
     assert r.status_code == 200, f"Login failed: {r.text}"
     return r.json()["token"]
@@ -105,7 +156,7 @@ class TestServiceImagesPut:
         print(f"[PASS] PUT images as owner: {returned_images}")
 
     def test_put_images_as_nonowner_returns_403(self, nonowner_token):
-        """Non-owner coach cannot update images → 403"""
+        """Non-owner cannot update images → 403"""
         r = requests.put(
             f"{BASE_URL}/api/services/{SERVICE_ID}",
             headers={"Authorization": f"Bearer {nonowner_token}", "Content-Type": "application/json"},
@@ -142,16 +193,16 @@ class TestServiceImagesPost:
 
     created_service_id = None
 
-    def test_post_service_with_images(self, nonowner_token):
-        """Create service with images in payload"""
+    def test_post_service_with_images(self, owner_token):
+        """Create service with images in payload (coach creates)"""
         test_images = ["http://test.com/img1.jpg", "http://test.com/img2.jpg"]
         payload = {
-            "title": "TEST_Service avec Photos",
+            "title": "TEST_Service avec Photos iter39b",
             "description": "Description de test pour vérifier les images dans le service créé",
             "price": 50.0,
             "duration_min": 60,
             "domain_id": "dom_sport",
-            "tag_ids": VALID_TAG_IDS,
+            "tag_ids": ["tag_3x3"],
             "images": test_images,
             "locations": [],
             "packages": [{
@@ -166,28 +217,27 @@ class TestServiceImagesPost:
         }
         r = requests.post(
             f"{BASE_URL}/api/services",
-            headers={"Authorization": f"Bearer {nonowner_token}", "Content-Type": "application/json"},
+            headers={"Authorization": f"Bearer {owner_token}", "Content-Type": "application/json"},
             json=payload
         )
         assert r.status_code == 200, f"Expected 200, got {r.status_code}: {r.text}"
         data = r.json()
         assert "service_id" in data or "id" in data, "Missing service_id in response"
         TestServiceImagesPost.created_service_id = data.get("service_id") or data.get("id")
-        # Check images in response
         assert "images" in data, "images field missing from POST response"
         returned_images = data["images"]
         assert isinstance(returned_images, list), f"images should be list, got {type(returned_images)}"
         assert returned_images == test_images, f"Expected {test_images}, got {returned_images}"
         print(f"[PASS] POST service with images: {returned_images}, service_id={TestServiceImagesPost.created_service_id}")
 
-    def test_post_service_images_persisted(self, nonowner_token):
+    def test_post_service_images_persisted(self, owner_token):
         """GET after POST verifies images persist"""
         if not TestServiceImagesPost.created_service_id:
             pytest.skip("Service creation failed in previous test")
         sid = TestServiceImagesPost.created_service_id
         r = requests.get(
             f"{BASE_URL}/api/services/{sid}",
-            headers={"Authorization": f"Bearer {nonowner_token}"}
+            headers={"Authorization": f"Bearer {owner_token}"}
         )
         assert r.status_code == 200, f"GET after POST failed: {r.status_code}"
         data = r.json()
@@ -196,24 +246,24 @@ class TestServiceImagesPost:
         assert len(data["images"]) == 2, f"Expected 2 images, got {len(data['images'])}"
         print(f"[PASS] GET after POST returns images: {data['images']}")
 
-    def test_cleanup_created_service(self, nonowner_token):
-        """Cleanup: deactivate test service"""
+    def test_cleanup_created_service(self, owner_token):
+        """Cleanup: delete test service"""
         if not TestServiceImagesPost.created_service_id:
             pytest.skip("No service to clean up")
         sid = TestServiceImagesPost.created_service_id
         r = requests.delete(
             f"{BASE_URL}/api/services/{sid}",
-            headers={"Authorization": f"Bearer {nonowner_token}"}
+            headers={"Authorization": f"Bearer {owner_token}"}
         )
         assert r.status_code == 200, f"Cleanup failed: {r.status_code}"
         print(f"[PASS] Cleanup: service {sid} deleted")
 
 
-class TestServiceImagesSeedForFrontend:
-    """Seed service svc_b184a9f7f6db with images for frontend pre-fill test"""
+class TestServiceImagesSeed:
+    """Seed main test service with realistic images"""
 
-    def test_seed_images_for_edit_mode(self, owner_token):
-        """Set images on svc_b184a9f7f6db so edit mode pre-fill test can work"""
+    def test_seed_images(self, owner_token):
+        """Set images on the test service"""
         seed_images = [
             "https://images.pexels.com/photos/1552252/pexels-photo-1552252.jpeg",
             "https://images.pexels.com/photos/841130/pexels-photo-841130.jpeg"
@@ -224,7 +274,6 @@ class TestServiceImagesSeedForFrontend:
             json={"images": seed_images}
         )
         assert r.status_code == 200, f"Seed failed: {r.status_code}: {r.text}"
-        # Verify
         get_r = requests.get(f"{BASE_URL}/api/services/{SERVICE_ID}")
         returned = get_r.json().get("images", [])
         assert returned == seed_images, f"Seed not persisted: {returned}"
