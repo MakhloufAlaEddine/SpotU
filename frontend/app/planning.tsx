@@ -20,7 +20,13 @@ const MONTHS_LONG = ['janvier','février','mars','avril','mai','juin','juillet',
 const DAYS_LONG   = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
 const DAYS_SHORT  = ['D','L','M','M','J','V','S'];
 
-const isoDate = (d: Date) => d.toISOString().split('T')[0];
+// Utilise les composantes locales pour éviter les décalages UTC/DST
+const isoDate = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
 const parseDate = (s: string) => { const [y,m,d] = s.split('-').map(Number); return new Date(y,m-1,d); };
 
 function formatDuration(start: string, end: string) {
