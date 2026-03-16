@@ -121,7 +121,7 @@ function useCountdown(expiresAt: string | null | undefined): string | null {
 function BookingCard({ booking, onPress }: { booking: any; onPress: () => void }) {
   const bStatus = BOOKING_STATUS[booking.status] ?? { label: booking.status, color: Colors.muted, icon: 'help-circle-outline' };
   const amount  = getAmount(booking);
-  const date    = formatDate(booking.scheduled_at || booking.created_at);
+  const date    = formatDate(booking.slot_date || booking.scheduled_at || booking.created_at);
   const time    = formatSlotTime(booking);
 
   return (
@@ -153,7 +153,7 @@ function BookingCard({ booking, onPress }: { booking: any; onPress: () => void }
         <View style={c.infoRow}>
           <Ionicons name="calendar-outline" size={13} color={Colors.muted} />
           <Text style={c.infoText}>
-            {booking.scheduled_at ? formatDate(booking.scheduled_at) : `Demandé le ${date}`}
+            {(booking.slot_date || booking.scheduled_at) ? formatDate(booking.slot_date || booking.scheduled_at) : `Demandé le ${date}`}
           </Text>
           {time ? (
             <>
