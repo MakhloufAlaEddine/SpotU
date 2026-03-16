@@ -448,7 +448,7 @@ export default function CreateSpotYouScreen() {
   // ─── Render steps ────────────────────────────────────────────────────────────
   const renderStep = () => {
     switch (step) {
-      case 0: return <StepEssentiel images={images} title={title} setTitle={setTitle} onPickImages={pickImages} onRemoveImage={i => setImages(p => p.filter((_, idx) => idx !== i))} />;
+      case 0: return <StepEssentiel images={images} title={title} setTitle={setTitle} onPickImages={pickImages} onRemoveImage={i => setImages(p => p.filter((_, idx) => idx !== i))} minParticipants={minParticipants} setMinParticipants={setMinParticipants} maxParticipants={maxParticipants} setMaxParticipants={setMaxParticipants} />;
       case 1: return (
         <StepContenu
           description={description} setDescription={setDescription}
@@ -494,10 +494,6 @@ export default function CreateSpotYouScreen() {
             setEditingTimeIdx(timeIdx);
             setEditingTimeType(type);
           }}
-          minParticipants={minParticipants}
-          setMinParticipants={setMinParticipants}
-          maxParticipants={maxParticipants}
-          setMaxParticipants={setMaxParticipants}
         />
       );
       case 4: return (
@@ -888,8 +884,19 @@ async function uploadImage(uri: string, token: string): Promise<string | null> {
 }
 
 // ─── Step 1: L'essentiel ────────────────────────────────────────────────────────
-function StepEssentiel({ images, title, setTitle, onPickImages, onRemoveImage }: any) {
+function StepEssentiel({ images, title, setTitle, onPickImages, onRemoveImage, minParticipants, setMinParticipants, maxParticipants, setMaxParticipants }: any) {
   const IMG = Math.floor((Math.min(SW, 500) - Spacing.md * 2 - 8 * 2) / 3);
+
+  const handleMinChange = (val: string) => {
+    const n = val.replace(/[^0-9]/g, '');
+    setMinParticipants(n);
+    if (n && !maxParticipants) setMaxParticipants(n);
+  };
+  const handleMaxChange = (val: string) => {
+    const n = val.replace(/[^0-9]/g, '');
+    setMaxParticipants(n);
+    if (n && !minParticipants) setMinParticipants(n);
+  };
   return (
     <View style={{ gap: Spacing.lg }}>
       {/* Images */}
@@ -954,6 +961,59 @@ function StepEssentiel({ images, title, setTitle, onPickImages, onRemoveImage }:
           <View style={[sc.fieldTip, { opacity: 0.7 }]}>
             <Ionicons name="bulb-outline" size={13} color={Colors.primary} />
             <Text style={[sc.fieldTipText, { color: Colors.primary }]}>Ex : "Footing Parc Monceau · Déb. bienvenus"</Text>
+          </View>
+        )}
+      </View>
+
+      {/* ── Capacité ──────────────────────────────────────────── */}
+      <View style={sc.capacityCard}>
+        <View style={sc.capacityHeader}>
+          <Ionicons name="people-outline" size={18} color={Colors.primary} />
+          <Text style={sc.capacityTitle}>Capacité</Text>
+          <Text style={sc.capacityOptional}>optionnel</Text>
+        </View>
+        <Text style={sc.capacityDesc}>
+          Définissez le nombre minimum et/ou maximum de participants par séance.
+        </Text>
+        <View style={{ flexDirection: 'row', gap: Spacing.md }}>
+          <View style={{ flex: 1 }}>
+            <Text style={sc.capacityFieldLabel}>Minimum</Text>
+            <TextInput
+              style={sc.capacityInput}
+              placeholder="ex: 3"
+              placeholderTextColor={Colors.muted}
+              keyboardType="number-pad"
+              value={minParticipants}
+              onChangeText={handleMinChange}
+              testID="min-participants-input"
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={sc.capacityFieldLabel}>Maximum</Text>
+            <TextInput
+              style={sc.capacityInput}
+              placeholder="ex: 15"
+              placeholderTextColor={Colors.muted}
+              keyboardType="number-pad"
+              value={maxParticipants}
+              onChangeText={handleMaxChange}
+              testID="max-participants-input"
+            />
+          </View>
+        </View>
+        {!!(minParticipants || maxParticipants) && (
+          <View style={sc.capacityPreview}>
+            <Ionicons name="information-circle-outline" size={14} color={Colors.primary} />
+            <Text style={sc.capacityPreviewText}>
+              {minParticipants && maxParticipants && minParticipants === maxParticipants
+                ? `Séance de ${minParticipants} personnes exactement`
+                : minParticipants && maxParticipants
+                  ? `De ${minParticipants} à ${maxParticipants} participants`
+                  : maxParticipants
+                    ? `Maximum ${maxParticipants} participants`
+                    : `Minimum ${minParticipants} participants`
+              }
+            </Text>
           </View>
         )}
       </View>
@@ -1248,59 +1308,7 @@ function StepDate({ scheduleType, setScheduleType, eventDateTime, onOpenDatePick
         </View>
       )}
 
-      {/* ── Section Capacité (optionnel) ───────────────────── */}
-      <View style={sc.capacityCard}>
-        <View style={sc.capacityHeader}>
-          <Ionicons name="people-outline" size={18} color={Colors.primary} />
-          <Text style={sc.capacityTitle}>Capacité</Text>
-          <Text style={sc.capacityOptional}>optionnel</Text>
-        </View>
-        <Text style={sc.capacityDesc}>
-          Définissez le nombre minimum et/ou maximum de participants par séance.
-        </Text>
-        <View style={{ flexDirection: 'row', gap: Spacing.md }}>
-          <View style={{ flex: 1 }}>
-            <Text style={sc.capacityFieldLabel}>Minimum</Text>
-            <TextInput
-              style={sc.capacityInput}
-              placeholder="ex: 3"
-              placeholderTextColor={Colors.muted}
-              keyboardType="number-pad"
-              value={minParticipants}
-              onChangeText={handleMinChange}
-              testID="min-participants-input"
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={sc.capacityFieldLabel}>Maximum</Text>
-            <TextInput
-              style={sc.capacityInput}
-              placeholder="ex: 15"
-              placeholderTextColor={Colors.muted}
-              keyboardType="number-pad"
-              value={maxParticipants}
-              onChangeText={handleMaxChange}
-              testID="max-participants-input"
-            />
-          </View>
-        </View>
-        {(minParticipants || maxParticipants) && (
-          <View style={sc.capacityPreview}>
-            <Ionicons name="information-circle-outline" size={14} color={Colors.primary} />
-            <Text style={sc.capacityPreviewText}>
-              {minParticipants && maxParticipants && minParticipants === maxParticipants
-                ? `Séance de ${minParticipants} personnes exactement`
-                : minParticipants && maxParticipants
-                  ? `De ${minParticipants} à ${maxParticipants} participants`
-                  : maxParticipants
-                    ? `Maximum ${maxParticipants} participants`
-                    : `Minimum ${minParticipants} participants`
-              }
-            </Text>
-          </View>
-        )}
-      </View>
-
+      {/* ── Fin section récurrente ─── */}
     </View>
   );
 }
