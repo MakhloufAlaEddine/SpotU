@@ -1459,7 +1459,10 @@ async def delete_tag_point(point_id: str, request: Request):
     pool = get_pool()
     user = await require_auth(request, pool)
     async with pool.acquire() as conn:
-        existing = await conn.fetchrow("SELECT user_id FROM tag_points WHERE point_id = $1", point_id)
+        existing = await conn.fetchrow(
+            "SELECT user_id, image_url, images FROM tag_points WHERE point_id = $1",
+            point_id
+        )
         if not existing:
             raise HTTPException(status_code=404, detail="TagPoint not found")
         if existing["user_id"] != user["user_id"] and user["role"] != "admin":
@@ -1473,4 +1476,15 @@ async def delete_tag_point(point_id: str, request: Request):
         await conn.execute(
             "UPDATE tag_points SET active = FALSE, updated_at = NOW() WHERE point_id = $1", point_id
         )
+
+    # Supprimer les images de R2 / filesystem
+    from routes.upload_routes import delete_upload_file, delete_upload_files
+    if existing["image_url"]:
+        delete_upload_file(existing["image_url"])
+    raw_images = existing["images"]
+    if raw_images:
+        import json as _j
+        imgs = _j.loads(raw_images) if isinstance(raw_images, str) else list(raw_images)
+        delete_upload_files(imgs)
+
     return {"success": True}

@@ -510,7 +510,7 @@ async def delete_service(service_id: str, request: Request):
     user = await require_auth(request, pool)
     async with pool.acquire() as conn:
         existing = await conn.fetchrow(
-            "SELECT coach_id FROM services WHERE service_id = $1", service_id
+            "SELECT coach_id, images FROM services WHERE service_id = $1", service_id
         )
         if not existing:
             raise HTTPException(status_code=404, detail="Service not found")
@@ -520,6 +520,15 @@ async def delete_service(service_id: str, request: Request):
             "UPDATE services SET active = FALSE, updated_at = NOW() WHERE service_id = $1",
             service_id
         )
+
+    # Supprimer les images de R2 / filesystem
+    raw_images = existing["images"]
+    if raw_images:
+        import json as _j
+        imgs = _j.loads(raw_images) if isinstance(raw_images, str) else list(raw_images)
+        from routes.upload_routes import delete_upload_files
+        delete_upload_files(imgs)
+
     return {"success": True}
 
 
