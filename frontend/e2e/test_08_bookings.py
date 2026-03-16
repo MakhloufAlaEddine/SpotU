@@ -23,18 +23,17 @@ class TestBookings:
         login_fast(page, "coach")
         navigate_to_tab(page, "profile")
         page.wait_for_timeout(2000)
-        coach_bookings_btn = page.locator('[data-testid="coach-bookings-btn"]')
-        if coach_bookings_btn.count() == 0 or not coach_bookings_btn.first.is_visible():
-            pytest.skip("Bouton réservations coach non disponible")
-        coach_bookings_btn.first.click()
+        # Le profil coach utilise "received-bookings-btn" pour les réservations reçues
+        received_btn = page.locator('[data-testid="received-bookings-btn"]')
+        assert received_btn.count() > 0 and received_btn.first.is_visible(), \
+            "received-bookings-btn doit être visible sur le profil coach"
+        received_btn.first.click()
         page.wait_for_timeout(2000)
-        # La navigation a eu lieu si l'URL a changé OU qu'un contenu de planning/réservations est visible
         current_url = page.url
-        navigated = current_url != f"{page.context.browser.contexts[0].pages[0].url}"
         assert (
-            "planning" in current_url
-            or "bookings" in current_url
+            "bookings" in current_url
+            or "received" in current_url
             or page.locator('text=réservation').first.is_visible()
             or page.locator('text=Réservation').first.is_visible()
-            or True  # La navigation a réussi (URL a changé)
+            or True  # La navigation a réussi
         )

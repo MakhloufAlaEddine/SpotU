@@ -13,8 +13,7 @@ Tests:
 import os
 import re
 import pytest
-import asyncio
-from playwright.async_api import async_playwright
+from playwright.sync_api import sync_playwright
 
 APP_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://booking-qa-checks.preview.emergentagent.com")
 
@@ -321,174 +320,114 @@ class TestScreenErrorNoDataIntegration:
 class TestRegressionOnline:
     """Playwright tests verifying that online flows still work after the changes."""
 
-    @pytest.mark.asyncio
-    async def test_login_works_online(self):
+    def test_login_works_online(self):
         """Login with valid credentials must work and show profile tab."""
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
-            ctx = await browser.new_context(viewport={"width": 1280, "height": 800})
-            page = await ctx.new_page()
-            errors = []
-            page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            ctx = browser.new_context(viewport={"width": 1280, "height": 800})
+            page = ctx.new_page()
 
             try:
-                await page.goto(f"{APP_URL}/(auth)/login", wait_until="domcontentloaded", timeout=30000)
-                await page.wait_for_timeout(3000)
+                page.goto(f"{APP_URL}/(auth)/login", wait_until="domcontentloaded", timeout=30000)
+                page.wait_for_timeout(3000)
 
-                # Fill email
-                email_input = page.locator('[data-testid="email-input"]')
-                await email_input.fill("user@winek.app")
-                await page.wait_for_timeout(300)
+                page.locator('[data-testid="email-input"]').fill("user@winek.app")
+                page.wait_for_timeout(300)
+                page.locator('[data-testid="password-input"]').fill("WinekUser2024!")
+                page.wait_for_timeout(300)
+                page.locator('[data-testid="login-btn"]').click(force=True)
+                page.wait_for_timeout(5000)
 
-                # Fill password
-                pwd_input = page.locator('[data-testid="password-input"]')
-                await pwd_input.fill("WinekUser2024!")
-                await page.wait_for_timeout(300)
-
-                # Submit
-                submit_btn = page.locator('[data-testid="login-btn"]')
-                await submit_btn.click(force=True)
-                await page.wait_for_timeout(5000)
-
-                # Verify we are no longer on login page (redirected to main app)
                 current_url = page.url
-                print(f"After login URL: {current_url}")
                 assert "/login" not in current_url or "profile" in current_url or "map" in current_url or "tabs" in current_url, \
                     f"Login did not redirect away from login page. Current URL: {current_url}"
-                print("PASS: login_works_online — successfully logged in")
-            except Exception as e:
-                pytest.fail(f"Login regression test failed: {e}")
             finally:
-                await browser.close()
+                browser.close()
 
-    @pytest.mark.asyncio
-    async def test_profile_tab_loads_after_login(self):
+    def test_profile_tab_loads_after_login(self):
         """Profile tab must show hero card with user info after login."""
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
-            ctx = await browser.new_context(viewport={"width": 1280, "height": 800})
-            page = await ctx.new_page()
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            ctx = browser.new_context(viewport={"width": 1280, "height": 800})
+            page = ctx.new_page()
 
             try:
-                await page.goto(f"{APP_URL}/(auth)/login", wait_until="domcontentloaded", timeout=30000)
-                await page.wait_for_timeout(3000)
+                page.goto(f"{APP_URL}/(auth)/login", wait_until="domcontentloaded", timeout=30000)
+                page.wait_for_timeout(3000)
 
-                await page.locator('[data-testid="email-input"]').fill("user@winek.app")
-                await page.locator('[data-testid="password-input"]').fill("WinekUser2024!")
-                await page.locator('[data-testid="login-btn"]').click(force=True)
-                await page.wait_for_timeout(5000)
+                page.locator('[data-testid="email-input"]').fill("user@winek.app")
+                page.locator('[data-testid="password-input"]').fill("WinekUser2024!")
+                page.locator('[data-testid="login-btn"]').click(force=True)
+                page.wait_for_timeout(5000)
 
-                # Navigate to profile tab
-                await page.goto(f"{APP_URL}/(tabs)/profile", wait_until="domcontentloaded", timeout=20000)
-                await page.wait_for_timeout(4000)
+                page.goto(f"{APP_URL}/(tabs)/profile", wait_until="domcontentloaded", timeout=20000)
+                page.wait_for_timeout(4000)
 
-                # Check profile hero is visible
-                profile_hero = page.locator('[data-testid="profile-hero"]')
-                is_hero_visible = await profile_hero.is_visible()
-
-                # Check no brutal "profile-no-user" ErrorNoData is shown (should not appear when logged in)
-                no_user_screen = page.locator('[data-testid="profile-no-user"]')
-                is_no_user_visible = await no_user_screen.is_visible()
-
-                print(f"Profile hero visible: {is_hero_visible}")
-                print(f"profile-no-user ErrorNoData visible: {is_no_user_visible}")
+                is_hero_visible = page.locator('[data-testid="profile-hero"]').is_visible()
+                is_no_user_visible = page.locator('[data-testid="profile-no-user"]').is_visible()
 
                 assert is_hero_visible, "profile-hero must be visible when logged in"
                 assert not is_no_user_visible, "profile-no-user ErrorNoData must NOT appear when user is logged in"
-                print("PASS: profile_tab_loads_after_login — hero visible, no ErrorNoData")
-            except Exception as e:
-                pytest.fail(f"Profile tab regression test failed: {e}")
             finally:
-                await browser.close()
+                browser.close()
 
-    @pytest.mark.asyncio
-    async def test_user_public_profile_loads_online(self):
+    def test_user_public_profile_loads_online(self):
         """Public user profile page must load normally for a valid user ID (not show ErrorNoData)."""
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
-            ctx = await browser.new_context(viewport={"width": 1280, "height": 800})
-            page = await ctx.new_page()
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            ctx = browser.new_context(viewport={"width": 1280, "height": 800})
+            page = ctx.new_page()
 
             try:
-                # Login first
-                await page.goto(f"{APP_URL}/(auth)/login", wait_until="domcontentloaded", timeout=30000)
-                await page.wait_for_timeout(3000)
-                await page.locator('[data-testid="email-input"]').fill("user@winek.app")
-                await page.locator('[data-testid="password-input"]').fill("WinekUser2024!")
-                await page.locator('[data-testid="login-btn"]').click(force=True)
-                await page.wait_for_timeout(5000)
+                page.goto(f"{APP_URL}/(auth)/login", wait_until="domcontentloaded", timeout=30000)
+                page.wait_for_timeout(3000)
+                page.locator('[data-testid="email-input"]').fill("user@winek.app")
+                page.locator('[data-testid="password-input"]').fill("WinekUser2024!")
+                page.locator('[data-testid="login-btn"]').click(force=True)
+                page.wait_for_timeout(5000)
 
-                # Navigate to profile tab first to get the user_id
-                await page.goto(f"{APP_URL}/(tabs)/profile", wait_until="domcontentloaded", timeout=20000)
-                await page.wait_for_timeout(3000)
+                page.goto(f"{APP_URL}/(tabs)/profile", wait_until="domcontentloaded", timeout=20000)
+                page.wait_for_timeout(3000)
 
-                # Click on profile hero to navigate to user/[id] page
                 profile_hero = page.locator('[data-testid="profile-hero"]')
-                if await profile_hero.is_visible():
-                    await profile_hero.click(force=True)
-                    await page.wait_for_timeout(4000)
+                if profile_hero.is_visible():
+                    profile_hero.click(force=True)
+                    page.wait_for_timeout(4000)
 
-                    current_url = page.url
-                    print(f"After clicking profile hero URL: {current_url}")
-
-                    # Check user profile page loaded (has profile hero)
-                    user_profile_hero = page.locator('[data-testid="user-profile-hero"]')
-                    user_profile_name = page.locator('[data-testid="user-profile-name"]')
-
-                    is_hero_visible = await user_profile_hero.is_visible()
-                    is_name_visible = await user_profile_name.is_visible()
-
-                    # Check ErrorNoData is NOT shown (profile was found)
-                    not_found = page.locator('[data-testid="user-profile-not-found"]')
-                    is_not_found_visible = await not_found.is_visible()
-
-                    print(f"user-profile-hero visible: {is_hero_visible}")
-                    print(f"user-profile-name visible: {is_name_visible}")
-                    print(f"user-profile-not-found ErrorNoData visible: {is_not_found_visible}")
+                    is_hero_visible = page.locator('[data-testid="user-profile-hero"]').is_visible()
+                    is_name_visible = page.locator('[data-testid="user-profile-name"]').is_visible()
+                    is_not_found_visible = page.locator('[data-testid="user-profile-not-found"]').is_visible()
 
                     assert is_hero_visible or is_name_visible, \
                         "User profile hero or name must be visible on public profile page"
                     assert not is_not_found_visible, \
                         "user-profile-not-found ErrorNoData must NOT appear when profile loads successfully"
-                    print("PASS: user_public_profile_loads_online — profile hero visible, no ErrorNoData")
                 else:
                     pytest.skip("Profile hero not visible — cannot navigate to user profile page")
-            except Exception as e:
-                pytest.fail(f"User public profile regression test failed: {e}")
             finally:
-                await browser.close()
+                browser.close()
 
-    @pytest.mark.asyncio
-    async def test_profile_tab_has_logout_and_action_buttons(self):
+    def test_profile_tab_has_logout_and_action_buttons(self):
         """Profile tab must show logout and quick action buttons (regression)."""
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
-            ctx = await browser.new_context(viewport={"width": 1280, "height": 800})
-            page = await ctx.new_page()
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            ctx = browser.new_context(viewport={"width": 1280, "height": 800})
+            page = ctx.new_page()
 
             try:
-                # Login
-                await page.goto(f"{APP_URL}/(auth)/login", wait_until="domcontentloaded", timeout=30000)
-                await page.wait_for_timeout(3000)
-                await page.locator('[data-testid="email-input"]').fill("user@winek.app")
-                await page.locator('[data-testid="password-input"]').fill("WinekUser2024!")
-                await page.locator('[data-testid="login-btn"]').click(force=True)
-                await page.wait_for_timeout(5000)
+                page.goto(f"{APP_URL}/(auth)/login", wait_until="domcontentloaded", timeout=30000)
+                page.wait_for_timeout(3000)
+                page.locator('[data-testid="email-input"]').fill("user@winek.app")
+                page.locator('[data-testid="password-input"]').fill("WinekUser2024!")
+                page.locator('[data-testid="login-btn"]').click(force=True)
+                page.wait_for_timeout(5000)
 
-                await page.goto(f"{APP_URL}/(tabs)/profile", wait_until="domcontentloaded", timeout=20000)
-                await page.wait_for_timeout(4000)
+                page.goto(f"{APP_URL}/(tabs)/profile", wait_until="domcontentloaded", timeout=20000)
+                page.wait_for_timeout(4000)
 
-                logout_btn = page.locator('[data-testid="logout-btn"]')
-                saved_btn = page.locator('[data-testid="saved-nav-btn"]')
-                my_tp_btn = page.locator('[data-testid="my-tp-nav-btn"]')
-                planning_btn = page.locator('[data-testid="planning-nav-btn"]')
-
-                assert await logout_btn.is_visible(), "logout-btn must be visible"
-                assert await saved_btn.is_visible(), "saved-nav-btn must be visible"
-                assert await my_tp_btn.is_visible(), "my-tp-nav-btn must be visible"
-                assert await planning_btn.is_visible(), "planning-nav-btn must be visible"
-                print("PASS: profile_tab_has_logout_and_action_buttons — all buttons visible")
-            except Exception as e:
-                pytest.fail(f"Profile tab buttons regression test failed: {e}")
+                assert page.locator('[data-testid="logout-btn"]').is_visible(), "logout-btn must be visible"
+                assert page.locator('[data-testid="saved-nav-btn"]').is_visible(), "saved-nav-btn must be visible"
+                assert page.locator('[data-testid="my-tp-nav-btn"]').is_visible(), "my-tp-nav-btn must be visible"
+                assert page.locator('[data-testid="planning-nav-btn"]').is_visible(), "planning-nav-btn must be visible"
             finally:
-                await browser.close()
+                browser.close()

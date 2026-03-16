@@ -346,10 +346,12 @@ class TestSpotYouActions:
         """User rejoint un SpotYou récurrent."""
         h = auth_headers("user")
         resp = requests.post(
-            f"{API_URL}/api/spot-you/pt_demo009/join",
+            f"{API_URL}/api/spot-you/pt_demo005/join",
             headers=h, timeout=TIMEOUT,
         )
         assert resp.status_code in (200, 409), f"Join échoué: {resp.text}"
+        # Cleanup: leave to restore state
+        requests.delete(f"{API_URL}/api/spot-you/pt_demo005/leave", headers=h, timeout=TIMEOUT)
 
     def test_going_spotyou(self):
         """User confirme sa participation à un événement SpotYou."""

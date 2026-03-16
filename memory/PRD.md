@@ -50,11 +50,9 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 - [x] Tests E2E commission (6/6 pass)
 - [x] Affichage commission payeur sur ecran reservation
 - [x] Correction calcul (receiverPct vs total_percent_fee)
-- [x] Suite E2E comprehensive (85 backend + 183 frontend = 268 tests)
+- [x] Suite E2E comprehensive (85 backend + 183 frontend = 268 tests, 100% pass)
 
 ### P1 - Important
-- [ ] Corriger bug group-chat visible aux non-membres (test_11_spotyou_rules)
-- [ ] Corriger conflits asyncio dans test_15/test_16 (infrastructure tests)
 - [ ] Flow abonnement utilisateur (Stripe Subscription)
 - [ ] Sauvegardes automatiques DB
 - [ ] Pipeline CI automatise

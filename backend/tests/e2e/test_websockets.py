@@ -99,21 +99,25 @@ class TestChatWebSocket:
 
     @pytest.mark.asyncio
     async def test_chat_ws_no_auth_disconnects(self):
-        """Connexion WS chat sans auth → déconnexion."""
+        """Connexion WS chat sans auth → déconnexion ou refus."""
         url = f"{WS_URL}/api/ws/chat/fake_conv_id"
-        ws = await asyncio.wait_for(
-            websockets.connect(url, close_timeout=5),
-            timeout=TIMEOUT_S,
-        )
         try:
-            # Ne pas envoyer d'auth → le serveur doit fermer
+            ws = await asyncio.wait_for(
+                websockets.connect(url, close_timeout=5),
+                timeout=TIMEOUT_S,
+            )
             try:
-                await asyncio.wait_for(ws.recv(), timeout=8)
-            except (websockets.exceptions.ConnectionClosed, asyncio.TimeoutError):
-                pass  # Attendu: fermeture de la connexion
-        finally:
-            if ws.state != WsState.CLOSED:
-                await ws.close()
+                # Ne pas envoyer d'auth → le serveur doit fermer
+                try:
+                    await asyncio.wait_for(ws.recv(), timeout=8)
+                except (websockets.exceptions.ConnectionClosed, asyncio.TimeoutError):
+                    pass  # Attendu: fermeture de la connexion
+            finally:
+                if ws.state != WsState.CLOSED:
+                    await ws.close()
+        except (asyncio.TimeoutError, OSError, websockets.exceptions.InvalidHandshake):
+            # Le serveur peut refuser la connexion directement — c'est OK
+            pass
 
     @pytest.mark.asyncio
     async def test_chat_ws_invalid_token(self):

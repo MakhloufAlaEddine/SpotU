@@ -14,9 +14,19 @@ Iteration 72 — Tests for:
 import os
 import sys
 import pytest
-import asyncio
+from playwright.sync_api import sync_playwright
 
 BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "").rstrip("/")
+if not BASE_URL:
+    # Load from .env file
+    _env_path = os.path.join(os.path.dirname(__file__), "../.env")
+    if os.path.exists(_env_path):
+        with open(_env_path) as _f:
+            for _line in _f:
+                _line = _line.strip()
+                if _line.startswith("EXPO_PUBLIC_BACKEND_URL="):
+                    BASE_URL = _line.split("=", 1)[1].strip().strip('"').strip("'").rstrip("/")
+                    break
 
 
 # ─── Helpers for source-file reading ──────────────────────────────────────────
@@ -380,95 +390,103 @@ class TestSpotYouSkeleton:
 # 11. Playwright — Regression: SpotYou detail loads (pt_demo015) + SpotMe list
 # ══════════════════════════════════════════════════════════════════════════════
 
-@pytest.mark.asyncio
 class TestRegressionOnline:
     """Online regression tests via Playwright"""
 
-    async def test_spotyou_detail_loads_for_pt_demo015(self, page):
+    def test_spotyou_detail_loads_for_pt_demo015(self):
         """SpotYou detail screen (spot-you/[id]) should load for pt_demo015"""
-        # Login first
-        await page.goto(f"{BASE_URL}/login")
-        await page.wait_for_selector('[data-testid="login-email"], input[type="email"]', timeout=10000)
-        email_input = page.locator('[data-testid="login-email"], input[type="email"]').first
-        await email_input.fill("user@winek.app")
-        pw_input = page.locator('[data-testid="login-password"], input[type="password"]').first
-        await pw_input.fill("WinekUser2024!")
-        submit = page.locator('[data-testid="login-submit"], button[type="submit"]').first
-        await submit.click(force=True)
-        await page.wait_for_timeout(3000)
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            ctx = browser.new_context(viewport={"width": 1280, "height": 800})
+            page = ctx.new_page()
 
-        # Navigate to SpotYou detail
-        await page.goto(f"{BASE_URL}/spot-you/pt_demo015")
-        await page.wait_for_timeout(4000)
+            try:
+                # Login
+                page.goto(f"{BASE_URL}/(auth)/login", wait_until="domcontentloaded", timeout=30000)
+                page.wait_for_timeout(3000)
+                page.locator('[data-testid="email-input"]').fill("user@winek.app")
+                page.locator('[data-testid="password-input"]').fill("WinekUser2024!")
+                page.locator('[data-testid="login-btn"]').click(force=True)
+                page.wait_for_timeout(5000)
 
-        # Check page loaded — should NOT show spotyou-not-found unless pt_demo015 doesn't exist
-        not_found = await page.query_selector('[data-testid="spotyou-not-found"]')
-        title = await page.query_selector('[data-testid="spotyou-distance"]')
+                # Navigate to SpotYou detail
+                page.goto(f"{BASE_URL}/spot-you/pt_demo015", wait_until="domcontentloaded", timeout=20000)
+                page.wait_for_timeout(4000)
 
-        if not_found:
-            # It's okay if pt_demo015 doesn't exist in the test environment
-            # but ErrorNoData should be shown (not a crash)
-            print("PASS: pt_demo015 not found but ErrorNoData component shown correctly (not a raw error)")
-            # Verify the onBack back-nav-btn is present
-            back_btn = await page.query_selector('[data-testid="back-nav-btn"]')
-            if back_btn:
-                print("PASS: back-nav-btn present in ErrorNoData for spotyou-not-found")
-            else:
-                print("INFO: back-nav-btn not found in ErrorNoData (check if onBack is passed)")
-        elif title:
-            print("PASS: SpotYou detail loaded successfully for pt_demo015 — distance visible")
-        else:
-            # Check for skeleton or loading state
-            print("INFO: Neither spotyou-not-found nor spotyou-distance found — may still be loading")
+                # Check page loaded
+                not_found = page.query_selector('[data-testid="spotyou-not-found"]')
+                title = page.query_selector('[data-testid="spotyou-distance"]')
 
-        # Verify no raw crash text
-        page_content = await page.content()
-        assert "SpotYou introuvable" not in page_content, \
-            "FAIL: Raw 'SpotYou introuvable' text found — must use ErrorNoData component"
-        print("PASS: No raw 'SpotYou introuvable' text in page")
+                if not_found:
+                    print("PASS: pt_demo015 not found but ErrorNoData component shown correctly")
+                elif title:
+                    print("PASS: SpotYou detail loaded successfully for pt_demo015")
+                else:
+                    print("INFO: Neither spotyou-not-found nor spotyou-distance found — may still be loading")
 
-    async def test_spotyou_detail_no_crash(self, page):
+                # Verify no raw crash text
+                page_content = page.content()
+                assert "SpotYou introuvable" not in page_content, \
+                    "FAIL: Raw 'SpotYou introuvable' text found — must use ErrorNoData component"
+            finally:
+                browser.close()
+
+    def test_spotyou_detail_no_crash(self):
         """SpotYou detail should not crash (no unhandled error)"""
-        await page.goto(f"{BASE_URL}/spot-you/pt_demo015")
-        await page.wait_for_timeout(3000)
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            ctx = browser.new_context(viewport={"width": 1280, "height": 800})
+            page = ctx.new_page()
 
-        # Check for JavaScript errors
-        error_elements = await page.query_selector_all('.error, [class*="error-boundary"]')
-        if error_elements:
-            texts = [await el.text_content() for el in error_elements]
-            print(f"Error elements found: {texts}")
-        else:
-            print("PASS: No crash error boundaries detected")
+            try:
+                # Login
+                page.goto(f"{BASE_URL}/(auth)/login", wait_until="domcontentloaded", timeout=30000)
+                page.wait_for_timeout(3000)
+                page.locator('[data-testid="email-input"]').fill("user@winek.app")
+                page.locator('[data-testid="password-input"]').fill("WinekUser2024!")
+                page.locator('[data-testid="login-btn"]').click(force=True)
+                page.wait_for_timeout(5000)
 
-        # Page should have content
-        content = await page.content()
-        assert len(content) > 200, "Page content is suspiciously empty"
-        print("PASS: SpotYou detail page has content")
+                page.goto(f"{BASE_URL}/spot-you/pt_demo015", wait_until="domcontentloaded", timeout=20000)
+                page.wait_for_timeout(3000)
 
-    async def test_spotme_list_still_visible(self, page):
+                # Check for JavaScript errors
+                error_elements = page.query_selector_all('.error, [class*="error-boundary"]')
+                if error_elements:
+                    texts = [el.text_content() for el in error_elements]
+                    print(f"Error elements found: {texts}")
+                else:
+                    print("PASS: No crash error boundaries detected")
+
+                content = page.content()
+                assert len(content) > 200, "Page content is suspiciously empty"
+            finally:
+                browser.close()
+
+    def test_spotme_list_still_visible(self):
         """Regression: spot-me screen loads and shows list"""
-        # Login first (if session expired)
-        await page.goto(f"{BASE_URL}/login")
-        await page.wait_for_selector('[data-testid="login-email"], input[type="email"]', timeout=8000)
-        email_input = page.locator('[data-testid="login-email"], input[type="email"]').first
-        await email_input.fill("user@winek.app")
-        pw_input = page.locator('[data-testid="login-password"], input[type="password"]').first
-        await pw_input.fill("WinekUser2024!")
-        submit = page.locator('[data-testid="login-submit"], button[type="submit"]').first
-        await submit.click(force=True)
-        await page.wait_for_timeout(3000)
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            ctx = browser.new_context(viewport={"width": 1280, "height": 800})
+            page = ctx.new_page()
 
-        await page.goto(f"{BASE_URL}/spot-me")
-        await page.wait_for_timeout(3000)
+            try:
+                # Login
+                page.goto(f"{BASE_URL}/(auth)/login", wait_until="domcontentloaded", timeout=30000)
+                page.wait_for_timeout(3000)
+                page.locator('[data-testid="email-input"]').fill("user@winek.app")
+                page.locator('[data-testid="password-input"]').fill("WinekUser2024!")
+                page.locator('[data-testid="login-btn"]').click(force=True)
+                page.wait_for_timeout(5000)
 
-        content = await page.content()
-        # Check no crash
-        assert "SpotMe introuvable" not in content
-        print("PASS: SpotMe screen loaded without crash")
+                page.goto(f"{BASE_URL}/spot-me", wait_until="domcontentloaded", timeout=20000)
+                page.wait_for_timeout(3000)
 
-        # Check page has some meaningful content
-        assert len(content) > 200, "SpotMe page content too short"
-        print("PASS: SpotMe page has content")
+                content = page.content()
+                assert "SpotMe introuvable" not in content
+                assert len(content) > 200, "SpotMe page content too short"
+            finally:
+                browser.close()
 
 
 # ──────────────────────────────────────────────────────────────────────────────
