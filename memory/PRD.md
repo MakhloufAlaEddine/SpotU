@@ -50,8 +50,11 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 - [x] Tests E2E commission (6/6 pass)
 - [x] Affichage commission payeur sur ecran reservation
 - [x] Correction calcul (receiverPct vs total_percent_fee)
+- [x] Suite E2E comprehensive (85 backend + 183 frontend = 268 tests)
 
 ### P1 - Important
+- [ ] Corriger bug group-chat visible aux non-membres (test_11_spotyou_rules)
+- [ ] Corriger conflits asyncio dans test_15/test_16 (infrastructure tests)
 - [ ] Flow abonnement utilisateur (Stripe Subscription)
 - [ ] Sauvegardes automatiques DB
 - [ ] Pipeline CI automatise
@@ -77,7 +80,12 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 │   │   ├── service_routes.py      # CRUD services
 │   │   └── admin_routes.py        # Admin pricing-rules CRUD
 │   └── tests/
-│       └── test_commission_e2e.py # 6 tests E2E commission
+│       ├── test_commission_e2e.py # 6 tests E2E commission
+│       └── e2e/
+│           ├── conftest.py           # Fixtures pytest
+│           ├── e2e_helpers.py        # Helpers auth/token
+│           ├── test_api_endpoints.py # 76 tests API (auth, users, config, tags, spotyou, services, bookings, chat, notifs, upload, payments, subscriptions, admin, addresses, follow, push, performance)
+│           └── test_websockets.py    # 9 tests WebSocket (chat, notifications, spotyou)
 └── frontend/
     └── app/
         ├── create-service.tsx     # useCommission(receiverPct) + lazy upload
