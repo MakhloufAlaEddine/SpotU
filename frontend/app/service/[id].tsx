@@ -9,7 +9,7 @@ const { width: SW } = Dimensions.get('window');
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { MapViewComponent } from '../../components/MapViewComponent';
+import { MapPreview } from '../../components/MapPreview';
 import type { MapPin } from '../../components/MapViewComponent';
 import { api } from '../../lib/api';
 import { useBookingConfig } from '../../lib/useBookingConfig';
@@ -257,16 +257,17 @@ export default function ServiceDetailScreen() {
   const { locations = [], slots = [], coach, tags: svcTags = [] } = service;
   const isOwnService = user?.user_id === service.coach_id;
 
-  const pins: MapPin[] = locations.map((loc: any) => ({
-    id: loc.location_id,
-    lat: loc.latitude,
-    lng: loc.longitude,
-    title: loc.description || 'Lieu',
-    color: ORANGE,
-  }));
   const centerLoc = locations[activeLocIdx] ?? locations[0];
   const centerPrecision = centerLoc?.precision || 'exact';
-  const centerPrecisionRadius = centerPrecision === '1000m' ? 1000 : centerPrecision === '100m' ? 100 : 0;
+  const otherPins: MapPin[] = locations
+    .filter((_: any, i: number) => i !== activeLocIdx)
+    .map((loc: any) => ({
+      id: loc.location_id,
+      lat: loc.latitude,
+      lng: loc.longitude,
+      title: loc.description || 'Lieu',
+      color: ORANGE,
+    }));
 
   return (
     <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
@@ -454,22 +455,19 @@ export default function ServiceDetailScreen() {
             <Text style={s.sectionTitle}>Lieux & Disponibilités</Text>
 
             {/* Map */}
-            <View style={s.mapWrap} testID="service-map">
-              <MapViewComponent
-                pins={pins}
-                centerLat={centerLoc?.latitude ?? 48.8566}
-                centerLng={centerLoc?.longitude ?? 2.3522}
-                zoom={centerPrecisionRadius >= 1000 ? 13 : centerPrecisionRadius >= 100 ? 15 : (locations.length === 1 ? 15 : 12)}
-                style={{ flex: 1 }}
-                selectedLat={centerLoc?.latitude}
-                selectedLng={centerLoc?.longitude}
-                precisionRadius={centerPrecisionRadius}
-                onPinPress={locId => {
-                  const idx = locations.findIndex((l: any) => l.location_id === locId);
-                  if (idx >= 0) setActiveLocIdx(idx);
-                }}
-              />
-            </View>
+            <MapPreview
+              lat={centerLoc?.latitude ?? 48.8566}
+              lng={centerLoc?.longitude ?? 2.3522}
+              precision={centerPrecision}
+              title={centerLoc?.description || 'Lieu'}
+              accentColor={ORANGE}
+              extraPins={otherPins}
+              style={{ marginBottom: 12 }}
+              onPinPress={locId => {
+                const idx = locations.findIndex((l: any) => l.location_id === locId);
+                if (idx >= 0) setActiveLocIdx(idx);
+              }}
+            />
 
             {/* Per-location mini-calendar cards */}
             {locations.map((loc: any, locIdx: number) => {

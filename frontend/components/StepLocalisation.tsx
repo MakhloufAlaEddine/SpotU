@@ -6,7 +6,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../constants/Colors';
-import { MapViewComponent } from './MapViewComponent';
+import { MapPreview } from './MapPreview';
 
 const PRECISION_OPTIONS = [
   { value: 'exact', label: 'Lieu exact', desc: 'Adresse précise visible', icon: 'locate' as const },
@@ -82,17 +82,13 @@ export function StepLocalisation({
       {/* Carte */}
       <View>
         <Text style={s.label}>Aperçu sur la carte</Text>
-        <View style={s.mapWrap}>
-          <MapViewComponent
-            key={`${selectedLat}-${selectedLng}-${precision}`}
-            centerLat={selectedLat} centerLng={selectedLng}
-            zoom={precisionRadius >= 1000 ? 13 : precisionRadius >= 100 ? 15 : 16}
-            selectable={false} showUserMarker={false}
-            selectedLat={selectedLat} selectedLng={selectedLng}
-            pins={precisionRadius === 0 ? [{ id: 'pin', lat: selectedLat, lng: selectedLng, title: locationAddress, color: accentColor }] : []}
-            precisionRadius={precisionRadius}
-          />
-        </View>
+        <MapPreview
+          lat={selectedLat}
+          lng={selectedLng}
+          precision={precision}
+          title={locationAddress}
+          accentColor={accentColor}
+        />
       </View>
     </View>
   );
@@ -109,5 +105,4 @@ const s = StyleSheet.create({
   precisionCompactLabel: { fontSize: 12, fontWeight: '700', color: Colors.foreground, textAlign: 'center' },
   precisionCompactDesc: { fontSize: 10, color: Colors.muted, textAlign: 'center', lineHeight: 13 },
   precisionCheck: { position: 'absolute' as const, top: 6, right: 6, width: 16, height: 16, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  mapWrap: { height: 200, borderRadius: Radius.lg, overflow: 'hidden' as const, borderWidth: 1, borderColor: Colors.border },
 });

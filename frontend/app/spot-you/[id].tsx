@@ -7,7 +7,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { MapViewComponent } from '../../components/MapViewComponent';
+import { MapPreview } from '../../components/MapPreview';
 import { MarkdownText } from '../../components/RichTextInput';
 import ConfirmActionModal, { ConfirmAction } from '../../components/ConfirmActionModal';
 import { api } from '../../lib/api';
@@ -910,8 +910,6 @@ export default function SpotYouDetail() {
     finally { setChatLoading(false); }
   };
 
-  const getPrecisionRadius = (p: string) => p === '100m' ? 100 : p === '1000m' ? 1000 : 0;
-
   if (loading) return (
     <View style={st.screen}><Stack.Screen options={{ headerShown: false }} /><SpotYouSkeleton /></View>
   );
@@ -1409,11 +1407,15 @@ export default function SpotYouDetail() {
 
         {/* 6. Map */}
         {lat != null && lng != null && (
-          <View style={st.mapWrap}>
-            <MapViewComponent centerLat={lat} centerLng={lng}
-              zoom={getPrecisionRadius(point.precision) > 500 ? 14 : 16}
-              precisionRadius={getPrecisionRadius(point.precision)}
-              selectedLat={lat} selectedLng={lng} />
+          <View style={{ marginHorizontal: Spacing.md, marginBottom: Spacing.md }}>
+            <MapPreview
+              lat={lat}
+              lng={lng}
+              precision={point.precision || 'exact'}
+              title={point.title || ''}
+              accentColor={Colors.primary}
+              height={180}
+            />
           </View>
         )}
 
@@ -1910,8 +1912,6 @@ const st = StyleSheet.create({
   actionIcon: { width: 54, height: 54, borderRadius: Radius.lg, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
   actionIconSaved: { backgroundColor: Colors.primaryLight, borderColor: Colors.primary },
   actionLabel: { fontSize: 12, color: Colors.muted, fontWeight: '500' },
-
-  mapWrap: { height: 180, marginHorizontal: Spacing.md, borderRadius: Radius.lg, overflow: 'hidden', marginBottom: Spacing.md },
 
   section: { paddingHorizontal: Spacing.md, marginBottom: Spacing.lg },
   sectionTitle: { fontSize: 18, fontWeight: '800', color: Colors.foreground, marginBottom: Spacing.md },

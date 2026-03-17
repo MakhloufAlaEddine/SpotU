@@ -18,7 +18,7 @@ import uuid
 import json
 
 # URL de l'API
-API_BASE = "https://booking-qa-checks.preview.emergentagent.com/api"
+API_BASE = "https://map-refactor-preview.preview.emergentagent.com/api"
 
 
 def _get_valid_tag_ids():

@@ -19,6 +19,20 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 
 ## What's Been Implemented
 
+### Composant partage MapPreview (2026-03-17)
+| Composant | Changement |
+|-----------|-----------|
+| `frontend/components/MapPreview.tsx` | **NOUVEAU** - Composant partage pour affichage carte avec precision |
+| `frontend/app/service/[id].tsx` | Utilise MapPreview au lieu de MapViewComponent directement |
+| `frontend/app/spot-you/[id].tsx` | Utilise MapPreview au lieu de MapViewComponent directement |
+| `frontend/components/StepLocalisation.tsx` | Utilise MapPreview au lieu de MapViewComponent directement |
+
+**Comportement:**
+- Precision "exact": affiche un marqueur pin
+- Precision "100m": affiche un cercle rouge de 100m (zoom 15)
+- Precision "1000m": affiche un cercle rouge de 1km (zoom 13)
+- Supporte des pins additionnels (pour services multi-lieux)
+
 ### Commission Dynamique (2026-03-16)
 | Composant | Changement |
 |-----------|-----------|
@@ -29,66 +43,67 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 | `frontend/app/booking/confirm.tsx` | Ventilation prix : base + frais service + total a payer |
 | `backend/tests/test_commission_e2e.py` | 6 tests E2E : taux, calculs, coherence preview vs config |
 
-**Calcul pour un service a 60€ (regle: 5% payeur, 10% coach):**
-- Payeur voit : 60€ + 3€ frais = **63€ total**
-- Coach voit : Commission 10% · Net **54€**
-- Plateforme : 9€ total
+### Autres fonctionnalites completees
+- [x] Suite E2E comprehensive (85 backend + 183 frontend = 268 tests)
+- [x] Fix pull-to-refresh (booking detail + SpotYou detail)
+- [x] Fix flash ecran blanc au chargement
+- [x] Placeholder images dynamiques pour services sans photos
+- [x] Score de completion service mis a jour
+- [x] Fix liste tags vide lors creation SpotYou
+- [x] StepLocalisation composant partage pour selection adresse
+- [x] Masquage adresse backend (precision non-exact)
 
 ## Key API Endpoints
 - `GET /api/config/commission` - (PUBLIC) Taux commission actif
-- `POST /api/bookings/price-preview` - (AUTH) Apercu pricing complet avant reservation
-- `POST /api/bookings/request` - Creer une reservation (pricing_engine interne)
-- `GET/POST/PUT/DELETE /api/services/{id}` - Service CRUD
-- `GET/PUT /api/users/profile` - Profile
-- `GET/POST/PUT/DELETE /api/admin/pricing-rules` - Admin gestion tarifs
+- `POST /api/bookings/price-preview` - (AUTH) Apercu pricing
+- `GET/PUT /api/services/{id}` - Service CRUD (locations.precision: exact|100m|1000m)
+- `GET /api/tag-points/{id}` - Tag point detail (masquage adresse si precision non-exact)
 
 ## Prioritized Backlog
 
-### P0 - Critique (TOUS COMPLETES)
-- [x] Commission dynamique depuis pricing_rules admin
-- [x] Double verification back/front (price-preview endpoint)
-- [x] Tests E2E commission (6/6 pass)
-- [x] Affichage commission payeur sur ecran reservation
-- [x] Correction calcul (receiverPct vs total_percent_fee)
-- [x] Suite E2E comprehensive (85 backend + 183 frontend = 268 tests, 100% pass)
+### P0 - COMPLETE
+- [x] Composant partage MapPreview (cercle precision fonctionnel)
+- [x] Commission dynamique
+- [x] Tests E2E
 
 ### P1 - Important
-- [ ] Flow abonnement utilisateur (Stripe Subscription)
 - [ ] Sauvegardes automatiques DB
 - [ ] Pipeline CI automatise
+- [ ] Valeurs hardcodees backend configurables (DEFAULT_RADIUS, MSG_MIN_INTERVAL, etc.)
 
 ### P2 - Souhaite
 - [ ] Support bilingue FR/EN (i18n)
 - [ ] File d'attente mutations offline
-- [ ] Push Notifications (EAS Build)
+- [ ] Amelioration notifications systeme
+- [ ] Push Notifications production (EAS Build)
 - [ ] Refactorisation `create-service.tsx` en composants plus petits
 
 ### P3 - Production
-- [ ] Configurer STRIPE_WEBHOOK_SECRET avec la vraie cle webhook Stripe
-- [ ] Tester avec une vraie cle Stripe pour valider capture_method=manual
+- [ ] Configurer STRIPE_WEBHOOK_SECRET
+- [ ] Tester Stripe en production
 
 ## Code Architecture
 ```
 /app
 ├── backend/
-│   ├── server.py                  # GET /api/config/commission
-│   ├── pricing_engine.py          # Moteur calcul tarifs generique
+│   ├── server.py
+│   ├── pricing_engine.py
 │   ├── routes/
-│   │   ├── booking_routes.py      # POST /api/bookings/price-preview + request
-│   │   ├── service_routes.py      # CRUD services
-│   │   └── admin_routes.py        # Admin pricing-rules CRUD
+│   │   ├── tagpoint_routes.py    # Masquage adresse + precision
+│   │   ├── booking_routes.py
+│   │   ├── service_routes.py
+│   │   └── admin_routes.py
 │   └── tests/
-│       ├── test_commission_e2e.py # 6 tests E2E commission
-│       └── e2e/
-│           ├── conftest.py           # Fixtures pytest
-│           ├── e2e_helpers.py        # Helpers auth/token
-│           ├── test_api_endpoints.py # 76 tests API (auth, users, config, tags, spotyou, services, bookings, chat, notifs, upload, payments, subscriptions, admin, addresses, follow, push, performance)
-│           └── test_websockets.py    # 9 tests WebSocket (chat, notifications, spotyou)
 └── frontend/
+    ├── components/
+    │   ├── MapPreview.tsx         # NOUVEAU - Composant partage carte
+    │   ├── MapViewComponent.tsx   # Composant carte bas niveau (Leaflet)
+    │   ├── StepLocalisation.tsx   # Selection adresse + precision
+    │   └── ServicePlaceholder.tsx # Placeholder images services
     └── app/
-        ├── create-service.tsx     # useCommission(receiverPct) + lazy upload
-        ├── service/[id].tsx       # Commission dynamique detail service
-        └── booking/confirm.tsx    # Ventilation prix + total avant paiement
+        ├── service/[id].tsx      # Detail service (utilise MapPreview)
+        ├── spot-you/[id].tsx     # Detail SpotYou (utilise MapPreview)
+        └── create-service.tsx    # Creation service
 ```
 
 ## Known Issues
