@@ -226,8 +226,10 @@ export default function CreateServiceScreen() {
   const [slots, setSlots] = useState<DaySlot[]>([]);
 
   // Booking workflow configuration
-  const [bookingApprovalMode, setBookingApprovalMode] = useState<'manual_approval' | 'instant_booking'>('manual_approval');
-  const [allowPayLater, setAllowPayLater] = useState(true);
+  const [bookingApprovalMode, setBookingApprovalMode] = useState<'manual_approval' | 'instant_booking'>(
+    enableManualApproval ? 'manual_approval' : 'instant_booking'
+  );
+  const [allowPayLater, setAllowPayLater] = useState(enablePayLater);
   const [payLaterExpirationMinutes, setPayLaterExpirationMinutes] = useState(60);
 
   const allTags = categories.flatMap(c => c.tags || []);
@@ -317,9 +319,9 @@ export default function CreateServiceScreen() {
         }));
       setSlots(daySlots);
       // Booking workflow config
-      if (data.booking_approval_mode) setBookingApprovalMode(data.booking_approval_mode);
+      if (data.booking_approval_mode != null) setBookingApprovalMode(data.booking_approval_mode);
       if (typeof data.allow_pay_later === 'boolean') setAllowPayLater(data.allow_pay_later);
-      if (data.pay_later_expiration_minutes) setPayLaterExpirationMinutes(data.pay_later_expiration_minutes);
+      if (data.pay_later_expiration_minutes != null) setPayLaterExpirationMinutes(data.pay_later_expiration_minutes);
     } catch (err: any) {
       Alert.alert('Erreur', 'Impossible de charger le service');
       router.back();
@@ -946,8 +948,8 @@ export default function CreateServiceScreen() {
           <View style={s.statChip}><Text style={s.statChipText}>{slots.length} créneau{slots.length !== 1 ? 'x' : ''}</Text></View>
         </View>
 
-        {/* Workflow résumé */}
-        {(() => {
+        {/* Workflow résumé — seulement si au moins une option avancée est configurable */}
+        {(enableManualApproval || enablePayLater) && (() => {
           const info = getImpactInfo(bookingApprovalMode, allowPayLater, payLaterExpirationMinutes);
           return (
             <View style={[s.summaryWorkflow, { borderColor: info.color + '40', backgroundColor: info.color + '0D' }]}>
