@@ -6,10 +6,13 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { ServicePlaceholder } from '../ServicePlaceholder';
-import { TEAL_DIM, TEAL_BORDER } from './profileUtils';
 
 const SCREEN_W = Dimensions.get('window').width;
 const CARD_WIDTH = SCREEN_W - 48;
+
+const ORANGE = '#FF9500';
+const ORANGE_DIM = 'rgba(255,149,0,0.12)';
+const ORANGE_BORDER = 'rgba(255,149,0,0.18)';
 
 interface Props {
   services: any[];
@@ -27,7 +30,7 @@ export function ProfileServicesCarousel({ services, me, profileUserId, onNavigat
     <View style={st.section}>
       <View style={st.sectionHeader}>
         <View style={st.sectionAccent} />
-        <Ionicons name="briefcase-outline" size={14} color={Colors.primary} />
+        <Ionicons name="briefcase-outline" size={14} color={ORANGE} />
         <Text style={st.sectionTitle}>Services proposés</Text>
         {services.length > 1 && <Text style={st.carouselCount}>{services.length}</Text>}
       </View>
@@ -100,18 +103,17 @@ export function ProfileServicesCarousel({ services, me, profileUserId, onNavigat
 const st = StyleSheet.create({
   section: { paddingHorizontal: Spacing.md, marginBottom: Spacing.lg },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
-  sectionAccent: { width: 3, height: 16, borderRadius: 2, backgroundColor: Colors.primary },
+  sectionAccent: { width: 3, height: 16, borderRadius: 2, backgroundColor: ORANGE },
   sectionTitle: { fontSize: 13, fontWeight: '700', color: Colors.foreground, textTransform: 'uppercase', letterSpacing: 1.2 },
   carouselCount: {
     marginLeft: 'auto' as any, fontSize: 12, fontWeight: '700',
-    color: Colors.primary, backgroundColor: Colors.secondary,
+    color: ORANGE, backgroundColor: ORANGE_DIM,
     paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20,
   },
   carouselContent: { paddingHorizontal: 4, gap: 16 },
-  serviceCard: { backgroundColor: '#181A1B', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(0,191,165,0.15)', overflow: 'hidden', marginBottom: 4 },
+  serviceCard: { backgroundColor: '#181A1B', borderRadius: 18, borderWidth: 1, borderColor: ORANGE_BORDER, overflow: 'hidden', marginBottom: 4 },
   serviceImage: { width: '100%' as any, height: 180, resizeMode: 'cover' },
-  serviceImagePlaceholder: { width: '100%' as any, height: 140, backgroundColor: 'rgba(0,191,165,0.08)', alignItems: 'center', justifyContent: 'center' },
-  servicePriceBadge: { position: 'absolute' as any, top: 12, right: 12, backgroundColor: '#00BFA5', paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20 },
+  servicePriceBadge: { position: 'absolute' as any, top: 12, right: 12, backgroundColor: ORANGE, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20 },
   servicePriceText: { color: '#0A0A0A', fontWeight: '900', fontSize: 15 },
   serviceBody: { padding: 16 },
   serviceTitle: { fontSize: 17, fontWeight: '800', color: '#FFFFFF', flex: 1, marginRight: 12, letterSpacing: -0.2 },
@@ -121,11 +123,11 @@ const st = StyleSheet.create({
   metaText: { fontSize: 12, fontWeight: '600', color: '#E4E4E7' },
   reserveBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: '#00BFA5', borderRadius: 16, paddingVertical: 14,
-    shadowColor: '#00BFA5', shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4,
+    backgroundColor: ORANGE, borderRadius: 16, paddingVertical: 14,
+    shadowColor: ORANGE, shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4,
   },
   reserveBtnText: { fontSize: 15, fontWeight: '800', color: '#0A0A0A', textTransform: 'uppercase', letterSpacing: 0.5 },
   dotsRow: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 12 },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.muted, opacity: 0.4 },
-  dotActive: { width: 18, borderRadius: 3, backgroundColor: Colors.primary, opacity: 1 },
+  dotActive: { width: 18, borderRadius: 3, backgroundColor: ORANGE, opacity: 1 },
 });
