@@ -9,6 +9,7 @@ import { useFocusEffect } from 'expo-router';
 import { api } from '../lib/api';
 import { useLocation } from '../context/LocationContext';
 import { Colors, Spacing, Radius } from '../constants/Colors';
+import { TagImage } from '../components/TagImage';
 import { SpotYouCard } from '../components/SpotYouCard';
 import ConfirmActionModal, { ConfirmAction } from '../components/ConfirmActionModal';
 import { useNetwork } from '../hooks/useNetwork';
@@ -63,7 +64,7 @@ function SavedServiceCard({ item, onPress, onUnsave, userLat, userLng }: { item:
       <View style={svc.cardHeader}>
         <View style={svc.thumbWrap}>
           {img
-            ? <Image source={{ uri: img }} style={svc.thumb} resizeMode="cover" />
+            ? <TagImage uri={img} domainId="dom_service" style={svc.thumb} iconSize={24} />
             : <View style={[svc.thumb, svc.thumbPlaceholder]}>
                 <Ionicons name="briefcase-outline" size={24} color={ORANGE + '40'} />
               </View>

@@ -8,6 +8,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
+import { TagImage } from '../../components/TagImage';
 import { useBookingConfig } from '../../lib/useBookingConfig';
 import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 
@@ -296,7 +297,7 @@ export default function BookingConfirmScreen() {
           {service && (
             <View style={s.serviceCard}>
               {service.images?.[0] && (
-                <Image source={{ uri: service.images[0] }} style={s.serviceImg} />
+                <TagImage uri={service.images[0]} domainId="dom_service" style={s.serviceImg} iconSize={24} />
               )}
               <View style={s.serviceInfo}>
                 <Text style={s.serviceTitle}>{service.title}</Text>

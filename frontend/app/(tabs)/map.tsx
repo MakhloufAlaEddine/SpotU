@@ -12,6 +12,7 @@ import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { useLocation } from '../../context/LocationContext';
 import { useAuth } from '../../context/AuthContext';
 import { haversineDistance, formatDistance } from '../../utils/distance';
+import { TagImage, DOMAIN_COLORS, DOMAIN_ICONS } from '../../components/TagImage';
 import { buildCacheKey, cacheGet, cacheSet, isFresh, cacheAgeMinutes, SCHEMA_VERSION } from '../../lib/cache';
 import { StaleBanner, ErrorNoData } from '../../components/OfflineBanner';
 import { registerScreenRefresh } from '../../hooks/useNetwork';
@@ -28,19 +29,6 @@ const SVC_CARD_H = 160;
 
 const ORANGE = '#FF9500';
 const ORANGE_DIM = 'rgba(255,149,0,0.15)';
-
-const DOMAIN_COLORS: Record<string, string> = {
-  dom_sport: '#1A5C4A',
-  dom_coaching: '#1A3A5C',
-  dom_service: '#5C3A1A',
-  dom_social: '#5C1A1A',
-};
-const DOMAIN_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
-  dom_sport: 'football-outline',
-  dom_coaching: 'school-outline',
-  dom_service: 'construct-outline',
-  dom_social: 'people-outline',
-};
 
 function greeting() {
   const h = new Date().getHours();
@@ -161,7 +149,7 @@ function HeroCard({ point, onPress, liveCount, userLat, userLng }: { point: any;
   return (
     <TouchableOpacity style={[heroSt.card, { width: SW - 32 }]} onPress={onPress} activeOpacity={0.94} testID={`hero-card-${point.point_id}`}>
       {point.images?.[0]
-        ? <Image source={{ uri: point.images[0] }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+        ? <TagImage uri={point.images[0]} domainId={point.domain_id} fill iconSize={80} />
         : <View style={[StyleSheet.absoluteFillObject, { backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }]}>
             <Ionicons name={icon} size={80} color="rgba(255,255,255,0.1)" />
           </View>
@@ -252,7 +240,7 @@ function ServiceCard({ svc, userLat, userLng, onPress }: { svc: any; userLat: nu
       {/* Image left */}
       <View style={svcSt.imgWrap}>
         {image
-          ? <Image source={{ uri: image }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+          ? <TagImage uri={image} domainId="dom_service" fill iconSize={32} />
           : <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#2A1500', alignItems: 'center', justifyContent: 'center' }]}>
               <Ionicons name="calendar-outline" size={32} color="rgba(255,149,0,0.25)" />
             </View>
@@ -326,7 +314,7 @@ function RecentRow({ point, userLat, userLng, onPress, liveCount }: { point: any
       {/* Thumb */}
       <View style={recSt.thumb}>
         {point.images?.[0]
-          ? <Image source={{ uri: point.images[0] }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+          ? <TagImage uri={point.images[0]} domainId={point.domain_id} fill iconSize={22} />
           : <View style={[StyleSheet.absoluteFillObject, { backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }]}>
               <Ionicons name={icon} size={22} color="rgba(255,255,255,0.4)" />
             </View>

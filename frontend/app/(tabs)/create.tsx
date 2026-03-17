@@ -11,6 +11,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { StepLocalisation } from '../../components/StepLocalisation';
 import { MapViewComponent } from '../../components/MapViewComponent';
 import { MapPreview } from '../../components/MapPreview';
+import { TagImage } from '../../components/TagImage';
 import { LocationPicker } from '../../components/LocationPicker';
 import { DateTimePickerModal } from '../../components/DateTimePicker';
 import { RichTextInput, MarkdownText } from '../../components/RichTextInput';
@@ -1461,7 +1462,7 @@ function FullPreviewModal({ visible, onClose, title, description, images, select
           <View style={{ marginHorizontal: Spacing.md, marginTop: Spacing.md }}>
             <View style={fpSt.heroWrap}>
               {images.length > 0
-                ? <Image source={{ uri: images[0] }} style={fpSt.heroImage} resizeMode="cover" />
+                ? <TagImage uri={images[0]} domainId={selectedTags?.[0]?.category_id} style={fpSt.heroImage} iconSize={50} />
                 : <View style={fpSt.heroPlaceholder}>
                     <Ionicons name="image-outline" size={60} color={Colors.muted} />
                     <Text style={{ color: Colors.muted, fontSize: 13, marginTop: 8 }}>Aucune photo ajoutée</Text>

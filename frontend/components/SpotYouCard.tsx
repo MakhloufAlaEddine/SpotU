@@ -10,6 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../constants/Colors';
 import { haversineDistance, formatDistance } from '../utils/distance';
+import { TagImage, DOMAIN_ICONS } from './TagImage';
 
 // ─── PulseDot ───────────────────────────────────────────────────────────────
 
@@ -147,10 +148,15 @@ export function SpotYouCard({
         )}
         <View style={sc.thumbWrap}>
           {item.images?.[0] ? (
-            <Image source={{ uri: item.images[0] }} style={sc.thumb} />
+            <TagImage
+              uri={item.images[0]}
+              domainId={item.domain_id}
+              style={sc.thumb}
+              iconSize={24}
+            />
           ) : (
             <View style={[sc.thumb, sc.thumbPlaceholder]}>
-              <Ionicons name="location-outline" size={24} color={Colors.muted} />
+              <Ionicons name={DOMAIN_ICONS[item.domain_id] || 'location-outline'} size={24} color={Colors.muted} />
             </View>
           )}
         </View>

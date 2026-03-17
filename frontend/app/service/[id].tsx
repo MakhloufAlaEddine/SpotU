@@ -10,6 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { MapPreview } from '../../components/MapPreview';
+import { TagImage } from '../../components/TagImage';
 import type { MapPin } from '../../components/MapViewComponent';
 import { api } from '../../lib/api';
 import { useBookingConfig } from '../../lib/useBookingConfig';
@@ -316,11 +317,11 @@ export default function ServiceDetailScreen() {
                   setPhotoIdx(idx);
                 }}
                 renderItem={({ item }) => (
-                  <Image
-                    source={{ uri: item }}
+                  <TagImage
+                    uri={item}
+                    domainId="dom_service"
                     style={s.carouselImg}
-                    resizeMode="cover"
-                    testID="carousel-photo"
+                    iconSize={50}
                   />
                 )}
               />

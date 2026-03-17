@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { MapPreview } from '../../components/MapPreview';
+import { TagImage, DOMAIN_COLORS, DOMAIN_ICONS } from '../../components/TagImage';
 import { MarkdownText } from '../../components/RichTextInput';
 import ConfirmActionModal, { ConfirmAction } from '../../components/ConfirmActionModal';
 import { api } from '../../lib/api';
@@ -210,7 +211,7 @@ function SpotYouSkeleton() {
 }
 
 // ─── Image Carousel ───────────────────────────────────────────────────────────
-function ImageCarousel({ images }: { images: string[] }) {
+function ImageCarousel({ images, domainId }: { images: string[]; domainId?: string }) {
   const [index, setIndex] = useState(0);
   if (images.length === 0) {
     return (
@@ -228,7 +229,7 @@ function ImageCarousel({ images }: { images: string[] }) {
         onMomentumScrollEnd={e => setIndex(Math.round(e.nativeEvent.contentOffset.x / (SCREEN_W - Spacing.md * 2)))}
         renderItem={({ item }) => (
           <View style={{ width: SCREEN_W - Spacing.md * 2, height: 220 }}>
-            <Image source={{ uri: item }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+            <TagImage uri={item} domainId={point?.domain_id} style={{ width: '100%', height: '100%' }} iconSize={50} />
           </View>
         )}
       />
@@ -1020,7 +1021,7 @@ export default function SpotYouDetail() {
 
         {/* 1. Image Carousel */}
         <View style={{ marginHorizontal: Spacing.md, marginTop: Spacing.md }}>
-          <ImageCarousel images={images} />
+          <ImageCarousel images={images} domainId={point?.domain_id} />
           {/* Owner avatar overlay */}
           {point.owner && (
             <TouchableOpacity
@@ -1575,7 +1576,7 @@ export default function SpotYouDetail() {
                             testID={`similar-card-${item.point_id}`}>
                             <View style={ms.simImg}>
                               {item.images?.[0]
-                                ? <Image source={{ uri: item.images[0] }} style={{ width: '100%', height: '100%', borderRadius: Radius.md }} />
+                                ? <TagImage uri={item.images[0]} domainId={item.domain_id} style={{ width: '100%', height: '100%', borderRadius: Radius.md }} iconSize={24} />
                                 : <View style={{ flex: 1, backgroundColor: Colors.border, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' }}>
                                     <Ionicons name="image-outline" size={24} color={Colors.muted} />
                                   </View>}
