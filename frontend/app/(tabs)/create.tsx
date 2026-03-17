@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { StepLocalisation } from '../../components/StepLocalisation';
 import { MapViewComponent } from '../../components/MapViewComponent';
+import { MapPreview } from '../../components/MapPreview';
 import { LocationPicker } from '../../components/LocationPicker';
 import { DateTimePickerModal } from '../../components/DateTimePicker';
 import { RichTextInput, MarkdownText } from '../../components/RichTextInput';
@@ -793,6 +794,7 @@ export default function CreateSpotYouScreen() {
         recurringSchedule={recurringSchedule}
         user={user} lang={lang}
         selectedLat={selectedLat} selectedLng={selectedLng}
+        minParticipants={minParticipants} maxParticipants={maxParticipants}
       />
 
       {/* ── Tag Modal ───────────────────────── */}
@@ -1403,16 +1405,15 @@ const FAKE_VOTES_COUNT = 12;
 const FAKE_DIST = [8, 3, 1, 0, 0]; // [5★, 4★, 3★, 2★, 1★]
 
 // ─── Full Preview Modal (rendered at root level) ─────────────────────────────
-function FullPreviewModal({ visible, onClose, title, description, images, selectedTags, locationAddress, precision, scheduleType, eventDateTime, eventEndDateTime, recurringSchedule, user, lang, selectedLat, selectedLng }: any) {
+function FullPreviewModal({ visible, onClose, title, description, images, selectedTags, locationAddress, precision, scheduleType, eventDateTime, eventEndDateTime, recurringSchedule, user, lang, selectedLat, selectedLng, minParticipants, maxParticipants }: any) {
   const scheduleLabel = buildScheduleLabel(scheduleType, eventDateTime, eventEndDateTime, recurringSchedule);
   const days = Object.keys(recurringSchedule || {}).map(Number).sort((a, b) => a - b);
-  const precisionRadius = precision === 'exact' ? 0 : precision === '100m' ? 100 : 1000;
-  const precisionLabel = precision === 'exact' ? 'Exact' : precision === '100m' ? '~100m' : '~1km';
+  const precisionLabel = precision === 'exact' ? 'Adresse exacte' : precision === '100m' ? 'Zone approximative' : 'Quartier';
 
   return (
     <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose} statusBarTranslucent>
       <View style={{ flex: 1, backgroundColor: Colors.background }}>
-        {/* Fixed header */}
+        {/* Fixed header — identical to [id].tsx */}
         <View style={fpSt.header}>
           <TouchableOpacity onPress={onClose} style={fpSt.closeBtn} testID="close-full-preview" hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
             <Ionicons name="chevron-back" size={24} color={Colors.primary} />
@@ -1457,20 +1458,23 @@ function FullPreviewModal({ visible, onClose, title, description, images, select
             </View>
           </View>
 
-          {/* 2. Title + fake rating + tags */}
+          {/* 2. Title + distance + join/members + tags (matches [id].tsx) */}
           <View style={fpSt.titleSection}>
             <Text style={fpSt.title}>{title || 'Sans titre'}</Text>
             <View style={fpSt.metaRow}>
+              {/* Distance */}
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                 <Ionicons name="location-outline" size={15} color={Colors.primary} />
-                <Text style={fpSt.distText}>{locationAddress || 'Localisation'}</Text>
+                <Text style={fpSt.distText}>---</Text>
               </View>
-              <View style={fpSt.ratingRow}>
-                {[1,2,3,4,5].map(i => (
-                  <Ionicons key={i} name={i <= Math.round(FAKE_RATING) ? 'star' : 'star-outline'}
-                    size={14} color={i <= Math.round(FAKE_RATING) ? Colors.star || '#FFD700' : Colors.muted} />
-                ))}
-                <Text style={fpSt.ratingCount}>{FAKE_RATING} ({FAKE_VOTES_COUNT})</Text>
+
+              <View style={{ flex: 1 }} />
+
+              {/* Members chip (owner view) */}
+              <View style={fpSt.membersChipInline}>
+                <Ionicons name="people-outline" size={12} color={Colors.muted} />
+                <Text style={fpSt.membersChipInlineText}>1 membre</Text>
+                <Ionicons name="chevron-forward" size={10} color={Colors.muted} />
               </View>
             </View>
             {selectedTags.length > 0 && (
@@ -1487,32 +1491,67 @@ function FullPreviewModal({ visible, onClose, title, description, images, select
             )}
           </View>
 
-          {/* 3. Date card */}
+          {/* 3. Date card (matches [id].tsx structure) */}
           {(scheduleType === 'once' || scheduleType === 'recurring') && (
             <View style={fpSt.dateCard}>
               {scheduleType === 'once' && eventDateTime && (
-                <View style={fpSt.dateRow}>
-                  <View style={fpSt.dateIconBox}>
-                    <Ionicons name="calendar" size={20} color={Colors.primary} />
+                <View>
+                  <View style={fpSt.dateRow}>
+                    <View style={fpSt.dateIconBox}>
+                      <Ionicons name="calendar" size={20} color={Colors.primary} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={fpSt.dateLabel}>Prochain événement</Text>
+                      <Text style={fpSt.dateValue}>{scheduleLabel}</Text>
+                    </View>
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={fpSt.dateLabel}>Prochain événement</Text>
-                    <Text style={fpSt.dateValue}>{scheduleLabel}</Text>
+                  {/* Event action bar (like [id].tsx) */}
+                  <View style={fpSt.eventActionBar}>
+                    <View style={fpSt.eventParticipantChip}>
+                      <Ionicons name="people-outline" size={14} color={Colors.primary} />
+                      <Text style={fpSt.eventParticipantChipText}>
+                        0 participant{maxParticipants ? ` / ${maxParticipants}` : ''}
+                      </Text>
+                      <Ionicons name="chevron-forward" size={12} color={Colors.primary} />
+                    </View>
+                    <View style={fpSt.goingBtnInline}>
+                      <Ionicons name="add-circle-outline" size={13} color={Colors.background} />
+                      <Text style={fpSt.goingBtnInlineText}>Je participe</Text>
+                    </View>
                   </View>
                 </View>
               )}
               {scheduleType === 'recurring' && days.length > 0 && (
                 <View>
                   <View style={fpSt.dateRow}>
-                    <View style={fpSt.dateIconBox}>
-                      <Ionicons name="repeat-outline" size={20} color={Colors.primary} />
+                    <View style={[fpSt.dateIconBox, { backgroundColor: Colors.primary + '22', borderColor: Colors.primary }]}>
+                      <Ionicons name="repeat" size={20} color={Colors.primary} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={fpSt.dateLabel}>Récurrent</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                        <Text style={fpSt.dateLabel}>Prochain événement</Text>
+                        <View style={fpSt.recurringBadge}>
+                          <Text style={fpSt.recurringBadgeText}>Récurrent</Text>
+                        </View>
+                      </View>
                       <Text style={fpSt.dateValue}>{days.map(d => DAYS[d]).join(', ')}</Text>
                     </View>
                   </View>
-                  {/* Per-day table */}
+                  {/* Event action bar */}
+                  <View style={fpSt.eventActionBar}>
+                    <View style={fpSt.eventParticipantChip}>
+                      <Ionicons name="people-outline" size={14} color={Colors.primary} />
+                      <Text style={fpSt.eventParticipantChipText}>
+                        0 participant{maxParticipants ? ` / ${maxParticipants}` : ''}
+                      </Text>
+                      <Ionicons name="chevron-forward" size={12} color={Colors.primary} />
+                    </View>
+                    <View style={fpSt.goingBtnInline}>
+                      <Ionicons name="add-circle-outline" size={13} color={Colors.background} />
+                      <Text style={fpSt.goingBtnInlineText}>Je participe</Text>
+                    </View>
+                  </View>
+                  {/* Per-day schedule table */}
                   <View style={fpSt.scheduleTable}>
                     {days.map((dayIdx: number, idx: number) => {
                       const slots: { start: Date; end: Date | null }[] = recurringSchedule[dayIdx] || [];
@@ -1540,45 +1579,52 @@ function FullPreviewModal({ visible, onClose, title, description, images, select
             </View>
           )}
 
-          {/* 4. RSVP row (preview — disabled) */}
-          <View style={fpSt.rsvpRow}>
-            <View style={fpSt.rsvpBtn}>
-              <Ionicons name="add-circle-outline" size={18} color={Colors.background} />
-              <Text style={fpSt.rsvpText}>Rejoindre</Text>
-            </View>
-            <Text style={fpSt.rsvpCount}>4 participants</Text>
-            <View style={{ flex: 1 }} />
-            <View style={fpSt.msgBtn}>
-              <Ionicons name="chatbubble-ellipses-outline" size={20} color={Colors.muted} />
+          {/* 4. Chat buttons (like [id].tsx — preview disabled) */}
+          <View style={fpSt.chatRow}>
+            <View style={[fpSt.chatBtn, { flex: 1, backgroundColor: Colors.primaryLight || Colors.primary + '15', borderColor: Colors.primary + '40' }]}>
+              <Ionicons name="people-outline" size={18} color={Colors.primary} />
+              <Text style={[fpSt.chatBtnText, { color: Colors.primary }]}>Voir le groupe</Text>
             </View>
           </View>
 
-          {/* 5. Actions row (preview — disabled) */}
+          {/* 5. Actions row (matches [id].tsx — Similaires + Partager only for owner) */}
           <View style={fpSt.actionsRow}>
             {([
               { icon: 'layers-outline', label: 'Similaires' },
               { icon: 'share-social-outline', label: 'Partager' },
-              { icon: 'bookmark-outline', label: 'Sauvegarder' },
             ] as const).map(a => (
               <View key={a.label} style={fpSt.actionBtn}>
                 <View style={fpSt.actionIcon}>
-                  <Ionicons name={a.icon} size={26} color={Colors.muted} />
+                  <Ionicons name={a.icon} size={26} color={Colors.foreground} />
                 </View>
                 <Text style={fpSt.actionLabel}>{a.label}</Text>
               </View>
             ))}
           </View>
 
-          {/* 6. Map */}
+          {/* 6. Map + address (matches [id].tsx with MapPreview) */}
           {selectedLat != null && selectedLng != null && (
-            <View style={fpSt.mapWrap}>
-              <MapViewComponent
-                centerLat={selectedLat} centerLng={selectedLng}
-                zoom={precisionRadius > 500 ? 14 : 16}
-                precisionRadius={precisionRadius}
-                selectedLat={selectedLat} selectedLng={selectedLng}
-                pins={precisionRadius === 0 ? [{ id: 'pin', lat: selectedLat, lng: selectedLng, title: locationAddress, color: Colors.primary }] : []}
+            <View style={{ marginHorizontal: Spacing.md, marginBottom: Spacing.md }}>
+              <MapPreview
+                lat={selectedLat}
+                lng={selectedLng}
+                precision={precision || 'exact'}
+                title={title || 'Lieu'}
+                accentColor={Colors.primary}
+                height={180}
               />
+              {/* Address display below map */}
+              {locationAddress ? (
+                <View style={fpSt.addressRow}>
+                  <Ionicons name="location" size={14} color={Colors.primary} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={fpSt.addressText}>{locationAddress}</Text>
+                    {precision && precision !== 'exact' && (
+                      <Text style={fpSt.addressPrecision}>{precisionLabel}</Text>
+                    )}
+                  </View>
+                </View>
+              ) : null}
             </View>
           )}
 
@@ -1841,8 +1887,8 @@ const fpSt = StyleSheet.create({
   title: { fontSize: 22, fontWeight: '800', color: Colors.foreground, marginBottom: Spacing.sm },
   metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.sm },
   distText: { fontSize: 13, fontWeight: '600', color: Colors.primary },
-  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  ratingCount: { fontSize: 12, color: Colors.muted, marginLeft: 4 },
+  membersChipInline: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.card, borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: Colors.border },
+  membersChipInlineText: { fontSize: 12, color: Colors.muted, fontWeight: '600' },
   tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   tagPill: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: Radius.full, borderWidth: 1.5 },
   tagText: { fontSize: 13, fontWeight: '600' },
@@ -1862,12 +1908,19 @@ const fpSt = StyleSheet.create({
   scheduleTimeChip: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 12, backgroundColor: Colors.primary + '18', borderWidth: 1, borderColor: Colors.primary + '40' },
   scheduleTimeChipText: { fontSize: 12, fontWeight: '700', color: Colors.primary },
 
-  // RSVP row
-  rsvpRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.md, marginBottom: Spacing.sm },
-  rsvpBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.primary, paddingHorizontal: Spacing.md, paddingVertical: 7, borderRadius: Radius.full },
-  rsvpText: { fontSize: 13, fontWeight: '700', color: Colors.background },
-  rsvpCount: { fontSize: 13, color: Colors.muted },
-  msgBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
+  // Event action bar (inside date card)
+  eventActionBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, paddingTop: 4 },
+  eventParticipantChip: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.primary + '12', paddingHorizontal: 10, paddingVertical: 6, borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.primary + '30' },
+  eventParticipantChipText: { fontSize: 12, fontWeight: '700', color: Colors.primary },
+  goingBtnInline: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.primary, paddingHorizontal: 14, paddingVertical: 7, borderRadius: Radius.full },
+  goingBtnInlineText: { fontSize: 13, fontWeight: '700', color: Colors.background },
+  recurringBadge: { backgroundColor: Colors.primary + '18', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, borderWidth: 1, borderColor: Colors.primary + '40' },
+  recurringBadgeText: { fontSize: 10, fontWeight: '700', color: Colors.primary, textTransform: 'uppercase' },
+
+  // Chat row (like [id].tsx chatRow)
+  chatRow: { flexDirection: 'row', gap: Spacing.sm, paddingHorizontal: Spacing.md, marginBottom: Spacing.sm },
+  chatBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 10, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border },
+  chatBtnText: { fontSize: 14, fontWeight: '600', color: Colors.foreground },
 
   // Actions row
   actionsRow: { flexDirection: 'row', paddingHorizontal: Spacing.md, marginBottom: Spacing.md, gap: 0 },
@@ -1875,8 +1928,10 @@ const fpSt = StyleSheet.create({
   actionIcon: { width: 50, height: 50, borderRadius: 25, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
   actionLabel: { fontSize: 12, color: Colors.muted, fontWeight: '500' },
 
-  // Map
-  mapWrap: { height: 200, marginHorizontal: Spacing.md, marginBottom: Spacing.md, borderRadius: Radius.lg, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border },
+  // Address below map
+  addressRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 10, paddingHorizontal: 2 },
+  addressText: { fontSize: 14, fontWeight: '600', color: Colors.foreground, lineHeight: 20 },
+  addressPrecision: { fontSize: 12, color: Colors.muted, marginTop: 2 },
 
   // Section
   section: { paddingHorizontal: Spacing.md, marginBottom: Spacing.md, gap: 8 },

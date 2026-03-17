@@ -1,5 +1,21 @@
 # SpotU — Changelog
 
+## 2026-03-17 — Aperçu SpotYou aligné avec la page détail
+
+### Refonte FullPreviewModal (create.tsx)
+- **MetaRow**: Remplacé adresse + étoiles par distance + chip "1 membre" (comme [id].tsx)
+- **Date card**: Ajout event action bar avec chip participants + bouton "Je participe", badge "Récurrent"
+- **Chat**: Remplacé RSVP row par bouton "Voir le groupe" (comme [id].tsx chatRow)
+- **Actions**: Réduit à "Similaires" + "Partager" (owner view, pas de "Sauvegarder")
+- **Map**: Remplacé MapViewComponent par MapPreview avec cercle de précision + adresse en dessous
+- **Address**: Affichée sous la carte avec label de précision
+- Props ajoutés: `minParticipants`, `maxParticipants` pour afficher la capacité dans l'event action bar
+
+### Fichiers modifiés
+| Fichier | Changement |
+|---------|-----------|
+| `frontend/app/(tabs)/create.tsx` | Refonte complète du FullPreviewModal, import MapPreview, nouveaux styles (chatRow, eventActionBar, membersChipInline, addressRow), suppression rsvpRow/mapWrap |
+
 ## 2026-03-17 — Adresse dans SpotYou détail + masquage uniforme
 
 ### Feature: Adresse affichée dans SpotYou détail
