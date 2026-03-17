@@ -1,6 +1,26 @@
 # SpotU — Changelog
 
-## 2026-03-16 — Refonte complète de la suite de tests E2E backend
+## 2026-03-17 — Fix masquage adresse + toggle propriétaire
+
+### Bug fix: "France" trop vague pour precision 1000m
+- **Cause**: `_mask_address` prenait le dernier élément après virgule → "France"
+- **Fix**: Skip les noms de pays (France, etc.), retourne la ville/quartier
+- Résultats: "12 Rue de Rivoli, 75001 Paris, France" → "Paris" (1000m), "Rue de Rivoli" (100m)
+
+### Feature: Masquage uniforme + toggle propriétaire
+- L'adresse est masquée pour TOUT LE MONDE (owner inclus) selon le niveau de confidentialité
+- Le propriétaire reçoit `original_description` + `is_owner=true` pour basculer entre la vue visiteur et l'adresse exacte
+- UI toggle ajouté dans `service/[id].tsx` (eye/eye-off icon + switch)
+
+### Fichiers modifiés
+| Fichier | Changement |
+|---------|-----------|
+| `backend/routes/service_routes.py` | Fix `_mask_address` (skip "France"), masquage uniforme dans `_get_service_locations` et `_enrich_service`, ajout `is_owner` flag |
+| `frontend/app/service/[id].tsx` | Ajout état `showExactAddress`, toggle UI propriétaire, affichage conditionnel |
+
+### Tests
+- 16/16 tests backend passés (test_address_privacy_iter86.py)
+
 
 ### Objectif
 Passer de ~38 échecs à 0 échec dans la suite complète (`pytest tests/`).

@@ -52,6 +52,8 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 - [x] Fix liste tags vide lors creation SpotYou
 - [x] StepLocalisation composant partage pour selection adresse
 - [x] Masquage adresse backend (precision non-exact)
+- [x] Fix masquage "France" trop vague pour 1000m → retourne maintenant la ville/quartier
+- [x] Masquage uniforme owner/non-owner avec toggle propriétaire pour adresse exacte
 
 ## Key API Endpoints
 - `GET /api/config/commission` - (PUBLIC) Taux commission actif
@@ -65,6 +67,7 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 - [x] Composant partage MapPreview (cercle precision fonctionnel)
 - [x] Commission dynamique
 - [x] Tests E2E
+- [x] Fix masquage adresse "France" (1000m) + masquage uniforme owner/non-owner
 
 ### P1 - Important
 - [ ] Sauvegardes automatiques DB
