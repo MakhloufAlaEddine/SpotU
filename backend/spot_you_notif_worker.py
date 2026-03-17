@@ -147,7 +147,7 @@ async def process_spot_you_notifications(pool) -> int:
     async with pool.acquire() as conn:
         points = await conn.fetch(
             """SELECT point_id, title, user_id, event_date, event_end_date,
-                      event_schedule, maximum_participants
+                      event_schedule, maximum_participants, images
                FROM tag_points
                WHERE active = TRUE AND (cancelled = FALSE OR cancelled IS NULL)
                  AND (event_date IS NOT NULL OR event_schedule IS NOT NULL)"""
@@ -158,6 +158,17 @@ async def process_spot_you_notifications(pool) -> int:
             point_id = point["point_id"]
             title = point.get("title", "SpotYou")
             max_p = point.get("maximum_participants")
+            # First image as thumbnail for notifications
+            raw_images = point.get("images")
+            image_url = None
+            if raw_images:
+                if isinstance(raw_images, str):
+                    try:
+                        raw_images = _json.loads(raw_images)
+                    except Exception:
+                        raw_images = []
+                if isinstance(raw_images, list) and len(raw_images) > 0:
+                    image_url = raw_images[0]
 
             sessions = _get_session_times(point)
 
@@ -203,6 +214,7 @@ async def process_spot_you_notifications(pool) -> int:
                                 "type": "spotyu_reminder",
                                 "point_id": point_id,
                                 "session_date": session_date.isoformat(),
+                                "image_url": image_url,
                             }
                             for m in members:
                                 await _insert_notif(
@@ -232,6 +244,7 @@ async def process_spot_you_notifications(pool) -> int:
                                 "type": "spotyu_post_session",
                                 "point_id": point_id,
                                 "session_date": session_date.isoformat(),
+                                "image_url": image_url,
                             }
                             next_info = f" le {next_date.strftime('%d/%m')}" if next_date else ""
                             for m in members:

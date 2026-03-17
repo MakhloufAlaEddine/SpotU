@@ -12,6 +12,20 @@ router = APIRouter()
 
 DEFAULT_RADIUS = 5000  # 5km
 
+
+def _first_image(images_raw) -> str:
+    """Extract first image URL from images field (jsonb array)."""
+    if not images_raw:
+        return ""
+    if isinstance(images_raw, str):
+        try:
+            images_raw = json.loads(images_raw)
+        except Exception:
+            return ""
+    if isinstance(images_raw, list) and images_raw:
+        return images_raw[0]
+    return ""
+
 TP_FIELDS = """
     tp.point_id, tp.user_id, tp.title, tp.description,
     tp.precision, tp.tag_ids, tp.domain_id, tp.active, tp.is_public, tp.cancelled, tp.expires_at, tp.created_at, tp.updated_at,
@@ -576,7 +590,7 @@ async def join_tag_point(point_id: str, request: Request):
     import asyncio
     pid = new_id("part")
     async with pool.acquire() as conn:
-        tp = await conn.fetchrow("SELECT user_id, title FROM tag_points WHERE point_id = $1", point_id)
+        tp = await conn.fetchrow("SELECT user_id, title, images FROM tag_points WHERE point_id = $1", point_id)
         await conn.execute(
             "INSERT INTO spot_you_members (id, spot_you_id, user_id) VALUES ($1,$2,$3) ON CONFLICT (spot_you_id, user_id) DO NOTHING",
             pid, point_id, user["user_id"]
@@ -595,6 +609,7 @@ async def join_tag_point(point_id: str, request: Request):
                 "sender_picture": user.get("picture") or "",
                 "action_text": "a rejoint votre SpotYou",
                 "content_title": content_title,
+                "image_url": _first_image(tp["images"]),
             },
             notif_type="spotyu_join"
         ))
@@ -608,7 +623,7 @@ async def leave_tag_point(point_id: str, request: Request):
     from push_service import send_push_to_user
     import asyncio
     async with pool.acquire() as conn:
-        tp = await conn.fetchrow("SELECT user_id, title FROM tag_points WHERE point_id = $1", point_id)
+        tp = await conn.fetchrow("SELECT user_id, title, images FROM tag_points WHERE point_id = $1", point_id)
         await conn.execute(
             "DELETE FROM spot_you_members WHERE spot_you_id=$1 AND user_id=$2",
             point_id, user["user_id"]
@@ -627,6 +642,7 @@ async def leave_tag_point(point_id: str, request: Request):
                 "sender_picture": user.get("picture") or "",
                 "action_text": "a quitté votre SpotYou",
                 "content_title": content_title,
+                "image_url": _first_image(tp["images"]),
             },
             notif_type="spotyu_leave"
         ))
@@ -1032,7 +1048,7 @@ async def vote_tag_point(point_id: str, request: Request):
     tp_owner_id = None
     tp_title = None
     async with pool.acquire() as conn:
-        tp = await conn.fetchrow("SELECT user_id, title FROM tag_points WHERE point_id = $1", point_id)
+        tp = await conn.fetchrow("SELECT user_id, title, images FROM tag_points WHERE point_id = $1", point_id)
         if tp:
             tp_owner_id = tp["user_id"]
             tp_title = tp["title"]
@@ -1072,6 +1088,7 @@ async def vote_tag_point(point_id: str, request: Request):
                 "action_text": action_text,
                 "content_title": content_title,
                 "rating": int(rating),
+                "image_url": _first_image(tp["images"]) if tp else "",
             },
             notif_type="spotyu_vote"
         ))
@@ -1312,6 +1329,7 @@ async def update_tag_point(point_id: str, data: TagPointUpdate, request: Request
                     "sender_picture": user.get("picture") or "",
                     "action_text": "a mis à jour le SpotYou",
                     "content_title": title_str,
+                    "image_url": _first_image(existing["images"]),
                 },
                 notif_type="spotyu_updated"
             ))
@@ -1379,7 +1397,7 @@ async def cancel_tag_point(point_id: str, request: Request):
 
     async with pool.acquire() as conn:
         existing = await conn.fetchrow(
-            "SELECT user_id, title, cancelled FROM tag_points WHERE point_id = $1 AND active = TRUE", point_id
+            "SELECT user_id, title, cancelled, images FROM tag_points WHERE point_id = $1 AND active = TRUE", point_id
         )
         if not existing:
             raise HTTPException(status_code=404, detail="TagPoint not found")
@@ -1405,6 +1423,7 @@ async def cancel_tag_point(point_id: str, request: Request):
                 "sender_picture": user.get("picture") or "",
                 "action_text": "a annulé le SpotYou",
                 "content_title": title_str,
+                "image_url": _first_image(existing["images"]),
             },
             notif_type="spotyu_cancelled"
         ))
@@ -1421,7 +1440,7 @@ async def restore_tag_point(point_id: str, request: Request):
 
     async with pool.acquire() as conn:
         existing = await conn.fetchrow(
-            "SELECT user_id, title FROM tag_points WHERE point_id = $1 AND active = TRUE", point_id
+            "SELECT user_id, title, images FROM tag_points WHERE point_id = $1 AND active = TRUE", point_id
         )
         if not existing:
             raise HTTPException(status_code=404, detail="TagPoint not found")
@@ -1447,6 +1466,7 @@ async def restore_tag_point(point_id: str, request: Request):
                 "sender_picture": user.get("picture") or "",
                 "action_text": "a restauré le SpotYou",
                 "content_title": title_str,
+                "image_url": _first_image(existing["images"]),
             },
             notif_type="spotyu_restored"
         ))

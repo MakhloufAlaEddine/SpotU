@@ -8,6 +8,7 @@ Gère :
   - Lister les membres et les présents à la prochaine séance
 """
 from fastapi import APIRouter, HTTPException, Request
+from routes.tagpoint_routes import _first_image
 from datetime import datetime, timezone, timedelta, date as date_type
 from typing import Optional
 from auth_utils import require_auth
@@ -144,7 +145,7 @@ async def join_spot_you(point_id: str, request: Request):
     async with pool.acquire() as conn:
         async with conn.transaction():
             point = await conn.fetchrow(
-                "SELECT point_id, user_id, title FROM tag_points WHERE point_id = $1 AND active = TRUE",
+                "SELECT point_id, user_id, title, images FROM tag_points WHERE point_id = $1 AND active = TRUE",
                 point_id,
             )
             if not point:
@@ -198,6 +199,7 @@ async def join_spot_you(point_id: str, request: Request):
                     "sender_picture": user.get("picture") or "",
                     "action_text": "a rejoint votre SpotYou",
                     "content_title": title_str,
+                    "image_url": _first_image(point["images"]) if point else "",
                 },
                 notif_type="spotyu_join",
             ))

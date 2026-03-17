@@ -49,6 +49,7 @@ function timeAgo(iso: string) {
 // ── Item notification ─────────────────────────────────────────────────────────
 function NotifItem({ item, onPress }: { item: any; onPress: () => void }) {
   const cfg = NOTIF_CFG[item.type] || NOTIF_CFG.info;
+  const hasImage = !!item.image_url;
   const hasSender = !!item.sender_name;
 
   return (
@@ -58,11 +59,17 @@ function NotifItem({ item, onPress }: { item: any; onPress: () => void }) {
       activeOpacity={0.75}
       testID={`notif-${item.id}`}
     >
-      {/* Avatar ou icône */}
-      {hasSender ? (
+      {/* Avatar: SpotYou image > Sender avatar > icon */}
+      {hasImage ? (
+        <View style={ni.avatarWrap}>
+          <Image source={{ uri: item.image_url }} style={ni.avatar} />
+          <View style={[ni.typeBadge, { backgroundColor: cfg.color }]}>
+            <Ionicons name={cfg.icon} size={9} color="#fff" />
+          </View>
+        </View>
+      ) : hasSender ? (
         <View style={ni.avatarWrap}>
           <UserAvatar uri={item.sender_picture} name={item.sender_name} size={46} bgColor={cfg.bg} color={cfg.color} />
-          {/* Badge type */}
           <View style={[ni.typeBadge, { backgroundColor: cfg.color }]}>
             <Ionicons name={cfg.icon} size={9} color="#fff" />
           </View>
@@ -124,6 +131,7 @@ export default function NotificationsScreen() {
       type: d.type === 'chat_message' ? 'chat_message' : (n.type || d.type || 'info'),
       sender_name: d.sender_name || n.title || '',
       sender_picture: d.sender_picture || '',
+      image_url: d.image_url || '',
       action_text: d.action_text || n.body || '',
       content_title: d.content_title || '',
       time: n.created_at || new Date().toISOString(),
