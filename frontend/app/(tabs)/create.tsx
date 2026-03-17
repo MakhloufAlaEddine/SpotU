@@ -279,7 +279,8 @@ export default function CreateSpotYouScreen() {
     const version = ++loadCategoriesVersionRef.current;
     const domain = domainId; // capture current domain to avoid stale closure
     try {
-      const data = await api.get(`/tags/categories?domain_id=${domain}`);
+      const url = domain ? `/tags/categories?domain_id=${domain}` : '/tags/categories';
+      const data = await api.get(url);
       // Only apply if this is still the latest request (prevents race condition
       // where dom_sport response arrives after dom_coaching and overwrites it)
       if (version === loadCategoriesVersionRef.current) {
