@@ -1,0 +1,102 @@
+{
+  "summary": "Tested SpotYou (TagPoint) address privacy/masking feature. All 11 tests passed. Address masking correctly uses _mask_address from service_routes. Owner detection and original_address toggle working correctly for GET/POST/PUT endpoints.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "GET /api/tag-points/mine",
+        "issue": "Line 243 calls build_point_response without is_owner=True. Owner's own points won't show original_address in /mine list response. Compare with /services/mine which correctly passes is_owner=True.",
+        "priority": "LOW",
+        "file": "/app/backend/routes/tagpoint_routes.py",
+        "line": 243
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_tagpoint_address_privacy_iter87.py",
+    "/app/test_reports/pytest/iter87_tagpoint_address.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: Fix /api/tag-points/mine to pass is_owner=True to build_point_response (line 243) so owners see original_address in their list"
+  ],
+  "critical_code_review_comments": [
+    "Line 7: Correctly imports _mask_address from service_routes (code reuse)",
+    "Line 52-73: build_point_response correctly implements address masking - masks based on precision, owner gets original_address for toggle",
+    "Line 391-392: GET /api/tag-points/{id} correctly determines is_owner and passes to build_point_response",
+    "Line 1184: POST /api/tag-points correctly stores address from payload",
+    "Line 1192: POST returns with is_owner=True (creator is owner)",
+    "Line 1358: PUT returns with is_owner=True",
+    "Service regression: _mask_address correctly skips 'France' for 1000m, extracts city from postal code format, strips house numbers for 100m"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_tagpoint_address_privacy_iter87.py"
+  ],
+  "success_rate": {
+    "backend": "100% (11/11 tests passed)",
+    "frontend": "N/A - backend only testing requested"
+  },
+  "test_credentials": {
+    "user_owner": "user@winek.app / WinekUser2024! (owner of pt_demo001)",
+    "coach_owner": "coach@winek.app / WinekCoach2024! (owner of pt_demo003)"
+  },
+  "seed_data_creation": "Tests temporarily modify pt_demo001 and pt_demo003 with test addresses and precision, restored to original values after tests via pytest fixtures",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "TagPoint address privacy feature fully tested. Demo data (pt_demo001, pt_demo003) has address=NULL by default. To test masking, UPDATE tag_points SET address='12 Rue de Rivoli, 75001 Paris, France', precision='1000m' WHERE point_id='pt_demo001'. The _mask_address function correctly: (1) skips 'France' for 1000m, (2) extracts city from '75001 Paris' format, (3) strips house numbers for 100m. Owner toggle via original_address field. Service address masking (iter86) still working as regression test confirmed.",
+  "test_results_detail": {
+    "anonymous_1000m_masked": {
+      "input": "12 Rue de Rivoli, 75001 Paris, France",
+      "expected": "Paris",
+      "actual": "Paris",
+      "status": "PASS"
+    },
+    "anonymous_100m_masked": {
+      "input": "12 Rue de Rivoli, 75001 Paris, France",
+      "expected": "Rue de Rivoli",
+      "actual": "Rue de Rivoli",
+      "status": "PASS"
+    },
+    "owner_1000m_gets_original": {
+      "is_owner": true,
+      "address": "Paris",
+      "original_address": "12 Rue de Rivoli, 75001 Paris, France",
+      "status": "PASS"
+    },
+    "owner_100m_gets_original": {
+      "is_owner": true,
+      "address": "Rue de Rivoli",
+      "original_address": "12 Rue de Rivoli, 75001 Paris, France",
+      "status": "PASS"
+    },
+    "owner_exact_no_original_needed": {
+      "is_owner": true,
+      "address": "12 Rue de Rivoli, 75001 Paris, France",
+      "original_address": "NOT_PRESENT (correct for exact precision)",
+      "status": "PASS"
+    },
+    "create_stores_address": {
+      "db_stored": "12 Rue de Rivoli, 75001 Paris, France",
+      "response_address": "Rue de Rivoli (masked)",
+      "response_original_address": "12 Rue de Rivoli, 75001 Paris, France",
+      "status": "PASS"
+    },
+    "update_returns_is_owner": {
+      "is_owner": true,
+      "status": "PASS"
+    },
+    "service_regression_1000m": {
+      "status": "PASS - service address masking still works"
+    },
+    "null_address_handling": {
+      "status": "PASS - no error when address is NULL"
+    },
+    "1000m_skips_france": {
+      "status": "PASS - returns 'Paris' not 'France'"
+    }
+  }
+}

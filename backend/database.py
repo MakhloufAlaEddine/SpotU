@@ -628,6 +628,11 @@ async def connect_to_db():
             ON CONFLICT (config_key) DO NOTHING;
         """)
 
+        # [SPOTYOU-ADDRESS] Ajout champ adresse aux tag_points
+        await conn.execute("""
+            ALTER TABLE tag_points ADD COLUMN IF NOT EXISTS address TEXT;
+        """)
+
     # 2. Seed données de base (users, tagpoints, tags, domaines...)
     from seed import seed_initial_data
     await seed_initial_data()

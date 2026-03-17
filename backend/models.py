@@ -151,6 +151,7 @@ class TagPointCreate(BaseModel):
     images: Optional[List[str]] = []
     minimum_participants: Optional[int] = None
     maximum_participants: Optional[int] = None
+    address: Optional[str] = None
 
     @field_validator("title")
     @classmethod
@@ -193,6 +194,7 @@ class TagPointUpdate(BaseModel):
     event_schedule: Optional[dict] = None
     minimum_participants: Optional[int] = None
     maximum_participants: Optional[int] = None
+    address: Optional[str] = None
 
 
 # --- SERVICE ---

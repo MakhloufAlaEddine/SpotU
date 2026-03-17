@@ -4,6 +4,7 @@ from typing import Optional, List
 from models import TagPointCreate, TagPointUpdate, new_id
 from auth_utils import require_auth, get_token_from_request, decode_jwt
 from database import get_pool, row_to_dict, rows_to_list
+from routes.service_routes import _mask_address
 import json
 import random
 import math
@@ -30,7 +31,7 @@ TP_FIELDS = """
     tp.point_id, tp.user_id, tp.title, tp.description,
     tp.precision, tp.tag_ids, tp.domain_id, tp.active, tp.is_public, tp.cancelled, tp.expires_at, tp.created_at, tp.updated_at,
     tp.image_url, tp.images, tp.schedule, tp.event_date, tp.event_end_date, tp.event_schedule, tp.new_date_coming,
-    tp.minimum_participants, tp.maximum_participants,
+    tp.minimum_participants, tp.maximum_participants, tp.address,
     ST_Y(tp.location::geometry) as latitude,
     ST_X(tp.location::geometry) as longitude,
     u.name as owner_name, u.picture as owner_picture, u.role as owner_role,
@@ -48,7 +49,7 @@ TP_FIELDS_SIMPLE = """
 """
 
 
-def build_point_response(row_dict: dict) -> dict:
+def build_point_response(row_dict: dict, is_owner: bool = False) -> dict:
     lat = row_dict.pop("latitude", None)
     lng = row_dict.pop("longitude", None)
     if lat is not None and lng is not None:
@@ -61,6 +62,14 @@ def build_point_response(row_dict: dict) -> dict:
     owner_role = row_dict.pop("owner_role", None)
     if owner_name:
         row_dict["owner"] = {"user_id": row_dict.get("user_id"), "name": owner_name, "picture": owner_picture, "role": owner_role}
+    # Apply address masking based on precision
+    precision = row_dict.get("precision", "exact")
+    original_address = row_dict.get("address")
+    if original_address and precision != "exact":
+        row_dict["address"] = _mask_address(original_address, precision)
+        if is_owner:
+            row_dict["original_address"] = original_address
+    row_dict["is_owner"] = is_owner
     return row_dict
 
 
@@ -358,6 +367,16 @@ async def get_saved_tag_points(request: Request):
 @router.get("/tag-points/{point_id}")
 async def get_tag_point(point_id: str, request: Request):
     pool = get_pool()
+    # Determine current user for owner detection
+    current_user_id = None
+    try:
+        token = get_token_from_request(request)
+        if token:
+            payload = decode_jwt(token)
+            current_user_id = payload.get("user_id")
+    except Exception:
+        pass
+
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             f"""SELECT {TP_FIELDS}
@@ -368,7 +387,9 @@ async def get_tag_point(point_id: str, request: Request):
         )
         if not row:
             raise HTTPException(status_code=404, detail="TagPoint not found")
-        pt = build_point_response(row_to_dict(row))
+        
+        is_owner = current_user_id is not None and row["user_id"] == current_user_id
+        pt = build_point_response(row_to_dict(row), is_owner=is_owner)
 
         tag_ids_list = pt.get("tag_ids") or []
         if isinstance(tag_ids_list, str):
@@ -1154,13 +1175,13 @@ async def create_tag_point(data: TagPointCreate, request: Request):
         await conn.execute(
             """INSERT INTO tag_points
                (point_id, user_id, title, description, location, precision, tag_ids, domain_id, active, expires_at,
-                event_date, event_end_date, event_schedule, images, minimum_participants, maximum_participants)
-               VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($5, $6), 4326), $7, $8, $9, TRUE, $10, $11, $12, $13, $14, $15, $16)""",
+                event_date, event_end_date, event_schedule, images, minimum_participants, maximum_participants, address)
+               VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($5, $6), 4326), $7, $8, $9, TRUE, $10, $11, $12, $13, $14, $15, $16, $17)""",
             pid, user["user_id"], data.title, data.description,
             stored_lng, stored_lat,
             data.precision, data.tag_ids, data.domain_id, expires_at,
             data.event_date, data.event_end_date, event_schedule_val, data.images or [],
-            min_p, max_p,
+            min_p, max_p, data.address,
         )
         # Le créateur est automatiquement membre de son SpotYou
         await conn.execute(
@@ -1168,7 +1189,7 @@ async def create_tag_point(data: TagPointCreate, request: Request):
             part_id, pid, user["user_id"]
         )
         row = await conn.fetchrow(f"SELECT {TP_FIELDS} FROM tag_points tp LEFT JOIN users u ON tp.user_id = u.user_id WHERE tp.point_id = $1", pid)
-    return build_point_response(row_to_dict(row))
+    return build_point_response(row_to_dict(row), is_owner=True)
 
 
 @router.put("/tag-points/{point_id}")
@@ -1218,7 +1239,7 @@ async def update_tag_point(point_id: str, data: TagPointUpdate, request: Request
         raw = data.model_dump(exclude_unset=True)
         if not raw:
             row = await conn.fetchrow(f"SELECT {TP_FIELDS} FROM tag_points tp LEFT JOIN users u ON tp.user_id = u.user_id WHERE tp.point_id = $1", point_id)
-            return build_point_response(row_to_dict(row))
+            return build_point_response(row_to_dict(row), is_owner=True)
 
         # Validation max 10 images
         if 'images' in raw and raw['images'] is not None and len(raw['images']) > 10:
@@ -1292,7 +1313,7 @@ async def update_tag_point(point_id: str, data: TagPointUpdate, request: Request
 
         if not set_clauses:
             row = await conn.fetchrow(f"SELECT {TP_FIELDS} FROM tag_points tp LEFT JOIN users u ON tp.user_id = u.user_id WHERE tp.point_id = $1", point_id)
-            return build_point_response(row_to_dict(row))
+            return build_point_response(row_to_dict(row), is_owner=True)
 
         values.append(point_id)
         set_clauses.append("updated_at = NOW()")
@@ -1334,7 +1355,7 @@ async def update_tag_point(point_id: str, data: TagPointUpdate, request: Request
                 notif_type="spotyu_updated"
             ))
 
-    return build_point_response(row_to_dict(row))
+    return build_point_response(row_to_dict(row), is_owner=True)
 
 
 @router.patch("/tag-points/{point_id}/new-date")

@@ -192,7 +192,12 @@ export default function CreateSpotYouScreen() {
       const lng = parseFloat(params.lng);
       setSelectedLat(lat);
       setSelectedLng(lng);
-      reverseGeocode(lat, lng);
+      // Use stored address if available (avoids overwriting masked address)
+      if (params.address) {
+        setLocationAddress(params.address);
+      } else {
+        reverseGeocode(lat, lng);
+      }
     }
     // Capacité
     if (params.minParticipants && params.minParticipants !== 'undefined' && params.minParticipants !== '0') {
@@ -430,6 +435,7 @@ export default function CreateSpotYouScreen() {
         precision, domain_id: domainId,
         tag_ids: selectedTagIds,
         images: uploadedUrls,
+        address: locationAddress || null,
         // Always send date fields explicitly so backend can clear them when switching types
         event_date: (scheduleType === 'once' && eventDateTime) ? eventDateTime.toISOString() : null,
         event_end_date: (scheduleType === 'once' && eventEndDateTime) ? eventEndDateTime.toISOString() : null,

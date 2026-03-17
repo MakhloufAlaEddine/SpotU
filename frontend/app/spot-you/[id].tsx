@@ -390,6 +390,7 @@ export default function SpotYouDetail() {
   const [goingLoading, setGoingLoading] = useState(false);
   const [isPublic, setIsPublic] = useState(true);
   const [ownerActionLoading, setOwnerActionLoading] = useState(false);
+  const [showExactAddress, setShowExactAddress] = useState(false);
 
   // ── Refresh debounced — une seule source de vérité ────────────────────────
   // Ref toujours fraîche (pas de stale closure). Debounce 200ms pour éviter
@@ -672,6 +673,7 @@ export default function SpotYouDetail() {
         lng: String(point.longitude ?? ''),
         minParticipants: String(point.minimum_participants ?? ''),
         maxParticipants: String(point.maximum_participants ?? ''),
+        address: point.original_address || point.address || '',
       },
     });
   };
@@ -1416,6 +1418,47 @@ export default function SpotYouDetail() {
               accentColor={Colors.primary}
               height={180}
             />
+
+            {/* Address display */}
+            {point.address && (
+              <View style={st.addressRow} testID="spotyou-address">
+                <Ionicons name="location" size={14} color={Colors.primary} />
+                <View style={{ flex: 1 }}>
+                  <Text style={st.addressText}>
+                    {isOwner && showExactAddress && point.original_address
+                      ? point.original_address
+                      : point.address}
+                  </Text>
+                  {point.precision && point.precision !== 'exact' && (
+                    <Text style={st.addressPrecision}>
+                      {point.precision === '100m' ? 'Zone approximative' : 'Quartier'}
+                    </Text>
+                  )}
+                </View>
+              </View>
+            )}
+
+            {/* Owner privacy toggle */}
+            {isOwner && point.original_address && (
+              <TouchableOpacity
+                style={st.ownerPrivacyToggle}
+                onPress={() => setShowExactAddress(prev => !prev)}
+                activeOpacity={0.7}
+                testID="owner-address-toggle"
+              >
+                <Ionicons
+                  name={showExactAddress ? 'eye' : 'eye-off'}
+                  size={14}
+                  color={showExactAddress ? Colors.primary : Colors.muted}
+                />
+                <Text style={[st.ownerPrivacyText, showExactAddress && { color: Colors.primary }]}>
+                  {showExactAddress ? 'Adresse exacte (vous seul)' : 'Vue visiteur (adresse masquée)'}
+                </Text>
+                <View style={[st.ownerPrivacySwitch, showExactAddress && st.ownerPrivacySwitchActive]}>
+                  <View style={[st.ownerPrivacyKnob, showExactAddress && st.ownerPrivacyKnobActive]} />
+                </View>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
@@ -1926,6 +1969,19 @@ const st = StyleSheet.create({
   seeAllText: { fontSize: 14, fontWeight: '600', color: Colors.primary },
 
   fab: { position: 'absolute', bottom: 32, right: 20, width: 54, height: 54, borderRadius: 27, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 8 },
+
+  // Address display
+  addressRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 10, paddingHorizontal: 2 },
+  addressText: { fontSize: 14, fontWeight: '600', color: Colors.foreground, lineHeight: 20 },
+  addressPrecision: { fontSize: 12, color: Colors.muted, marginTop: 2 },
+
+  // Owner privacy toggle
+  ownerPrivacyToggle: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.card, borderRadius: Radius.lg, padding: 10, marginTop: 8, borderWidth: 1, borderColor: Colors.border },
+  ownerPrivacyText: { fontSize: 12, fontWeight: '600', color: Colors.muted, flex: 1 },
+  ownerPrivacySwitch: { width: 36, height: 20, borderRadius: 10, backgroundColor: Colors.border, justifyContent: 'center', paddingHorizontal: 2 },
+  ownerPrivacySwitchActive: { backgroundColor: Colors.primary },
+  ownerPrivacyKnob: { width: 16, height: 16, borderRadius: 8, backgroundColor: Colors.foreground },
+  ownerPrivacyKnobActive: { alignSelf: 'flex-end', backgroundColor: Colors.background },
 });
 
 const ms = StyleSheet.create({

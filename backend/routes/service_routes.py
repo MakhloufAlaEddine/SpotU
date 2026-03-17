@@ -344,6 +344,7 @@ async def get_service(service_id: str, request: Request):
             raise HTTPException(status_code=404, detail="Service not found")
         svc = build_service(row_to_dict(row))
         is_owner = viewer is not None and (viewer["user_id"] == svc["coach_id"] or viewer.get("role") == "admin")
+        print(f"DEBUG get_service: viewer={viewer}, coach_id={svc['coach_id']}, is_owner={is_owner}")
         svc = await _enrich_service(conn, svc, is_owner=is_owner)
     return svc
 
