@@ -265,6 +265,8 @@ export default function ServiceDetailScreen() {
     color: ORANGE,
   }));
   const centerLoc = locations[activeLocIdx] ?? locations[0];
+  const centerPrecision = centerLoc?.precision || 'exact';
+  const centerPrecisionRadius = centerPrecision === '1000m' ? 1000 : centerPrecision === '100m' ? 100 : 0;
 
   return (
     <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
@@ -457,8 +459,11 @@ export default function ServiceDetailScreen() {
                 pins={pins}
                 centerLat={centerLoc?.latitude ?? 48.8566}
                 centerLng={centerLoc?.longitude ?? 2.3522}
-                zoom={locations.length === 1 ? 15 : 12}
+                zoom={centerPrecisionRadius >= 1000 ? 13 : centerPrecisionRadius >= 100 ? 15 : (locations.length === 1 ? 15 : 12)}
                 style={{ flex: 1 }}
+                selectedLat={centerLoc?.latitude}
+                selectedLng={centerLoc?.longitude}
+                precisionRadius={centerPrecisionRadius}
                 onPinPress={locId => {
                   const idx = locations.findIndex((l: any) => l.location_id === locId);
                   if (idx >= 0) setActiveLocIdx(idx);
