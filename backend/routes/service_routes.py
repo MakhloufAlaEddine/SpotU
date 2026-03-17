@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request, HTTPException, Query
 from typing import Optional
 from models import ServiceCreate, ServiceUpdate, new_id
-from auth_utils import require_auth, get_token_from_request, decode_jwt
+from auth_utils import require_auth, get_token_from_request, decode_jwt, get_optional_auth
 from database import get_pool, row_to_dict, rows_to_list
 import json
 
@@ -88,7 +88,7 @@ def _mask_address(description: str, precision: str) -> str:
     return re.sub(r'^\d+\s*(bis|ter|quater)?\s*[,.]?\s*', '', description, flags=re.IGNORECASE).strip() or description
 
 
-async def _get_service_locations(conn, service_id: str) -> list:
+async def _get_service_locations(conn, service_id: str, is_owner: bool = False) -> list:
     rows = await conn.fetch(
         """SELECT location_id, precision, description,
            ST_Y(location::geometry) as latitude,
@@ -99,7 +99,8 @@ async def _get_service_locations(conn, service_id: str) -> list:
     locs = []
     for r in rows:
         d = row_to_dict(r)
-        d["description"] = _mask_address(d.get("description", ""), d.get("precision", "exact"))
+        if not is_owner:
+            d["description"] = _mask_address(d.get("description", ""), d.get("precision", "exact"))
         locs.append(d)
     return locs
 
@@ -154,7 +155,7 @@ async def _get_service_packages(conn, service_id: str) -> list:
     return result
 
 
-async def _enrich_service(conn, svc: dict) -> dict:
+async def _enrich_service(conn, svc: dict, is_owner: bool = False) -> dict:
     coach_row = await conn.fetchrow(
         "SELECT user_id, name, picture, is_coach_verified FROM users WHERE user_id = $1",
         svc["coach_id"]
@@ -165,9 +166,9 @@ async def _enrich_service(conn, svc: dict) -> dict:
     )
     svc["avg_rating"] = round(sum(r["rating"] for r in reviews) / len(reviews), 1) if reviews else None
     svc["review_count"] = len(reviews)
-    svc["locations"] = await _get_service_locations(conn, svc["service_id"])
-    # Mask top-level address if location precision is not exact
-    if svc["locations"]:
+    svc["locations"] = await _get_service_locations(conn, svc["service_id"], is_owner=is_owner)
+    # Mask top-level address if location precision is not exact and not owner
+    if not is_owner and svc["locations"]:
         first_prec = svc["locations"][0].get("precision", "exact")
         if first_prec != "exact" and svc.get("address"):
             svc["address"] = _mask_address(svc["address"], first_prec)
@@ -314,8 +315,9 @@ async def get_saved_services(request: Request):
 
 
 @router.get("/services/{service_id}")
-async def get_service(service_id: str):
+async def get_service(service_id: str, request: Request):
     pool = get_pool()
+    viewer = await get_optional_auth(request, pool)
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             f"SELECT {SVC_FIELDS} FROM services WHERE service_id = $1", service_id
@@ -323,7 +325,8 @@ async def get_service(service_id: str):
         if not row:
             raise HTTPException(status_code=404, detail="Service not found")
         svc = build_service(row_to_dict(row))
-        svc = await _enrich_service(conn, svc)
+        is_owner = viewer is not None and (viewer["user_id"] == svc["coach_id"] or viewer.get("role") == "admin")
+        svc = await _enrich_service(conn, svc, is_owner=is_owner)
     return svc
 
 
