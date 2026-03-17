@@ -146,6 +146,8 @@ export default function CreateServiceScreen() {
   const [address, setAddress] = useState('');
   const [addressLat, setAddressLat] = useState<number | null>(null);
   const [addressLng, setAddressLng] = useState<number | null>(null);
+  const [precision, setPrecision] = useState('exact');
+  const precisionRadius = precision === '1000m' ? 1000 : precision === '100m' ? 100 : 0;
   const [showLocPicker, setShowLocPicker] = useState(false);
   // Photos
   const [images, setImages] = useState<string[]>([]);
@@ -1045,17 +1047,19 @@ export default function CreateServiceScreen() {
         >
           {step === 1 && renderStep1()}
           {step === 2 && (
-            <StepLocalisation
-              selectedLat={addressLat || 48.8566}
-              selectedLng={addressLng || 2.3522}
-              locationAddress={address || 'Appuyez pour choisir une adresse'}
-              precision="exact"
-              setPrecision={() => {}}
-              precisionRadius={0}
-              onOpenLocation={() => setShowLocPicker(true)}
-              accentColor={ORANGE}
-              showPrecision={false}
-            />
+            <View style={{ paddingHorizontal: 16 }}>
+              <StepLocalisation
+                selectedLat={addressLat || 48.8566}
+                selectedLng={addressLng || 2.3522}
+                locationAddress={address || 'Appuyez pour choisir une adresse'}
+                precision={precision}
+                setPrecision={setPrecision}
+                precisionRadius={precisionRadius}
+                onOpenLocation={() => setShowLocPicker(true)}
+                accentColor={ORANGE}
+                showPrecision={true}
+              />
+            </View>
           )}
           {step === 3 && renderStep2()}
           {step === 4 && renderStep3()}
