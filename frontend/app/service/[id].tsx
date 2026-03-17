@@ -339,7 +339,7 @@ export default function ServiceDetailScreen() {
             domainId={service.domain_id}
             tags={service.tags}
             size="lg"
-            showHint={isOwner}
+            showHint={service.coach_id === user?.user_id}
             style={{ marginBottom: 8 }}
           />
         )}
