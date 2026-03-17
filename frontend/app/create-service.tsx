@@ -104,15 +104,16 @@ const tagColor = (cat?: string) => (cat && CATEGORY_COLORS[cat]) ? CATEGORY_COLO
 // ─── Score computation ────────────────────────────────────────────────────────
 function computeScore(
   title: string, coachDesc: string, address: string,
-  tagIds: string[], price: string, slots: DaySlot[]
+  tagIds: string[], price: string, slots: DaySlot[], images: string[]
 ) {
   const criteria = [
-    { label: 'Titre renseigné (5+ car.)', ok: title.trim().length >= 5, pts: 20 },
-    { label: 'Description du coach (50+ car.)', ok: coachDesc.trim().length >= 50, pts: 20 },
-    { label: 'Adresse renseignée', ok: address.trim().length > 0, pts: 10 },
-    { label: 'Tags sélectionnés', ok: tagIds.length > 0, pts: 15 },
-    { label: 'Prix défini', ok: parseFloat(price) > 0, pts: 20 },
-    { label: 'Créneaux configurés', ok: slots.length > 0, pts: 15 },
+    { label: 'Photos ajoutées', ok: images.length > 0, pts: 30 },
+    { label: 'Créneaux configurés', ok: slots.length > 0, pts: 20 },
+    { label: 'Titre renseigné (5+ car.)', ok: title.trim().length >= 5, pts: 15 },
+    { label: 'Description du coach (50+ car.)', ok: coachDesc.trim().length >= 50, pts: 15 },
+    { label: 'Tags sélectionnés', ok: tagIds.length > 0, pts: 10 },
+    { label: 'Prix défini', ok: parseFloat(price) > 0, pts: 5 },
+    { label: 'Adresse renseignée', ok: address.trim().length > 0, pts: 5 },
   ];
   const score = criteria.filter(c => c.ok).reduce((acc, c) => acc + c.pts, 0);
   return { score, criteria };
@@ -889,8 +890,8 @@ export default function CreateServiceScreen() {
 
   // ─── Step 5: Résumé & Score ───────────────────────────────────────────────────
   const { score, criteria } = useMemo(
-    () => computeScore(title, coachDesc, address, selectedTagIds, price, slots),
-    [title, coachDesc, address, selectedTagIds, price, slots]
+    () => computeScore(title, coachDesc, address, selectedTagIds, price, slots, images),
+    [title, coachDesc, address, selectedTagIds, price, slots, images]
   );
   const scoreColor = score >= 80 ? GREEN : score >= 50 ? ORANGE : Colors.destructive;
   const selectedDomain = domains.find(d => d.domain_id === domainId);
