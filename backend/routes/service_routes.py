@@ -62,10 +62,29 @@ def build_service(row_dict: dict) -> dict:
 import re
 
 def _mask_address(description: str, precision: str) -> str:
-    """Strip street number from address when precision is not 'exact'."""
+    """Mask address based on precision level.
+    exact  -> full address
+    100m   -> street without number (zone approximative)
+    1000m  -> city/district only (quartier seulement)
+    """
     if not description or precision == 'exact':
         return description
-    # Remove leading number(s) + optional bis/ter (e.g. "10 Rue..." -> "Rue...")
+    if precision == '1000m':
+        # Keep only city/district: last part after comma, or after postal code
+        parts = [p.strip() for p in description.split(',')]
+        if len(parts) >= 2:
+            # Return last meaningful part (usually city + arrondissement)
+            return parts[-1]
+        # Try to extract city after postal code (e.g. "75008 Paris")
+        m = re.search(r'\b\d{5}\s+(.+)$', description)
+        if m:
+            return m.group(1).strip()
+        # Try to extract city part after street name
+        m = re.search(r'\b(Paris\s*\d*e?r?(?:er|[eè]me)?|Lyon\s*\d*e?|Marseille\s*\d*e?|[A-Z][a-zéèêàùôîç-]+(?:\s+\d+e?r?(?:er|[eè]me)?)?)\s*$', description, re.IGNORECASE)
+        if m:
+            return m.group(1).strip()
+        return description
+    # 100m: remove leading number (zone approximative)
     return re.sub(r'^\d+\s*(bis|ter|quater)?\s*[,.]?\s*', '', description, flags=re.IGNORECASE).strip() or description
 
 
