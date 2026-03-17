@@ -259,8 +259,15 @@ async def get_saved_services(request: Request):
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             """SELECT s.service_id, s.title, s.price, s.images, s.address, s.location_description,
+                      s.duration_min,
                       ss.saved_at,
-                      json_build_object('user_id', u.user_id, 'name', u.name, 'picture', u.picture) as coach
+                      json_build_object('user_id', u.user_id, 'name', u.name, 'picture', u.picture) as coach,
+                      (SELECT json_agg(json_build_object('latitude', ST_Y(sl.location), 'longitude', ST_X(sl.location)))
+                       FROM service_locations sl WHERE sl.service_id = s.service_id) as locations,
+                      (SELECT COUNT(*) FROM service_slots slt
+                       WHERE slt.service_id = s.service_id
+                         AND slt.slot_status = 'available'
+                         AND slt.slot_date >= TO_CHAR(NOW(), 'YYYY-MM-DD')) as available_slots
                FROM service_saves ss
                JOIN services s ON ss.service_id = s.service_id
                JOIN users u ON s.coach_id = u.user_id
@@ -276,6 +283,13 @@ async def get_saved_services(request: Request):
                 import json as _j; d["images"] = _j.loads(d["images"])
             if isinstance(d.get("coach"), str):
                 import json as _j; d["coach"] = _j.loads(d["coach"])
+            locs = d.pop("locations", None)
+            if isinstance(locs, str):
+                import json as _j; locs = _j.loads(locs)
+            if locs and isinstance(locs, list) and len(locs) > 0:
+                d["latitude"] = locs[0].get("latitude")
+                d["longitude"] = locs[0].get("longitude")
+            d["available_slots"] = int(d.get("available_slots") or 0)
             result.append(d)
         return result
 

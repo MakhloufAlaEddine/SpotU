@@ -17,7 +17,11 @@ import { cacheInvalidate } from '../lib/cache';
 import { useGuardedRouter } from '../hooks/useGuardedRouter';
 import { useSpotYouListLive } from '../hooks/useSpotYouListLive';
 
+import { haversineDistance, formatDistance } from '../utils/distance';
+
 const ORANGE = '#FF9500';
+const ORANGE_DIM = ORANGE + '12';
+const ORANGE_BORDER = ORANGE + '30';
 
 interface SavedService {
   service_id: string;
@@ -25,8 +29,12 @@ interface SavedService {
   price?: number;
   images?: string[];
   address?: string;
+  duration_min?: number;
   coach?: { user_id: string; name: string; picture?: string };
   saved_at?: string;
+  latitude?: number;
+  longitude?: number;
+  available_slots?: number;
 }
 
 function timeAgo(d?: string) {
@@ -39,71 +47,157 @@ function timeAgo(d?: string) {
   return `Il y a ${Math.floor(diff / 30)} mois`;
 }
 
-function SavedServiceCard({ item, onPress, onUnsave }: { item: SavedService; onPress: () => void; onUnsave: () => void }) {
+function SavedServiceCard({ item, onPress, onUnsave, userLat, userLng }: { item: SavedService; onPress: () => void; onUnsave: () => void; userLat?: number; userLng?: number }) {
   const img = item.images?.[0];
+  const slots = item.available_slots || 0;
+
+  const dist = (() => {
+    if (userLat == null || userLng == null) return '';
+    if (item.latitude == null || item.longitude == null) return '';
+    return formatDistance(haversineDistance(userLat, userLng, item.latitude, item.longitude));
+  })();
+
   return (
-    <TouchableOpacity style={[card.container, { borderColor: 'rgba(255,149,0,0.3)' }]} onPress={onPress} activeOpacity={0.8} testID={`saved-svc-${item.service_id}`}>
-      <View style={card.imageWrap}>
-        {img
-          ? <Image source={{ uri: img }} style={card.image} resizeMode="cover" />
-          : <View style={[card.imageFallback, { backgroundColor: '#1A1000' }]}>
-              <Ionicons name="calendar-outline" size={28} color="rgba(255,149,0,0.3)" />
-            </View>
-        }
-        {/* Badge SERVICE */}
-        <View style={{ position: 'absolute', top: 6, left: 6, backgroundColor: ORANGE, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2 }}>
-          <Text style={{ fontSize: 8, fontWeight: '800', color: '#fff', letterSpacing: 0.3 }}>SERVICE</Text>
+    <TouchableOpacity style={svc.card} onPress={onPress} activeOpacity={0.9} testID={`saved-svc-${item.service_id}`}>
+      {/* Header: thumbnail + info */}
+      <View style={svc.cardHeader}>
+        <View style={svc.thumbWrap}>
+          {img
+            ? <Image source={{ uri: img }} style={svc.thumb} resizeMode="cover" />
+            : <View style={[svc.thumb, svc.thumbPlaceholder]}>
+                <Ionicons name="briefcase-outline" size={24} color={ORANGE + '40'} />
+              </View>
+          }
         </View>
-      </View>
-      <View style={card.info}>
-        <Text style={card.title} numberOfLines={2}>{item.title}</Text>
-        <View style={card.metaRow}>
-          {item.price != null && (
-            <View style={card.pill}>
-              <Text style={[card.pillText, { color: ORANGE }]}>À partir de {item.price}€</Text>
+
+        <View style={{ flex: 1 }}>
+          {/* Titre + badge SERVICE */}
+          <View style={svc.titleRow}>
+            <Text style={svc.cardTitle} numberOfLines={2}>{item.title}</Text>
+            <View style={svc.typeBadge}>
+              <Ionicons name="briefcase-outline" size={10} color={ORANGE} />
+              <Text style={svc.typeBadgeText}>Service</Text>
             </View>
-          )}
-          {item.coach && (
-            <View style={card.pill}>
-              <Ionicons name="person-outline" size={11} color={Colors.muted} />
-              <Text style={[card.pillText, { color: Colors.muted }]}>{item.coach.name}</Text>
-            </View>
-          )}
-          {item.saved_at && (
-            <View style={card.pill}>
-              <Ionicons name="bookmark-outline" size={11} color={Colors.muted} />
-              <Text style={[card.pillText, { color: Colors.muted }]}>{timeAgo(item.saved_at)}</Text>
-            </View>
-          )}
+          </View>
+
+          {/* Prix + Coach */}
+          <View style={svc.priceRow}>
+            {item.price != null && (
+              <Text style={svc.priceText}>À partir de {item.price}€</Text>
+            )}
+            {item.duration_min != null && item.duration_min > 0 && (
+              <View style={svc.metaPill}>
+                <Ionicons name="time-outline" size={10} color={Colors.muted} />
+                <Text style={svc.metaPillText}>{item.duration_min} min</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Badges : coach + distance + créneaux */}
+          <View style={svc.metaBadgesRow}>
+            {item.coach && (
+              <View style={svc.coachChip}>
+                <Ionicons name="person-outline" size={10} color={ORANGE} />
+                <Text style={svc.coachChipText}>{item.coach.name}</Text>
+              </View>
+            )}
+            {dist ? (
+              <View style={svc.distChip}>
+                <Ionicons name="navigate-outline" size={10} color={Colors.muted} />
+                <Text style={svc.distChipText}>{dist}</Text>
+              </View>
+            ) : null}
+            {slots > 0 && (
+              <View style={svc.slotsChip}>
+                <Ionicons name="calendar-outline" size={10} color={ORANGE} />
+                <Text style={svc.slotsChipText}>{slots} créneaux</Text>
+              </View>
+            )}
+          </View>
         </View>
+
+        {/* Unsave */}
+        <TouchableOpacity style={svc.unsaveBtn} onPress={onUnsave} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} testID={`unsave-svc-btn-${item.service_id}`}>
+          <Ionicons name="bookmark" size={20} color={ORANGE} />
+        </TouchableOpacity>
       </View>
-      <TouchableOpacity style={card.unsaveBtn} onPress={onUnsave} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} testID={`unsave-svc-btn-${item.service_id}`}>
-        <Ionicons name="bookmark" size={22} color={ORANGE} />
-      </TouchableOpacity>
+
+      {/* Footer : enregistré */}
+      {item.saved_at && (
+        <View style={svc.footer}>
+          <View style={svc.savedChip}>
+            <Ionicons name="bookmark-outline" size={11} color={Colors.muted} />
+            <Text style={svc.savedText}>Enregistré {timeAgo(item.saved_at).toLowerCase()}</Text>
+          </View>
+        </View>
+      )}
     </TouchableOpacity>
   );
 }
 
-const card = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
+const svc = StyleSheet.create({
+  card: {
     backgroundColor: Colors.card,
     borderRadius: Radius.lg,
-    marginBottom: Spacing.sm,
-    overflow: 'hidden',
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: ORANGE_BORDER,
+    overflow: 'hidden',
+    marginBottom: Spacing.sm,
   },
-  imageWrap: { width: 88, height: 88, backgroundColor: Colors.border, position: 'relative' },
-  image: { width: '100%', height: '100%' },
-  imageFallback: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.card },
-  info: { flex: 1, padding: Spacing.md, gap: 6 },
-  title: { fontSize: 15, fontWeight: '700', color: Colors.foreground, lineHeight: 20 },
-  metaRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  pill: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  pillText: { fontSize: 12, color: Colors.primary, fontWeight: '600' },
-  unsaveBtn: { padding: Spacing.md, alignSelf: 'center' },
+  cardHeader: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    paddingBottom: Spacing.sm,
+  },
+  thumbWrap: {},
+  thumb: { width: 72, height: 72, borderRadius: Radius.md },
+  thumbPlaceholder: { backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' },
+  titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 4 },
+  cardTitle: { flex: 1, fontSize: 14, fontWeight: '700', color: Colors.foreground, lineHeight: 19 },
+  typeBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    borderRadius: Radius.sm, paddingHorizontal: 6, paddingVertical: 3,
+    borderWidth: 1, flexShrink: 0,
+    backgroundColor: ORANGE_DIM, borderColor: ORANGE_BORDER,
+  },
+  typeBadgeText: { fontSize: 10, fontWeight: '600', color: ORANGE },
+  priceRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  priceText: { fontSize: 13, fontWeight: '700', color: ORANGE },
+  metaPill: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  metaPillText: { fontSize: 11, color: Colors.muted, fontWeight: '500' },
+  metaBadgesRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
+  coachChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    backgroundColor: ORANGE_DIM,
+    borderRadius: Radius.full,
+    paddingHorizontal: 8, paddingVertical: 3,
+    borderWidth: 1, borderColor: ORANGE_BORDER,
+  },
+  coachChipText: { fontSize: 11, fontWeight: '600', color: ORANGE },
+  distChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    backgroundColor: Colors.background,
+    borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2,
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  distChipText: { fontSize: 10, color: Colors.muted, fontWeight: '600' },
+  slotsChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    backgroundColor: ORANGE_DIM,
+    borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2,
+    borderWidth: 1, borderColor: ORANGE_BORDER,
+  },
+  slotsChipText: { fontSize: 10, color: ORANGE, fontWeight: '600' },
+  unsaveBtn: { alignSelf: 'flex-start', padding: 2 },
+  footer: {
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  savedChip: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  savedText: { fontSize: 11, color: Colors.muted, fontWeight: '500' },
 });
 
 // ── Onglets
@@ -298,6 +392,8 @@ export default function SavedScreen() {
                   item={svc}
                   onPress={() => router.push(`/service/${svc.service_id}` as any)}
                   onUnsave={() => handleUnsaveService(svc.service_id)}
+                  userLat={location.lat}
+                  userLng={location.lng}
                 />
               );
             }
