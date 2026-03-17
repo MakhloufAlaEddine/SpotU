@@ -61,6 +61,9 @@ def build_service(row_dict: dict) -> dict:
 
 import re
 
+# Country names to skip when extracting city/district from address
+_COUNTRY_NAMES = {'france', 'francia', 'frankreich', 'fr'}
+
 def _mask_address(description: str, precision: str) -> str:
     """Mask address based on precision level.
     exact  -> full address
@@ -70,22 +73,27 @@ def _mask_address(description: str, precision: str) -> str:
     if not description or precision == 'exact':
         return description
     if precision == '1000m':
-        # Keep only city/district: last part after comma, or after postal code
         parts = [p.strip() for p in description.split(',')]
         if len(parts) >= 2:
-            # Return last meaningful part (usually city + arrondissement)
+            # Walk backwards to find the first meaningful part (skip country names)
+            for i in range(len(parts) - 1, -1, -1):
+                candidate = parts[i].strip()
+                if candidate.lower() not in _COUNTRY_NAMES and candidate:
+                    # Extract city name from postal code prefix (e.g. "75008 Paris" → "Paris")
+                    m = re.match(r'^\d{4,5}\s+(.+)$', candidate)
+                    if m:
+                        return m.group(1).strip()
+                    return candidate
             return parts[-1]
-        # Try to extract city after postal code (e.g. "75008 Paris")
+        # Single part: try to extract city after postal code (e.g. "75008 Paris")
         m = re.search(r'\b\d{5}\s+(.+)$', description)
         if m:
             return m.group(1).strip()
-        # Try to extract city part after street name
-        m = re.search(r'\b(Paris\s*\d*e?r?(?:er|[eè]me)?|Lyon\s*\d*e?|Marseille\s*\d*e?|[A-Z][a-zéèêàùôîç-]+(?:\s+\d+e?r?(?:er|[eè]me)?)?)\s*$', description, re.IGNORECASE)
-        if m:
-            return m.group(1).strip()
         return description
-    # 100m: remove leading number (zone approximative)
-    return re.sub(r'^\d+\s*(bis|ter|quater)?\s*[,.]?\s*', '', description, flags=re.IGNORECASE).strip() or description
+    # 100m: street without number (zone approximative) — first part before comma, number removed
+    street_part = description.split(',')[0].strip()
+    masked = re.sub(r'^\d+\s*(bis|ter|quater)?\s*[,.]?\s*', '', street_part, flags=re.IGNORECASE).strip()
+    return masked or street_part or description
 
 
 async def _get_service_locations(conn, service_id: str, is_owner: bool = False) -> list:
@@ -99,8 +107,13 @@ async def _get_service_locations(conn, service_id: str, is_owner: bool = False) 
     locs = []
     for r in rows:
         d = row_to_dict(r)
-        if not is_owner:
-            d["description"] = _mask_address(d.get("description", ""), d.get("precision", "exact"))
+        original = d.get("description", "")
+        prec = d.get("precision", "exact")
+        # Always mask according to precision level
+        d["description"] = _mask_address(original, prec)
+        # Owner gets the original address to toggle between views
+        if is_owner and prec != 'exact':
+            d["original_description"] = original
         locs.append(d)
     return locs
 
@@ -167,11 +180,16 @@ async def _enrich_service(conn, svc: dict, is_owner: bool = False) -> dict:
     svc["avg_rating"] = round(sum(r["rating"] for r in reviews) / len(reviews), 1) if reviews else None
     svc["review_count"] = len(reviews)
     svc["locations"] = await _get_service_locations(conn, svc["service_id"], is_owner=is_owner)
-    # Mask top-level address if location precision is not exact and not owner
-    if not is_owner and svc["locations"]:
+    # Always mask top-level address based on first location's precision
+    if svc["locations"]:
         first_prec = svc["locations"][0].get("precision", "exact")
         if first_prec != "exact" and svc.get("address"):
+            original_address = svc["address"]
             svc["address"] = _mask_address(svc["address"], first_prec)
+            if is_owner:
+                svc["original_address"] = original_address
+    # Tell the frontend whether the viewer is the owner
+    svc["is_owner"] = is_owner
     svc["slots"] = await _get_service_slots(conn, svc["service_id"])
     svc["packages"] = await _get_service_packages(conn, svc["service_id"])
     # Resolve tags
@@ -268,7 +286,7 @@ async def my_services(request: Request):
         services = [build_service(row_to_dict(r)) for r in rows]
         result = []
         for svc in services:
-            result.append(await _enrich_service(conn, svc))
+            result.append(await _enrich_service(conn, svc, is_owner=True))
     return result
 
 

@@ -1,0 +1,84 @@
+{
+  "summary": "Tested service address privacy/masking feature. All 8 test requirements verified. Backend tests: 16/16 passed. BUG FIX confirmed: 1000m precision now correctly returns city name (e.g., 'Paris') instead of 'France'. Owner/non-owner privacy toggle working correctly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_address_privacy_iter86.py",
+    "/app/test_reports/pytest/iter86_address_privacy.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "_mask_address function (line 67-96): Correctly handles 3 precision levels - exact (no masking), 100m (street without number), 1000m (city only, skips country names)",
+    "_get_service_locations (line 99-118): Correctly provides original_description to owner only for non-exact precision",
+    "_enrich_service (line 171-209): Properly passes is_owner flag and handles top-level address masking",
+    "GET /api/services/{id} (line 335-348): Uses get_optional_auth to check owner status, passes to _enrich_service",
+    "GET /api/services/mine (line 277-290): Correctly calls _enrich_service with is_owner=True for owner's services"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_address_privacy_iter86.py"
+  ],
+  "success_rate": {
+    "backend": "100% (16/16 tests passed)",
+    "frontend": "N/A - backend only testing requested"
+  },
+  "test_credentials": {
+    "coach_owner": "coach@winek.app / WinekCoach2024! (owner of svc_demo001)",
+    "regular_user": "user@winek.app / WinekUser2024! (non-owner)"
+  },
+  "seed_data_creation": "Temporarily modified loc_demo001 precision to test masking, restored to exact precision after tests",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Address privacy feature fully tested. Demo data (svc_demo001, loc_demo001) has precision='exact' by default. To test masking, UPDATE service_locations SET precision='1000m' or '100m'. The _mask_address function correctly: (1) skips 'France' for 1000m, (2) extracts city from '75001 Paris' format, (3) strips house numbers for 100m. Owner toggle UI in frontend/app/service/[id].tsx at line 474-492.",
+  "test_results_detail": {
+    "1000m_bug_fix": {
+      "input": "12 Rue de Rivoli, 75001 Paris, France",
+      "expected": "Paris",
+      "actual": "Paris",
+      "status": "PASS - correctly skips 'France' and returns city"
+    },
+    "100m_masking": {
+      "input": "12 Rue de Rivoli, 75001 Paris, France",
+      "expected": "Rue de Rivoli",
+      "actual": "Rue de Rivoli",
+      "status": "PASS - correctly strips house number"
+    },
+    "exact_precision": {
+      "input": "12 Rue de Rivoli, 75001 Paris, France",
+      "expected": "12 Rue de Rivoli, 75001 Paris, France",
+      "actual": "12 Rue de Rivoli, 75001 Paris, France",
+      "status": "PASS - returns full address unchanged"
+    },
+    "owner_is_owner_flag": {
+      "expected": true,
+      "actual": true,
+      "status": "PASS"
+    },
+    "non_owner_is_owner_flag": {
+      "expected": false,
+      "actual": false,
+      "status": "PASS"
+    },
+    "owner_has_original_description": {
+      "expected": true,
+      "actual": true,
+      "status": "PASS"
+    },
+    "non_owner_lacks_original_description": {
+      "expected": false,
+      "actual": false,
+      "status": "PASS"
+    },
+    "services_mine_has_is_owner_true": {
+      "expected": true,
+      "actual": true,
+      "status": "PASS"
+    }
+  }
+}

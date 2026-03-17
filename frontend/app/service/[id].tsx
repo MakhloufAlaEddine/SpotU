@@ -91,6 +91,7 @@ export default function ServiceDetailScreen() {
   const [isSaved, setIsSaved] = useState(false);
   const [savingInProgress, setSavingInProgress] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [showExactAddress, setShowExactAddress] = useState(false);
   const photoListRef = useRef<FlatList>(null);
 
   const onRefresh = async () => {
@@ -469,6 +470,28 @@ export default function ServiceDetailScreen() {
               }}
             />
 
+            {/* Owner privacy toggle — shown only if owner and location has non-exact precision */}
+            {isOwnService && locations.some((l: any) => l.original_description) && (
+              <TouchableOpacity
+                style={s.ownerPrivacyToggle}
+                onPress={() => setShowExactAddress(prev => !prev)}
+                activeOpacity={0.7}
+                testID="owner-address-toggle"
+              >
+                <Ionicons
+                  name={showExactAddress ? 'eye' : 'eye-off'}
+                  size={14}
+                  color={showExactAddress ? ORANGE : Colors.muted}
+                />
+                <Text style={[s.ownerPrivacyText, showExactAddress && { color: ORANGE }]}>
+                  {showExactAddress ? 'Adresse exacte (vous seul)' : 'Vue visiteur (adresse masquée)'}
+                </Text>
+                <View style={[s.ownerPrivacySwitch, showExactAddress && s.ownerPrivacySwitchActive]}>
+                  <View style={[s.ownerPrivacyKnob, showExactAddress && s.ownerPrivacyKnobActive]} />
+                </View>
+              </TouchableOpacity>
+            )}
+
             {/* Per-location mini-calendar cards */}
             {locations.map((loc: any, locIdx: number) => {
               const locSlots: any[] = slots.filter((s: any) =>
@@ -502,7 +525,11 @@ export default function ServiceDetailScreen() {
                       <Ionicons name="location" size={14} color={activeLocIdx === locIdx ? Colors.background : ORANGE} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={s.locSectionTitle}>{loc.description || `Lieu ${locIdx + 1}`}</Text>
+                      <Text style={s.locSectionTitle}>
+                        {isOwnService && showExactAddress && loc.original_description
+                          ? loc.original_description
+                          : (loc.description || `Lieu ${locIdx + 1}`)}
+                      </Text>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
                         <Text style={s.locSectionMeta}>{PRECISION_LABEL[loc.precision] ?? loc.precision}</Text>
                         {schedTypeLabel && (
@@ -852,6 +879,28 @@ const s = StyleSheet.create({
   mapWrap: {
     height: 200, borderRadius: Radius.lg, overflow: 'hidden',
     marginBottom: 12, borderWidth: 1, borderColor: Colors.border,
+  },
+
+  // Owner privacy toggle
+  ownerPrivacyToggle: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: Colors.card, borderRadius: Radius.lg,
+    padding: 10, marginBottom: 12,
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  ownerPrivacyText: { fontSize: 12, fontWeight: '600', color: Colors.muted, flex: 1 },
+  ownerPrivacySwitch: {
+    width: 36, height: 20, borderRadius: 10,
+    backgroundColor: Colors.border, justifyContent: 'center',
+    paddingHorizontal: 2,
+  },
+  ownerPrivacySwitchActive: { backgroundColor: ORANGE },
+  ownerPrivacyKnob: {
+    width: 16, height: 16, borderRadius: 8,
+    backgroundColor: Colors.foreground,
+  },
+  ownerPrivacyKnobActive: {
+    alignSelf: 'flex-end', backgroundColor: Colors.background,
   },
 
   // Per-location section cards

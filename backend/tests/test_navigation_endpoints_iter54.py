@@ -15,7 +15,7 @@ import os
 import httpx
 import pytest
 
-API_BASE = os.environ.get("API_BASE", "https://map-refactor-preview.preview.emergentagent.com")
+API_BASE = os.environ.get("API_BASE", "https://spotmap-fix.preview.emergentagent.com")
 
 ADMIN_EMAIL = "admin@winek.app"
 ADMIN_PASS  = "WinekAdmin2024!"

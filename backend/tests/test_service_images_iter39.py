@@ -10,7 +10,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://map-refactor-preview.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://spotmap-fix.preview.emergentagent.com').rstrip('/')
 
 SERVICE_ID = None  # Set dynamically in setup_module
 
