@@ -9,6 +9,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { StepLocalisation } from '../../components/StepLocalisation';
+import { MapViewComponent } from '../../components/MapViewComponent';
 import { LocationPicker } from '../../components/LocationPicker';
 import { DateTimePickerModal } from '../../components/DateTimePicker';
 import { RichTextInput, MarkdownText } from '../../components/RichTextInput';
