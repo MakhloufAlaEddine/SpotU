@@ -240,7 +240,7 @@ async def my_tag_points(request: Request):
                 ORDER BY tp.created_at DESC""",
             user["user_id"]
         )
-        points = [build_point_response(row_to_dict(r)) for r in rows]
+        points = [build_point_response(row_to_dict(r), is_owner=True) for r in rows]
         if not points:
             return []
 

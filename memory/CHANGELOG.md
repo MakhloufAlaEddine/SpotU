@@ -1,25 +1,34 @@
 # SpotU — Changelog
 
-## 2026-03-17 — Fix masquage adresse + toggle propriétaire
+## 2026-03-17 — Adresse dans SpotYou détail + masquage uniforme
 
-### Bug fix: "France" trop vague pour precision 1000m
-- **Cause**: `_mask_address` prenait le dernier élément après virgule → "France"
-- **Fix**: Skip les noms de pays (France, etc.), retourne la ville/quartier
-- Résultats: "12 Rue de Rivoli, 75001 Paris, France" → "Paris" (1000m), "Rue de Rivoli" (100m)
+### Feature: Adresse affichée dans SpotYou détail
+- Ajout colonne `address` à la table `tag_points` (migration)
+- Adresse envoyée depuis le formulaire de création/édition SpotYou
+- Affichage sous la carte avec icône location + label precision
+- Toggle propriétaire (eye/eye-off) identique au service
 
-### Feature: Masquage uniforme + toggle propriétaire
-- L'adresse est masquée pour TOUT LE MONDE (owner inclus) selon le niveau de confidentialité
-- Le propriétaire reçoit `original_description` + `is_owner=true` pour basculer entre la vue visiteur et l'adresse exacte
-- UI toggle ajouté dans `service/[id].tsx` (eye/eye-off icon + switch)
+### Masquage uniforme SpotYou
+- Import de `_mask_address` depuis `service_routes` (réutilisation)
+- `build_point_response` masque l'adresse selon precision + ajoute `original_address` pour owner
+- `is_owner` flag ajouté à toutes les réponses GET/POST/PUT de tag_points
+- Fix `/api/tag-points/mine` pour passer `is_owner=True`
+
+### Protection édition SpotYou
+- Navigation vers le formulaire d'édition passe `original_address || address` pour éviter l'écrasement
+- Formulaire d'édition utilise `params.address` avant reverse geocoding
 
 ### Fichiers modifiés
 | Fichier | Changement |
 |---------|-----------|
-| `backend/routes/service_routes.py` | Fix `_mask_address` (skip "France"), masquage uniforme dans `_get_service_locations` et `_enrich_service`, ajout `is_owner` flag |
-| `frontend/app/service/[id].tsx` | Ajout état `showExactAddress`, toggle UI propriétaire, affichage conditionnel |
+| `backend/database.py` | Migration: `ALTER TABLE tag_points ADD COLUMN address` |
+| `backend/models.py` | `TagPointCreate` + `TagPointUpdate`: ajout champ `address` |
+| `backend/routes/tagpoint_routes.py` | Import `_mask_address`, masquage dans `build_point_response`, `is_owner` flag, stockage `address` dans CREATE/UPDATE |
+| `frontend/app/spot-you/[id].tsx` | Affichage adresse + toggle propriétaire, passage `address` à l'édition |
+| `frontend/app/(tabs)/create.tsx` | Envoi `address` dans le payload, utilisation `params.address` en mode édition |
 
 ### Tests
-- 16/16 tests backend passés (test_address_privacy_iter86.py)
+- 11/11 tests backend passés (test_tagpoint_address_privacy_iter87.py)
 
 
 ### Objectif
