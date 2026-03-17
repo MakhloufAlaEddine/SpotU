@@ -1405,10 +1405,36 @@ const FAKE_VOTES_COUNT = 12;
 const FAKE_DIST = [8, 3, 1, 0, 0]; // [5★, 4★, 3★, 2★, 1★]
 
 // ─── Full Preview Modal (rendered at root level) ─────────────────────────────
+const COUNTRY_NAMES = new Set(['france', 'francia', 'frankreich', 'fr']);
+
+/** Frontend mirror of backend _mask_address */
+function maskAddress(address: string | null | undefined, precision: string): string {
+  if (!address || precision === 'exact') return address || '';
+  if (precision === '1000m') {
+    const parts = address.split(',').map(p => p.trim());
+    if (parts.length >= 2) {
+      for (let i = parts.length - 1; i >= 0; i--) {
+        const c = parts[i];
+        if (c && !COUNTRY_NAMES.has(c.toLowerCase())) {
+          const m = c.match(/^\d{4,5}\s+(.+)$/);
+          return m ? m[1].trim() : c;
+        }
+      }
+      return parts[parts.length - 1];
+    }
+    const m = address.match(/\b\d{5}\s+(.+)$/);
+    return m ? m[1].trim() : address;
+  }
+  // 100m: street without number
+  const street = address.split(',')[0].trim();
+  return street.replace(/^\d+\s*(bis|ter|quater)?\s*[,.]?\s*/i, '').trim() || street || address;
+}
+
 function FullPreviewModal({ visible, onClose, title, description, images, selectedTags, locationAddress, precision, scheduleType, eventDateTime, eventEndDateTime, recurringSchedule, user, lang, selectedLat, selectedLng, minParticipants, maxParticipants }: any) {
   const scheduleLabel = buildScheduleLabel(scheduleType, eventDateTime, eventEndDateTime, recurringSchedule);
   const days = Object.keys(recurringSchedule || {}).map(Number).sort((a, b) => a - b);
   const precisionLabel = precision === 'exact' ? 'Adresse exacte' : precision === '100m' ? 'Zone approximative' : 'Quartier';
+  const maskedAddress = maskAddress(locationAddress, precision);
 
   return (
     <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose} statusBarTranslucent>
@@ -1618,7 +1644,7 @@ function FullPreviewModal({ visible, onClose, title, description, images, select
                 <View style={fpSt.addressRow}>
                   <Ionicons name="location" size={14} color={Colors.primary} />
                   <View style={{ flex: 1 }}>
-                    <Text style={fpSt.addressText}>{locationAddress}</Text>
+                    <Text style={fpSt.addressText}>{maskedAddress}</Text>
                     {precision && precision !== 'exact' && (
                       <Text style={fpSt.addressPrecision}>{precisionLabel}</Text>
                     )}
