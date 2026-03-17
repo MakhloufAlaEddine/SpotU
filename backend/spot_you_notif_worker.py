@@ -191,6 +191,14 @@ async def process_spot_you_notifications(pool) -> int:
                                 point_id, session_date,
                             )
                             date_display = session_date.strftime("%d/%m")
+                            # Dynamic label: today vs tomorrow
+                            days_until = (session_date - now.date()).days
+                            if days_until == 0:
+                                day_label = "aujourd'hui"
+                            elif days_until == 1:
+                                day_label = "demain"
+                            else:
+                                day_label = f"le {date_display}"
                             data = {
                                 "type": "spotyu_reminder",
                                 "point_id": point_id,
@@ -200,7 +208,7 @@ async def process_spot_you_notifications(pool) -> int:
                                 await _insert_notif(
                                     conn, m["user_id"],
                                     "spotyu_reminder",
-                                    f"Séance demain – {title}",
+                                    f"Séance {day_label} – {title}",
                                     f"Tu viens le {date_display} à {start_t.strftime('%H:%M')} ? Il reste de la place !",
                                     data,
                                 )
