@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LocationPicker } from '../components/LocationPicker';
+import { StepLocalisation } from '../components/StepLocalisation';
 import { WeekCalendar } from '../components/WeekCalendar';
 import type { DaySlot } from '../components/WeekCalendar';
 import { api } from '../lib/api';
@@ -48,7 +49,7 @@ const BLUE_LIGHT = 'rgba(10,132,255,0.10)';
 const AMBER = '#FF9F0A';
 const AMBER_LIGHT = 'rgba(255,159,10,0.12)';
 
-const STEP_LABELS = ['Infos', 'Domaine', 'Config', 'Réservations', 'Résumé'];
+const STEP_LABELS = ['Infos', 'Lieu', 'Domaine', 'Config', 'Réservations', 'Résumé'];
 const DURATIONS = [30, 45, 60, 90, 120];
 const EXPIRY_OPTIONS = [
   { label: '30 min', value: 30 },
@@ -359,25 +360,28 @@ export default function CreateServiceScreen() {
       if (!coachDesc.trim()) { Alert.alert('', 'La description du coach est requise'); return; }
     }
     if (step === 2) {
-      if (selectedTagIds.length === 0) { Alert.alert('Tags requis', 'Veuillez sélectionner au moins un tag pour catégoriser votre service.'); return; }
+      if (!address.trim()) { Alert.alert('Adresse requise', 'Veuillez renseigner l\'adresse de votre service'); return; }
     }
     if (step === 3) {
+      if (selectedTagIds.length === 0) { Alert.alert('Tags requis', 'Veuillez sélectionner au moins un tag pour catégoriser votre service.'); return; }
+    }
+    if (step === 4) {
       const p = parseFloat(price);
       if (!price || isNaN(p) || p <= 0) { Alert.alert('Prix manquant', 'Renseignez le prix par séance'); return; }
     }
-    // MVP : sauter l'étape 4 (réservations) si les deux fonctionnalités sont désactivées
-    if (step === 3 && skipStep4) {
-      setStep(5);
+    // MVP : sauter l'étape 5 (réservations) si les deux fonctionnalités sont désactivées
+    if (step === 4 && skipStep4) {
+      setStep(6);
     } else {
-      setStep(s => Math.min(s + 1, 5));
+      setStep(s => Math.min(s + 1, 6));
     }
     scrollTop();
   };
 
   const goPrev = () => {
-    // MVP : sauter l'étape 4 en retour également
-    if (step === 5 && skipStep4) {
-      setStep(3);
+    // MVP : sauter l'étape 5 en retour également
+    if (step === 6 && skipStep4) {
+      setStep(4);
     } else {
       setStep(s => Math.max(s - 1, 1));
     }
@@ -458,10 +462,10 @@ export default function CreateServiceScreen() {
   const renderStepHeader = () => {
     // En mode MVP (skipStep4), n'afficher que 4 étapes : Infos, Domaine, Config, Résumé
     const visibleLabels = skipStep4
-      ? STEP_LABELS.filter((_, idx) => idx !== 3)  // retirer 'Réservations'
+      ? STEP_LABELS.filter((_, idx) => idx !== 4)  // retirer 'Réservations'
       : STEP_LABELS;
     // Mapper l'étape interne vers la position visuelle
-    const visualStep = skipStep4 && step >= 5 ? step - 1 : step;
+    const visualStep = skipStep4 && step >= 6 ? step - 1 : step;
 
     return (
       <View style={s.stepHeader}>
@@ -523,27 +527,6 @@ export default function CreateServiceScreen() {
             {coachDesc.length} car.{coachDesc.length >= 50 ? '  ✓ Très bien !' : '  (50+ recommandé)'}
           </Text>
         )}
-      </View>
-
-      <View style={s.field}>
-        <Text style={s.fieldLabel}>Adresse principale</Text>
-        <TouchableOpacity
-          style={[s.addressBtn, address ? s.addressBtnFilled : null]}
-          onPress={() => setShowLocPicker(true)}
-          testID="address-picker-btn"
-        >
-          <Ionicons name="location-outline" size={18} color={address ? Colors.primary : Colors.muted} />
-          <Text style={[s.addressBtnText, !address && { color: Colors.muted }]} numberOfLines={2}>
-            {address || 'Sélectionner une adresse…'}
-          </Text>
-          {address ? (
-            <TouchableOpacity onPress={() => { setAddress(''); setAddressLat(null); setAddressLng(null); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="close-circle" size={18} color={Colors.muted} />
-            </TouchableOpacity>
-          ) : (
-            <Ionicons name="chevron-forward" size={16} color={Colors.muted} />
-          )}
-        </TouchableOpacity>
       </View>
 
       {/* ── Photos du service (même design que SpotYou) ── */}
@@ -1061,10 +1044,23 @@ export default function CreateServiceScreen() {
           keyboardShouldPersistTaps="handled"
         >
           {step === 1 && renderStep1()}
-          {step === 2 && renderStep2()}
-          {step === 3 && renderStep3()}
-          {step === 4 && renderStep4()}
-          {step === 5 && renderStep5()}
+          {step === 2 && (
+            <StepLocalisation
+              selectedLat={addressLat || 48.8566}
+              selectedLng={addressLng || 2.3522}
+              locationAddress={address || 'Appuyez pour choisir une adresse'}
+              precision="exact"
+              setPrecision={() => {}}
+              precisionRadius={0}
+              onOpenLocation={() => setShowLocPicker(true)}
+              accentColor={ORANGE}
+              showPrecision={false}
+            />
+          )}
+          {step === 3 && renderStep2()}
+          {step === 4 && renderStep3()}
+          {step === 5 && renderStep4()}
+          {step === 6 && renderStep5()}
         </ScrollView>
 
         {/* Bottom navigation */}
@@ -1076,9 +1072,9 @@ export default function CreateServiceScreen() {
             </TouchableOpacity>
           ) : <View style={{ flex: 1 }} />}
 
-          {step < 5 ? (
+          {step < 6 ? (
             <TouchableOpacity style={s.nextBtn} onPress={goNext} testID="next-step-btn">
-              <Text style={s.nextBtnText}>{step === 4 ? 'Voir le résumé' : 'Suivant'}</Text>
+              <Text style={s.nextBtnText}>{step === 5 ? 'Voir le résumé' : 'Suivant'}</Text>
               <Ionicons name="chevron-forward" size={18} color={Colors.background} />
             </TouchableOpacity>
           ) : (

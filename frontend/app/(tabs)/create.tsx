@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { MapViewComponent } from '../../components/MapViewComponent';
+import { StepLocalisation } from '../../components/StepLocalisation';
 import { LocationPicker } from '../../components/LocationPicker';
 import { DateTimePickerModal } from '../../components/DateTimePicker';
 import { RichTextInput, MarkdownText } from '../../components/RichTextInput';
@@ -24,11 +24,6 @@ import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 const { width: SW, height: SH } = Dimensions.get('window');
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
-const PRECISION_OPTIONS = [
-  { value: 'exact', label: 'Lieu exact', desc: 'Adresse précise visible', icon: 'locate' as const },
-  { value: '100m', label: '~100m', desc: 'Zone approximative', icon: 'radio-button-on' as const },
-  { value: '1000m', label: '~1km', desc: 'Quartier seulement', icon: 'radio-button-off' as const },
-];
 const DAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 const MONTHS_FR = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
 
@@ -1155,66 +1150,7 @@ function StepContenu({ description, setDescription, domainId, setDomainId, domai
   );
 }
 
-// ─── Step 3: Localisation ───────────────────────────────────────────────────────
-function StepLocalisation({ selectedLat, selectedLng, locationAddress, precision, setPrecision, precisionRadius, onOpenLocation }: any) {
-  return (
-    <View style={{ gap: Spacing.lg }}>
-      {/* Location */}
-      <View>
-        <Text style={sc.label}>Adresse</Text>
-        <TouchableOpacity style={sc.locationRow} onPress={onOpenLocation} testID="open-location-btn">
-          <Ionicons name="location" size={20} color={Colors.primary} />
-          <Text style={sc.locationText} numberOfLines={2}>{locationAddress}</Text>
-          <View style={sc.editBadge}>
-            <Ionicons name="pencil" size={12} color={Colors.primary} />
-            <Text style={sc.editBadgeText}>Modifier</Text>
-          </View>
-        </TouchableOpacity>
-      </View>
-
-      {/* Precision */}
-      <View>
-        <Text style={sc.label}>Niveau de confidentialité</Text>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          {PRECISION_OPTIONS.map(p => {
-            const active = precision === p.value;
-            return (
-              <TouchableOpacity
-                key={p.value}
-                style={[sc.precisionCompact, active && sc.precisionCompactActive]}
-                onPress={() => setPrecision(p.value)}
-                testID={`precision-${p.value}`}
-              >
-                <View style={[sc.precisionCompactIcon, active && { backgroundColor: Colors.primary + '22' }]}>
-                  <Ionicons name={p.icon} size={22} color={active ? Colors.primary : Colors.muted} />
-                </View>
-                <Text style={[sc.precisionCompactLabel, active && { color: Colors.primary }]}>{p.label}</Text>
-                <Text style={sc.precisionCompactDesc} numberOfLines={2}>{p.desc}</Text>
-                {active && <View style={sc.precisionCheck}><Ionicons name="checkmark" size={10} color={Colors.background} /></View>}
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
-
-      {/* Map */}
-      <View>
-        <Text style={sc.label}>Aperçu sur la carte</Text>
-        <View style={sc.mapWrap}>
-          <MapViewComponent
-            key={`${selectedLat}-${selectedLng}-${precision}`}
-            centerLat={selectedLat} centerLng={selectedLng}
-            zoom={precisionRadius >= 1000 ? 13 : precisionRadius >= 100 ? 15 : 16}
-            selectable={false} showUserMarker={false}
-            selectedLat={selectedLat} selectedLng={selectedLng}
-            pins={precisionRadius === 0 ? [{ id: 'pin', lat: selectedLat, lng: selectedLng, title: locationAddress, color: Colors.primary }] : []}
-            precisionRadius={precisionRadius}
-          />
-        </View>
-      </View>
-    </View>
-  );
-}
+// ─── Step 3: Localisation (shared component) ──────────────────────────────────
 
 // ─── Step 4: Date ───────────────────────────────────────────────────────────────
 function StepDate({ scheduleType, setScheduleType, eventDateTime, onOpenDatePicker, eventEndDateTime, onOpenEndTimePicker, onClearEndTime, recurringSchedule, toggleDay, addTimeToDay, removeTimeFromDay, editTimeForDay, minParticipants, setMinParticipants, maxParticipants, setMaxParticipants }: any) {
@@ -1787,23 +1723,6 @@ const sc = StyleSheet.create({
   tagTrigger: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.card, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border, minHeight: 52 },
   tagPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: Radius.full, borderWidth: 1.5 },
   tagPillText: { fontSize: 12, fontWeight: '600' },
-
-  // Location
-  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.card, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border },
-  locationText: { flex: 1, fontSize: 14, color: Colors.foreground, lineHeight: 20 },
-  editBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.primary + '15', borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 4 },
-  editBadgeText: { fontSize: 12, color: Colors.primary, fontWeight: '600' },
-
-  // Precision - compact horizontal
-  precisionCompact: { flex: 1, alignItems: 'center', gap: 5, padding: 10, backgroundColor: Colors.card, borderRadius: Radius.lg, borderWidth: 1.5, borderColor: Colors.border, position: 'relative', minHeight: 90 },
-  precisionCompactActive: { borderColor: Colors.primary, backgroundColor: Colors.primary + '08' },
-  precisionCompactIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' },
-  precisionCompactLabel: { fontSize: 12, fontWeight: '700', color: Colors.foreground, textAlign: 'center' },
-  precisionCompactDesc: { fontSize: 10, color: Colors.muted, textAlign: 'center', lineHeight: 13 },
-  precisionCheck: { position: 'absolute', top: 6, right: 6, width: 16, height: 16, borderRadius: 8, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
-
-  // Map
-  mapWrap: { height: 200, borderRadius: Radius.lg, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border },
 
   // Schedule
   scheduleTypes: { flexDirection: 'row', gap: 8 },
