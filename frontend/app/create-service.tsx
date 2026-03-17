@@ -304,10 +304,10 @@ export default function CreateServiceScreen() {
           setDomainId(data.domain_id);
         }
       }
-      // Address from first location
+      // Address from first location (use original_description for edit to avoid overwriting with masked value)
       const firstLoc = (data.locations || [])[0];
       if (firstLoc) {
-        setAddress(firstLoc.description || '');
+        setAddress(firstLoc.original_description || firstLoc.description || '');
         setAddressLat(firstLoc.latitude ?? null);
         setAddressLng(firstLoc.longitude ?? null);
         if (firstLoc.precision) setPrecision(firstLoc.precision);
