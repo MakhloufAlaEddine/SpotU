@@ -655,7 +655,7 @@ export default function SpotYouDetail() {
       try { return Array.isArray(point.images) ? point.images : JSON.parse(point.images || '[]'); } catch { return []; }
     })();
     const allImages = parsedImages;
-    router.push({
+    router.replace({
       pathname: '/(tabs)/create' as any,
       params: {
         editMode: 'true',

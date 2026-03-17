@@ -464,8 +464,8 @@ export default function CreateSpotYouScreen() {
       triggerProfileRefresh();
 
       if (isEditMode) {
-        // Update: go back to the existing detail page (avoid stacking screens)
-        setTimeout(() => router.back(), 100);
+        // Update: return to the existing detail page (replace to avoid stacking)
+        setTimeout(() => router.replace(`/spot-you/${newPointId}` as any), 100);
       } else {
         // Create: open the new SpotYou detail page
         setTimeout(() => router.replace(`/spot-you/${newPointId}` as any), 100);
