@@ -229,7 +229,7 @@ function ImageCarousel({ images, domainId }: { images: string[]; domainId?: stri
         onMomentumScrollEnd={e => setIndex(Math.round(e.nativeEvent.contentOffset.x / (SCREEN_W - Spacing.md * 2)))}
         renderItem={({ item }) => (
           <View style={{ width: SCREEN_W - Spacing.md * 2, height: 220 }}>
-            <TagImage uri={item} domainId={point?.domain_id} style={{ width: '100%', height: '100%' }} iconSize={50} />
+            <TagImage uri={item} domainId={domainId} style={{ width: '100%', height: '100%' }} iconSize={50} />
           </View>
         )}
       />
