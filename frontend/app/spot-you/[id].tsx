@@ -412,7 +412,7 @@ export default function SpotYouDetail() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await Promise.all([loadPoint(true), loadParticipants(), loadGoingList()]);
+      await Promise.all([loadPoint(true), loadParticipants(), loadGoingList(), loadVotes()]);
     } finally {
       setRefreshing(false);
     }
