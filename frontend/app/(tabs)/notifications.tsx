@@ -8,7 +8,7 @@ import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
 import { subscribeNewNotification } from '../../lib/chat';
-import { buildCacheKey, cacheGet, cacheSet, isFresh, cacheAgeMinutes, getTtl, SCHEMA_VERSION } from '../../lib/cache';
+import { buildCacheKey, cacheGet, cacheSet, cacheInvalidate, isFresh, cacheAgeMinutes, getTtl, SCHEMA_VERSION } from '../../lib/cache';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { useAuth } from '../../context/AuthContext';
 import { StaleBanner, ErrorNoData } from '../../components/OfflineBanner';
@@ -186,6 +186,7 @@ export default function NotificationsScreen() {
       await api.patch('/users/me/notifications/read-all', {});
       setNotifs(prev => prev.map(n => ({ ...n, read: true })));
       setUnreadCount(0);
+      cacheInvalidate(['/users/me/notifications']);
     } catch {}
   };
 
@@ -195,10 +196,12 @@ export default function NotificationsScreen() {
         await api.patch(`/users/me/notifications/${item.id}/read`, {});
         setNotifs(prev => prev.map(n => n.id === item.id ? { ...n, read: true } : n));
         setUnreadCount(prev => Math.max(0, prev - 1));
+        // Invalidate cache so next load() fetches fresh data
+        cacheInvalidate(['/users/me/notifications']);
       } catch {}
     }
     router.push(item.action as any);
-  }, [router]);
+  }, [router, user?.user_id]);
 
   // Écouter les nouvelles notifications via WebSocket
   useEffect(() => {
