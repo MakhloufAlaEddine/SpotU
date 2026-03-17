@@ -59,6 +59,16 @@ def build_service(row_dict: dict) -> dict:
     return row_dict
 
 
+import re
+
+def _mask_address(description: str, precision: str) -> str:
+    """Strip street number from address when precision is not 'exact'."""
+    if not description or precision == 'exact':
+        return description
+    # Remove leading number(s) + optional bis/ter (e.g. "10 Rue..." -> "Rue...")
+    return re.sub(r'^\d+\s*(bis|ter|quater)?\s*[,.]?\s*', '', description, flags=re.IGNORECASE).strip() or description
+
+
 async def _get_service_locations(conn, service_id: str) -> list:
     rows = await conn.fetch(
         """SELECT location_id, precision, description,
@@ -67,7 +77,12 @@ async def _get_service_locations(conn, service_id: str) -> list:
            FROM service_locations WHERE service_id = $1""",
         service_id
     )
-    return [row_to_dict(r) for r in rows]
+    locs = []
+    for r in rows:
+        d = row_to_dict(r)
+        d["description"] = _mask_address(d.get("description", ""), d.get("precision", "exact"))
+        locs.append(d)
+    return locs
 
 
 async def _get_service_slots(conn, service_id: str) -> list:
@@ -132,6 +147,11 @@ async def _enrich_service(conn, svc: dict) -> dict:
     svc["avg_rating"] = round(sum(r["rating"] for r in reviews) / len(reviews), 1) if reviews else None
     svc["review_count"] = len(reviews)
     svc["locations"] = await _get_service_locations(conn, svc["service_id"])
+    # Mask top-level address if location precision is not exact
+    if svc["locations"]:
+        first_prec = svc["locations"][0].get("precision", "exact")
+        if first_prec != "exact" and svc.get("address"):
+            svc["address"] = _mask_address(svc["address"], first_prec)
     svc["slots"] = await _get_service_slots(conn, svc["service_id"])
     svc["packages"] = await _get_service_packages(conn, svc["service_id"])
     # Resolve tags

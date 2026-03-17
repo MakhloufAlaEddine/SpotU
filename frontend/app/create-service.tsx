@@ -310,6 +310,7 @@ export default function CreateServiceScreen() {
         setAddress(firstLoc.description || '');
         setAddressLat(firstLoc.latitude ?? null);
         setAddressLng(firstLoc.longitude ?? null);
+        if (firstLoc.precision) setPrecision(firstLoc.precision);
       }
       // Slots → DaySlot format
       const apiSlots: any[] = data.slots || [];
@@ -434,7 +435,7 @@ export default function CreateServiceScreen() {
         }],
         locations: addressLat !== null && addressLng !== null ? [{
           latitude: addressLat, longitude: addressLng,
-          precision: 'exact', description: address || null,
+          precision: precision, description: address || null,
         }] : [],
         slots: [],
       };
