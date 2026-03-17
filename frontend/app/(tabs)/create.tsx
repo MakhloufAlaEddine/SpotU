@@ -463,8 +463,13 @@ export default function CreateSpotYouScreen() {
 
       triggerProfileRefresh();
 
-      // Always navigate directly to the SpotYou detail (edit or create)
-      setTimeout(() => router.replace(`/spot-you/${newPointId}` as any), 100);
+      if (isEditMode) {
+        // Update: go back to the existing detail page (avoid stacking screens)
+        setTimeout(() => router.back(), 100);
+      } else {
+        // Create: open the new SpotYou detail page
+        setTimeout(() => router.replace(`/spot-you/${newPointId}` as any), 100);
+      }
     } catch (err: any) {
       Alert.alert('Erreur', err.message || 'Impossible de créer le SpotYou');
     } finally {
