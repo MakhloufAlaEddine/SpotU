@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
+import { ServicePlaceholder } from '../ServicePlaceholder';
 import { TEAL_DIM, TEAL_BORDER } from './profileUtils';
 
 const SCREEN_W = Dimensions.get('window').width;
@@ -52,9 +53,12 @@ export function ProfileServicesCarousel({ services, me, profileUserId, onNavigat
               activeOpacity={0.9} testID={`service-card-${svc.service_id}`}>
               {svcImage
                 ? <Image source={{ uri: svcImage }} style={st.serviceImage} />
-                : <View style={st.serviceImagePlaceholder}>
-                    <Ionicons name="barbell-outline" size={36} color={Colors.primary} />
-                  </View>}
+                : <ServicePlaceholder
+                    domainId={svc.domain_id}
+                    tags={svc.tags}
+                    size="md"
+                    style={st.serviceImage}
+                  />}
               <View style={st.servicePriceBadge}>
                 <Text style={st.servicePriceText}>{svc.price}€</Text>
               </View>

@@ -21,6 +21,7 @@ import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 import { classifyFetchError, isOfflineOrTimeout } from '../../lib/network-error';
 import { ErrorNoData } from '../../components/OfflineBanner';
 import { haversineDistance, formatDistance } from '../../utils/distance';
+import { ServicePlaceholder } from '../../components/ServicePlaceholder';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 const ORANGE = '#FF9500';
@@ -295,7 +296,7 @@ export default function ServiceDetailScreen() {
       >
 
         {/* ── Carrousel photos ─────────────────────────────────────────────── */}
-        {Array.isArray(service.images) && service.images.length > 0 && (() => {
+        {Array.isArray(service.images) && service.images.length > 0 ? (() => {
           const imgs: string[] = service.images;
           return (
             <View style={s.carousel} testID="photo-carousel">
@@ -333,7 +334,15 @@ export default function ServiceDetailScreen() {
               </View>
             </View>
           );
-        })()}
+        })() : (
+          <ServicePlaceholder
+            domainId={service.domain_id}
+            tags={service.tags}
+            size="lg"
+            showHint={isOwner}
+            style={{ marginBottom: 8 }}
+          />
+        )}
 
         {/* ── Hero ─────────────────────────────────────────────────────────── */}
         <View style={s.hero}>
