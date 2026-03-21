@@ -372,7 +372,7 @@ export default function HomeScreen() {
   const { t } = useLang();
   const { user } = useAuth();
   const { location, loading: locLoading, setLocation } = useLocation();
-  const [screenState, setScreenState] = useState<'loading_initial' | 'ready_fresh' | 'ready_cached' | 'error_no_data'>('loading_initial');
+  const [screenState, setScreenState] = useState<'loading_initial' | 'ready_fresh' | 'ready_cached' | 'error_no_data' | 'error_network'>('loading_initial');
   const [staleMinutes, setStaleMinutes] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [SpotYou, setSpotYou] = useState<any[]>([]);
@@ -471,11 +471,14 @@ export default function HomeScreen() {
       setActualRadiusKm(feed.actual_radius_km || 50);
       setHasPersonalization(feed.has_personalization || false);
       await cacheSet(feedKey, feed, feedTtl);
-      setScreenState('ready_fresh');
+
+      // Truly empty result from the server
+      const isEmpty = (!feed.spotyou || feed.spotyou.length === 0) && (!feed.services || feed.services.length === 0);
+      setScreenState(isEmpty ? 'error_no_data' : 'ready_fresh');
       setStaleMinutes(null);
     } catch {
       if (SpotYou.length === 0 && services.length === 0) {
-        setScreenState('error_no_data');
+        setScreenState('error_network');
       }
     } finally {
       setRefreshing(false);
@@ -584,7 +587,23 @@ export default function HomeScreen() {
       {/* ── Bannière stale ── */}
       {isStale && <StaleBanner staleMinutes={staleMinutes} />}
 
-      {isLoading ? <SkeletonScreen /> : screenState === 'error_no_data' ? (
+      {isLoading ? <SkeletonScreen /> : screenState === 'error_network' ? (
+        // ── Connexion faible → écran d'erreur réseau ───────────────────────
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 32 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+        >
+          <View style={ctaSt.wrap}>
+            <Ionicons name="cloud-offline-outline" size={52} color={Colors.muted} style={{ marginBottom: 16 }} />
+            <Text style={ctaSt.headline}>Connexion instable</Text>
+            <Text style={ctaSt.sub}>Impossible de charger le fil d'actualité.{'\n'}Vérifiez votre connexion internet et réessayez.</Text>
+            <TouchableOpacity style={ctaSt.btn} onPress={() => loadData(true)} testID="retry-network-btn">
+              <Ionicons name="refresh-outline" size={18} color="#fff" />
+              <Text style={ctaSt.btnTxt}>Réessayer</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      ) : screenState === 'error_no_data' ? (
         // ── Aucun SpotYou nulle part → inviter à créer ───────────────────────
         <ScrollView
           contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 32 }}
