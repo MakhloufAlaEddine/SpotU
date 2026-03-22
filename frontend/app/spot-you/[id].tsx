@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { MapPreview } from '../../components/MapPreview';
+import { MarketplaceModal } from '../../components/MarketplaceModal';
 import { TagImage, DOMAIN_COLORS, DOMAIN_ICONS } from '../../components/TagImage';
 import { MarkdownText } from '../../components/RichTextInput';
 import ConfirmActionModal, { ConfirmAction } from '../../components/ConfirmActionModal';
@@ -392,6 +393,7 @@ export default function SpotYouDetail() {
   const [isPublic, setIsPublic] = useState(true);
   const [ownerActionLoading, setOwnerActionLoading] = useState(false);
   const [showExactAddress, setShowExactAddress] = useState(false);
+  const [showMarketplace, setShowMarketplace] = useState(false);
 
   // ── Refresh debounced — une seule source de vérité ────────────────────────
   // Ref toujours fraîche (pas de stale closure). Debounce 200ms pour éviter
@@ -1394,6 +1396,18 @@ export default function SpotYouDetail() {
             <Text style={st.actionLabel}>Partager</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity
+            style={st.actionBtn}
+            onPress={() => setShowMarketplace(true)}
+            activeOpacity={0.7}
+            testID="marketplace-btn"
+          >
+            <View style={[st.actionIcon, { backgroundColor: 'rgba(59,130,246,0.1)', borderColor: 'rgba(59,130,246,0.3)' }]}>
+              <Ionicons name="storefront-outline" size={26} color="#3B82F6" />
+            </View>
+            <Text style={[st.actionLabel, { color: '#3B82F6' }]}>Boutique</Text>
+          </TouchableOpacity>
+
           {!isOwner && (
           <TouchableOpacity style={st.actionBtn} onPress={toggleSave} disabled={saveLoading} activeOpacity={0.7} testID="save-btn">
             <View style={[st.actionIcon, isSaved && st.actionIconSaved]}>
@@ -1821,6 +1835,14 @@ export default function SpotYouDetail() {
           if (pendingCallback) pendingCallback();
         }}
         onCancel={() => setConfirmVisible(false)}
+      />
+
+      {/* Marketplace Modal */}
+      <MarketplaceModal
+        visible={showMarketplace}
+        onClose={() => setShowMarketplace(false)}
+        spotYouId={id as string}
+        tagIds={tags.map((t: any) => t.tag_id)}
       />
     </View>
   );

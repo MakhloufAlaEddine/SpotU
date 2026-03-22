@@ -633,6 +633,25 @@ async def connect_to_db():
             ALTER TABLE tag_points ADD COLUMN IF NOT EXISTS address TEXT;
         """)
 
+        # [MARKETPLACE] Table produits marketplace
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS marketplace_products (
+                product_id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                description TEXT,
+                price NUMERIC(10,2) NOT NULL DEFAULT 0,
+                currency TEXT DEFAULT 'EUR',
+                product_type TEXT NOT NULL DEFAULT 'sale',
+                seller_type TEXT NOT NULL DEFAULT 'spotu',
+                seller_id TEXT REFERENCES users(user_id),
+                tag_ids TEXT[] DEFAULT '{}',
+                image_url TEXT,
+                in_stock BOOLEAN DEFAULT TRUE,
+                skill_level TEXT DEFAULT 'tous',
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+        """)
+
     # 2. Seed données de base (users, tagpoints, tags, domaines...)
     from seed import seed_initial_data
     await seed_initial_data()
@@ -715,6 +734,28 @@ async def connect_to_db():
               ('save_005','pt_demo010','user_demo002', NOW()-INTERVAL '5 hours'),
               ('save_006','pt_demo005','user_demo003', NOW()-INTERVAL '2 days')
             ON CONFLICT (point_id, user_id) DO NOTHING;
+        """)
+
+        # [MARKETPLACE] Seed produits marketplace
+        await conn.execute("""
+            INSERT INTO marketplace_products (product_id, title, description, price, product_type, seller_type, seller_id, tag_ids, image_url, in_stock, skill_level) VALUES
+              -- Produits SpotU (plateforme)
+              ('mp_001', 'Corde à sauter professionnelle', 'Corde speed rope en acier avec poignées ergonomiques. Parfaite pour le HIIT et le CrossFit.', 24.90, 'sale', 'spotu', NULL, '{tag_hiit,tag_crossfit,tag_cardio}', 'https://images.unsplash.com/photo-1598289431512-b97b0917affc?w=400&h=400&fit=crop', TRUE, 'tous'),
+              ('mp_002', 'Bandes de résistance (lot de 5)', 'Set complet de 5 bandes élastiques, résistance progressive. Idéal pour le renforcement musculaire.', 19.90, 'sale', 'spotu', NULL, '{tag_hiit,tag_crossfit,tag_musculation,tag_fitness}', 'https://images.unsplash.com/photo-1598632640487-6ea4a4e8b963?w=400&h=400&fit=crop', TRUE, 'tous'),
+              ('mp_003', 'Tapis de yoga premium éco', 'Tapis antidérapant en caoutchouc naturel, 183x68cm, 5mm. Respectueux de l''environnement.', 49.90, 'sale', 'spotu', NULL, '{tag_yoga,tag_pilates,tag_meditation,tag_stretching}', 'https://images.unsplash.com/photo-1592432678016-e910b452f9a2?w=400&h=400&fit=crop', TRUE, 'tous'),
+              ('mp_004', 'Gants de boxe 12oz', 'Gants de boxe en cuir synthétique premium, fermeture velcro. Protection optimale pour l''entraînement.', 39.90, 'sale', 'spotu', NULL, '{tag_boxe,tag_mma,tag_combat}', 'https://images.unsplash.com/photo-1583473848882-f9a5bc1db73e?w=400&h=400&fit=crop', TRUE, 'intermediaire'),
+              ('mp_005', 'Ballon de football taille 5', 'Ballon cousu main, revêtement polyuréthane. Qualité match, FIFA Quality Pro.', 34.90, 'sale', 'spotu', NULL, '{tag_foot,tag_foot5}', 'https://images.unsplash.com/photo-1614632537197-38a17061c2bd?w=400&h=400&fit=crop', TRUE, 'tous'),
+              ('mp_006', 'Raquette de tennis intermédiaire', 'Raquette 280g, tamis 100 pouces carrés. Idéale pour les joueurs en progression.', 89.90, 'sale', 'spotu', NULL, '{tag_tennis,tag_padel}', 'https://images.unsplash.com/photo-1602211844066-d3bb556e983b?w=400&h=400&fit=crop', FALSE, 'intermediaire'),
+              ('mp_007', 'Montre GPS running', 'Montre connectée avec GPS intégré, cardio au poignet. Parfaite pour le suivi de course.', 149.90, 'sale', 'affiliated', NULL, '{tag_trail,tag_route,tag_5k,tag_10k,tag_semi,tag_cardio}', 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&h=400&fit=crop', TRUE, 'tous'),
+              ('mp_008', 'Pack haltères réglables 2-24kg', 'Paire d''haltères réglables de 2 à 24kg par incréments de 2kg. Gain de place garanti.', 199.90, 'sale', 'sponsored', NULL, '{tag_musculation,tag_crossfit,tag_fitness}', 'https://images.pexels.com/photos/6550843/pexels-photo-6550843.jpeg?w=400&h=400&fit=crop', TRUE, 'intermediaire'),
+              -- Produits créateurs
+              ('mp_009', 'Location vélo de route (journée)', 'Vélo de route carbone taille M/L, dérailleur Shimano 105. Casque et cadenas inclus.', 35.00, 'rental', 'creator', 'user_coach001', '{tag_route,tag_trail,tag_cardio}', 'https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=400&h=400&fit=crop', TRUE, 'intermediaire'),
+              ('mp_010', 'Location tapis + briques yoga', 'Kit complet yoga : tapis, 2 briques liège, sangle. Pour 1 séance.', 5.00, 'rental', 'creator', 'user_coach001', '{tag_yoga,tag_pilates,tag_stretching}', 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=400&h=400&fit=crop', TRUE, 'debutant'),
+              ('mp_011', 'Programme HIIT 8 semaines (PDF)', 'Programme d''entraînement complet : 5 séances/semaine, vidéos explicatives incluses.', 14.90, 'sale', 'creator', 'user_demo001', '{tag_hiit,tag_crossfit,tag_cardio,tag_fitness}', 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=400&h=400&fit=crop', TRUE, 'tous'),
+              ('mp_012', 'Protège-tibias MMA', 'Protège-tibias moulés en mousse EVA haute densité. Taille unique ajustable.', 29.90, 'sale', 'creator', 'user_demo002', '{tag_boxe,tag_mma,tag_combat}', 'https://images.unsplash.com/photo-1615117972428-28de87cc363d?w=400&h=400&fit=crop', FALSE, 'avance'),
+              ('mp_013', 'Location raquettes padel (2h)', 'Paire de raquettes padel + balles. Modèle intermédiaire, drop shape.', 12.00, 'rental', 'creator', 'user_coach001', '{tag_tennis,tag_padel}', 'https://images.unsplash.com/photo-1554068865-24cecd4e34b8?w=400&h=400&fit=crop', TRUE, 'tous'),
+              ('mp_014', 'Kettlebell 16kg compétition', 'Kettlebell en fonte d''acier, finition poudre. Norme compétition, poignée 33mm.', 59.90, 'sale', 'recommended', NULL, '{tag_crossfit,tag_musculation,tag_fitness}', 'https://images.unsplash.com/photo-1517344884509-a0c97ec11bcc?w=400&h=400&fit=crop', TRUE, 'avance')
+            ON CONFLICT (product_id) DO NOTHING;
         """)
 
         # [PROFILE-V2] Cover photo + système de suivi (follow/abonnements)

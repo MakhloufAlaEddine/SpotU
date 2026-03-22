@@ -1,0 +1,63 @@
+{
+  "summary": "Tested Marketplace SpotYou backend (GET /api/marketplace/products) — 17/17 tests passing after 1 bug fix. All required scenarios validated: 14 seed products, tag filtering, spotyou_id filtering, INVALID_ID → 0 products, no _id field, auth working.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "GET /api/marketplace/products?spotyou_id=INVALID_ID",
+        "issue": "FIXED: When spotyou_id resolved to 0 tags (not found in DB), code fell into the 'else' branch and returned ALL 14 products instead of 0. Root cause: missing `filter_requested` flag to distinguish 'no filter' from 'filter with no matching tags'.",
+        "priority": "HIGH",
+        "fix_applied": "Added `filter_requested = bool(tag_ids or spotyou_id)` and added `elif filter_requested: rows = []` branch in marketplace_routes.py",
+        "file": "/app/backend/routes/marketplace_routes.py"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "GET /api/marketplace/products (unfiltered)",
+        "issue": "Unfiltered query uses ORDER BY created_at DESC only — sponsored products are NOT sorted first in unfiltered list (mp_008 sponsored at index 7). The seller_type ORDER BY only applies to the filtered query branch. Minor design inconsistency but not a breaking bug.",
+        "priority": "LOW"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_marketplace_iter88.py",
+    "/app/test_reports/pytest/iter88_marketplace.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: Add seller_type ORDER BY to the unfiltered query (LIMIT 20) so sponsored products appear first even without a filter — for consistency with the filtered query behavior"
+  ],
+  "critical_code_review_comments": [
+    "BUG FIXED: marketplace_routes.py — when spotyou_id=INVALID_ID (or any spotyou_id not in tag_points), the code resolved tags=[] and returned ALL products (14) instead of 0. Fixed by adding `filter_requested` flag and `elif filter_requested: rows = []`.",
+    "DESIGN NOTE: Unfiltered query ORDER BY uses created_at DESC only, while filtered query sorts by seller_type first. Should unify to always sort sponsored first.",
+    "SEED DATA: 14 marketplace_products (MOCKED seed data) — all correctly seeded and accessible",
+    "No _id MongoDB ObjectId in response — confirmed, only PostgreSQL product_id present",
+    "price correctly converted from Decimal to float",
+    "tag_ids stored as PostgreSQL text[] array — correctly using && operator for overlap filtering"
+  ],
+  "updated_files": [
+    "/app/backend/routes/marketplace_routes.py",
+    "/app/backend/tests/test_marketplace_iter88.py"
+  ],
+  "success_rate": {
+    "backend": "100% (17/17 tests passed after fix)",
+    "frontend": "N/A - mobile Expo app, backend-only testing requested"
+  },
+  "test_credentials": {
+    "coach": "coach@winek.app / WinekCoach2024!",
+    "admin": "admin@winek.app / WinekAdmin2024!"
+  },
+  "seed_data_creation": "14 marketplace_products seed data (MOCKED — hardcoded demo data, not real user data). Products include tags: tag_yoga, tag_fitness, tag_hiit, tag_crossfit, tag_cardio, tag_route, tag_trail, tag_10k, tag_musculation, etc.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Marketplace backend fully tested. Bug fixed: INVALID_ID no longer returns all products (returns 0). All 14 seed products available at GET /api/marketplace/products. pt_demo001 has tags [tag_route, tag_trail] → returns 2 products (mp_007, mp_009). tag_yoga,tag_fitness filter returns 6 products. Auth working with coach@winek.app/WinekCoach2024!. Frontend is Expo mobile app — no Playwright testing possible.",
+  "rca_of_the_issue": {
+    "bug": "INVALID_ID returns all 14 products instead of 0",
+    "root_cause": "In marketplace_routes.py, when spotyou_id is provided but not found in DB, tags=[] is set. The condition `if tags:` is False, so it falls into `else:` which returns ALL products (SELECT ... LIMIT 20). The original code did not distinguish between 'no filter requested' (show all) and 'filter requested but yielded 0 tags' (show nothing).",
+    "reproduction": "GET /api/marketplace/products?spotyou_id=INVALID_ID — before fix returned 14 products",
+    "mitigation": "Added `filter_requested = bool(tag_ids or spotyou_id)` flag and `elif filter_requested: rows = []` branch. When a filter is specified but resolves to no tags, return empty list."
+  }
+}
