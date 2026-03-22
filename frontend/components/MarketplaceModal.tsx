@@ -22,20 +22,17 @@ const IMG_H         = 130;
 
 /* ─── Filtres ──────────────────────────────────────────────────────────── */
 const FILTERS = [
-  { key: 'all',           label: 'Tous'           },
-  { key: 'owner',         label: 'Ce SpotYou'     },
-  { key: 'other_creator', label: 'Autres SpotYou' },
-  { key: 'rental',        label: 'Location'       },
-  { key: 'sale',          label: 'Vente'          },
+  { key: 'all',     label: 'Tous'      },
+  { key: 'owner',   label: 'Créateur'  },
+  { key: 'other',   label: 'Autres'    },
+  { key: 'rental',  label: 'Location'  },
+  { key: 'sale',    label: 'Vente'     },
 ] as const;
 
 /* ─── Badge config ─────────────────────────────────────────────────────── */
-const BADGE: Record<string, { bg: string; text: string; icon: keyof typeof Ionicons.glyphMap }> = {
-  owner:         { bg: '#22C55E', text: '#fff',     icon: 'star'            },
-  other_creator: { bg: '#F59E0B', text: '#fff',     icon: 'people'          },
-  sponsored:     { bg: '#8B5CF6', text: '#fff',     icon: 'megaphone'       },
-  affiliated:    { bg: '#6366F1', text: '#fff',     icon: 'link'            },
-  platform:      { bg: COBALT,    text: '#fff',     icon: 'storefront'      },
+const BADGE: Record<string, { bg: string; text: string }> = {
+  owner: { bg: '#22C55E', text: '#fff' },
+  other: { bg: Colors.muted, text: '#fff' },
 };
 
 const LEVEL_COLORS: Record<string, string> = {
@@ -75,9 +72,13 @@ function ProductCard({ item }: { item: any }) {
         />
         {/* Badge source */}
         <View style={[s.badge, { backgroundColor: badgeCfg.bg }]}>
-          <Ionicons name={badgeCfg.icon} size={9} color={badgeCfg.text} />
+          <Ionicons
+            name={item.badge_type === 'owner' ? 'star' : 'person-outline'}
+            size={9}
+            color={badgeCfg.text}
+          />
           <Text style={[s.badgeText, { color: badgeCfg.text }]} numberOfLines={1}>
-            {item.badge_label || 'SpotU'}
+            {item.badge_label || 'Autre'}
           </Text>
         </View>
         {/* Type pill */}
@@ -178,16 +179,16 @@ export function MarketplaceModal({ visible, onClose, spotYouId, tagIds }: Props)
   }, [visible, cacheKey]);
 
   const filtered = products.filter(p => {
-    if (filter === 'all')           return true;
-    if (filter === 'owner')         return p.badge_type === 'owner';
-    if (filter === 'other_creator') return p.badge_type === 'other_creator';
-    if (filter === 'rental')        return p.product_type === 'rental';
-    if (filter === 'sale')          return p.product_type === 'sale';
+    if (filter === 'all')    return true;
+    if (filter === 'owner')  return p.badge_type === 'owner';
+    if (filter === 'other')  return p.badge_type === 'other';
+    if (filter === 'rental') return p.product_type === 'rental';
+    if (filter === 'sale')   return p.product_type === 'sale';
     return true;
   });
 
-  const ownerCount  = products.filter(p => p.badge_type === 'owner').length;
-  const otherCount  = products.filter(p => p.badge_type === 'other_creator').length;
+  const ownerCount = products.filter(p => p.badge_type === 'owner').length;
+  const otherCount = products.filter(p => p.badge_type === 'other').length;
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -219,13 +220,13 @@ export function MarketplaceModal({ visible, onClose, spotYouId, tagIds }: Props)
             {ownerCount > 0 && (
               <View style={[s.legendPill, { backgroundColor: '#22C55E22', borderColor: '#22C55E55' }]}>
                 <Ionicons name="star" size={10} color="#22C55E" />
-                <Text style={[s.legendText, { color: '#22C55E' }]}>{ownerCount} produit{ownerCount > 1 ? 's' : ''} du créateur</Text>
+                <Text style={[s.legendText, { color: '#22C55E' }]}>{ownerCount} du créateur</Text>
               </View>
             )}
             {otherCount > 0 && (
-              <View style={[s.legendPill, { backgroundColor: '#F59E0B22', borderColor: '#F59E0B55' }]}>
-                <Ionicons name="people" size={10} color="#F59E0B" />
-                <Text style={[s.legendText, { color: '#F59E0B' }]}>{otherCount} autres SpotYou</Text>
+              <View style={[s.legendPill, { backgroundColor: Colors.muted + '22', borderColor: Colors.muted + '55' }]}>
+                <Ionicons name="person-outline" size={10} color={Colors.muted} />
+                <Text style={[s.legendText, { color: Colors.muted }]}>{otherCount} autres utilisateurs</Text>
               </View>
             )}
           </View>
@@ -289,8 +290,8 @@ export function MarketplaceModal({ visible, onClose, spotYouId, tagIds }: Props)
                 ? 'Aucun équipement n\'est encore lié aux tags de ce SpotYou.'
                 : filter === 'owner'
                 ? 'Le créateur n\'a pas encore ajouté de produits.'
-                : filter === 'other_creator'
-                ? 'Aucun produit d\'autres SpotYou pour ces tags.'
+                : filter === 'other'
+                ? 'Aucun produit d\'autres utilisateurs pour ces tags.'
                 : 'Essayez un autre filtre.'}
             </Text>
             {filter !== 'all' && (
