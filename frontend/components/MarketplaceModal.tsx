@@ -260,7 +260,7 @@ const s = StyleSheet.create({
 
   filtersContainer:  { height: 50, marginBottom: 2 },
   filtersWrap:     { paddingHorizontal: Spacing.md, alignItems: 'center', flexDirection: 'row', paddingVertical: 8 },
-  filterChip:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border },
+  filterChip:      { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, marginRight: 8 },
   filterChipActive:{ backgroundColor: COBALT, borderColor: COBALT },
   filterLabel:     { fontSize: 13, color: Colors.muted, fontWeight: '500' },
   filterLabelActive:{ color: '#fff' },
