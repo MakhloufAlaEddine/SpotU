@@ -48,6 +48,8 @@ interface Props {
   onClose: () => void;
   spotYouId: string;
   tagIds?: string[];
+  userLat?: number;
+  userLng?: number;
 }
 
 /* ─── Constantes couleurs service (identiques à map.tsx) ─────────────────*/
@@ -100,6 +102,23 @@ function ProductCard({ item }: { item: any }) {
           <View style={s.sellerRow}>
             <Ionicons name="person-outline" size={10} color={Colors.muted} />
             <Text style={s.sellerName} numberOfLines={1}>{item.seller_name}</Text>
+          </View>
+        )}
+        {/* Distances pour produits physiques */}
+        {item.is_physical && (item.dist_from_spotyou_fmt || item.dist_from_user_fmt) && (
+          <View style={s.distRow}>
+            {item.dist_from_spotyou_fmt && (
+              <View style={[s.distChip, s.distChipSpot]}>
+                <Ionicons name="location" size={9} color={COBALT} />
+                <Text style={[s.distTxt, { color: COBALT }]}>{item.dist_from_spotyou_fmt}</Text>
+              </View>
+            )}
+            {item.dist_from_user_fmt && (
+              <View style={[s.distChip, s.distChipUser]}>
+                <Ionicons name="navigate" size={9} color="#22C55E" />
+                <Text style={[s.distTxt, { color: '#22C55E' }]}>{item.dist_from_user_fmt}</Text>
+              </View>
+            )}
           </View>
         )}
       </View>
@@ -170,26 +189,28 @@ const productCache = new Map<string, any[]>();
 /* ─── Modal principal ────────────────────────────────────────────────────*/
 type LoadState = 'loading' | 'refreshing' | 'error' | 'empty' | 'loaded';
 
-export function MarketplaceModal({ visible, onClose, spotYouId, tagIds }: Props) {
+export function MarketplaceModal({ visible, onClose, spotYouId, tagIds, userLat, userLng }: Props) {
   const [products,  setProducts]  = useState<any[]>([]);
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [filter,    setFilter]    = useState<string>('all');
 
-  const cacheKey = `${spotYouId}::${tagIds?.join(',') ?? ''}`;
+  const cacheKey = `${spotYouId}::${tagIds?.join(',') ?? ''}::${userLat ?? ''}::${userLng ?? ''}`;
 
   const load = useCallback((silent = false) => {
-    // Si cache dispo, afficher immédiatement + rafraîchir en arrière-plan
     const cached = productCache.get(cacheKey);
     if (cached) {
       setProducts(cached);
       setLoadState(silent ? 'refreshing' : 'loaded');
-      if (silent) return; // ne pas refetch si déjà en mode silencieux
+      if (silent) return;
     } else {
       setLoadState('loading');
     }
 
     const parts: string[] = [`spotyou_id=${spotYouId}`];
     if (tagIds?.length) parts.push(`tag_ids=${tagIds.join(',')}`);
+    if (userLat != null && userLng != null) {
+      parts.push(`user_lat=${userLat}&user_lng=${userLng}`);
+    }
 
     api.get(`/marketplace/products?${parts.join('&')}`)
       .then((d: any) => {
@@ -199,14 +220,13 @@ export function MarketplaceModal({ visible, onClose, spotYouId, tagIds }: Props)
         setLoadState(list.length === 0 ? 'empty' : 'loaded');
       })
       .catch(() => {
-        // Si on a un cache, garder les données mais indiquer l'erreur réseau discrètement
         if (productCache.has(cacheKey)) {
-          setLoadState('loaded'); // cache toujours valide
+          setLoadState('loaded');
         } else {
           setLoadState('error');
         }
       });
-  }, [cacheKey, spotYouId, tagIds]);
+  }, [cacheKey, spotYouId, tagIds, userLat, userLng]);
 
   useEffect(() => {
     if (visible) {
@@ -412,6 +432,11 @@ const s = StyleSheet.create({
   lvlText:         { fontSize: 9, fontWeight: '600' },
   sellerRow:       { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
   sellerName:      { fontSize: 10, color: Colors.muted },
+  distRow:         { flexDirection: 'row', gap: 4, marginTop: 4, flexWrap: 'wrap' },
+  distChip:        { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 8, borderWidth: 1 },
+  distChipSpot:    { backgroundColor: 'rgba(59,130,246,0.08)', borderColor: 'rgba(59,130,246,0.25)' },
+  distChipUser:    { backgroundColor: 'rgba(34,197,94,0.08)',  borderColor: 'rgba(34,197,94,0.25)'  },
+  distTxt:         { fontSize: 10, fontWeight: '600' },
 
   center:          { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.lg, gap: 10 },
   loadingText:     { fontSize: 14, color: Colors.muted, marginTop: 8 },
