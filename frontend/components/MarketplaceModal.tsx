@@ -189,25 +189,27 @@ export function MarketplaceModal({ visible, onClose, spotYouId, tagIds }: Props)
         )}
 
         {/* ── Filtres ── */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={s.filtersWrap}
-        >
-          {(FILTERS as ReadonlyArray<{ key: string; label: string }>).map((f) => {
-            const active = filter === f.key;
-            return (
-              <TouchableOpacity
-                key={f.key}
-                style={[s.filterChip, active && s.filterChipActive]}
-                onPress={() => setFilter(f.key)}
-                testID={`marketplace-filter-${f.key}`}
-              >
-                <Text style={[s.filterLabel, active && s.filterLabelActive]}>{f.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+        <View style={s.filtersContainer}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={s.filtersWrap}
+          >
+            {(FILTERS as ReadonlyArray<{ key: string; label: string }>).map((f) => {
+              const active = filter === f.key;
+              return (
+                <TouchableOpacity
+                  key={f.key}
+                  style={[s.filterChip, active && s.filterChipActive]}
+                  onPress={() => setFilter(f.key)}
+                  testID={`marketplace-filter-${f.key}`}
+                >
+                  <Text style={[s.filterLabel, active && s.filterLabelActive]}>{f.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
 
         {/* ── Contenu ── */}
         {loading ? (
@@ -256,7 +258,8 @@ const s = StyleSheet.create({
   legendPill:      { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
   legendText:      { fontSize: 11, fontWeight: '600' },
 
-  filtersWrap:     { paddingHorizontal: Spacing.md, paddingVertical: 10 },
+  filtersContainer:  { height: 50, marginBottom: 2 },
+  filtersWrap:     { paddingHorizontal: Spacing.md, alignItems: 'center', flexDirection: 'row', paddingVertical: 8 },
   filterChip:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border },
   filterChipActive:{ backgroundColor: COBALT, borderColor: COBALT },
   filterLabel:     { fontSize: 13, color: Colors.muted, fontWeight: '500' },
