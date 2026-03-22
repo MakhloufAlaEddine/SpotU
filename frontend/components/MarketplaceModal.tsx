@@ -1,280 +1,306 @@
 /**
- * MarketplaceModal — Produits liés au SpotYou, filtrés par tags.
- * Couleur marketplace : Cobalt Blue #3B82F6
+ * MarketplaceModal — Grille 2 colonnes avec badges source.
+ * Cobalt Blue #3B82F6
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, Modal, TouchableOpacity, FlatList, ActivityIndicator, StyleSheet, ScrollView,
+  View, Text, Modal, TouchableOpacity, FlatList,
+  ActivityIndicator, StyleSheet, Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../constants/Colors';
 import { api } from '../lib/api';
 import { TagImage } from './TagImage';
 
-const COBALT = '#3B82F6';
-const COBALT_DIM = 'rgba(59,130,246,0.12)';
-const COBALT_BORDER = 'rgba(59,130,246,0.25)';
+const COBALT        = '#3B82F6';
+const COBALT_DIM    = 'rgba(59,130,246,0.12)';
+const COBALT_BORDER = 'rgba(59,130,246,0.28)';
+const SCREEN_W      = Dimensions.get('window').width;
+const CARD_GAP      = 10;
+const CARD_W        = (SCREEN_W - Spacing.md * 2 - CARD_GAP) / 2;
+const IMG_H         = 130;
 
+/* ─── Filtres ──────────────────────────────────────────────────────────── */
 const FILTERS = [
-  { key: 'all', label: 'Tous' },
-  { key: 'rental', label: 'Location' },
-  { key: 'sale', label: 'Vente' },
-  { key: 'recommended', label: 'Recommandés' },
-  { key: 'creator', label: 'Du créateur' },
-  { key: 'spotu', label: 'SpotU' },
+  { key: 'all',           label: 'Tous',           icon: 'grid-outline'        },
+  { key: 'owner',         label: 'Ce SpotYou',     icon: 'star-outline'        },
+  { key: 'other_creator', label: 'Autres SpotYou', icon: 'people-outline'      },
+  { key: 'rental',        label: 'Location',       icon: 'time-outline'        },
+  { key: 'sale',          label: 'Vente',          icon: 'pricetag-outline'    },
 ] as const;
 
-const LEVEL_LABELS: Record<string, string> = {
-  debutant: 'Débutant',
-  intermediaire: 'Intermédiaire',
-  avance: 'Avancé',
-  tous: 'Tous niveaux',
+/* ─── Badge config ─────────────────────────────────────────────────────── */
+const BADGE: Record<string, { bg: string; text: string; icon: keyof typeof Ionicons.glyphMap }> = {
+  owner:         { bg: '#22C55E', text: '#fff',     icon: 'star'            },
+  other_creator: { bg: '#F59E0B', text: '#fff',     icon: 'people'          },
+  sponsored:     { bg: '#8B5CF6', text: '#fff',     icon: 'megaphone'       },
+  affiliated:    { bg: '#6366F1', text: '#fff',     icon: 'link'            },
+  platform:      { bg: COBALT,    text: '#fff',     icon: 'storefront'      },
 };
 
 const LEVEL_COLORS: Record<string, string> = {
-  debutant: '#34D399',
-  intermediaire: '#FBBF24',
-  avance: '#F87171',
-  tous: Colors.muted,
+  debutant:     '#34D399',
+  intermediaire:'#FBBF24',
+  avance:       '#F87171',
+  tous:         Colors.muted,
 };
 
-const TYPE_LABELS: Record<string, { label: string; icon: keyof typeof Ionicons.glyphMap }> = {
-  sale: { label: 'Vente', icon: 'pricetag-outline' },
-  rental: { label: 'Location', icon: 'time-outline' },
-  external: { label: 'Externe', icon: 'open-outline' },
-};
-
-interface MarketplaceModalProps {
+interface Props {
   visible: boolean;
   onClose: () => void;
   spotYouId: string;
   tagIds?: string[];
 }
 
-export function MarketplaceModal({ visible, onClose, spotYouId, tagIds }: MarketplaceModalProps) {
-  const [products, setProducts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<string>('all');
-
-  useEffect(() => {
-    if (!visible) return;
-    setLoading(true);
-    const qs = tagIds?.length ? `tag_ids=${tagIds.join(',')}` : `spotyou_id=${spotYouId}`;
-    api.get(`/marketplace/products?${qs}`)
-      .then((d: any) => setProducts(d.products || []))
-      .catch(() => setProducts([]))
-      .finally(() => setLoading(false));
-  }, [visible, spotYouId]);
-
-  const filtered = products.filter(p => {
-    if (filter === 'all') return true;
-    if (filter === 'rental') return p.product_type === 'rental';
-    if (filter === 'sale') return p.product_type === 'sale';
-    if (filter === 'recommended') return p.seller_type === 'recommended';
-    if (filter === 'creator') return p.seller_type === 'creator';
-    if (filter === 'spotu') return ['spotu', 'sponsored', 'affiliated'].includes(p.seller_type);
-    return true;
-  });
-
-  // Separate into SpotU products and Creator products
-  const spotuProducts = filtered.filter(p => ['spotu', 'sponsored', 'affiliated', 'recommended'].includes(p.seller_type));
-  const creatorProducts = filtered.filter(p => p.seller_type === 'creator');
-
-  return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={s.overlay}>
-        <View style={s.sheet}>
-          {/* Header */}
-          <View style={s.header}>
-            <View style={s.headerLeft}>
-              <View style={s.headerIcon}>
-                <Ionicons name="storefront" size={18} color={COBALT} />
-              </View>
-              <Text style={s.headerTitle}>Marketplace</Text>
-            </View>
-            <TouchableOpacity onPress={onClose} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} testID="close-marketplace">
-              <Ionicons name="close-circle" size={28} color={Colors.muted} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Filter tabs */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filtersWrap}>
-            {FILTERS.map(f => {
-              const active = filter === f.key;
-              return (
-                <TouchableOpacity
-                  key={f.key}
-                  style={[s.filterPill, active && s.filterPillActive]}
-                  onPress={() => setFilter(f.key)}
-                  testID={`filter-${f.key}`}
-                >
-                  <Text style={[s.filterText, active && s.filterTextActive]}>{f.label}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-
-          {/* Content */}
-          {loading ? (
-            <View style={s.center}><ActivityIndicator size="large" color={COBALT} /></View>
-          ) : filtered.length === 0 ? (
-            <View style={s.center}>
-              <Ionicons name="bag-outline" size={48} color={Colors.muted} />
-              <Text style={s.emptyText}>Aucun produit disponible</Text>
-            </View>
-          ) : (
-            <FlatList
-              data={[
-                ...(spotuProducts.length > 0 ? [{ _section: 'spotu' }] : []),
-                ...spotuProducts,
-                ...(creatorProducts.length > 0 ? [{ _section: 'creator' }] : []),
-                ...creatorProducts,
-              ]}
-              keyExtractor={(item, idx) => item._section || item.product_id || String(idx)}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: 32 }}
-              renderItem={({ item }) => {
-                if (item._section) {
-                  return (
-                    <View style={s.sectionHeader}>
-                      <View style={[s.sectionDot, { backgroundColor: item._section === 'spotu' ? COBALT : Colors.primary }]} />
-                      <Text style={s.sectionTitle}>
-                        {item._section === 'spotu' ? 'Produits SpotU' : 'Produits du créateur'}
-                      </Text>
-                      <View style={s.sectionLine} />
-                    </View>
-                  );
-                }
-                return <ProductCard item={item} />;
-              }}
-            />
-          )}
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
+/* ─── ProductCard ────────────────────────────────────────────────────────*/
 function ProductCard({ item }: { item: any }) {
-  const typeInfo = TYPE_LABELS[item.product_type] || TYPE_LABELS.sale;
-  const levelColor = LEVEL_COLORS[item.skill_level] || Colors.muted;
-  const levelLabel = LEVEL_LABELS[item.skill_level] || item.skill_level;
-  const isSponsored = item.seller_type === 'sponsored';
-  const isAffiliated = item.seller_type === 'affiliated';
+  const badgeCfg = BADGE[item.badge_type] ?? BADGE.platform;
+  const isRental  = item.product_type === 'rental';
+  const outOfStock = item.in_stock === false;
+  const isFree     = item.price === 0;
+  const levelColor = LEVEL_COLORS[item.skill_level] ?? Colors.muted;
+
+  const priceLabel = isFree
+    ? 'Gratuit'
+    : `${Number(item.price).toFixed(2)} €${isRental ? '/séance' : ''}`;
 
   return (
-    <View style={s.card} testID={`product-${item.product_id}`}>
-      {/* Sponsored / Affiliated badge */}
-      {(isSponsored || isAffiliated) && (
-        <View style={[s.badge, isSponsored ? s.badgeSponsored : s.badgeAffiliated]}>
-          <Ionicons name={isSponsored ? 'megaphone-outline' : 'link-outline'} size={10} color="#fff" />
-          <Text style={s.badgeText}>{isSponsored ? 'Sponsorisé' : 'Affilié'}</Text>
+    <View style={[s.card, outOfStock && s.cardOut]}>
+      {/* ── Image ── */}
+      <View style={s.imgWrap}>
+        <TagImage
+          uri={item.image_url}
+          tagIds={item.tag_ids || []}
+          style={s.img}
+        />
+        {/* Badge source */}
+        <View style={[s.badge, { backgroundColor: badgeCfg.bg }]}>
+          <Ionicons name={badgeCfg.icon} size={9} color={badgeCfg.text} />
+          <Text style={[s.badgeText, { color: badgeCfg.text }]} numberOfLines={1}>
+            {item.badge_label || 'SpotU'}
+          </Text>
         </View>
-      )}
-
-      <View style={s.cardRow}>
-        {/* Image */}
-        <View style={s.cardImg}>
-          {item.image_url
-            ? <TagImage uri={item.image_url} style={{ width: '100%', height: '100%' }} iconSize={24} placeholderColor="#1A2A4A" placeholderIcon="bag-outline" />
-            : <View style={s.cardImgPlaceholder}><Ionicons name="bag-outline" size={24} color={COBALT + '40'} /></View>
-          }
+        {/* Type pill */}
+        <View style={[s.typePill, isRental ? s.typePillRent : s.typePillSale]}>
+          <Text style={s.typePillText}>{isRental ? 'Location' : 'Vente'}</Text>
         </View>
-
-        {/* Info */}
-        <View style={s.cardInfo}>
-          <Text style={s.cardTitle} numberOfLines={2}>{item.title}</Text>
-
-          {/* Price + type */}
-          <View style={s.cardMetaRow}>
-            <Text style={s.cardPrice}>
-              {item.price > 0 ? `${item.price.toFixed(2).replace('.', ',')} \u20AC` : 'Gratuit'}
-              {item.product_type === 'rental' && <Text style={s.cardPriceUnit}> / séance</Text>}
-            </Text>
-            <View style={s.typePill}>
-              <Ionicons name={typeInfo.icon} size={10} color={COBALT} />
-              <Text style={s.typeText}>{typeInfo.label}</Text>
-            </View>
+        {/* Stock */}
+        {outOfStock && (
+          <View style={s.outOverlay}>
+            <Text style={s.outText}>Indisponible</Text>
           </View>
+        )}
+      </View>
 
-          {/* Tags row: stock + level + seller */}
-          <View style={s.cardTagsRow}>
-            {/* Stock */}
-            <View style={[s.microPill, { backgroundColor: item.in_stock ? 'rgba(52,211,153,0.12)' : 'rgba(248,113,113,0.12)' }]}>
-              <View style={[s.stockDot, { backgroundColor: item.in_stock ? '#34D399' : '#F87171' }]} />
-              <Text style={[s.microPillText, { color: item.in_stock ? '#34D399' : '#F87171' }]}>
-                {item.in_stock ? 'En stock' : 'Rupture'}
+      {/* ── Infos ── */}
+      <View style={s.info}>
+        <Text style={s.title} numberOfLines={2}>{item.title}</Text>
+        <Text style={s.desc} numberOfLines={2}>{item.description}</Text>
+
+        <View style={s.row}>
+          <Text style={[s.price, isFree && { color: '#22C55E' }]}>{priceLabel}</Text>
+          {item.skill_level && item.skill_level !== 'tous' && (
+            <View style={[s.lvlPill, { backgroundColor: levelColor + '22', borderColor: levelColor + '55' }]}>
+              <Text style={[s.lvlText, { color: levelColor }]}>
+                {item.skill_level === 'debutant' ? 'Débutant' : item.skill_level === 'intermediaire' ? 'Inter.' : 'Avancé'}
               </Text>
             </View>
-
-            {/* Level */}
-            <View style={[s.microPill, { backgroundColor: levelColor + '15' }]}>
-              <Text style={[s.microPillText, { color: levelColor }]}>{levelLabel}</Text>
-            </View>
-
-            {/* Seller name if creator */}
-            {item.seller_name && (
-              <View style={[s.microPill, { backgroundColor: Colors.primary + '15' }]}>
-                <Ionicons name="person-outline" size={9} color={Colors.primary} />
-                <Text style={[s.microPillText, { color: Colors.primary }]} numberOfLines={1}>{item.seller_name}</Text>
-              </View>
-            )}
-          </View>
+          )}
         </View>
+
+        {item.seller_name && (
+          <View style={s.sellerRow}>
+            <Ionicons name="person-outline" size={10} color={Colors.muted} />
+            <Text style={s.sellerName} numberOfLines={1}>{item.seller_name}</Text>
+          </View>
+        )}
       </View>
     </View>
   );
 }
 
+/* ─── Modal principal ────────────────────────────────────────────────────*/
+export function MarketplaceModal({ visible, onClose, spotYouId, tagIds }: Props) {
+  const [products, setProducts] = useState<any[]>([]);
+  const [loading,  setLoading]  = useState(true);
+  const [filter,   setFilter]   = useState<string>('all');
+
+  const load = useCallback(() => {
+    setLoading(true);
+    // On envoie TOUJOURS spotyou_id pour la résolution du badge owner
+    const parts: string[] = [`spotyou_id=${spotYouId}`];
+    if (tagIds?.length) parts.push(`tag_ids=${tagIds.join(',')}`);
+    api.get(`/marketplace/products?${parts.join('&')}`)
+      .then((d: any) => setProducts(d.products || []))
+      .catch(() => setProducts([]))
+      .finally(() => setLoading(false));
+  }, [visible, spotYouId]);
+
+  useEffect(() => { if (visible) { setFilter('all'); load(); } }, [visible]);
+
+  const filtered = products.filter(p => {
+    if (filter === 'all')           return true;
+    if (filter === 'owner')         return p.badge_type === 'owner';
+    if (filter === 'other_creator') return p.badge_type === 'other_creator';
+    if (filter === 'rental')        return p.product_type === 'rental';
+    if (filter === 'sale')          return p.product_type === 'sale';
+    return true;
+  });
+
+  const ownerCount  = products.filter(p => p.badge_type === 'owner').length;
+  const otherCount  = products.filter(p => p.badge_type === 'other_creator').length;
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <View style={s.container}>
+
+        {/* ── Header ── */}
+        <View style={s.header}>
+          <View style={[s.headerIcon, { backgroundColor: COBALT_DIM, borderColor: COBALT_BORDER }]}>
+            <Ionicons name="storefront-outline" size={20} color={COBALT} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.headerTitle}>Boutique</Text>
+            <Text style={s.headerSub}>
+              {loading ? 'Chargement…' : `${products.length} produit${products.length > 1 ? 's' : ''} liés`}
+            </Text>
+          </View>
+          <TouchableOpacity style={s.closeBtn} onPress={onClose} testID="marketplace-close-btn">
+            <Ionicons name="close" size={22} color={Colors.foreground} />
+          </TouchableOpacity>
+        </View>
+
+        {/* ── Légende badges ── */}
+        {!loading && (ownerCount > 0 || otherCount > 0) && (
+          <View style={s.legendRow}>
+            {ownerCount > 0 && (
+              <View style={[s.legendPill, { backgroundColor: '#22C55E22', borderColor: '#22C55E55' }]}>
+                <Ionicons name="star" size={10} color="#22C55E" />
+                <Text style={[s.legendText, { color: '#22C55E' }]}>{ownerCount} produit{ownerCount > 1 ? 's' : ''} du créateur</Text>
+              </View>
+            )}
+            {otherCount > 0 && (
+              <View style={[s.legendPill, { backgroundColor: '#F59E0B22', borderColor: '#F59E0B55' }]}>
+                <Ionicons name="people" size={10} color="#F59E0B" />
+                <Text style={[s.legendText, { color: '#F59E0B' }]}>{otherCount} autres SpotYou</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* ── Filtres ── */}
+        <FlatList
+          data={FILTERS as any}
+          keyExtractor={i => i.key}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={s.filtersWrap}
+          renderItem={({ item: f }) => {
+            const active = filter === f.key;
+            return (
+              <TouchableOpacity
+                style={[s.filterChip, active && s.filterChipActive]}
+                onPress={() => setFilter(f.key)}
+                testID={`marketplace-filter-${f.key}`}
+              >
+                <Ionicons
+                  name={f.icon as any}
+                  size={13}
+                  color={active ? '#fff' : Colors.muted}
+                  style={{ marginRight: 4 }}
+                />
+                <Text style={[s.filterLabel, active && s.filterLabelActive]}>{f.label}</Text>
+              </TouchableOpacity>
+            );
+          }}
+        />
+
+        {/* ── Contenu ── */}
+        {loading ? (
+          <View style={s.center}>
+            <ActivityIndicator size="large" color={COBALT} />
+            <Text style={s.loadingText}>Chargement des produits…</Text>
+          </View>
+        ) : filtered.length === 0 ? (
+          <View style={s.center}>
+            <Ionicons name="basket-outline" size={48} color={Colors.muted} />
+            <Text style={s.emptyTitle}>Aucun produit</Text>
+            <Text style={s.emptySub}>
+              {filter === 'owner'
+                ? 'Le créateur n\'a pas encore ajouté de produits.'
+                : filter === 'other_creator'
+                ? 'Aucun produit d\'autres SpotYou pour ces tags.'
+                : 'Aucun produit correspondant à ce filtre.'}
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={filtered}
+            keyExtractor={i => i.product_id}
+            numColumns={2}
+            columnWrapperStyle={s.columnWrapper}
+            contentContainerStyle={s.gridContent}
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item }) => <ProductCard item={item} />}
+          />
+        )}
+      </View>
+    </Modal>
+  );
+}
+
+/* ─── Styles ─────────────────────────────────────────────────────────────*/
 const s = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: Colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '85%', paddingTop: 8 },
+  container:       { flex: 1, backgroundColor: Colors.background },
+  header:          { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: Spacing.md, paddingTop: 20, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  headerIcon:      { width: 40, height: 40, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  headerTitle:     { fontSize: 17, fontWeight: '700', color: Colors.foreground },
+  headerSub:       { fontSize: 12, color: Colors.muted, marginTop: 1 },
+  closeBtn:        { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center' },
 
-  // Header
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, paddingVertical: 12 },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  headerIcon: { width: 34, height: 34, borderRadius: 17, backgroundColor: COBALT_DIM, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: COBALT_BORDER },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: Colors.foreground },
+  legendRow:       { flexDirection: 'row', gap: 8, paddingHorizontal: Spacing.md, paddingVertical: 8, flexWrap: 'wrap' },
+  legendPill:      { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
+  legendText:      { fontSize: 11, fontWeight: '600' },
 
-  // Filters
-  filtersWrap: { paddingHorizontal: Spacing.md, paddingBottom: 12, gap: 8 },
-  filterPill: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: Radius.full, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border },
-  filterPillActive: { backgroundColor: COBALT_DIM, borderColor: COBALT },
-  filterText: { fontSize: 13, fontWeight: '600', color: Colors.muted },
-  filterTextActive: { color: COBALT },
+  filtersWrap:     { paddingHorizontal: Spacing.md, paddingVertical: 10, gap: 8 },
+  filterChip:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border },
+  filterChipActive:{ backgroundColor: COBALT, borderColor: COBALT },
+  filterLabel:     { fontSize: 13, color: Colors.muted, fontWeight: '500' },
+  filterLabelActive:{ color: '#fff' },
 
-  // Center
-  center: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
-  emptyText: { fontSize: 14, color: Colors.muted, marginTop: 12 },
+  gridContent:     { paddingHorizontal: Spacing.md, paddingBottom: 40 },
+  columnWrapper:   { gap: CARD_GAP, marginBottom: CARD_GAP },
 
-  // Section headers
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingTop: 16, paddingBottom: 8, gap: 8 },
-  sectionDot: { width: 8, height: 8, borderRadius: 4 },
-  sectionTitle: { fontSize: 14, fontWeight: '700', color: Colors.foreground },
-  sectionLine: { flex: 1, height: 1, backgroundColor: Colors.border },
+  /* Card */
+  card:            { width: CARD_W, borderRadius: 14, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
+  cardOut:         { opacity: 0.55 },
 
-  // Product card
-  card: { marginHorizontal: Spacing.md, marginBottom: 10, backgroundColor: Colors.card, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
-  cardRow: { flexDirection: 'row', padding: 10 },
-  cardImg: { width: 80, height: 80, borderRadius: Radius.md, overflow: 'hidden', backgroundColor: '#0F1A2E' },
-  cardImgPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0F1A2E' },
-  cardInfo: { flex: 1, marginLeft: 12, justifyContent: 'center' },
-  cardTitle: { fontSize: 14, fontWeight: '700', color: Colors.foreground, lineHeight: 18, marginBottom: 4 },
-  cardMetaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
-  cardPrice: { fontSize: 16, fontWeight: '800', color: COBALT },
-  cardPriceUnit: { fontSize: 11, fontWeight: '500', color: Colors.muted },
-  typePill: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: COBALT_DIM, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, borderWidth: 1, borderColor: COBALT_BORDER },
-  typeText: { fontSize: 10, fontWeight: '700', color: COBALT },
+  imgWrap:         { width: '100%', height: IMG_H, position: 'relative' },
+  img:             { width: '100%', height: IMG_H },
 
-  // Micro pills row
-  cardTagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  microPill: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
-  microPillText: { fontSize: 10, fontWeight: '600' },
-  stockDot: { width: 5, height: 5, borderRadius: 3 },
+  badge:           { position: 'absolute', top: 7, left: 7, flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 10, maxWidth: CARD_W - 14 },
+  badgeText:       { fontSize: 10, fontWeight: '700' },
 
-  // Badges
-  badge: { position: 'absolute', top: 0, right: 0, flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 8, paddingVertical: 3, borderBottomLeftRadius: 10, zIndex: 2 },
-  badgeSponsored: { backgroundColor: '#F59E0B' },
-  badgeAffiliated: { backgroundColor: '#8B5CF6' },
-  badgeText: { fontSize: 9, fontWeight: '700', color: '#fff', textTransform: 'uppercase' },
+  typePill:        { position: 'absolute', bottom: 7, right: 7, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 8 },
+  typePillSale:    { backgroundColor: 'rgba(0,0,0,0.55)' },
+  typePillRent:    { backgroundColor: 'rgba(59,130,246,0.75)' },
+  typePillText:    { fontSize: 10, fontWeight: '600', color: '#fff' },
+
+  outOverlay:      { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' },
+  outText:         { fontSize: 12, fontWeight: '700', color: '#fff', textTransform: 'uppercase' },
+
+  info:            { padding: 10, gap: 4 },
+  title:           { fontSize: 13, fontWeight: '700', color: Colors.foreground, lineHeight: 17 },
+  desc:            { fontSize: 11, color: Colors.muted, lineHeight: 15 },
+  row:             { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 },
+  price:           { fontSize: 14, fontWeight: '800', color: COBALT },
+  lvlPill:         { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, borderWidth: 1 },
+  lvlText:         { fontSize: 9, fontWeight: '600' },
+  sellerRow:       { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
+  sellerName:      { fontSize: 10, color: Colors.muted },
+
+  center:          { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.lg, gap: 10 },
+  loadingText:     { fontSize: 14, color: Colors.muted, marginTop: 8 },
+  emptyTitle:      { fontSize: 16, fontWeight: '700', color: Colors.foreground },
+  emptySub:        { fontSize: 13, color: Colors.muted, textAlign: 'center', lineHeight: 18 },
 });
