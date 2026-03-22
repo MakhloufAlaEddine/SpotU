@@ -379,6 +379,12 @@ async def home_feed(
         s.pop("_score", None)
     for s in services_sorted:
         s.pop("_score", None)
+        # Enrober coach_name/coach_picture dans un objet `coach` attendu par le frontend
+        s["coach"] = {
+            "user_id": s.get("coach_id"),
+            "name":    s.pop("coach_name", None),
+            "picture": s.pop("coach_picture", None),
+        }
 
     return {
         "spotyou":             spotyou_sorted[:30],

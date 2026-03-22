@@ -22,11 +22,12 @@ const IMG_H         = 130;
 
 /* ─── Filtres ──────────────────────────────────────────────────────────── */
 const FILTERS = [
-  { key: 'all',     label: 'Tous'      },
-  { key: 'owner',   label: 'Créateur'  },
-  { key: 'other',   label: 'Autres'    },
-  { key: 'rental',  label: 'Location'  },
-  { key: 'sale',    label: 'Vente'     },
+  { key: 'all',      label: 'Tous'      },
+  { key: 'owner',    label: 'Créateur'  },
+  { key: 'other',    label: 'Autres'    },
+  { key: 'service',  label: 'Services'  },
+  { key: 'rental',   label: 'Location'  },
+  { key: 'sale',     label: 'Vente'     },
 ] as const;
 
 /* ─── Badge config ─────────────────────────────────────────────────────── */
@@ -51,45 +52,39 @@ interface Props {
 
 /* ─── ProductCard ────────────────────────────────────────────────────────*/
 function ProductCard({ item }: { item: any }) {
-  const badgeCfg = BADGE[item.badge_type] ?? BADGE.platform;
-  const isRental  = item.product_type === 'rental';
-  const outOfStock = item.in_stock === false;
+  const badgeCfg   = BADGE[item.badge_type] ?? BADGE.other;
+  const isService  = item.item_type === 'service';
+  const isRental   = !isService && item.product_type === 'rental';
+  const outOfStock = !isService && item.in_stock === false;
   const isFree     = item.price === 0;
   const levelColor = LEVEL_COLORS[item.skill_level] ?? Colors.muted;
 
+  const imageUri = isService
+    ? (Array.isArray(item.images) ? item.images[0] : null)
+    : item.image_url;
+
   const priceLabel = isFree
     ? 'Gratuit'
+    : isService
+    ? `Dès ${Number(item.price).toFixed(0)} €`
     : `${Number(item.price).toFixed(2)} €${isRental ? '/séance' : ''}`;
 
   return (
     <View style={[s.card, outOfStock && s.cardOut]}>
       {/* ── Image ── */}
       <View style={s.imgWrap}>
-        <TagImage
-          uri={item.image_url}
-          tagIds={item.tag_ids || []}
-          style={s.img}
-        />
-        {/* Badge source */}
+        <TagImage uri={imageUri} tagIds={item.tag_ids || []} style={s.img} />
+        {/* Badge owner/other */}
         <View style={[s.badge, { backgroundColor: badgeCfg.bg }]}>
-          <Ionicons
-            name={item.badge_type === 'owner' ? 'star' : 'person-outline'}
-            size={9}
-            color={badgeCfg.text}
-          />
-          <Text style={[s.badgeText, { color: badgeCfg.text }]} numberOfLines={1}>
-            {item.badge_label || 'Autre'}
-          </Text>
+          <Ionicons name={item.badge_type === 'owner' ? 'star' : 'person-outline'} size={9} color={badgeCfg.text} />
+          <Text style={[s.badgeText, { color: badgeCfg.text }]} numberOfLines={1}>{item.badge_label || 'Autre'}</Text>
         </View>
         {/* Type pill */}
-        <View style={[s.typePill, isRental ? s.typePillRent : s.typePillSale]}>
-          <Text style={s.typePillText}>{isRental ? 'Location' : 'Vente'}</Text>
+        <View style={[s.typePill, isService ? s.typePillService : isRental ? s.typePillRent : s.typePillSale]}>
+          <Text style={s.typePillText}>{isService ? 'Service' : isRental ? 'Location' : 'Vente'}</Text>
         </View>
-        {/* Stock */}
         {outOfStock && (
-          <View style={s.outOverlay}>
-            <Text style={s.outText}>Indisponible</Text>
-          </View>
+          <View style={s.outOverlay}><Text style={s.outText}>Indisponible</Text></View>
         )}
       </View>
 
@@ -100,21 +95,30 @@ function ProductCard({ item }: { item: any }) {
 
         <View style={s.row}>
           <Text style={[s.price, isFree && { color: '#22C55E' }]}>{priceLabel}</Text>
-          {item.skill_level && item.skill_level !== 'tous' && (
+          {isService && item.duration_min ? (
+            <View style={[s.lvlPill, { backgroundColor: '#F59E0B22', borderColor: '#F59E0B55' }]}>
+              <Text style={[s.lvlText, { color: '#F59E0B' }]}>{item.duration_min} min</Text>
+            </View>
+          ) : !isService && item.skill_level && item.skill_level !== 'tous' ? (
             <View style={[s.lvlPill, { backgroundColor: levelColor + '22', borderColor: levelColor + '55' }]}>
               <Text style={[s.lvlText, { color: levelColor }]}>
                 {item.skill_level === 'debutant' ? 'Débutant' : item.skill_level === 'intermediaire' ? 'Inter.' : 'Avancé'}
               </Text>
             </View>
-          )}
+          ) : null}
         </View>
 
-        {item.seller_name && (
+        {isService && item.coach_name ? (
+          <View style={s.sellerRow}>
+            <Ionicons name="person-circle-outline" size={12} color={COBALT} />
+            <Text style={[s.sellerName, { color: COBALT, fontWeight: '600' }]} numberOfLines={1}>{item.coach_name}</Text>
+          </View>
+        ) : !isService && item.seller_name ? (
           <View style={s.sellerRow}>
             <Ionicons name="person-outline" size={10} color={Colors.muted} />
             <Text style={s.sellerName} numberOfLines={1}>{item.seller_name}</Text>
           </View>
-        )}
+        ) : null}
       </View>
     </View>
   );
@@ -179,11 +183,12 @@ export function MarketplaceModal({ visible, onClose, spotYouId, tagIds }: Props)
   }, [visible, cacheKey]);
 
   const filtered = products.filter(p => {
-    if (filter === 'all')    return true;
-    if (filter === 'owner')  return p.badge_type === 'owner';
-    if (filter === 'other')  return p.badge_type === 'other';
-    if (filter === 'rental') return p.product_type === 'rental';
-    if (filter === 'sale')   return p.product_type === 'sale';
+    if (filter === 'all')     return true;
+    if (filter === 'owner')   return p.badge_type === 'owner';
+    if (filter === 'other')   return p.badge_type === 'other';
+    if (filter === 'service') return p.item_type === 'service';
+    if (filter === 'rental')  return p.item_type === 'product' && p.product_type === 'rental';
+    if (filter === 'sale')    return p.item_type === 'product' && p.product_type === 'sale';
     return true;
   });
 
@@ -352,6 +357,7 @@ const s = StyleSheet.create({
   typePill:        { position: 'absolute', bottom: 7, right: 7, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 8 },
   typePillSale:    { backgroundColor: 'rgba(0,0,0,0.55)' },
   typePillRent:    { backgroundColor: 'rgba(59,130,246,0.75)' },
+  typePillService: { backgroundColor: 'rgba(249,115,22,0.85)' },
   typePillText:    { fontSize: 10, fontWeight: '600', color: '#fff' },
 
   outOverlay:      { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' },
