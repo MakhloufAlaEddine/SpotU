@@ -5,7 +5,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, Modal, TouchableOpacity, FlatList,
-  ActivityIndicator, StyleSheet, Dimensions, ScrollView,
+  ActivityIndicator, StyleSheet, Dimensions, ScrollView, Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../constants/Colors';
@@ -50,75 +50,115 @@ interface Props {
   tagIds?: string[];
 }
 
+/* ─── Constantes couleurs service (identiques à map.tsx) ─────────────────*/
+const ORANGE     = '#FF9500';
+const ORANGE_DIM = 'rgba(255,149,0,0.15)';
+const ORANGE_BDR = 'rgba(255,149,0,0.3)';
+
 /* ─── ProductCard ────────────────────────────────────────────────────────*/
 function ProductCard({ item }: { item: any }) {
-  const badgeCfg   = BADGE[item.badge_type] ?? BADGE.other;
   const isService  = item.item_type === 'service';
-  const isRental   = !isService && item.product_type === 'rental';
-  const outOfStock = !isService && item.in_stock === false;
+
+  if (isService) return <ServiceCard item={item} />;
+
+  const badgeCfg   = BADGE[item.badge_type] ?? BADGE.other;
+  const isRental   = item.product_type === 'rental';
+  const outOfStock = item.in_stock === false;
   const isFree     = item.price === 0;
   const levelColor = LEVEL_COLORS[item.skill_level] ?? Colors.muted;
-
-  const imageUri = isService
-    ? (Array.isArray(item.images) ? item.images[0] : null)
-    : item.image_url;
-
   const priceLabel = isFree
     ? 'Gratuit'
-    : isService
-    ? `Dès ${Number(item.price).toFixed(0)} €`
     : `${Number(item.price).toFixed(2)} €${isRental ? '/séance' : ''}`;
 
   return (
     <View style={[s.card, outOfStock && s.cardOut]}>
-      {/* ── Image ── */}
       <View style={s.imgWrap}>
-        <TagImage uri={imageUri} tagIds={item.tag_ids || []} style={s.img} />
-        {/* Badge owner/other */}
+        <TagImage uri={item.image_url} tagIds={item.tag_ids || []} style={s.img} />
         <View style={[s.badge, { backgroundColor: badgeCfg.bg }]}>
           <Ionicons name={item.badge_type === 'owner' ? 'star' : 'person-outline'} size={9} color={badgeCfg.text} />
           <Text style={[s.badgeText, { color: badgeCfg.text }]} numberOfLines={1}>{item.badge_label || 'Autre'}</Text>
         </View>
-        {/* Type pill */}
-        <View style={[s.typePill, isService ? s.typePillService : isRental ? s.typePillRent : s.typePillSale]}>
-          <Text style={s.typePillText}>{isService ? 'Service' : isRental ? 'Location' : 'Vente'}</Text>
+        <View style={[s.typePill, isRental ? s.typePillRent : s.typePillSale]}>
+          <Text style={s.typePillText}>{isRental ? 'Location' : 'Vente'}</Text>
         </View>
-        {outOfStock && (
-          <View style={s.outOverlay}><Text style={s.outText}>Indisponible</Text></View>
-        )}
+        {outOfStock && <View style={s.outOverlay}><Text style={s.outText}>Indisponible</Text></View>}
       </View>
-
-      {/* ── Infos ── */}
       <View style={s.info}>
         <Text style={s.title} numberOfLines={2}>{item.title}</Text>
         <Text style={s.desc} numberOfLines={2}>{item.description}</Text>
-
         <View style={s.row}>
           <Text style={[s.price, isFree && { color: '#22C55E' }]}>{priceLabel}</Text>
-          {isService && item.duration_min ? (
-            <View style={[s.lvlPill, { backgroundColor: '#F59E0B22', borderColor: '#F59E0B55' }]}>
-              <Text style={[s.lvlText, { color: '#F59E0B' }]}>{item.duration_min} min</Text>
-            </View>
-          ) : !isService && item.skill_level && item.skill_level !== 'tous' ? (
+          {item.skill_level && item.skill_level !== 'tous' && (
             <View style={[s.lvlPill, { backgroundColor: levelColor + '22', borderColor: levelColor + '55' }]}>
               <Text style={[s.lvlText, { color: levelColor }]}>
                 {item.skill_level === 'debutant' ? 'Débutant' : item.skill_level === 'intermediaire' ? 'Inter.' : 'Avancé'}
               </Text>
             </View>
-          ) : null}
+          )}
         </View>
-
-        {isService && item.coach_name ? (
-          <View style={s.sellerRow}>
-            <Ionicons name="person-circle-outline" size={12} color={COBALT} />
-            <Text style={[s.sellerName, { color: COBALT, fontWeight: '600' }]} numberOfLines={1}>{item.coach_name}</Text>
-          </View>
-        ) : !isService && item.seller_name ? (
+        {item.seller_name && (
           <View style={s.sellerRow}>
             <Ionicons name="person-outline" size={10} color={Colors.muted} />
             <Text style={s.sellerName} numberOfLines={1}>{item.seller_name}</Text>
           </View>
-        ) : null}
+        )}
+      </View>
+    </View>
+  );
+}
+
+/* ─── ServiceCard (couleurs identiques à la page d'accueil) ─────────────*/
+function ServiceCard({ item }: { item: any }) {
+  const badgeCfg  = BADGE[item.badge_type] ?? BADGE.other;
+  const isFree    = item.price === 0;
+  const initial   = item.coach_name?.charAt(0)?.toUpperCase() || 'C';
+
+  return (
+    <View style={[s.card, sv.card]}>
+      {/* Image */}
+      <View style={s.imgWrap}>
+        <TagImage
+          uri={Array.isArray(item.images) ? item.images[0] : null}
+          tagIds={item.tag_ids || []}
+          style={s.img}
+        />
+        {/* Overlay sombre */}
+        <View style={sv.imgOverlay} />
+        {/* Badge SERVICE orange */}
+        <View style={sv.serviceBadge}>
+          <Text style={sv.serviceBadgeTxt}>SERVICE</Text>
+        </View>
+        {/* Badge owner/other */}
+        <View style={[s.badge, { backgroundColor: badgeCfg.bg, top: 7, left: 7, right: undefined, bottom: undefined }]}>
+          <Ionicons name={item.badge_type === 'owner' ? 'star' : 'person-outline'} size={9} color={badgeCfg.text} />
+          <Text style={[s.badgeText, { color: badgeCfg.text }]} numberOfLines={1}>{item.badge_label}</Text>
+        </View>
+      </View>
+
+      {/* Infos */}
+      <View style={s.info}>
+        <Text style={s.title} numberOfLines={2}>{item.title}</Text>
+
+        {/* Ligne coach */}
+        <View style={sv.coachRow}>
+          <View style={sv.coachAvatar}>
+            {item.coach_picture
+              ? <Image source={{ uri: item.coach_picture }} style={{ width: '100%', height: '100%' }} />
+              : <Text style={sv.coachAvatarTxt}>{initial}</Text>}
+          </View>
+          <Text style={sv.coachName} numberOfLines={1}>{item.coach_name || 'Coach'}</Text>
+        </View>
+
+        {/* Prix + durée */}
+        <View style={s.row}>
+          <Text style={sv.price}>{isFree ? 'Gratuit' : `Dès ${Number(item.price).toFixed(0)} €`}</Text>
+          {item.duration_min && (
+            <View style={sv.durationChip}>
+              <Ionicons name="time-outline" size={9} color={ORANGE} />
+              <Text style={sv.durationTxt}>{item.duration_min} min</Text>
+            </View>
+          )}
+        </View>
       </View>
     </View>
   );
@@ -387,4 +427,19 @@ const s = StyleSheet.create({
   emptySub:        { fontSize: 13, color: Colors.muted, textAlign: 'center', lineHeight: 19 },
   resetFilterBtn:  { marginTop: 8, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20, borderWidth: 1, borderColor: COBALT },
   resetFilterText: { fontSize: 14, fontWeight: '600', color: COBALT },
+});
+
+/* ─── Styles spécifiques aux cartes SERVICE (identiques à map.tsx) ───────*/
+const sv = StyleSheet.create({
+  card:           { borderColor: ORANGE_BDR, borderWidth: 1.5 },
+  imgOverlay:     { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.22)' },
+  serviceBadge:   { position: 'absolute', bottom: 7, right: 7, backgroundColor: ORANGE, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2 },
+  serviceBadgeTxt:{ fontSize: 8, fontWeight: '800', color: '#fff', letterSpacing: 0.5 },
+  coachRow:       { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
+  coachAvatar:    { width: 18, height: 18, borderRadius: 9, backgroundColor: ORANGE, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  coachAvatarTxt: { fontSize: 8, fontWeight: '800', color: '#fff' },
+  coachName:      { fontSize: 11, color: Colors.muted, flex: 1 },
+  price:          { fontSize: 14, fontWeight: '800', color: ORANGE },
+  durationChip:   { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: ORANGE_DIM, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 },
+  durationTxt:    { fontSize: 9, color: ORANGE, fontWeight: '600' },
 });
