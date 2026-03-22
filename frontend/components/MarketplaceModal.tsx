@@ -119,24 +119,63 @@ function ProductCard({ item }: { item: any }) {
   );
 }
 
-/* ─── Modal principal ────────────────────────────────────────────────────*/
-export function MarketplaceModal({ visible, onClose, spotYouId, tagIds }: Props) {
-  const [products, setProducts] = useState<any[]>([]);
-  const [loading,  setLoading]  = useState(true);
-  const [filter,   setFilter]   = useState<string>('all');
+/* ─── Cache module-level ─────────────────────────────────────────────────*/
+const productCache = new Map<string, any[]>();
 
-  const load = useCallback(() => {
-    setLoading(true);
-    // On envoie TOUJOURS spotyou_id pour la résolution du badge owner
+/* ─── Modal principal ────────────────────────────────────────────────────*/
+type LoadState = 'loading' | 'refreshing' | 'error' | 'empty' | 'loaded';
+
+export function MarketplaceModal({ visible, onClose, spotYouId, tagIds }: Props) {
+  const [products,  setProducts]  = useState<any[]>([]);
+  const [loadState, setLoadState] = useState<LoadState>('loading');
+  const [filter,    setFilter]    = useState<string>('all');
+
+  const cacheKey = `${spotYouId}::${tagIds?.join(',') ?? ''}`;
+
+  const load = useCallback((silent = false) => {
+    // Si cache dispo, afficher immédiatement + rafraîchir en arrière-plan
+    const cached = productCache.get(cacheKey);
+    if (cached) {
+      setProducts(cached);
+      setLoadState(silent ? 'refreshing' : 'loaded');
+      if (silent) return; // ne pas refetch si déjà en mode silencieux
+    } else {
+      setLoadState('loading');
+    }
+
     const parts: string[] = [`spotyou_id=${spotYouId}`];
     if (tagIds?.length) parts.push(`tag_ids=${tagIds.join(',')}`);
-    api.get(`/marketplace/products?${parts.join('&')}`)
-      .then((d: any) => setProducts(d.products || []))
-      .catch(() => setProducts([]))
-      .finally(() => setLoading(false));
-  }, [visible, spotYouId]);
 
-  useEffect(() => { if (visible) { setFilter('all'); load(); } }, [visible]);
+    api.get(`/marketplace/products?${parts.join('&')}`)
+      .then((d: any) => {
+        const list = d.products || [];
+        productCache.set(cacheKey, list);
+        setProducts(list);
+        setLoadState(list.length === 0 ? 'empty' : 'loaded');
+      })
+      .catch(() => {
+        // Si on a un cache, garder les données mais indiquer l'erreur réseau discrètement
+        if (productCache.has(cacheKey)) {
+          setLoadState('loaded'); // cache toujours valide
+        } else {
+          setLoadState('error');
+        }
+      });
+  }, [cacheKey, spotYouId, tagIds]);
+
+  useEffect(() => {
+    if (visible) {
+      setFilter('all');
+      // Si cache dispo : affichage immédiat + refresh silencieux en arrière-plan
+      const hasCached = productCache.has(cacheKey);
+      load(hasCached);
+      if (hasCached) {
+        // refresh en background après 300ms
+        const t = setTimeout(() => load(false), 300);
+        return () => clearTimeout(t);
+      }
+    }
+  }, [visible, cacheKey]);
 
   const filtered = products.filter(p => {
     if (filter === 'all')           return true;
@@ -162,7 +201,11 @@ export function MarketplaceModal({ visible, onClose, spotYouId, tagIds }: Props)
           <View style={{ flex: 1 }}>
             <Text style={s.headerTitle}>Boutique</Text>
             <Text style={s.headerSub}>
-              {loading ? 'Chargement…' : `${products.length} produit${products.length > 1 ? 's' : ''} liés`}
+              {loadState === 'loading'
+                ? 'Chargement…'
+                : loadState === 'error'
+                ? 'Erreur réseau'
+                : `${products.length} produit${products.length > 1 ? 's' : ''} lié${products.length > 1 ? 's' : ''}`}
             </Text>
           </View>
           <TouchableOpacity style={s.closeBtn} onPress={onClose} testID="marketplace-close-btn">
@@ -171,7 +214,7 @@ export function MarketplaceModal({ visible, onClose, spotYouId, tagIds }: Props)
         </View>
 
         {/* ── Légende badges ── */}
-        {!loading && (ownerCount > 0 || otherCount > 0) && (
+        {(loadState === 'loaded' || loadState === 'refreshing') && (ownerCount > 0 || otherCount > 0) && (
           <View style={s.legendRow}>
             {ownerCount > 0 && (
               <View style={[s.legendPill, { backgroundColor: '#22C55E22', borderColor: '#22C55E55' }]}>
@@ -212,22 +255,49 @@ export function MarketplaceModal({ visible, onClose, spotYouId, tagIds }: Props)
         </View>
 
         {/* ── Contenu ── */}
-        {loading ? (
+        {loadState === 'loading' ? (
           <View style={s.center}>
             <ActivityIndicator size="large" color={COBALT} />
             <Text style={s.loadingText}>Chargement des produits…</Text>
           </View>
-        ) : filtered.length === 0 ? (
+        ) : loadState === 'error' ? (
+          /* ── Erreur réseau ── */
           <View style={s.center}>
-            <Ionicons name="basket-outline" size={48} color={Colors.muted} />
-            <Text style={s.emptyTitle}>Aucun produit</Text>
+            <View style={s.errorIconWrap}>
+              <Ionicons name="wifi-outline" size={40} color="#EF4444" />
+            </View>
+            <Text style={s.errorTitle}>Connexion impossible</Text>
+            <Text style={s.errorSub}>Vérifiez votre connexion internet{'\n'}et réessayez.</Text>
+            <TouchableOpacity style={s.retryBtn} onPress={() => load(false)} testID="marketplace-retry-btn">
+              <Ionicons name="refresh-outline" size={16} color="#fff" />
+              <Text style={s.retryText}>Réessayer</Text>
+            </TouchableOpacity>
+          </View>
+        ) : loadState === 'empty' || (loadState === 'loaded' && filtered.length === 0) ? (
+          /* ── Vraiment vide (pas d'erreur réseau) ── */
+          <View style={s.center}>
+            <View style={s.emptyIconWrap}>
+              <Ionicons name="basket-outline" size={40} color={Colors.muted} />
+            </View>
+            <Text style={s.emptyTitle}>
+              {loadState === 'empty' && filter === 'all'
+                ? 'Aucun produit associé'
+                : 'Aucun produit pour ce filtre'}
+            </Text>
             <Text style={s.emptySub}>
-              {filter === 'owner'
+              {loadState === 'empty' && filter === 'all'
+                ? 'Aucun équipement n\'est encore lié aux tags de ce SpotYou.'
+                : filter === 'owner'
                 ? 'Le créateur n\'a pas encore ajouté de produits.'
                 : filter === 'other_creator'
                 ? 'Aucun produit d\'autres SpotYou pour ces tags.'
-                : 'Aucun produit correspondant à ce filtre.'}
+                : 'Essayez un autre filtre.'}
             </Text>
+            {filter !== 'all' && (
+              <TouchableOpacity style={s.resetFilterBtn} onPress={() => setFilter('all')}>
+                <Text style={s.resetFilterText}>Voir tous les produits</Text>
+              </TouchableOpacity>
+            )}
           </View>
         ) : (
           <FlatList
@@ -298,6 +368,16 @@ const s = StyleSheet.create({
 
   center:          { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.lg, gap: 10 },
   loadingText:     { fontSize: 14, color: Colors.muted, marginTop: 8 },
-  emptyTitle:      { fontSize: 16, fontWeight: '700', color: Colors.foreground },
-  emptySub:        { fontSize: 13, color: Colors.muted, textAlign: 'center', lineHeight: 18 },
+
+  errorIconWrap:   { width: 72, height: 72, borderRadius: 36, backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  errorTitle:      { fontSize: 17, fontWeight: '700', color: '#EF4444' },
+  errorSub:        { fontSize: 13, color: Colors.muted, textAlign: 'center', lineHeight: 19 },
+  retryBtn:        { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20, backgroundColor: '#EF4444' },
+  retryText:       { fontSize: 14, fontWeight: '700', color: '#fff' },
+
+  emptyIconWrap:   { width: 72, height: 72, borderRadius: 36, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border, marginBottom: 4 },
+  emptyTitle:      { fontSize: 17, fontWeight: '700', color: Colors.foreground },
+  emptySub:        { fontSize: 13, color: Colors.muted, textAlign: 'center', lineHeight: 19 },
+  resetFilterBtn:  { marginTop: 8, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20, borderWidth: 1, borderColor: COBALT },
+  resetFilterText: { fontSize: 14, fontWeight: '600', color: COBALT },
 });
