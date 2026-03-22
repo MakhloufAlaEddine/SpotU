@@ -1882,6 +1882,8 @@ export default function SpotYouDetail() {
         onClose={() => setShowMarketplace(false)}
         spotYouId={id as string}
         tagIds={tags.map((t: any) => t.tag_id)}
+        userLat={location?.lat}
+        userLng={location?.lng}
       />
     </View>
   );

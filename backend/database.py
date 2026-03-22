@@ -810,6 +810,30 @@ async def connect_to_db():
             ON CONFLICT (product_id) DO NOTHING;
         """)
 
+        # [MARKETPLACE-GEO] Colonnes lat/lng pour produits physiques + coordonnées seed
+        await conn.execute("""
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS lat FLOAT;
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS lng FLOAT;
+        """)
+        await conn.execute("""
+            UPDATE marketplace_products SET lat = 48.8500, lng = 2.3700
+                WHERE product_id = 'mp_009';
+            UPDATE marketplace_products SET lat = 48.8630, lng = 2.3590
+                WHERE product_id = 'mp_013';
+            UPDATE marketplace_products SET lat = 48.8800, lng = 2.3200
+                WHERE product_id = 'mp_021';
+            UPDATE marketplace_products SET lat = 48.8770, lng = 2.3580
+                WHERE product_id = 'mp_040';
+            UPDATE marketplace_products SET lat = 48.8900, lng = 2.3650
+                WHERE product_id = 'mp_045';
+            UPDATE marketplace_products SET lat = 48.8610, lng = 2.3310
+                WHERE product_id = 'mp_048';
+            UPDATE marketplace_products SET lat = 48.9050, lng = 2.4100
+                WHERE product_id = 'mp_035';
+            UPDATE marketplace_products SET lat = 48.8680, lng = 2.4050
+                WHERE product_id = 'mp_028';
+        """)
+
         # [PROFILE-V2] Cover photo + système de suivi (follow/abonnements)
         await conn.execute("""
             ALTER TABLE users ADD COLUMN IF NOT EXISTS cover_picture TEXT;

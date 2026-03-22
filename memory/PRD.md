@@ -69,6 +69,7 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 - [x] Tests E2E
 - [x] Fix masquage adresse "France" (1000m) + masquage uniforme owner/non-owner
 - [x] Marketplace SpotYou (modal + backend route + seed data + filtrage par tags)
+- [x] Distances duelles produits physiques (SpotYou→Produit ET Utilisateur→Produit via Haversine)
 
 ### P1 - Important
 - [ ] Sauvegardes automatiques DB
