@@ -5,7 +5,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, Modal, TouchableOpacity, FlatList,
-  ActivityIndicator, StyleSheet, Dimensions,
+  ActivityIndicator, StyleSheet, Dimensions, ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../constants/Colors';
@@ -189,25 +189,25 @@ export function MarketplaceModal({ visible, onClose, spotYouId, tagIds }: Props)
         )}
 
         {/* ── Filtres ── */}
-        <FlatList
-          data={FILTERS as any}
-          keyExtractor={i => i.key}
+        <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={s.filtersWrap}
-          renderItem={({ item: f }) => {
+        >
+          {(FILTERS as ReadonlyArray<{ key: string; label: string }>).map((f) => {
             const active = filter === f.key;
             return (
               <TouchableOpacity
-                style={[s.filterChip, active && s.filterChipActive, { marginRight: 8 }]}
+                key={f.key}
+                style={[s.filterChip, active && s.filterChipActive]}
                 onPress={() => setFilter(f.key)}
                 testID={`marketplace-filter-${f.key}`}
               >
                 <Text style={[s.filterLabel, active && s.filterLabelActive]}>{f.label}</Text>
               </TouchableOpacity>
             );
-          }}
-        />
+          })}
+        </ScrollView>
 
         {/* ── Contenu ── */}
         {loading ? (
