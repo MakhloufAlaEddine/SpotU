@@ -22,11 +22,11 @@ const IMG_H         = 130;
 
 /* ─── Filtres ──────────────────────────────────────────────────────────── */
 const FILTERS = [
-  { key: 'all',           label: 'Tous',           icon: 'grid-outline'        },
-  { key: 'owner',         label: 'Ce SpotYou',     icon: 'star-outline'        },
-  { key: 'other_creator', label: 'Autres SpotYou', icon: 'people-outline'      },
-  { key: 'rental',        label: 'Location',       icon: 'time-outline'        },
-  { key: 'sale',          label: 'Vente',          icon: 'pricetag-outline'    },
+  { key: 'all',           label: 'Tous'           },
+  { key: 'owner',         label: 'Ce SpotYou'     },
+  { key: 'other_creator', label: 'Autres SpotYou' },
+  { key: 'rental',        label: 'Location'       },
+  { key: 'sale',          label: 'Vente'          },
 ] as const;
 
 /* ─── Badge config ─────────────────────────────────────────────────────── */
@@ -199,16 +199,10 @@ export function MarketplaceModal({ visible, onClose, spotYouId, tagIds }: Props)
             const active = filter === f.key;
             return (
               <TouchableOpacity
-                style={[s.filterChip, active && s.filterChipActive]}
+                style={[s.filterChip, active && s.filterChipActive, { marginRight: 8 }]}
                 onPress={() => setFilter(f.key)}
                 testID={`marketplace-filter-${f.key}`}
               >
-                <Ionicons
-                  name={f.icon as any}
-                  size={13}
-                  color={active ? '#fff' : Colors.muted}
-                  style={{ marginRight: 4 }}
-                />
                 <Text style={[s.filterLabel, active && s.filterLabelActive]}>{f.label}</Text>
               </TouchableOpacity>
             );
@@ -262,7 +256,7 @@ const s = StyleSheet.create({
   legendPill:      { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
   legendText:      { fontSize: 11, fontWeight: '600' },
 
-  filtersWrap:     { paddingHorizontal: Spacing.md, paddingVertical: 10, gap: 8 },
+  filtersWrap:     { paddingHorizontal: Spacing.md, paddingVertical: 10 },
   filterChip:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border },
   filterChipActive:{ backgroundColor: COBALT, borderColor: COBALT },
   filterLabel:     { fontSize: 13, color: Colors.muted, fontWeight: '500' },
