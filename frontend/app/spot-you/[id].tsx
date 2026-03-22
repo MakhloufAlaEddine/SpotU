@@ -395,6 +395,27 @@ export default function SpotYouDetail() {
   const [showExactAddress, setShowExactAddress] = useState(false);
   const [showMarketplace, setShowMarketplace] = useState(false);
 
+  // ── Animation pulse bouton Marketplace ───────────────────────────────────
+  const marketplacePulse = useRef(new Animated.Value(1)).current;
+  const marketplaceGlow  = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(marketplacePulse, { toValue: 1.18, duration: 700, useNativeDriver: true }),
+          Animated.timing(marketplaceGlow,  { toValue: 1,    duration: 700, useNativeDriver: true }),
+        ]),
+        Animated.parallel([
+          Animated.timing(marketplacePulse, { toValue: 1,    duration: 700, useNativeDriver: true }),
+          Animated.timing(marketplaceGlow,  { toValue: 0,    duration: 700, useNativeDriver: true }),
+        ]),
+        Animated.delay(1200),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, []);
+
   // ── Refresh debounced — une seule source de vérité ────────────────────────
   // Ref toujours fraîche (pas de stale closure). Debounce 200ms pour éviter
   // des fetches concurrents quand WS + doRSVP déclenchent un refresh simultané.
@@ -1402,10 +1423,28 @@ export default function SpotYouDetail() {
             activeOpacity={0.7}
             testID="marketplace-btn"
           >
-            <View style={[st.actionIcon, { backgroundColor: 'rgba(59,130,246,0.1)', borderColor: 'rgba(59,130,246,0.3)' }]}>
-              <Ionicons name="storefront-outline" size={26} color="#3B82F6" />
+            {/* Halo pulsant en arrière-plan */}
+            <View style={{ position: 'relative', alignItems: 'center', justifyContent: 'center' }}>
+              <Animated.View style={{
+                position: 'absolute',
+                width: 52, height: 52, borderRadius: 26,
+                backgroundColor: 'rgba(59,130,246,0.18)',
+                transform: [{ scale: marketplacePulse }],
+                opacity: marketplaceGlow,
+              }} />
+              <View style={[st.actionIcon, { backgroundColor: 'rgba(59,130,246,0.12)', borderColor: 'rgba(59,130,246,0.4)', borderWidth: 1.5 }]}>
+                <Ionicons name="storefront" size={26} color="#3B82F6" />
+              </View>
+              {/* Badge point rouge */}
+              <Animated.View style={{
+                position: 'absolute', top: 0, right: 0,
+                width: 10, height: 10, borderRadius: 5,
+                backgroundColor: '#EF4444',
+                borderWidth: 1.5, borderColor: Colors.background,
+                transform: [{ scale: marketplacePulse }],
+              }} />
             </View>
-            <Text style={[st.actionLabel, { color: '#3B82F6' }]}>Boutique</Text>
+            <Text style={[st.actionLabel, { color: '#3B82F6', fontWeight: '700' }]}>Boutique</Text>
           </TouchableOpacity>
 
           {!isOwner && (
