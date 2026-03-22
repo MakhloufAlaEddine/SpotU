@@ -1,100 +1,120 @@
 {
-  "design_guidelines": {
-    "file_target": "/app/frontend/app/user/[id].tsx",
-    "theme": {
-      "mode": "dark",
-      "colors": {
-        "background": "#0A0A0A",
-        "card": "#1A1A1A",
-        "primary": "#00BFA5",
-        "text_primary": "#FFFFFF",
-        "text_secondary": "#A1A1AA",
-        "border": "#333333",
-        "verified_badge": "#00BFA5",
-        "coach_badge_bg": "#0D2420", 
-        "coach_badge_border": "#00BFA5",
-        "rating_badge_bg": "#2A2005",
-        "rating_badge_border": "#FFD700",
-        "rating_icon": "#FFD700"
-      },
-      "typography": {
-        "name": {
-          "fontSize": 26,
-          "fontWeight": "bold",
-          "color": "#FFFFFF",
-          "letterSpacing": -0.5
-        },
-        "bio": {
-          "fontSize": 14,
-          "color": "#A1A1AA",
-          "textAlign": "center",
-          "lineHeight": 20
-        },
-        "stats_number": {
-          "fontSize": 20,
-          "fontWeight": "bold",
-          "color": "#FFFFFF"
-        },
-        "stats_label": {
-          "fontSize": 11,
-          "color": "#A1A1AA",
-          "textTransform": "uppercase",
-          "fontWeight": "600"
-        }
-      },
-      "spacing": {
-        "cover_height": 180,
-        "avatar_size": 106,
-        "avatar_border_width": 3,
-        "avatar_offset_bottom": -53,
-        "content_top_padding": 60 
-      }
+  "project_type": "mobile_web_app",
+  "theme": "dark",
+  "typography": {
+    "headings": {
+      "font_family": "Outfit, sans-serif",
+      "weights": ["600", "700", "800"],
+      "usage": "Marketplace titles, section headers, product names",
+      "tracking": "tracking-tight"
     },
-    "components": {
-      "Hero": {
-        "structure": [
-          "Container View (relative, no padding top)",
-          "Cover Image (180px height, resizeMode='cover')",
-          "Upload Button (Owner only, absolute bottom-right of cover)",
-          "Avatar Container (Absolute, centered, bottom: -53 of cover)",
-          "Content Container (marginTop: ~60px to clear avatar)",
-          "Name Text",
-          "Badges Row (Coach, Rating)",
-          "Bio Text",
-          "Follow Button (Visitor only)",
-          "Stats Row (Card with 4 columns: SpotYou, Avis, Services, Abonnés)"
-        ],
-        "state_requirements": [
-          "isFollowing (boolean)",
-          "followersCount (number)",
-          "followingCount (number)",
-          "coverUrl (string)"
-        ],
-        "icons": {
-          "library": "Ionicons",
-          "upload": "camera",
-          "verified": "checkmark-circle",
-          "coach": "trophy",
-          "rating": "star",
-          "follow": "add",
-          "following": "checkmark"
-        }
-      }
-    },
-    "implementation_steps": [
-      "1. Update the 'profile' state to include 'cover_url', 'followers_count', 'following_count' (mock if missing).",
-      "2. Create 'isFollowing' state for visitor interaction.",
-      "3. Replace the existing 'st.hero' View with the new layout.",
-      "4. Update StyleSheet 'st' with new classes provided below.",
-      "5. Ensure all data-testids are preserved."
-    ],
-    "image_assets": {
-      "default_cover": "https://images.unsplash.com/photo-1574505371939-de03b2e174f4?ixlib=rb-4.1.0&q=85&fm=jpg&crop=entropy&cs=srgb",
-      "placeholder_avatar": "https://ui-avatars.com/api/?background=0D8ABC&color=fff&size=128"
-    },
-    "code_snippets": {
-      "hero_jsx": "<View style={st.hero} testID=\"user-profile-hero\">\n          {/* COVER PHOTO */}\n          <View style={st.coverContainer}>\n            {profile.cover_url ? (\n              <Image source={{ uri: profile.cover_url }} style={st.coverImage} />\n            ) : (\n              <View style={st.coverPlaceholder} />\n            )}\n            {isOwnProfile && (\n              <TouchableOpacity style={st.coverUploadBtn} testID=\"cover-upload-btn\">\n                <Ionicons name=\"camera\" size={20} color=\"#FFF\" />\n              </TouchableOpacity>\n            )}\n          </View>\n\n          {/* AVATAR (Absolute) */}\n          <View style={st.avatarAbsoluteWrap}>\n            <Image \n              source={{ uri: profile.picture || 'https://ui-avatars.com/api/?background=0D8ABC&color=fff&size=128' }} \n              style={st.avatarImage} \n            />\n            {profile.is_coach_verified && (\n              <View style={st.verifiedBadge}>\n                <Ionicons name=\"checkmark\" size={16} color=\"#0A0A0A\" />\n              </View>\n            )}\n          </View>\n\n          {/* CONTENT BELOW COVER */}\n          <View style={st.profileContent}>\n            {/* Name */}\n            <Text style={st.profileName} testID=\"user-profile-name\">{profile.name}</Text>\n\n            {/* Badges */}\n            <View style={st.badgesRow}>\n              {isCoach && (\n                <View style={st.badgeCoach}>\n                  <Ionicons name=\"trophy\" size={12} color=\"#00BFA5\" />\n                  <Text style={st.badgeCoachText}>Coach</Text>\n                </View>\n              )}\n              {avgRating != null && (\n                <View style={st.badgeRating} testID=\"rating-badge\">\n                  <Ionicons name=\"star\" size={12} color=\"#FFD700\" />\n                  <Text style={st.badgeRatingText}>{avgRating} ({reviews.length})</Text>\n                </View>\n              )}\n            </View>\n\n            {/* Bio */}\n            {profile.bio ? <Text style={st.profileBio}>{profile.bio}</Text> : null}\n\n            {/* Follow Button (Visitor) */}\n            {!isOwnProfile && (\n              <TouchableOpacity \n                style={[st.followBtn, isFollowing ? st.followBtnActive : {}]} \n                onPress={() => setIsFollowing(!isFollowing)}\n                testID=\"follow-btn\"\n              >\n                <Text style={[st.followBtnText, isFollowing ? st.followBtnTextActive : {}]}>\n                  {isFollowing ? 'Abonné' : 'Suivre'}\n                </Text>\n                {isFollowing && <Ionicons name=\"checkmark\" size={16} color=\"#00BFA5\" />}\n              </TouchableOpacity>\n            )}\n\n            {/* Stats Row */}\n            <View style={st.statsCard}>\n              <View style={st.statCol}>\n                <Text style={st.statVal}>{SpotYou.length}</Text>\n                <Text style={st.statLabel}>SpotYou</Text>\n              </View>\n              <View style={st.statDivider} />\n              <View style={st.statCol}>\n                <Text style={st.statVal}>{reviews.length}</Text>\n                <Text style={st.statLabel}>Avis</Text>\n              </View>\n              <View style={st.statDivider} />\n              <View style={st.statCol}>\n                <Text style={st.statVal}>{services.length}</Text>\n                <Text style={st.statLabel}>Services</Text>\n              </View>\n              <View style={st.statDivider} />\n              <View style={st.statCol}>\n                <Text style={st.statVal}>{profile.followers_count || 0}</Text>\n                <Text style={st.statLabel}>Abonnés</Text>\n              </View>\n            </View>\n          </View>\n        </View>",
-      "stylesheet": "const st = StyleSheet.create({\n  hero: {\n    backgroundColor: '#0A0A0A',\n    marginBottom: 24,\n    paddingBottom: 16,\n    position: 'relative',\n    alignItems: 'center',\n    borderBottomWidth: 1,\n    borderBottomColor: '#1A1A1A',\n  },\n  coverContainer: {\n    height: 180,\n    width: '100%',\n    position: 'relative',\n    backgroundColor: '#0D2420',\n  },\n  coverImage: {\n    width: '100%',\n    height: '100%',\n    resizeMode: 'cover',\n  },\n  coverPlaceholder: {\n    width: '100%',\n    height: '100%',\n    backgroundColor: '#0D2420',\n    opacity: 0.8,\n  },\n  coverUploadBtn: {\n    position: 'absolute',\n    bottom: 12,\n    right: 12,\n    backgroundColor: 'rgba(0,0,0,0.6)',\n    padding: 8,\n    borderRadius: 20,\n    borderWidth: 1,\n    borderColor: 'rgba(255,255,255,0.2)',\n  },\n  avatarAbsoluteWrap: {\n    position: 'absolute',\n    top: 127, // 180 - 53\n    alignSelf: 'center',\n    zIndex: 10,\n  },\n  avatarImage: {\n    width: 106,\n    height: 106,\n    borderRadius: 53,\n    borderWidth: 3,\n    borderColor: '#00BFA5',\n    backgroundColor: '#1A1A1A',\n  },\n  verifiedBadge: {\n    position: 'absolute',\n    bottom: 0,\n    right: 0,\n    backgroundColor: '#00BFA5',\n    width: 24,\n    height: 24,\n    borderRadius: 12,\n    alignItems: 'center',\n    justifyContent: 'center',\n    borderWidth: 2,\n    borderColor: '#0A0A0A',\n  },\n  profileContent: {\n    marginTop: 60,\n    alignItems: 'center',\n    paddingHorizontal: 16,\n    width: '100%',\n  },\n  profileName: {\n    fontSize: 26,\n    fontWeight: 'bold',\n    color: '#FFFFFF',\n    letterSpacing: -0.5,\n    marginBottom: 8,\n  },\n  badgesRow: {\n    flexDirection: 'row',\n    gap: 8,\n    marginBottom: 12,\n  },\n  badgeCoach: {\n    flexDirection: 'row',\n    alignItems: 'center',\n    gap: 4,\n    backgroundColor: '#0D2420',\n    paddingHorizontal: 10,\n    paddingVertical: 4,\n    borderRadius: 12,\n    borderWidth: 1,\n    borderColor: '#00BFA5',\n  },\n  badgeCoachText: {\n    color: '#00BFA5',\n    fontSize: 12,\n    fontWeight: '600',\n  },\n  badgeRating: {\n    flexDirection: 'row',\n    alignItems: 'center',\n    gap: 4,\n    backgroundColor: 'rgba(255, 215, 0, 0.15)',\n    paddingHorizontal: 10,\n    paddingVertical: 4,\n    borderRadius: 12,\n    borderWidth: 1,\n    borderColor: '#FFD700',\n  },\n  badgeRatingText: {\n    color: '#FFD700',\n    fontSize: 12,\n    fontWeight: '600',\n  },\n  profileBio: {\n    fontSize: 14,\n    color: '#A1A1AA',\n    textAlign: 'center',\n    maxWidth: 300,\n    lineHeight: 20,\n    marginBottom: 16,\n  },\n  followBtn: {\n    flexDirection: 'row',\n    alignItems: 'center',\n    gap: 6,\n    backgroundColor: '#00BFA5',\n    paddingHorizontal: 24,\n    paddingVertical: 10,\n    borderRadius: 50,\n    marginBottom: 24,\n  },\n  followBtnActive: {\n    backgroundColor: 'transparent',\n    borderWidth: 1,\n    borderColor: '#00BFA5',\n  },\n  followBtnText: {\n    color: '#0A0A0A',\n    fontWeight: 'bold',\n    fontSize: 14,\n  },\n  followBtnTextActive: {\n    color: '#00BFA5',\n  },\n  statsCard: {\n    flexDirection: 'row',\n    backgroundColor: '#1A1A1A',\n    borderRadius: 16,\n    paddingVertical: 16,\n    paddingHorizontal: 12,\n    width: '100%',\n    borderWidth: 1,\n    borderColor: '#333',\n    justifyContent: 'space-around',\n  },\n  statCol: {\n    alignItems: 'center',\n    flex: 1,\n  },\n  statVal: {\n    fontSize: 20,\n    fontWeight: 'bold',\n    color: '#FFFFFF',\n    marginBottom: 2,\n  },\n  statLabel: {\n    fontSize: 11,\n    color: '#A1A1AA',\n    textTransform: 'uppercase',\n    fontWeight: '600',\n    letterSpacing: 0.5,\n  },\n  statDivider: {\n    width: 1,\n    height: '60%',\n    backgroundColor: '#333',\n    alignSelf: 'center',\n  }\n});"
+    "body": {
+      "font_family": "Manrope, sans-serif",
+      "weights": ["400", "500", "600"],
+      "usage": "Product descriptions, price, metadata, tags"
     }
-  }
+  },
+  "colors": {
+    "background": "#0A0A0A",
+    "foreground": "#EDEDED",
+    "card": "#1A1A1A",
+    "border": "#2A2A2A",
+    "existing_primary": "#00BFA5",
+    "existing_orange": "#FF9500",
+    "marketplace_primary": "#3B82F6",
+    "marketplace_primary_hover": "#2563EB",
+    "marketplace_surface": "rgba(59, 130, 246, 0.1)",
+    "stock_in": "#34D399",
+    "stock_out": "#F87171"
+  },
+  "visual_enhancers": {
+    "borders": "1px solid border-[#2A2A2A], 1px solid border-blue-500/30 for official SpotU items",
+    "radii": "rounded-2xl for main cards, rounded-[32px] for modal top, rounded-full for pills and tags",
+    "shadows": "shadow-lg shadow-black/50 for modal, inner glow (shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]) for SpotU premium cards",
+    "glassmorphism": "backdrop-blur-xl bg-[#0A0A0A]/85 for sticky header and fixed bottom actions",
+    "opacity": "opacity-60 for secondary text and out-of-stock items"
+  },
+  "components": [
+    {
+      "name": "MarketplaceTrigger",
+      "description": "Button to open the marketplace, placed next to Similaires. Uses marketplace_primary color.",
+      "classes": "flex items-center justify-center gap-2 rounded-full bg-[#3B82F6] px-4 py-2 font-semibold text-white transition-transform active:scale-95"
+    },
+    {
+      "name": "MarketplaceModal",
+      "description": "Bottom sheet modal sliding up from the bottom.",
+      "classes": "fixed inset-x-0 bottom-0 z-50 flex h-[90vh] flex-col rounded-t-[32px] border-t border-[#2A2A2A] bg-[#0A0A0A] shadow-2xl"
+    },
+    {
+      "name": "FilterList",
+      "description": "Horizontal scrollable list of filter pills.",
+      "classes": "flex gap-2 overflow-x-auto px-6 py-4 scrollbar-none"
+    },
+    {
+      "name": "FilterPill",
+      "description": "Interactive pill for filtering. Active state uses marketplace_primary.",
+      "classes_active": "rounded-full bg-[#3B82F6] px-4 py-2 text-sm font-semibold text-white",
+      "classes_inactive": "rounded-full bg-[#1A1A1A] border border-[#2A2A2A] px-4 py-2 text-sm font-medium text-[#EDEDED]"
+    },
+    {
+      "name": "ProductCard",
+      "description": "Horizontal card displaying product details. Non-clickable.",
+      "classes": "flex gap-4 rounded-2xl border border-[#2A2A2A] bg-[#1A1A1A] p-4"
+    },
+    {
+      "name": "SpotUProductCard",
+      "description": "Premium variant of the product card for SpotU official products.",
+      "classes": "flex gap-4 rounded-2xl border border-blue-500/30 bg-[#1A1A1A] relative overflow-hidden p-4 before:absolute before:inset-0 before:bg-blue-500/5 before:pointer-events-none"
+    }
+  ],
+  "grids_and_layouts": {
+    "product_list": "flex flex-col gap-4 px-6 pb-24",
+    "card_layout": "Image wrapper left (w-28 h-28), Content right (flex-1 flex flex-col justify-between)",
+    "tags_row": "flex flex-wrap gap-2 mt-2"
+  },
+  "accessibility": {
+    "data_testid_rules": "All interactive elements, cards, and tags MUST have a data-testid attribute in kebab-case format. E.g., data-testid='marketplace-trigger-button', data-testid='filter-pill-tous'.",
+    "aria_roles": "Use dialog role for the modal, tablist for filters."
+  },
+  "media": {
+    "images": [
+      {
+        "url": "https://images.unsplash.com/photo-1602211844066-d3bb556e983b?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "category": "products",
+        "description": "yellow and blue tennis racket (Sport Equipment)"
+      },
+      {
+        "url": "https://images.pexels.com/photos/6550843/pexels-photo-6550843.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "category": "products",
+        "description": "Close-up of a hex dumbbell (Fitness)"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1646504632442-6cacb1858bd6?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "category": "products",
+        "description": "colorful balls in a basket"
+      }
+    ],
+    "image_aspect_ratios": "Product images must be 1:1 square, object-cover."
+  },
+  "instructions_to_main_agent": [
+    "Implement the Marketplace as a React functional component (.js file) inside the existing SpotYou detail page structure.",
+    "The Marketplace modal should be styled as a mobile Bottom Sheet (fixed to bottom, rounded top corners).",
+    "Ensure the new Marketplace brand color (Cobalt Blue #3B82F6) is used distinctly from the existing Teal (#00BFA5) and Orange (#FF9500).",
+    "Product Cards MUST be display-only (no a tags, no cursor-pointer, no onClick) as per requirements.",
+    "Implement the Filter Tabs with horizontal scrolling (overflow-x-auto, scrollbar-none).",
+    "Create a visual distinction between SpotU (platform) products and Creator products. Use a subtle blue border/glow for SpotU products.",
+    "Include tags on the card for: type (Vente/Location), Skill level, Stock status, and Seller.",
+    "Ensure the modal header is sticky to the top of the sheet with a blur effect (backdrop-blur-xl bg-[#0A0A0A]/85). Do not use fully transparent headers.",
+    "Do NOT use 'Inter' for headings. Apply the configured 'Outfit' font for titles and 'Manrope' for body text."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "Do not use generic centered layouts or simplistic gradients.",
+    "Create depth through layered design elements with z-index hierarchy and soft inner shadows.",
+    "Use glass-morphism effects with backdrop filters for sticky navigation or modal headers.",
+    "NEVER use AI assistant emojis for icons. Use lucide-react or ionicons.",
+    "Always use modern pill-shaped or rounded-2xl elements.",
+    "Do not apply global transitions like 'transition: all'. Apply specific transitions to interactive elements.",
+    "Must respect 'prefers-reduced-motion' for animations.",
+    "Add 'data-testid' to every interactive or informational component."
+  ]
 }
