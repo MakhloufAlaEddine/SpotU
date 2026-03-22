@@ -59,7 +59,9 @@ async def get_marketplace_products(
                 """SELECT p.*, u.name as seller_name, u.picture as seller_picture
                    FROM marketplace_products p
                    LEFT JOIN users u ON p.seller_id = u.user_id
-                   ORDER BY p.created_at DESC
+                   ORDER BY
+                     CASE p.seller_type WHEN 'sponsored' THEN 0 WHEN 'spotu' THEN 1 WHEN 'affiliated' THEN 2 WHEN 'recommended' THEN 3 ELSE 4 END,
+                     p.created_at DESC
                    LIMIT 20"""
             )
 
