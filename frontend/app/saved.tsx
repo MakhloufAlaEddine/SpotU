@@ -216,6 +216,7 @@ export default function SavedScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [networkError, setNetworkError] = useState(false);
 
   // Modal de confirmation (Je participe)
   const [confirmVisible, setConfirmVisible] = useState(false);
@@ -230,16 +231,19 @@ export default function SavedScreen() {
   });
 
   const load = async () => {
+    setNetworkError(false);
     try {
       const [pts, svcs] = await Promise.all([
-        api.get('/tag-points/saved').catch(() => []),
-        api.get('/services/saved').catch(() => []),
+        api.get('/tag-points/saved'),
+        api.get('/services/saved'),
       ]);
       setSpotYou(Array.isArray(pts) ? pts : []);
       setServices(Array.isArray(svcs) ? svcs : []);
     } catch {
-      setSpotYou([]);
-      setServices([]);
+      // Only flag network error if we have NO cached data
+      if (SpotYou.length === 0 && services.length === 0) {
+        setNetworkError(true);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -363,6 +367,21 @@ export default function SavedScreen() {
 
       {loading ? (
         <View style={s.center}><ActivityIndicator size="large" color={Colors.primary} /></View>
+      ) : networkError ? (
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 32 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={Colors.primary} />}
+        >
+          <View style={s.emptyIcon}>
+            <Ionicons name="cloud-offline-outline" size={48} color={Colors.muted} />
+          </View>
+          <Text style={s.emptyTitle}>Connexion instable</Text>
+          <Text style={s.emptySubtitle}>Impossible de charger vos enregistrements.{'\n'}Vérifiez votre connexion et réessayez.</Text>
+          <TouchableOpacity style={s.exploreBtn} onPress={() => { setLoading(true); load(); }} testID="retry-network-btn">
+            <Ionicons name="refresh-outline" size={16} color="#fff" style={{ marginRight: 4 }} />
+            <Text style={s.exploreBtnText}>Réessayer</Text>
+          </TouchableOpacity>
+        </ScrollView>
       ) : items.length === 0 ? (
         <View style={s.center} testID="saved-empty-state">
           <View style={s.emptyIcon}>
