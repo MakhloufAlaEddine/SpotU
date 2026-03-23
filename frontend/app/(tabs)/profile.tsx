@@ -16,11 +16,13 @@ import { StaleBanner, ErrorNoData } from '../../components/OfflineBanner';
 import { buildCacheKey, cacheGet, cacheSet, isFresh, getTtl, SCHEMA_VERSION } from '../../lib/cache';
 import { ScreenLoader } from '../../components/ScreenLoader';
 import { useGuardedRouter } from '../../hooks/useGuardedRouter';
+import { useCart } from '../../context/CartContext';
 
 export default function MenuScreen() {
   const router = useGuardedRouter();
   const { user, logout, loading, refreshUser } = useAuth();
   const { lang, setLanguage } = useLang();
+  const { totalItems: cartCount } = useCart();
   const [refreshing, setRefreshing] = useState(false);
   const [mySpotYou, setMySpotYou] = useState<any[]>([]);
   const [showLangModal, setShowLangModal] = useState(false);
@@ -370,6 +372,27 @@ export default function MenuScreen() {
         <View style={st.section}>
           <Text style={st.sectionTitle}>Réservations & Services</Text>
           <View style={st.settingsCard}>
+
+            {/* Mon panier */}
+            <TouchableOpacity
+              style={st.settingRow}
+              onPress={() => router.push('/cart' as any)}
+              activeOpacity={0.7}
+              testID="cart-menu-btn"
+            >
+              <View style={st.settingLeft}>
+                <View style={[st.settingIconBox, { backgroundColor: 'rgba(59,130,246,0.14)' }]}>
+                  <Ionicons name="cart-outline" size={18} color="#3B82F6" />
+                </View>
+                <Text style={st.settingLabel}>Mon panier</Text>
+              </View>
+              {cartCount > 0 && (
+                <View style={{ backgroundColor: '#3B82F6', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 2, marginRight: 6 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '800', color: '#fff' }}>{cartCount}</Text>
+                </View>
+              )}
+              <Ionicons name="chevron-forward" size={16} color={Colors.muted} />
+            </TouchableOpacity>
             <TouchableOpacity
               style={st.settingRow}
               onPress={() => router.push('/bookings' as any)}

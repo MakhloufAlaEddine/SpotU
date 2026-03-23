@@ -11,6 +11,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../constants/Colors';
 import { api } from '../lib/api';
 import { TagImage } from './TagImage';
+import { useCart } from '../context/CartContext';
+import { CartContent } from './CartContent';
 
 const COBALT        = '#3B82F6';
 const COBALT_DIM    = 'rgba(59,130,246,0.12)';
@@ -80,6 +82,56 @@ function DeliveryBadges({ modes }: { modes?: string[] }) {
         );
       })}
     </View>
+  );
+}
+
+/* ─── Bouton Ajouter au panier (dans ProductCard) ────────────────────────*/
+function CartAddButton({ item }: { item: any }) {
+  const { addItem, items, updateQty } = useCart();
+  const inCart = items.find((i: any) => i.product_id === item.product_id);
+
+  if (inCart) {
+    return (
+      <View style={s.addedRow}>
+        <TouchableOpacity
+          onPress={() => updateQty(item.product_id, inCart.quantity - 1)}
+          style={s.addedQtyBtn}
+          testID={`cart-minus-${item.product_id}`}
+        >
+          <Ionicons name="remove" size={12} color={Colors.foreground} />
+        </TouchableOpacity>
+        <Text style={s.addedQtyVal}>{inCart.quantity}</Text>
+        <TouchableOpacity
+          onPress={() => updateQty(item.product_id, inCart.quantity + 1)}
+          style={s.addedQtyBtn}
+          testID={`cart-plus-${item.product_id}`}
+        >
+          <Ionicons name="add" size={12} color={Colors.foreground} />
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  return (
+    <TouchableOpacity
+      style={s.addCartBtn}
+      onPress={() => addItem({
+        product_id:           item.product_id,
+        title:                item.title,
+        price:                item.price ?? 0,
+        image_url:            item.image_url,
+        tag_ids:              item.tag_ids,
+        product_type:         item.product_type,
+        rental_duration_unit: item.rental_duration_unit,
+        rental_duration_qty:  item.rental_duration_qty,
+        seller_name:          item.seller_name,
+      })}
+      activeOpacity={0.8}
+      testID={`add-to-cart-${item.product_id}`}
+    >
+      <Ionicons name="add" size={13} color="#fff" />
+      <Text style={s.addCartTxt}>Ajouter</Text>
+    </TouchableOpacity>
   );
 }
 
@@ -180,6 +232,8 @@ function ProductCard({ item }: { item: any }) {
             )}
           </View>
         )}
+        {/* Bouton Ajouter au panier */}
+        {!outOfStock && <CartAddButton item={item} />}
       </View>
     </View>
   );
@@ -252,8 +306,13 @@ export function MarketplaceModal({ visible, onClose, spotYouId, tagIds, userLat,
   const [products,  setProducts]  = useState<any[]>([]);
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [filter,    setFilter]    = useState<string>('all');
+  const [cartView,  setCartView]  = useState(false);
 
+  const { totalItems } = useCart();
   const cacheKey = `${spotYouId}::${tagIds?.join(',') ?? ''}::${userLat ?? ''}::${userLng ?? ''}`;
+
+  // Réinitialise la vue panier à la fermeture
+  useEffect(() => { if (!visible) setCartView(false); }, [visible]);
 
   const load = useCallback((silent = false) => {
     const cached = productCache.get(cacheKey);
@@ -318,26 +377,51 @@ export function MarketplaceModal({ visible, onClose, spotYouId, tagIds, userLat,
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <View style={s.container}>
 
-        {/* ── Header ── */}
+        {/* ── Header adaptatif ── */}
         <View style={s.header}>
-          <View style={[s.headerIcon, { backgroundColor: COBALT_DIM, borderColor: COBALT_BORDER }]}>
-            <Ionicons name="storefront-outline" size={20} color={COBALT} />
-          </View>
+          {cartView ? (
+            /* Vue panier : bouton retour */
+            <TouchableOpacity style={s.closeBtn} onPress={() => setCartView(false)} testID="cart-back-to-shop-btn">
+              <Ionicons name="arrow-back" size={20} color={Colors.foreground} />
+            </TouchableOpacity>
+          ) : (
+            /* Vue produits : icône boutique */
+            <View style={[s.headerIcon, { backgroundColor: COBALT_DIM, borderColor: COBALT_BORDER }]}>
+              <Ionicons name="storefront-outline" size={20} color={COBALT} />
+            </View>
+          )}
           <View style={{ flex: 1 }}>
-            <Text style={s.headerTitle}>Boutique</Text>
+            <Text style={s.headerTitle}>{cartView ? 'Mon Panier' : 'Boutique'}</Text>
             <Text style={s.headerSub}>
-              {loadState === 'loading'
+              {cartView
+                ? `${totalItems} article${totalItems > 1 ? 's' : ''}`
+                : loadState === 'loading'
                 ? 'Chargement…'
                 : loadState === 'error'
                 ? 'Erreur réseau'
                 : `${products.length} produit${products.length > 1 ? 's' : ''} lié${products.length > 1 ? 's' : ''}`}
             </Text>
           </View>
+          {/* Icône panier dans le header — visible en vue produits si panier non vide */}
+          {!cartView && totalItems > 0 && (
+            <TouchableOpacity style={s.headerCartBtn} onPress={() => setCartView(true)} testID="marketplace-cart-header-btn">
+              <Ionicons name="cart-outline" size={20} color={COBALT} />
+              <View style={s.headerCartBadge}>
+                <Text style={s.headerCartBadgeTxt}>{totalItems}</Text>
+              </View>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity style={s.closeBtn} onPress={onClose} testID="marketplace-close-btn">
             <Ionicons name="close" size={22} color={Colors.foreground} />
           </TouchableOpacity>
         </View>
 
+        {/* ── Vue Panier ── */}
+        {cartView && <CartContent onCheckout={() => { onClose(); }} />}
+
+        {/* ── Vue Boutique (masquée quand cartView) ── */}
+        {!cartView && (
+          <>
         {/* ── Légende badges ── */}
         {(loadState === 'loaded' || loadState === 'refreshing') && (ownerCount > 0 || otherCount > 0) && (
           <View style={s.legendRow}>
@@ -435,6 +519,23 @@ export function MarketplaceModal({ visible, onClose, spotYouId, tagIds, userLat,
             renderItem={({ item }) => <ProductCard item={item} />}
           />
         )}
+          </>
+        )}
+
+        {/* ── Icône flottante panier (bas-droite, vue produits uniquement) ── */}
+        {!cartView && totalItems > 0 && (
+          <TouchableOpacity
+            style={s.floatingCartBtn}
+            onPress={() => setCartView(true)}
+            activeOpacity={0.9}
+            testID="marketplace-floating-cart-btn"
+          >
+            <Ionicons name="cart" size={22} color="#fff" />
+            <View style={s.floatingCartBadge}>
+              <Text style={s.floatingCartBadgeTxt}>{totalItems}</Text>
+            </View>
+          </TouchableOpacity>
+        )}
       </View>
     </Modal>
   );
@@ -504,6 +605,23 @@ const s = StyleSheet.create({
   /* Overlay image — icônes remise */
   deliveryOverlay:    { position: 'absolute', bottom: 7, left: 7, flexDirection: 'row', gap: 5 },
   deliveryIconBubble: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 4 },
+
+  /* ── Bouton Ajouter au panier ── */
+  addCartBtn:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, backgroundColor: COBALT, borderRadius: 10, height: 32, marginTop: 8 },
+  addCartTxt:    { fontSize: 12, fontWeight: '700', color: '#fff' },
+  addedRow:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 0, backgroundColor: Colors.card, borderRadius: 10, height: 32, marginTop: 8, borderWidth: 1, borderColor: COBALT + '55', overflow: 'hidden' },
+  addedQtyBtn:   { flex: 1, alignItems: 'center', justifyContent: 'center', height: 32 },
+  addedQtyVal:   { minWidth: 28, textAlign: 'center', fontSize: 13, fontWeight: '800', color: Colors.foreground },
+
+  /* ── Icône flottante panier ── */
+  floatingCartBtn:     { position: 'absolute', bottom: 32, right: 20, width: 58, height: 58, borderRadius: 29, backgroundColor: COBALT, alignItems: 'center', justifyContent: 'center', shadowColor: COBALT, shadowOpacity: 0.55, shadowRadius: 14, shadowOffset: { width: 0, height: 5 }, elevation: 10, zIndex: 100 },
+  floatingCartBadge:   { position: 'absolute', top: 2, right: 2, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: '#EF4444', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
+  floatingCartBadgeTxt:{ fontSize: 10, fontWeight: '800', color: '#fff' },
+
+  /* ── Icône panier dans le header ── */
+  headerCartBtn:      { position: 'relative', width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  headerCartBadge:    { position: 'absolute', top: 0, right: 0, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: '#EF4444', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
+  headerCartBadgeTxt: { fontSize: 9, fontWeight: '800', color: '#fff' },
 
   center:          { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.lg, gap: 10 },
   loadingText:     { fontSize: 14, color: Colors.muted, marginTop: 8 },

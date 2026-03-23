@@ -12,6 +12,7 @@ import {
   saveTokenToServer,
   setupNotificationResponseHandler,
 } from '../lib/push-notifications';
+import { CartProvider } from '../context/CartContext';
 import { OfflineBanner } from '../components/OfflineBanner';
 
 // Supprime l'overlay rouge pour l'erreur splash iOS (Expo Go / hot-reload)
@@ -94,6 +95,7 @@ export default function RootLayout() {
       <RefreshProvider>
       <LanguageProvider>
         <LocationProvider>
+          <CartProvider>
           <StatusBar style="light" />
           <NavigationGuard />
           <View style={{ flex: 1 }}>
@@ -129,10 +131,12 @@ export default function RootLayout() {
               <Stack.Screen name="spot-me" options={{ headerShown: false, animation: 'slide_from_right' }} />
               <Stack.Screen name="planning" options={{ headerShown: false, animation: 'slide_from_right' }} />
               <Stack.Screen name="saved" options={{ headerShown: false, animation: 'slide_from_right' }} />
+              <Stack.Screen name="cart" options={{ headerShown: false, animation: 'slide_from_right' }} />
             </Stack>
             {/* Bannière réseau globale — toujours au-dessus du contenu */}
             <OfflineBanner />
           </View>
+          </CartProvider>
         </LocationProvider>
       </LanguageProvider>
       </RefreshProvider>
