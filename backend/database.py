@@ -840,6 +840,35 @@ async def connect_to_db():
                 WHERE product_id = 'mp_045';
         """)
 
+        # [MARKETPLACE-DELIVERY] Modes de remise produits
+        await conn.execute("""
+            ALTER TABLE marketplace_products
+                ADD COLUMN IF NOT EXISTS delivery_modes TEXT[] DEFAULT '{}';
+        """)
+        await conn.execute("""
+            -- Produits numériques (PDF, app, vidéos)
+            UPDATE marketplace_products SET delivery_modes = ARRAY['digital']
+                WHERE product_id IN ('mp_011','mp_019','mp_023','mp_030','mp_034');
+
+            -- Location avec lieu physique GPS : récupérer sur place + remis par créateur
+            UPDATE marketplace_products SET delivery_modes = ARRAY['local_pickup','creator_handoff']
+                WHERE product_id IN ('mp_009','mp_013','mp_021','mp_040');
+
+            -- Location terrain : récupérer sur place uniquement
+            UPDATE marketplace_products SET delivery_modes = ARRAY['local_pickup']
+                WHERE product_id = 'mp_045';
+
+            -- Remise directe par créateur (sans GPS précis)
+            UPDATE marketplace_products SET delivery_modes = ARRAY['creator_handoff']
+                WHERE product_id IN ('mp_010','mp_012');
+
+            -- Produits plateforme / affiliés / sponsorisés → site partenaire
+            UPDATE marketplace_products
+                SET delivery_modes = ARRAY['external']
+                WHERE (delivery_modes IS NULL OR delivery_modes = '{}')
+                  AND seller_type IN ('spotu','affiliated','sponsored','recommended');
+        """)
+
         # [PROFILE-V2] Cover photo + système de suivi (follow/abonnements)
         await conn.execute("""
             ALTER TABLE users ADD COLUMN IF NOT EXISTS cover_picture TEXT;

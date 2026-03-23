@@ -57,6 +57,32 @@ const ORANGE     = '#FF9500';
 const ORANGE_DIM = 'rgba(255,149,0,0.15)';
 const ORANGE_BDR = 'rgba(255,149,0,0.3)';
 
+/* ─── Config modes de remise ─────────────────────────────────────────────*/
+const DELIVERY_CFG: Record<string, { icon: string; label: string; color: string; bg: string }> = {
+  local_pickup:    { icon: 'location-outline',  label: 'Sur place',         color: '#F59E0B', bg: 'rgba(245,158,11,0.12)'  },
+  creator_handoff: { icon: 'person-outline',     label: 'Par le créateur',   color: '#8B5CF6', bg: 'rgba(139,92,246,0.12)'  },
+  digital:         { icon: 'globe-outline',      label: 'En ligne',          color: '#22C55E', bg: 'rgba(34,197,94,0.12)'   },
+  external:        { icon: 'open-outline',       label: 'Site partenaire',   color: '#64748B', bg: 'rgba(100,116,139,0.12)' },
+};
+
+function DeliveryBadges({ modes }: { modes?: string[] }) {
+  if (!modes?.length) return null;
+  return (
+    <View style={s.deliveryRow}>
+      {modes.map(m => {
+        const cfg = DELIVERY_CFG[m];
+        if (!cfg) return null;
+        return (
+          <View key={m} style={[s.deliveryChip, { backgroundColor: cfg.bg }]}>
+            <Ionicons name={cfg.icon as any} size={9} color={cfg.color} />
+            <Text style={[s.deliveryTxt, { color: cfg.color }]}>{cfg.label}</Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 /* ─── ProductCard ────────────────────────────────────────────────────────*/
 function ProductCard({ item }: { item: any }) {
   const isService  = item.item_type === 'service';
@@ -104,6 +130,7 @@ function ProductCard({ item }: { item: any }) {
             <Text style={s.sellerName} numberOfLines={1}>{item.seller_name}</Text>
           </View>
         )}
+        <DeliveryBadges modes={item.delivery_modes} />
         {/* Distances pour produits physiques */}
         {item.is_physical && (item.dist_from_spotyou_fmt || item.dist_from_user_fmt) && (
           <View style={s.distRow}>
@@ -437,6 +464,10 @@ const s = StyleSheet.create({
   distChipSpot:    { backgroundColor: 'rgba(59,130,246,0.08)', borderColor: 'rgba(59,130,246,0.25)' },
   distChipUser:    { backgroundColor: 'rgba(34,197,94,0.08)',  borderColor: 'rgba(34,197,94,0.25)'  },
   distTxt:         { fontSize: 10, fontWeight: '600' },
+
+  deliveryRow:     { flexDirection: 'row', gap: 4, marginTop: 5, flexWrap: 'wrap' },
+  deliveryChip:    { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 5, paddingVertical: 3, borderRadius: 6 },
+  deliveryTxt:     { fontSize: 9, fontWeight: '600' },
 
   center:          { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.lg, gap: 10 },
   loadingText:     { fontSize: 14, color: Colors.muted, marginTop: 8 },
