@@ -102,13 +102,29 @@ function ProductCard({ item }: { item: any }) {
     <View style={[s.card, outOfStock && s.cardOut]}>
       <View style={s.imgWrap}>
         <TagImage uri={item.image_url} tagIds={item.tag_ids || []} style={s.img} />
+        {/* Badge owner/other — haut gauche */}
         <View style={[s.badge, { backgroundColor: badgeCfg.bg }]}>
           <Ionicons name={item.badge_type === 'owner' ? 'star' : 'person-outline'} size={9} color={badgeCfg.text} />
           <Text style={[s.badgeText, { color: badgeCfg.text }]} numberOfLines={1}>{item.badge_label || 'Autre'}</Text>
         </View>
+        {/* Type pill — bas droite */}
         <View style={[s.typePill, isRental ? s.typePillRent : s.typePillSale]}>
           <Text style={s.typePillText}>{isRental ? 'Location' : 'Vente'}</Text>
         </View>
+        {/* Modes de remise — icônes overlay bas gauche */}
+        {item.delivery_modes?.length > 0 && (
+          <View style={s.deliveryOverlay}>
+            {(item.delivery_modes as string[]).map((m: string) => {
+              const cfg = DELIVERY_CFG[m];
+              if (!cfg) return null;
+              return (
+                <View key={m} style={[s.deliveryIconBubble, { backgroundColor: cfg.color }]}>
+                  <Ionicons name={cfg.icon as any} size={11} color="#fff" />
+                </View>
+              );
+            })}
+          </View>
+        )}
         {outOfStock && <View style={s.outOverlay}><Text style={s.outText}>Indisponible</Text></View>}
       </View>
       <View style={s.info}>
@@ -130,7 +146,6 @@ function ProductCard({ item }: { item: any }) {
             <Text style={s.sellerName} numberOfLines={1}>{item.seller_name}</Text>
           </View>
         )}
-        <DeliveryBadges modes={item.delivery_modes} />
         {/* Distances pour produits physiques */}
         {item.is_physical && (item.dist_from_spotyou_fmt || item.dist_from_user_fmt) && (
           <View style={s.distRow}>
@@ -468,6 +483,10 @@ const s = StyleSheet.create({
   deliveryRow:     { flexDirection: 'row', gap: 4, marginTop: 5, flexWrap: 'wrap' },
   deliveryChip:    { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 5, paddingVertical: 3, borderRadius: 6 },
   deliveryTxt:     { fontSize: 9, fontWeight: '600' },
+
+  /* Overlay image — icônes remise */
+  deliveryOverlay:    { position: 'absolute', bottom: 7, left: 7, flexDirection: 'row', gap: 5 },
+  deliveryIconBubble: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 4 },
 
   center:          { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.lg, gap: 10 },
   loadingText:     { fontSize: 14, color: Colors.muted, marginTop: 8 },
