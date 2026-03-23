@@ -815,6 +815,18 @@ async def connect_to_db():
             ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS lat FLOAT;
             ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS lng FLOAT;
         """)
+        # [MARKETPLACE-CLEANUP] Supprimer les produits qui sont en réalité des services coach
+        # (séances, cours, bilans) — déjà gérés via la table services
+        await conn.execute("""
+            DELETE FROM marketplace_products WHERE product_id IN (
+                'mp_028',  -- Session CrossFit privée (1h)       = service coach
+                'mp_035',  -- Séance yoga privée (1h)            = service coach
+                'mp_048',  -- Cours padel débutant (2h)          = service coach
+                'mp_041',  -- Cours boxe thaï débutant (x5)      = service coach
+                'mp_053',  -- Analyse posturale + bilan           = prestation pro
+                'mp_057'   -- Séance coaching bilan gratuit (30min) = service coach
+            );
+        """)
         await conn.execute("""
             UPDATE marketplace_products SET lat = 48.8500, lng = 2.3700
                 WHERE product_id = 'mp_009';
@@ -826,12 +838,6 @@ async def connect_to_db():
                 WHERE product_id = 'mp_040';
             UPDATE marketplace_products SET lat = 48.8900, lng = 2.3650
                 WHERE product_id = 'mp_045';
-            UPDATE marketplace_products SET lat = 48.8610, lng = 2.3310
-                WHERE product_id = 'mp_048';
-            UPDATE marketplace_products SET lat = 48.9050, lng = 2.4100
-                WHERE product_id = 'mp_035';
-            UPDATE marketplace_products SET lat = 48.8680, lng = 2.4050
-                WHERE product_id = 'mp_028';
         """)
 
         # [PROFILE-V2] Cover photo + système de suivi (follow/abonnements)
