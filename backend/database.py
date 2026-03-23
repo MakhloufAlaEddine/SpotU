@@ -869,6 +869,50 @@ async def connect_to_db():
                   AND seller_type IN ('spotu','affiliated','sponsored','recommended');
         """)
 
+        # [MARKETPLACE-RENTAL-DURATION] Durée de location + nettoyage des titres
+        await conn.execute("""
+            ALTER TABLE marketplace_products
+                ADD COLUMN IF NOT EXISTS rental_duration_unit TEXT;
+            ALTER TABLE marketplace_products
+                ADD COLUMN IF NOT EXISTS rental_duration_qty  INT DEFAULT 1;
+        """)
+        await conn.execute("""
+            -- Vélo journée : 1 jour
+            UPDATE marketplace_products
+                SET rental_duration_unit = 'jour', rental_duration_qty = 1,
+                    title = 'Location vélo de route'
+                WHERE product_id = 'mp_009';
+
+            -- Vélo weekend : 2 jours
+            UPDATE marketplace_products
+                SET rental_duration_unit = 'jour', rental_duration_qty = 2,
+                    title = 'Location vélo route'
+                WHERE product_id = 'mp_021';
+
+            -- Tapis + briques yoga : 1 jour
+            UPDATE marketplace_products
+                SET rental_duration_unit = 'jour', rental_duration_qty = 1
+                WHERE product_id = 'mp_010';
+
+            -- Raquettes padel : 2 heures
+            UPDATE marketplace_products
+                SET rental_duration_unit = 'heure', rental_duration_qty = 2,
+                    title = 'Location raquettes padel'
+                WHERE product_id = 'mp_013';
+
+            -- Gants de boxe : 1 heure
+            UPDATE marketplace_products
+                SET rental_duration_unit = 'heure', rental_duration_qty = 1,
+                    title = 'Location gants boxe'
+                WHERE product_id = 'mp_040';
+
+            -- Terrain foot : 1 heure
+            UPDATE marketplace_products
+                SET rental_duration_unit = 'heure', rental_duration_qty = 1,
+                    title = 'Location terrain foot 5v5'
+                WHERE product_id = 'mp_045';
+        """)
+
         # [PROFILE-V2] Cover photo + système de suivi (follow/abonnements)
         await conn.execute("""
             ALTER TABLE users ADD COLUMN IF NOT EXISTS cover_picture TEXT;

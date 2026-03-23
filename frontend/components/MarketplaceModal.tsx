@@ -94,9 +94,26 @@ function ProductCard({ item }: { item: any }) {
   const outOfStock = item.in_stock === false;
   const isFree     = item.price === 0;
   const levelColor = LEVEL_COLORS[item.skill_level] ?? Colors.muted;
+
+  // Suffixe durée de location
+  const rentalSuffix = (() => {
+    if (!isRental) return '';
+    const unit = item.rental_duration_unit;
+    const qty  = item.rental_duration_qty ?? 1;
+    if (!unit) return '/séance';
+    const labels: Record<string, [string, string]> = {
+      heure:   ['h',        'h'],
+      jour:    ['jour',     'jours'],
+      semaine: ['semaine',  'semaines'],
+      mois:    ['mois',     'mois'],
+    };
+    const [singular, plural] = labels[unit] ?? [unit, unit];
+    return qty > 1 ? `/${qty} ${plural}` : `/${singular}`;
+  })();
+
   const priceLabel = isFree
     ? 'Gratuit'
-    : `${Number(item.price).toFixed(2)} €${isRental ? '/séance' : ''}`;
+    : `${Number(item.price).toFixed(2)} €${rentalSuffix}`;
 
   return (
     <View style={[s.card, outOfStock && s.cardOut]}>
