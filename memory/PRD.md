@@ -43,6 +43,16 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 | `frontend/app/booking/confirm.tsx` | Ventilation prix : base + frais service + total a payer |
 | `backend/tests/test_commission_e2e.py` | 6 tests E2E : taux, calculs, coherence preview vs config |
 
+### Fix Stabilité Tunnel ngrok (2026-03-24)
+| Fichier | Changement |
+|---------|-----------|
+| `node_modules/@expo/ngrok/src/process.js` | Détection processus ngrok existant (ports 4040-4044) + kill zombies avant démarrage |
+| `node_modules/@expo/ngrok/src/client.js` | Fix TypeError pour `error.response` undefined |
+| `node_modules/@expo/ngrok/index.js` | Gestion ECONNREFUSED + reset processPromise + reconnect auto |
+| `node_modules/expo/.../AsyncNgrok.js` | Timeout tunnel 10s → 60s |
+
+**Problème résolu** : Boucle de crash ngrok lors des redémarrages Expo (conflit sous-domaine `delivery-badges`).
+
 ### Autres fonctionnalites completees
 - [x] Suite E2E comprehensive (85 backend + 183 frontend = 268 tests)
 - [x] Fix pull-to-refresh (booking detail + SpotYou detail)

@@ -1,0 +1,23 @@
+{
+  "ignore_dirs": [
+    ".git",
+    ".metro-cache",
+    ".expo",
+    "ReactAndroid",
+    "ReactCommon",
+    "ReactApple",
+    "ReactNativeDependencies",
+    "android",
+    "ios",
+    "__tests__",
+    "__mocks__",
+    "flow",
+    "gradle",
+    "local-maven-repo",
+    "prebuilts",
+    "web-build",
+    "dist",
+    "build"
+  ],
+  "settle": 20
+}

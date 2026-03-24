@@ -137,7 +137,7 @@ def api_url():
     """URL de l'API backend (depuis env ou valeur par défaut)."""
     return os.environ.get(
         "BACKEND_URL",
-        "https://coach-products.preview.emergentagent.com/api",
+        "https://delivery-badges.preview.emergentagent.com/api",
     )
 
 

@@ -1,45 +1,65 @@
-// metro.config.js
-const { getDefaultConfig } = require("expo/metro-config");
+// metro.config.js — configuration propre pour environnement conteneurisé
+//
+// Pourquoi ces réglages ?
+// ─────────────────────────────────────────────────────────────────────
+// Le kernel du pod a une limite inotify de 12 288 watches/user.
+// node_modules contient ~8 000 répertoires, dont ~2 000 de code natif
+// (Java/C++) inutiles pour le bundler JS. Sans configuration adaptée,
+// FallbackWatcher (fs.watch) crée une watch par dossier → ENOSPC.
+//
+// Solution :
+//   1. resolver.useWatchman = true  → Watchman (daemon) gère les watches
+//      de façon plus efficace qu'inotify brut via fs.watch.
+//   2. .watchmanconfig              → exclut les ~2 000 dirs natifs,
+//      ramenant le total à ~6 000 < 12 288 avec marge de sécurité.
+//   3. PAS de watchFolders          → chaque entrée créerait une instance
+//      de watcher supplémentaire sur le même arbre (N × 8000 watches).
+//   4. blockList résolveur          → exclut les dossiers natifs de la
+//      résolution de modules (cohérence avec .watchmanconfig).
+// ─────────────────────────────────────────────────────────────────────
+
+const { getDefaultConfig } = require('expo/metro-config');
 const path = require('path');
 const { FileStore } = require('metro-cache');
 
 const config = getDefaultConfig(__dirname);
 
-// Use a stable on-disk cache store
-const root = process.env.METRO_CACHE_ROOT || path.join(__dirname, '.metro-cache');
+// ── Cache disque stable ──────────────────────────────────────────────
+const cacheRoot = process.env.METRO_CACHE_ROOT
+  || path.join(__dirname, '.metro-cache');
 config.cacheStores = [
-  new FileStore({ root: path.join(root, 'cache') }),
+  new FileStore({ root: path.join(cacheRoot, 'cache') }),
 ];
 
-// Reduce workers to lower resource usage in container
+// ── Utiliser Watchman (évite fs.watch massif → ENOSPC) ──────────────
+// Les répertoires ignorés sont définis dans .watchmanconfig
+// (ignore_dirs : ReactAndroid, ReactCommon, android, ios…)
+config.resolver.useWatchman = true;
+config.watcher = { watchman: { deferStates: [] } };
+
+// ── Limiter les workers CPU dans le conteneur ────────────────────────
 config.maxWorkers = 2;
 
-// Prefer Watchman when available to avoid exhausting the container's
-// very low inotify watch limit.
-config.watcher = {
-  watchman: { deferStates: [] },
-  useWatchman: true,
-};
-
-// Block heavy node_modules sub-trees that contain ios/android native code
-// This dramatically reduces the number of inotify watches needed
-// NOTE: expo/node_modules is excluded from the nested-modules block because
-// Metro itself needs expo/node_modules/@expo/cli/build/metro-require/require.js
+// ── Exclure les dossiers natifs du résolveur (cohérence watchmanconfig) ─
 config.resolver.blockList = [
-  /node_modules\/.*\/local-maven-repo\/.*/,
-  /node_modules\/(?!expo[/\\]).*\/node_modules\/.*/,
-  /node_modules\/.*\/\.bin\/.*/,
+  /node_modules\/.*\/ReactAndroid\/.*/,
+  /node_modules\/.*\/ReactCommon\/.*/,
+  /node_modules\/.*\/ReactApple\/.*/,
+  /node_modules\/.*\/ReactNativeDependencies\/.*/,
   /node_modules\/.*\/android\/.*/,
   /node_modules\/.*\/ios\/.*/,
+  /node_modules\/.*\/local-maven-repo\/.*/,
+  /node_modules\/.*\/gradle\/.*/,
+  /node_modules\/.*\/build\/.*/,
+  /node_modules\/.*\/dist\/.*/,
   /node_modules\/.*\/web-build\/.*/,
   /node_modules\/.*\/__tests__\/.*/,
-  /node_modules\/.*\/example\/.*/,
-  /node_modules\/.*\/docs\/.*/,
+  /node_modules\/.*\/__mocks__\/.*/,
+  /node_modules\/(?!expo[/\\]).*\/node_modules\/.*/,
   /\.git\/.*/,
+  /\.metro-cache\/.*/,
 ];
 
-// Some Expo / RN packages expose complex package export maps that force Metro
-// to scan additional subtrees in containers with very low watch limits.
 config.resolver.unstable_enablePackageExports = false;
 
 module.exports = config;
