@@ -41,21 +41,30 @@ config.watcher = { watchman: { deferStates: [] } };
 config.maxWorkers = 2;
 
 // ── Exclure les dossiers natifs du résolveur (cohérence watchmanconfig) ─
+// Règle : bloquer les dossiers volumineux inutiles (code natif Java/C++,
+// frontend Chrome DevTools) mais NE PAS bloquer build/ ou dist/ de façon
+// générique car expo-router, react-navigation etc. y publient leur code JS.
 config.resolver.blockList = [
+  // Très gros dossiers natifs React Native (Java/C++/Kotlin)
   /node_modules\/.*\/ReactAndroid\/.*/,
   /node_modules\/.*\/ReactCommon\/.*/,
   /node_modules\/.*\/ReactApple\/.*/,
   /node_modules\/.*\/ReactNativeDependencies\/.*/,
-  /node_modules\/.*\/android\/.*/,
-  /node_modules\/.*\/ios\/.*/,
+  // Sous-dossiers android/ios des packages (code natif non-JS)
+  /node_modules\/[^/]+\/android\/(src|build|gradle|res)\/.*/,
+  /node_modules\/[^/]+\/ios\/(build|RCT|React)\/.*/,
+  // Gradle/Maven (pas de JS dedans)
   /node_modules\/.*\/local-maven-repo\/.*/,
   /node_modules\/.*\/gradle\/.*/,
-  /node_modules\/.*\/build\/.*/,
-  /node_modules\/.*\/dist\/.*/,
+  // Chrome DevTools frontend bundlé (> 80 000 fichiers)
+  /node_modules\/@react-native\/debugger-frontend\/.*/,
+  // Gradle plugin (Kotlin/Java, aucun JS)
+  /node_modules\/@react-native\/gradle-plugin\/.*/,
+  // Build artifacts web (pas nécessaires pour bundling mobile)
   /node_modules\/.*\/web-build\/.*/,
-  /node_modules\/.*\/__tests__\/.*/,
-  /node_modules\/.*\/__mocks__\/.*/,
+  // Double-nested node_modules (sauf expo)
   /node_modules\/(?!expo[/\\]).*\/node_modules\/.*/,
+  // Divers
   /\.git\/.*/,
   /\.metro-cache\/.*/,
 ];
