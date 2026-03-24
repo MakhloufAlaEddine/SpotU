@@ -607,11 +607,11 @@ const s = StyleSheet.create({
   deliveryIconBubble: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 4 },
 
   /* ── Bouton Ajouter au panier ── */
-  addCartBtn:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, backgroundColor: COBALT, borderRadius: 10, height: 32, marginTop: 8 },
-  addCartTxt:    { fontSize: 12, fontWeight: '700', color: '#fff' },
-  addedRow:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 0, backgroundColor: Colors.card, borderRadius: 10, height: 32, marginTop: 8, borderWidth: 1, borderColor: COBALT + '55', overflow: 'hidden' },
-  addedQtyBtn:   { flex: 1, alignItems: 'center', justifyContent: 'center', height: 32 },
-  addedQtyVal:   { minWidth: 28, textAlign: 'center', fontSize: 13, fontWeight: '800', color: Colors.foreground },
+  addCartBtn:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, backgroundColor: COBALT, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 5, marginTop: 8, alignSelf: 'center' },
+  addCartTxt:    { fontSize: 11, fontWeight: '700', color: '#fff' },
+  addedRow:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 0, backgroundColor: Colors.card, borderRadius: 20, height: 26, marginTop: 8, borderWidth: 1, borderColor: COBALT + '55', overflow: 'hidden', alignSelf: 'center', width: 100 },
+  addedQtyBtn:   { flex: 1, alignItems: 'center', justifyContent: 'center', height: 26 },
+  addedQtyVal:   { minWidth: 24, textAlign: 'center', fontSize: 12, fontWeight: '800', color: Colors.foreground },
 
   /* ── Icône flottante panier ── */
   floatingCartBtn:     { position: 'absolute', bottom: 32, right: 20, width: 58, height: 58, borderRadius: 29, backgroundColor: COBALT, alignItems: 'center', justifyContent: 'center', shadowColor: COBALT, shadowOpacity: 0.55, shadowRadius: 14, shadowOffset: { width: 0, height: 5 }, elevation: 10, zIndex: 100 },
