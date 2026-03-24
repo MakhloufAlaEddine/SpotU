@@ -540,7 +540,7 @@ export function MarketplaceModal({ visible, onClose, spotYouId, tagIds, userLat,
         ) : (
           <FlatList
             data={filtered}
-            keyExtractor={i => i.product_id}
+            keyExtractor={i => i.product_id ?? i.service_id}
             numColumns={2}
             columnWrapperStyle={s.columnWrapper}
             contentContainerStyle={s.gridContent}

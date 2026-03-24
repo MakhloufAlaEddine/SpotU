@@ -53,6 +53,21 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 
 **Problème résolu** : Boucle de crash ngrok lors des redémarrages Expo (conflit sous-domaine `delivery-badges`).
 
+### Vue Détail Produit dans le Marketplace (2026-03-24)
+| Composant | Changement |
+|-----------|-----------|
+| `frontend/components/ProductDetailView.tsx` | **NOUVEAU** — Vue détail produit complète (image, identité, infos, description dépliable, bloc propriétaire toggle, autres contenus, footer CTA sticky) |
+| `frontend/components/MarketplaceModal.tsx` | **MODIFIÉ** — Ajout animation slide-from-right (Animated.spring/timing), openDetail/closeDetail, cartes cliquables (TouchableOpacity), overlay animé zIndex 20, keyExtractor fix |
+| `backend/routes/marketplace_routes.py` | **MODIFIÉ** — Enrichissement seller_stats: rating_avg, rating_count, products_count, services_count, spotyou_count par vendeur/coach (4 requêtes SQL parallèles) |
+
+**Comportement:**
+- Clic sur une carte produit → slide depuis la droite vers la vue détail (Animated.spring tension=65/friction=11)
+- Bouton retour → slide vers la droite + retour grille (Animated.timing 260ms)
+- Carte propriétaire → toggle bloc show/hide avec stats (produits, services, SpotYou)
+- Section "Autres propositions" calculée client-side depuis la liste déjà chargée
+- Footer sticky avec CTA adaptatif ("Voir l'offre" ou "Voir les conditions" pour locations)
+- Gestion états: loading, error, produit indisponible (outOfStock)
+
 ### Autres fonctionnalites completees
 - [x] Suite E2E comprehensive (85 backend + 183 frontend = 268 tests)
 - [x] Fix pull-to-refresh (booking detail + SpotYou detail)
@@ -80,6 +95,7 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 - [x] Fix masquage adresse "France" (1000m) + masquage uniforme owner/non-owner
 - [x] Marketplace SpotYou (modal + backend route + seed data + filtrage par tags)
 - [x] Distances duelles produits physiques (SpotYou→Produit ET Utilisateur→Produit via Haversine)
+- [x] **Vue Détail Produit** dans MarketplaceModal (ProductDetailView + animation slide + seller_stats backend)
 
 ### P1 - Important
 - [ ] Sauvegardes automatiques DB
