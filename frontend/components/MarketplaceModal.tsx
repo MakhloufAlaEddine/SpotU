@@ -2,10 +2,10 @@
  * MarketplaceModal — Grille 2 colonnes avec badges source.
  * Cobalt Blue #3B82F6
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, Modal, TouchableOpacity, FlatList,
-  ActivityIndicator, StyleSheet, Dimensions, ScrollView, Image,
+  ActivityIndicator, StyleSheet, Dimensions, ScrollView, Image, Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../constants/Colors';
@@ -13,6 +13,7 @@ import { api } from '../lib/api';
 import { TagImage } from './TagImage';
 import { useCart } from '../context/CartContext';
 import { CartContent } from './CartContent';
+import { ProductDetailView } from './ProductDetailView';
 
 const COBALT        = '#3B82F6';
 const COBALT_DIM    = 'rgba(59,130,246,0.12)';
@@ -311,8 +312,36 @@ export function MarketplaceModal({ visible, onClose, spotYouId, tagIds, userLat,
   const { totalItems } = useCart();
   const cacheKey = `${spotYouId}::${tagIds?.join(',') ?? ''}::${userLat ?? ''}::${userLng ?? ''}`;
 
-  // Réinitialise la vue panier à la fermeture
-  useEffect(() => { if (!visible) setCartView(false); }, [visible]);
+  /* ── Vue détail produit ──────────────────────────────────────────────── */
+  const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
+  const slideAnim = useRef(new Animated.Value(SCREEN_W)).current;
+
+  const openDetail = useCallback((item: any) => {
+    setSelectedProduct(item);
+    slideAnim.setValue(SCREEN_W);
+    Animated.spring(slideAnim, {
+      toValue: 0,
+      useNativeDriver: true,
+      tension: 65,
+      friction: 11,
+    }).start();
+  }, [slideAnim]);
+
+  const closeDetail = useCallback(() => {
+    Animated.timing(slideAnim, {
+      toValue: SCREEN_W,
+      duration: 260,
+      useNativeDriver: true,
+    }).start(() => setSelectedProduct(null));
+  }, [slideAnim]);
+
+  // Réinitialise la vue panier et le détail produit à la fermeture
+  useEffect(() => {
+    if (!visible) {
+      setCartView(false);
+      setSelectedProduct(null);
+    }
+  }, [visible]);
 
   const load = useCallback((silent = false) => {
     const cached = productCache.get(cacheKey);
@@ -516,7 +545,15 @@ export function MarketplaceModal({ visible, onClose, spotYouId, tagIds, userLat,
             columnWrapperStyle={s.columnWrapper}
             contentContainerStyle={s.gridContent}
             showsVerticalScrollIndicator={false}
-            renderItem={({ item }) => <ProductCard item={item} />}
+            renderItem={({ item }) => (
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() => openDetail(item)}
+              testID={`open-detail-${item.product_id ?? item.service_id}`}
+            >
+              <ProductCard item={item} />
+            </TouchableOpacity>
+          )}
           />
         )}
           </>
@@ -535,6 +572,26 @@ export function MarketplaceModal({ visible, onClose, spotYouId, tagIds, userLat,
               <Text style={s.floatingCartBadgeTxt}>{totalItems}</Text>
             </View>
           </TouchableOpacity>
+        )}
+
+        {/* ── Vue Détail Produit — overlay animé (slide depuis la droite) ── */}
+        {selectedProduct !== null && (
+          <Animated.View
+            style={[
+              StyleSheet.absoluteFillObject,
+              {
+                transform: [{ translateX: slideAnim }],
+                zIndex: 20,
+                backgroundColor: Colors.background,
+              },
+            ]}
+          >
+            <ProductDetailView
+              item={selectedProduct}
+              allItems={products}
+              onBack={closeDetail}
+            />
+          </Animated.View>
         )}
       </View>
     </Modal>

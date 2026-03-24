@@ -155,4 +155,74 @@ async def get_marketplace_products(
         other_items = [x for x in all_items if x["badge_type"] != "owner"]
         items = owner_items + other_items
 
+        # ── Seller stats (rating, compteurs) ───────────────────────────────────
+        sids_set: set = {
+            it.get("seller_id") or it.get("coach_id")
+            for it in items
+            if (it.get("seller_id") or it.get("coach_id"))
+        }
+        if sids_set:
+            sids = list(sids_set)
+
+            rating_rows = await conn.fetch(
+                """SELECT reviewee_id,
+                          ROUND(AVG(rating)::numeric, 1) AS avg_r,
+                          COUNT(*) AS cnt_r
+                   FROM reviews
+                   WHERE reviewee_id = ANY($1::text[])
+                   GROUP BY reviewee_id""",
+                sids,
+            )
+            rating_map = {
+                r["reviewee_id"]: {
+                    "avg":   float(r["avg_r"]) if r["avg_r"] is not None else None,
+                    "count": int(r["cnt_r"]),
+                }
+                for r in rating_rows
+            }
+
+            prod_cnt_rows = await conn.fetch(
+                """SELECT seller_id, COUNT(*) AS cnt
+                   FROM marketplace_products
+                   WHERE seller_id = ANY($1::text[])
+                   GROUP BY seller_id""",
+                sids,
+            )
+            prod_cnt_map = {r["seller_id"]: int(r["cnt"]) for r in prod_cnt_rows}
+
+            svc_cnt_rows = await conn.fetch(
+                """SELECT coach_id, COUNT(*) AS cnt
+                   FROM services
+                   WHERE coach_id = ANY($1::text[]) AND active = TRUE
+                   GROUP BY coach_id""",
+                sids,
+            )
+            svc_cnt_map = {r["coach_id"]: int(r["cnt"]) for r in svc_cnt_rows}
+
+            spot_cnt_rows = await conn.fetch(
+                """SELECT user_id, COUNT(*) AS cnt
+                   FROM tag_points
+                   WHERE user_id = ANY($1::text[])
+                   GROUP BY user_id""",
+                sids,
+            )
+            spot_cnt_map = {r["user_id"]: int(r["cnt"]) for r in spot_cnt_rows}
+
+            for it in items:
+                sid = it.get("seller_id") or it.get("coach_id")
+                if sid:
+                    rd = rating_map.get(sid)
+                    it["seller_stats"] = {
+                        "rating_avg":     rd["avg"]   if rd else None,
+                        "rating_count":   rd["count"] if rd else 0,
+                        "products_count": prod_cnt_map.get(sid, 0),
+                        "services_count": svc_cnt_map.get(sid, 0),
+                        "spotyou_count":  spot_cnt_map.get(sid, 0),
+                    }
+                else:
+                    it["seller_stats"] = {
+                        "rating_avg": None, "rating_count": 0,
+                        "products_count": 0, "services_count": 0, "spotyou_count": 0,
+                    }
+
         return {"products": items, "count": len(items)}
