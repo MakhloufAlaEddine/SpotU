@@ -10,7 +10,7 @@ import requests
 import os
 from datetime import datetime, timedelta
 
-BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://delivery-badges.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://product-showcase-461.preview.emergentagent.com").rstrip("/")
 
 
 def _get_valid_tag_ids():
