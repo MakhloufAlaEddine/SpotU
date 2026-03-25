@@ -15,7 +15,7 @@ import re
 import pytest
 from playwright.sync_api import sync_playwright
 
-APP_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://product-showcase-461.preview.emergentagent.com")
+APP_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://quality-analyzer.preview.emergentagent.com")
 
 # ─── File paths ───────────────────────────────────────────────────────────────
 AUTH_CTX   = "/app/frontend/context/AuthContext.tsx"

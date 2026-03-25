@@ -8,7 +8,7 @@ import httpx
 import asyncpg
 import asyncio
 
-API_URL = "https://product-showcase-461.preview.emergentagent.com"
+API_URL = "https://quality-analyzer.preview.emergentagent.com"
 DB_URL = "postgresql://winek:winek2024@127.0.0.1/winek_db"
 
 # Users
