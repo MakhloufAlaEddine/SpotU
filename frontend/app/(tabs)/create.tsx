@@ -156,8 +156,10 @@ export default function CreateSpotYouScreen() {
 
   const precisionRadius = precision === 'exact' ? 0 : precision === '100m' ? 100 : 1000;
   const quality = calcQuality({ images, title, description, selectedTagIds, scheduleType });
-  const allTags = categories.flatMap(c => c.tags || []);
-  const selectedTags = allTags.filter(t => selectedTagIds.includes(t.tag_id));
+  const allTags = Array.from(
+    new Map(categories.flatMap(c => c.tags || []).map((t: any) => [t.tag_id, t])).values()
+  );
+  const selectedTags = allTags.filter((t: any) => selectedTagIds.includes(t.tag_id));
 
   useEffect(() => { loadGPS(); loadDomains(); }, []);
   useEffect(() => {
@@ -1142,7 +1144,7 @@ function StepContenu({ description, setDescription, domainId, setDomainId, domai
             </View>
           ) : (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, flex: 1 }}>
-              {selectedTags.slice(0, 5).map((t: any) => {
+              {Array.from(new Map(selectedTags.map((t: any) => [t.tag_id, t])).values()).slice(0, 5).map((t: any) => {
                 const c = tagColor(t.category_id);
                 return (
                   <View key={t.tag_id} style={[sc.tagPill, { backgroundColor: c + '22', borderColor: c }]}>
