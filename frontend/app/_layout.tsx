@@ -1,6 +1,7 @@
 import { Stack, useRouter, useSegments, useRootNavigationState } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Platform, View, LogBox } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { RefreshProvider } from '../context/RefreshContext';
 import { LanguageProvider } from '../context/LanguageContext';
@@ -91,6 +92,7 @@ function NavigationGuard() {
 
 export default function RootLayout() {
   return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
     <AuthProvider>
       <RefreshProvider>
       <LanguageProvider>
@@ -144,5 +146,6 @@ export default function RootLayout() {
       </LanguageProvider>
       </RefreshProvider>
     </AuthProvider>
+    </GestureHandlerRootView>
   );
 }
