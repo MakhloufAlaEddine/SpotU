@@ -6,7 +6,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../../../constants/Colors';
 import { useProductForm } from '../ProductFormContext';
-import { api } from '../../../services/api';
+import { api } from '../../../lib/api';
 
 const BLUE = '#3B82F6';
 
