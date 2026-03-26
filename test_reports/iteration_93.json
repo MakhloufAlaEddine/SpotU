@@ -1,0 +1,51 @@
+{
+  "summary": "Iteration 93 — Tests validation pending_review backend + mode édition frontend. Backend: 21/21 tests OK. Frontend: mode édition validé (catégorie, condition, max_duration_days pré-remplis), validations par étape fonctionnelles.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_product_validation_iter93.py",
+    "/app/test_reports/pytest/iter93_validation.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "CORRECT: POST /api/products pending_review sans catégorie → 422 'La catégorie du matériel est obligatoire' ✓",
+    "CORRECT: POST /api/products pending_review sans image_urls vide → 422 'Au moins une photo est requise' ✓",
+    "CORRECT: POST /api/products pending_review sans condition_label → 422 'L'état du matériel est obligatoire' ✓",
+    "CORRECT: POST /api/products pending_review pricing_type=day sans max_duration_days → 422 'La durée maximale...' ✓",
+    "CORRECT: POST /api/products deposit_required=true sans deposit_amount → 422 ✓",
+    "CORRECT: POST /api/products avec tous champs valides → 200 {status: pending_review} ✓",
+    "CORRECT: POST /api/products status=draft sans photo/catégorie → 200 OK (pas de validation) ✓",
+    "CORRECT: GET /api/products/{id}/detail retourne category='velo', max_duration_days=2, condition_label='good' ✓",
+    "CORRECT: Mode édition Step1 — category 'velo' chip pré-sélectionnée (purple border rgb(139,92,246)) ✓",
+    "CORRECT: Mode édition Step2 — condition_label 'good' chip pré-sélectionnée (amber border rgb(245,158,11)) ✓",
+    "CORRECT: Mode édition Step4 — max_duration_days = 2 pré-rempli, pickup_type 'creator_handoff' actif ✓",
+    "CORRECT: Validation Step3 — 'Ajoutez au moins une photo principale' si images vide ✓",
+    "CORRECT: Validation Step4 — 'Précisez la durée maximale de location (en jours)' si max_duration_days vide ✓",
+    "NOTE: La validation Step2 condition_label vide et Step7 'Étape 2 — Précisez l'état du matériel' sont des checks défensifs — en pratique le form démarre toujours avec condition_label='good' (default). Impossible à déclencher via UI normale. Logique correcte en code.",
+    "NOTE: pricing_type=session → max_duration_days non requis, validation OK (test passed) ✓",
+    "NOTE: Le produit prod_e8c1e7a2e742 a title='Jgjjhb' (6 chars) — court mais valide (> 3 chars requis step2, non vide step7)"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_product_validation_iter93.py"
+  ],
+  "success_rate": {
+    "backend": "100% (21/21 tests passés)",
+    "frontend": "100% — tous les flows validés (mode édition + validations)"
+  },
+  "test_credentials": {
+    "user": "user@winek.app / WinekUser2024!",
+    "edit_product": "prod_e8c1e7a2e742 (category=velo, max_duration_days=2, condition_label=good)"
+  },
+  "seed_data_creation": "Produits créés et supprimés automatiquement pendant tests: TEST_Vélo de route (pending_review valid), TEST_Brouillon sans photo/catégorie, TEST_session pricing, TEST_deposit with amount",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Toutes les validations backend et frontend testées et validées (iteration 93). Backend 21/21 OK: 422 pour category/image/condition/max_duration/deposit manquants en pending_review, 200 pour draft sans validation, GET /products/{id}/detail retourne tous les champs édition. Frontend: mode édition pré-remplit catégorie (chip purple), condition (chip amber), max_duration_days (valeur texte), pickup_type. Validations par étape fonctionnelles (step3 photo, step4 max_duration). API URL: https://admin-validation-3.preview.emergentagent.com",
+  "rca_of_issue": null
+}

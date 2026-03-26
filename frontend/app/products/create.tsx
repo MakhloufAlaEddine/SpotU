@@ -10,17 +10,33 @@ import { ProductCreationFlow } from '../../components/product-form/ProductCreati
 import { api } from '../../lib/api';
 import { Colors } from '../../constants/Colors';
 
+// ── Mapping catégories DB → clés CATEGORIES du stepper ────────────────────────
+const CATEGORY_NORMALIZE: Record<string, string> = {
+  sport: 'autre', Sport: 'autre', Outdoor: 'autre', outdoor: 'autre',
+  Test: 'autre',  test: 'autre',  Other: 'autre',   other: 'autre',
+};
+const VALID_CATEGORY_KEYS = new Set([
+  'velo', 'raquette', 'fitness', 'yoga', 'ballon',
+  'natation', 'glisse', 'running', 'accessoire', 'autre',
+]);
+
+function normalizeCategory(cat: string | null | undefined): string {
+  if (!cat) return '';
+  if (VALID_CATEGORY_KEYS.has(cat)) return cat;
+  return CATEGORY_NORMALIZE[cat] ?? 'autre';
+}
+
 /** Mappe une réponse API vers les champs du formulaire */
 function apiToFormData(data: any): Partial<ProductFormData> {
   return {
     product_id:          data.product_id,
     product_type:        data.product_type        || 'rental',
-    category:            data.category            || '',
+    category:            normalizeCategory(data.category),
     subcategory:         data.subcategory          || '',
     title:               data.title               || '',
     short_description:   data.short_description   || '',
     description:         data.description         || '',
-    condition_label:     data.condition_label      || 'good',
+    condition_label:     data.condition_label      || '',
     included_items:      data.included_items       || '',
     brand_model:         data.brand_model          || '',
     size_dimensions:     data.size_dimensions      || '',
@@ -45,25 +61,32 @@ function apiToFormData(data: any): Partial<ProductFormData> {
   };
 }
 
+// État atomique pour éviter les problèmes de batching React
+type EditState =
+  | { loading: true }
+  | { loading: false; data: Partial<ProductFormData> | undefined };
+
 export default function ProductCreateScreen() {
   const { productId, mode } = useLocalSearchParams<{ productId?: string; mode?: string }>();
   const isEditMode = mode === 'edit' && !!productId;
 
-  const [initialData, setInitialData] = useState<Partial<ProductFormData> | undefined>(undefined);
-  const [loadingEdit, setLoadingEdit] = useState(isEditMode);
+  // Mise à jour atomique : loading + data en même setState
+  const [editState, setEditState] = useState<EditState>(
+    isEditMode ? { loading: true } : { loading: false, data: undefined }
+  );
 
   useEffect(() => {
     if (!isEditMode) return;
     api.get(`/products/${productId}/detail`)
-      .then((data: any) => setInitialData(apiToFormData(data)))
-      .catch(() => {
-        // Si l'API échoue, on ouvre quand même le stepper vide
-        setInitialData({ product_id: productId });
+      .then((data: any) => {
+        setEditState({ loading: false, data: apiToFormData(data) });
       })
-      .finally(() => setLoadingEdit(false));
+      .catch(() => {
+        setEditState({ loading: false, data: { product_id: productId } });
+      });
   }, [isEditMode, productId]);
 
-  if (loadingEdit) {
+  if (editState.loading) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.background }}>
         <ActivityIndicator size="large" color="#3B82F6" />
@@ -71,9 +94,11 @@ export default function ProductCreateScreen() {
     );
   }
 
+  const initialData = editState.loading === false ? editState.data : undefined;
+
   return (
     <ProductFormProvider initialData={initialData}>
-      <ProductCreationFlow />
+      <ProductCreationFlow isEditMode={isEditMode} />
     </ProductFormProvider>
   );
 }

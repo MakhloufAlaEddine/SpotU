@@ -51,7 +51,7 @@ const STEP_COMPONENTS = [
   Step7Summary,
 ];
 
-export function ProductCreationFlow() {
+export function ProductCreationFlow({ isEditMode = false }: { isEditMode?: boolean }) {
   const router = useRouter();
   const { token } = useAuth();
   const { form, reset } = useProductForm();
@@ -78,10 +78,16 @@ export function ProductCreationFlow() {
 
   const goBack = () => {
     if (step === 0) {
-      Alert.alert('Quitter la création ?', 'Votre progression sera perdue.', [
-        { text: 'Continuer', style: 'cancel' },
-        { text: 'Quitter', style: 'destructive', onPress: () => { reset(); router.back(); } },
-      ]);
+      Alert.alert(
+        isEditMode ? 'Quitter la modification ?' : 'Quitter la création ?',
+        isEditMode
+          ? 'Les modifications non enregistrées seront perdues.'
+          : 'Votre progression sera perdue.',
+        [
+          { text: 'Continuer', style: 'cancel' },
+          { text: 'Quitter', style: 'destructive', onPress: () => { reset(); router.back(); } },
+        ]
+      );
       return;
     }
     setError(null);

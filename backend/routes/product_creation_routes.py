@@ -126,7 +126,7 @@ async def create_product(request: Request):
     if is_admin and status == "pending_review":
         status = "active"
 
-    # Validation minimale
+    # Validation minimale obligatoire
     title = (body.get("title") or "").strip()
     if not title:
         return JSONResponse({"error": "Le titre est obligatoire."}, status_code=400)
@@ -163,6 +163,35 @@ async def create_product(request: Request):
     related_ids = body.get("related_spotyou_ids") or []
 
     now = _now()
+
+    # ── Validation complète pour pending_review ────────────────────────────────
+    if requested_status == "pending_review":
+        category    = (body.get("category")       or "").strip()
+        cond_label  = (body.get("condition_label") or "").strip()
+        pickup_type = (body.get("pickup_type")     or "").strip()
+        p_type      = (body.get("pricing_type")    or "day")
+        deposit_req = body.get("deposit_required", False)
+
+        errors = []
+        if not category:
+            errors.append("La catégorie du matériel est obligatoire.")
+        if not cond_label:
+            errors.append("L'état du matériel est obligatoire.")
+        if not price or price <= 0:
+            errors.append("Le prix doit être supérieur à 0.")
+        if not image_urls:
+            errors.append("Au moins une photo est requise.")
+        if not pickup_type:
+            errors.append("Le mode de remise du matériel est obligatoire.")
+        if p_type == "day" and not max_duration_days:
+            errors.append("La durée maximale de location est obligatoire.")
+        if deposit_req and (not deposit_amount or deposit_amount <= 0):
+            errors.append("Le montant de la caution est obligatoire si une caution est requise.")
+        if errors:
+            return JSONResponse(
+                {"error": errors[0], "details": errors},
+                status_code=422,
+            )
 
     async with pool.acquire() as conn:
         # Vérifie si le produit existe déjà et appartient à l'utilisateur

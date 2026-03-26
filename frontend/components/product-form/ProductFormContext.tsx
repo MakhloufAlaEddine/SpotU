@@ -134,13 +134,18 @@ export function calcProductQuality(f: ProductFormData): {
 export function validateStep(step: number, f: ProductFormData): string | null {
   switch (step) {
     case 1:
-      if (!f.category) return 'Choisissez une catégorie de produit.';
+      if (!f.product_type)
+        return 'Sélectionnez un type de produit.';
+      if (!f.category)
+        return 'Choisissez une catégorie de matériel.';
       break;
     case 2:
       if (!f.title.trim() || f.title.trim().length < 3)
         return 'Le titre doit faire au moins 3 caractères.';
-      if (!f.price || isNaN(Number(f.price.replace(',', '.'))) || Number(f.price.replace(',', '.')) < 0)
-        return 'Indiquez un prix valide.';
+      if (!f.condition_label)
+        return "Précisez l'état du matériel.";
+      if (!f.price || isNaN(Number(f.price.replace(',', '.'))) || Number(f.price.replace(',', '.')) <= 0)
+        return 'Indiquez un prix valide (supérieur à 0).';
       if (!f.pricing_type)
         return 'Choisissez le type de tarification.';
       if (!f.available_quantity || parseInt(f.available_quantity, 10) < 1)
@@ -153,10 +158,10 @@ export function validateStep(step: number, f: ProductFormData): string | null {
     case 4:
       if (!f.pickup_type)
         return 'Précisez le mode de remise du matériel.';
+      if (f.pricing_type === 'day' && !f.max_duration_days)
+        return 'Précisez la durée maximale de location (en jours).';
       if (f.deposit_required && (!f.deposit_amount || Number(f.deposit_amount.replace(',', '.')) <= 0))
         return 'Indiquez le montant de la caution.';
-      if (f.pricing_type === 'day' && !f.max_duration_days)
-        return 'Précisez la durée maximale de location.';
       break;
     case 5:
       if (!f.locationAddress.trim() && !f.selectedLat)
@@ -164,6 +169,20 @@ export function validateStep(step: number, f: ProductFormData): string | null {
       break;
     case 6:
       break; // optionnel
+    case 7:
+      // Validation finale complète avant soumission
+      if (!f.category)                      return 'Étape 1 — Choisissez une catégorie.';
+      if (!f.title.trim())                  return 'Étape 2 — Le titre est obligatoire.';
+      if (!f.condition_label)               return "Étape 2 — Précisez l'état du matériel.";
+      if (!f.price || Number(f.price.replace(',', '.')) <= 0)
+                                            return 'Étape 2 — Le prix doit être supérieur à 0.';
+      if (f.images.length === 0)            return 'Étape 3 — Ajoutez au moins une photo.';
+      if (!f.pickup_type)                   return 'Étape 4 — Précisez le mode de remise.';
+      if (f.pricing_type === 'day' && !f.max_duration_days)
+                                            return 'Étape 4 — Précisez la durée maximale de location.';
+      if (f.deposit_required && (!f.deposit_amount || Number(f.deposit_amount.replace(',', '.')) <= 0))
+                                            return 'Étape 4 — Indiquez le montant de la caution.';
+      break;
     default:
       break;
   }
