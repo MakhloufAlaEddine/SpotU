@@ -21,7 +21,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('EXPO_PUBLIC_BACKEND_URL', 'https://quality-analyzer.preview.emergentagent.com')
+BASE_URL = os.environ.get('EXPO_PUBLIC_BACKEND_URL', 'https://admin-validation-3.preview.emergentagent.com')
 
 # Test credentials
 USER_OWNER_EMAIL = "user@winek.app"

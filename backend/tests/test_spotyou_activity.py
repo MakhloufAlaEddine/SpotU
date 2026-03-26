@@ -14,7 +14,7 @@ import httpx
 from datetime import datetime, timezone
 
 # URL de l'API
-API_BASE = "https://quality-analyzer.preview.emergentagent.com/api"
+API_BASE = "https://admin-validation-3.preview.emergentagent.com/api"
 
 # Credentials
 USER_EMAIL = "user@winek.app"

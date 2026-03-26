@@ -12,7 +12,7 @@ import io
 
 BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "").rstrip("/")
 if not BASE_URL:
-    BASE_URL = "https://quality-analyzer.preview.emergentagent.com"
+    BASE_URL = "https://admin-validation-3.preview.emergentagent.com"
 
 
 def _get_valid_tag_ids():

@@ -28,7 +28,7 @@ import asyncpg
 import httpx
 import pytest
 
-API_BASE   = os.environ.get("API_BASE", "https://quality-analyzer.preview.emergentagent.com")
+API_BASE   = os.environ.get("API_BASE", "https://admin-validation-3.preview.emergentagent.com")
 DB_URL     = os.environ.get("DATABASE_URL", "postgresql://winek:winek2024@127.0.0.1/winek_db")
 
 ADMIN_EMAIL = "admin@winek.app"

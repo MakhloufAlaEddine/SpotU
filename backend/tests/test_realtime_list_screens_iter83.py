@@ -18,7 +18,7 @@ import json
 import os
 
 # ─── Configuration ─────────────────────────────────────────────────────────────
-BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://quality-analyzer.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://admin-validation-3.preview.emergentagent.com").rstrip("/")
 API_BASE = f"{BASE_URL}/api"
 WS_BASE  = BASE_URL.replace("https://", "wss://").replace("http://", "ws://") + "/api"
 

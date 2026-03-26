@@ -1050,7 +1050,11 @@ async def connect_to_db():
             'cdurand@winek.app',
         ])
 
-        # [PRODUCTS-V1] Full rental product creation flow
+        # [PRODUCTS-V2] Admin review + reminders
+        await conn.execute("""
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS admin_reminder_sent_at TIMESTAMPTZ;
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS admin_comment TEXT;
+        """)
         await conn.execute("""
             ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active';
             ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS short_description TEXT;

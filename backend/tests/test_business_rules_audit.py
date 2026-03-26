@@ -28,7 +28,7 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-API_BASE = "https://quality-analyzer.preview.emergentagent.com/api"
+API_BASE = "https://admin-validation-3.preview.emergentagent.com/api"
 DB_DSN = "dbname=winek_db user=winek password=winek2024 host=localhost port=5432"
 
 COACH_EMAIL = "coach@winek.app"
