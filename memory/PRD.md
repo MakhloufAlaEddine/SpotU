@@ -53,7 +53,30 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 
 **Problème résolu** : Boucle de crash ngrok lors des redémarrages Expo (conflit sous-domaine `delivery-badges`).
 
-### Navigation Boutique en Écran Dédié (2026-03-26)
+### Flow Création Produit LOCATION (2026-03-26)
+**Nouveaux fichiers:**
+| Fichier | Rôle |
+|---------|------|
+| `backend/routes/product_creation_routes.py` | CRUD produit : GET mine, POST create, DELETE |
+| `frontend/app/products/_layout.tsx` | Stack violet products |
+| `frontend/app/products/create.tsx` | Entrée du flow (wraps context) |
+| `frontend/app/products/my-products.tsx` | Liste mes produits + statuts |
+| `frontend/lib/imageUpload.ts` | Helper upload R2 partagé |
+| `frontend/components/product-form/ProductFormContext.tsx` | Context + validation + qualité |
+| `frontend/components/product-form/ProductCreationFlow.tsx` | Stepper violet 7 étapes |
+| `frontend/components/product-form/steps/Step1TypeCategory.tsx` | Type + Catégorie |
+| `frontend/components/product-form/steps/Step2MainInfo.tsx` | Titre, description, prix |
+| `frontend/components/product-form/steps/Step3Photos.tsx` | Upload photos |
+| `frontend/components/product-form/steps/Step4RentalConditions.tsx` | Caution, remise, retour |
+| `frontend/components/product-form/steps/Step5Availability.tsx` | Localisation + StepLocalisation |
+| `frontend/components/product-form/steps/Step6SpotYouLink.tsx` | Liaison SpotYou |
+| `frontend/components/product-form/steps/Step7Summary.tsx` | Récap + aperçu ProductDetailView |
+
+**Modifié:** `database.py` (migration +17 colonnes), `upload_routes.py` (catégorie products), `server.py` (route produits), `profile.tsx` (section Mes produits), `_layout.tsx` (stack products)
+
+**Architecture:** `ProductFormContext` → `ProductCreationFlow` → 7 steps | Status: `draft → pending_review → active`
+
+
 | Composant | Changement |
 |-----------|-----------|
 | `frontend/app/marketplace/_layout.tsx` | **NOUVEAU** — Stack layout pour les écrans boutique |
