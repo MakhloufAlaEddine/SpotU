@@ -113,6 +113,23 @@ export function setupNotificationResponseHandler(): () => void {
       case 'booking_status':
         guardedNavigate(() => router.push('/bookings'));
         break;
+      // ── Produits ────────────────────────────────────────────────────────────
+      case 'product_rejected':
+        if (data.product_id) {
+          guardedNavigate(() =>
+            router.push(`/products/create?productId=${data.product_id}&mode=edit` as any)
+          );
+        } else {
+          guardedNavigate(() => router.push('/products/my-products' as any));
+        }
+        break;
+      case 'product_approved':
+        guardedNavigate(() => router.push('/products/my-products' as any));
+        break;
+      case 'admin_product_pending':
+      case 'admin_product_reminder':
+        guardedNavigate(() => router.push('/admin?tab=products' as any));
+        break;
     }
   });
 

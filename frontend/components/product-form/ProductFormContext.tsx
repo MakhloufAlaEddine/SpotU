@@ -179,8 +179,8 @@ interface ProductFormContextValue {
 
 const Ctx = createContext<ProductFormContextValue | null>(null);
 
-export function ProductFormProvider({ children }: { children: React.ReactNode }) {
-  const [form, setForm] = useState<ProductFormData>(DEFAULT);
+export function ProductFormProvider({ children, initialData }: { children: React.ReactNode; initialData?: Partial<ProductFormData> }) {
+  const [form, setForm] = useState<ProductFormData>(() => ({ ...DEFAULT, ...(initialData ?? {}) }));
 
   const set = useCallback((partial: Partial<ProductFormData>) => {
     setForm(prev => ({ ...prev, ...partial }));

@@ -57,7 +57,7 @@ async def get_my_products(request: Request):
                 deposit_required, deposit_amount,
                 pickup_type, city, location_privacy,
                 related_spotyou_ids, created_at, updated_at,
-                rejection_reason
+                rejection_reason, admin_comment
             FROM marketplace_products
             WHERE seller_id = $1
               AND status != 'deleted'
@@ -68,6 +68,39 @@ async def get_my_products(request: Request):
 
     products = [_clean(dict(r)) for r in rows]
     return {"products": products, "count": len(products)}
+
+
+# ─── GET /api/products/{product_id}/detail ────────────────────────────────────
+@router.get("/products/{product_id}/detail")
+async def get_product_detail(request: Request, product_id: str):
+    """Retourne le détail complet d'un produit appartenant à l'utilisateur (pour édition)."""
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    user_id = user["user_id"]
+
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT product_id, title, short_description, description,
+                   price, currency, product_type, pricing_type,
+                   status, category, subcategory,
+                   cover_image_url, image_url, image_urls,
+                   condition_label, available_quantity,
+                   deposit_required, deposit_amount, max_duration_days,
+                   pickup_type, pickup_notes, city, location_privacy, lat, lng,
+                   return_rules, cancellation_rules, availability_note,
+                   included_items, brand_model, size_dimensions,
+                   related_spotyou_ids,
+                   rejection_reason, admin_comment,
+                   created_at, updated_at
+            FROM marketplace_products
+            WHERE product_id = $1 AND seller_id = $2 AND status != 'deleted'
+            """,
+            product_id, user_id,
+        )
+    if not row:
+        return JSONResponse({"error": "Produit introuvable ou accès refusé."}, status_code=404)
+    return _clean(dict(row))
 
 
 # ─── POST /api/products ───────────────────────────────────────────────────────

@@ -5,7 +5,7 @@ import {
   KeyboardAvoidingView, Platform, RefreshControl, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
@@ -1783,7 +1783,8 @@ function ProductsTab({ onCountChange }: { onCountChange?: (n: number) => void })
 export default function AdminScreen() {
   const { user, loading: authLoading } = useAuth();
   const router = useGuardedRouter();
-  const [tab, setTab] = useState<Tab>('stats');
+  const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
+  const [tab, setTab] = useState<Tab>((tabParam as Tab) || 'stats');
   const [stats, setStats] = useState<Stats | null>(null);
   const [rules, setRules] = useState<PricingRule[]>([]);
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
