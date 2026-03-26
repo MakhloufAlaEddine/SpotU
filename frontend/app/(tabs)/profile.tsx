@@ -384,8 +384,8 @@ export default function MenuScreen() {
               testID="my-products-menu-btn"
             >
               <View style={st.settingLeft}>
-                <View style={[st.settingIconBox, { backgroundColor: 'rgba(139,92,246,0.14)' }]}>
-                  <Ionicons name="cube-outline" size={18} color="#8B5CF6" />
+                <View style={[st.settingIconBox, { backgroundColor: 'rgba(59,130,246,0.14)' }]}>
+                  <Ionicons name="cube-outline" size={18} color="#3B82F6" />
                 </View>
                 <Text style={st.settingLabel}>Mes annonces de location</Text>
               </View>
@@ -398,8 +398,8 @@ export default function MenuScreen() {
               testID="create-product-menu-btn"
             >
               <View style={st.settingLeft}>
-                <View style={[st.settingIconBox, { backgroundColor: 'rgba(139,92,246,0.14)' }]}>
-                  <Ionicons name="add-circle-outline" size={18} color="#8B5CF6" />
+                <View style={[st.settingIconBox, { backgroundColor: 'rgba(59,130,246,0.14)' }]}>
+                  <Ionicons name="add-circle-outline" size={18} color="#3B82F6" />
                 </View>
                 <Text style={st.settingLabel}>Ajouter un produit</Text>
               </View>
