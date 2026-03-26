@@ -6,7 +6,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = "https://admin-validation-3.preview.emergentagent.com"
+BASE_URL = "https://moderation-dashboard-3.preview.emergentagent.com"
 
 ADMIN_EMAIL = "admin@winek.app"
 ADMIN_PASS = "WinekAdmin2024!"

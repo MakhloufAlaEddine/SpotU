@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../../../constants/Colors';
 import { useProductForm, PickupType } from '../ProductFormContext';
 
-const VIOLET = '#8B5CF6';
+const BLUE = '#3B82F6';
 
 const PICKUP_OPTS: { key: PickupType; label: string; desc: string; icon: string }[] = [
   { key: 'local_pickup',    label: 'Récupération sur place', desc: 'Le locataire vient chercher le matériel', icon: 'location-outline' },
@@ -43,14 +43,14 @@ export function Step4RentalConditions() {
               onPress={() => set({ pickup_type: o.key })}
               testID={`pickup-${o.key}`}
             >
-              <View style={[r.pickupIcon, active && { backgroundColor: VIOLET + '20' }]}>
-                <Ionicons name={o.icon as any} size={20} color={active ? VIOLET : Colors.muted} />
+              <View style={[r.pickupIcon, active && { backgroundColor: BLUE + '20' }]}>
+                <Ionicons name={o.icon as any} size={20} color={active ? BLUE : Colors.muted} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[r.pickupLabel, active && { color: VIOLET }]}>{o.label}</Text>
+                <Text style={[r.pickupLabel, active && { color: BLUE }]}>{o.label}</Text>
                 <Text style={r.pickupDesc}>{o.desc}</Text>
               </View>
-              {active && <Ionicons name="checkmark-circle" size={20} color={VIOLET} />}
+              {active && <Ionicons name="checkmark-circle" size={20} color={BLUE} />}
             </TouchableOpacity>
           );
         })}
@@ -98,8 +98,8 @@ export function Step4RentalConditions() {
         <Switch
           value={form.deposit_required}
           onValueChange={v => set({ deposit_required: v, deposit_amount: v ? form.deposit_amount : '' })}
-          thumbColor={form.deposit_required ? VIOLET : Colors.muted}
-          trackColor={{ false: Colors.border, true: VIOLET + '60' }}
+          thumbColor={form.deposit_required ? BLUE : Colors.muted}
+          trackColor={{ false: Colors.border, true: BLUE + '60' }}
           testID="deposit-switch"
         />
       </View>
@@ -153,7 +153,7 @@ export function Step4RentalConditions() {
 
       {/* Conseil qualité */}
       <View style={r.qualityCard}>
-        <Ionicons name="shield-checkmark-outline" size={18} color={VIOLET} />
+        <Ionicons name="shield-checkmark-outline" size={18} color={BLUE} />
         <Text style={r.qualityText}>Des conditions claires réduisent les annulations et les litiges. Sois précis et honnête.</Text>
       </View>
     </View>
@@ -169,7 +169,7 @@ const r = StyleSheet.create({
   rowInput:       { flexDirection: 'row', alignItems: 'center', gap: 8 },
   unitLabel:      { fontSize: 14, color: Colors.muted },
   pickupRow:      { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.card, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border, marginBottom: 8 },
-  pickupRowActive:{ borderColor: VIOLET, backgroundColor: VIOLET + '08' },
+  pickupRowActive:{ borderColor: BLUE, backgroundColor: BLUE + '08' },
   pickupIcon:     { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
   pickupLabel:    { fontSize: 14, fontWeight: '700', color: Colors.foreground },
   pickupDesc:     { fontSize: 12, color: Colors.muted, marginTop: 1 },
@@ -178,6 +178,6 @@ const r = StyleSheet.create({
   switchDesc:     { fontSize: 12, color: Colors.muted, marginTop: 1 },
   priceRow:       { flexDirection: 'row', alignItems: 'center', gap: 8 },
   priceCurrency:  { fontSize: 18, fontWeight: '700', color: Colors.foreground },
-  qualityCard:    { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: VIOLET + '0D', borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: VIOLET + '30' },
+  qualityCard:    { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: BLUE + '0D', borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: BLUE + '30' },
   qualityText:    { flex: 1, fontSize: 13, color: Colors.foreground, lineHeight: 19 },
 });

@@ -9,7 +9,7 @@ import { useProductForm } from '../ProductFormContext';
 import { api } from '../../../lib/api';
 import { TagImage } from '../../TagImage';
 
-const VIOLET = '#8B5CF6';
+const BLUE = '#3B82F6';
 
 export function Step6SpotYouLink() {
   const { form, set } = useProductForm();
@@ -36,7 +36,7 @@ export function Step6SpotYouLink() {
     <View style={sv.wrap}>
       {/* Explication */}
       <View style={sv.infoCard}>
-        <Ionicons name="pin-outline" size={18} color={VIOLET} />
+        <Ionicons name="pin-outline" size={18} color={BLUE} />
         <Text style={sv.infoText}>
           Lier ton produit à un SpotYou permet aux bonnes personnes de le trouver directement dans la boutique du SpotYou.
         </Text>
@@ -44,7 +44,7 @@ export function Step6SpotYouLink() {
 
       <Text style={sv.label}>Tes SpotYou{spots.length > 0 ? ` (${spots.length})` : ''}</Text>
 
-      {loading && <ActivityIndicator color={VIOLET} />}
+      {loading && <ActivityIndicator color={BLUE} />}
 
       {!loading && spots.length === 0 && (
         <View style={sv.emptyCard}>
@@ -65,7 +65,7 @@ export function Step6SpotYouLink() {
           >
             <TagImage uri={s.image_url} tagIds={s.tag_ids || []} style={sv.spotImg} />
             <View style={{ flex: 1 }}>
-              <Text style={[sv.spotTitle, selected && { color: VIOLET }]} numberOfLines={1}>{s.title}</Text>
+              <Text style={[sv.spotTitle, selected && { color: BLUE }]} numberOfLines={1}>{s.title}</Text>
               <Text style={sv.spotSub} numberOfLines={1}>{s.address || s.city || ''}</Text>
             </View>
             <View style={[sv.checkbox, selected && sv.checkboxActive]}>
@@ -85,19 +85,19 @@ export function Step6SpotYouLink() {
 
 const sv = StyleSheet.create({
   wrap:         { gap: Spacing.lg },
-  infoCard:     { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: VIOLET + '0D', borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: VIOLET + '30' },
+  infoCard:     { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: BLUE + '0D', borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: BLUE + '30' },
   infoText:     { flex: 1, fontSize: 13, color: Colors.foreground, lineHeight: 19 },
   label:        { fontSize: 12, fontWeight: '700', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.6 },
   emptyCard:    { alignItems: 'center', gap: 8, padding: Spacing.xl, backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border },
   emptyText:    { fontSize: 14, fontWeight: '600', color: Colors.foreground },
   emptyHint:    { fontSize: 12, color: Colors.muted, textAlign: 'center', lineHeight: 17 },
   spotRow:      { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.card, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border },
-  spotRowActive:{ borderColor: VIOLET, backgroundColor: VIOLET + '08' },
+  spotRowActive:{ borderColor: BLUE, backgroundColor: BLUE + '08' },
   spotImg:      { width: 48, height: 48, borderRadius: 10 },
   spotTitle:    { fontSize: 14, fontWeight: '700', color: Colors.foreground },
   spotSub:      { fontSize: 12, color: Colors.muted, marginTop: 2 },
   checkbox:     { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
-  checkboxActive:{ backgroundColor: VIOLET, borderColor: VIOLET },
+  checkboxActive:{ backgroundColor: BLUE, borderColor: BLUE },
   skipCard:     { backgroundColor: Colors.card, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border },
   skipText:     { fontSize: 12, color: Colors.muted, lineHeight: 17 },
 });

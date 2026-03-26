@@ -27,8 +27,8 @@ import { Step5Availability }     from './steps/Step5Availability';
 import { Step6SpotYouLink }      from './steps/Step6SpotYouLink';
 import { Step7Summary }          from './steps/Step7Summary';
 
-const VIOLET      = '#8B5CF6';
-const VIOLET_DIM  = 'rgba(139,92,246,0.12)';
+const BLUE      = '#3B82F6';
+const BLUE_DIM  = 'rgba(59,130,246,0.12)';
 const TOTAL_STEPS = 7;
 
 const STEP_CONFIG = [
@@ -219,7 +219,7 @@ export function ProductCreationFlow({ isEditMode = false }: { isEditMode?: boole
 
       {/* ── Tip ──────────────────────────────────────────────────────── */}
       <View style={c.tipBanner}>
-        <Ionicons name="bulb-outline" size={14} color={VIOLET} />
+        <Ionicons name="bulb-outline" size={14} color={BLUE} />
         <Text style={c.tipText} numberOfLines={2}>{cfg.tip}</Text>
       </View>
 
@@ -287,13 +287,13 @@ const c = StyleSheet.create({
   qualityScore:  { fontSize: 18, fontWeight: '900' },
   qualityMax:    { fontSize: 11, color: Colors.muted },
   progressBar:   { height: 3, backgroundColor: Colors.border, marginHorizontal: Spacing.md, borderRadius: 2, overflow: 'hidden' },
-  progressFill:  { height: '100%', backgroundColor: VIOLET, borderRadius: 2 },
+  progressFill:  { height: '100%', backgroundColor: BLUE, borderRadius: 2 },
   dotsRow:       { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, paddingVertical: 10 },
   dot:           { width: 26, height: 26, borderRadius: 13, backgroundColor: Colors.card, borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
-  dotActive:     { borderColor: VIOLET, backgroundColor: VIOLET },
-  dotCurrent:    { backgroundColor: VIOLET, borderColor: VIOLET, width: 30, height: 30, borderRadius: 15 },
+  dotActive:     { borderColor: BLUE, backgroundColor: BLUE },
+  dotCurrent:    { backgroundColor: BLUE, borderColor: BLUE, width: 30, height: 30, borderRadius: 15 },
   dotNum:        { fontSize: 10, fontWeight: '700', color: Colors.muted },
-  tipBanner:     { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginHorizontal: Spacing.md, marginBottom: 8, backgroundColor: VIOLET_DIM, borderRadius: Radius.md, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: VIOLET + '28' },
+  tipBanner:     { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginHorizontal: Spacing.md, marginBottom: 8, backgroundColor: BLUE_DIM, borderRadius: Radius.md, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: BLUE + '28' },
   tipText:       { flex: 1, fontSize: 12, color: Colors.foreground, lineHeight: 17 },
   content:       { paddingHorizontal: Spacing.md, paddingTop: 4, paddingBottom: 100 },
   errorBanner:   { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#FEE2E2', borderRadius: Radius.md, padding: Spacing.md, marginTop: Spacing.md, borderWidth: 1, borderColor: '#FECACA' },
@@ -301,6 +301,6 @@ const c = StyleSheet.create({
   navBar:        { flexDirection: 'row', gap: 10, paddingHorizontal: Spacing.md, paddingVertical: 12, borderTopWidth: 1, borderTopColor: Colors.border },
   prevBtn:       { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 14, borderRadius: Radius.full, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border },
   prevBtnText:   { fontSize: 14, fontWeight: '600', color: Colors.foreground },
-  nextBtn:       { flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: Radius.full, backgroundColor: VIOLET },
+  nextBtn:       { flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: Radius.full, backgroundColor: BLUE },
   nextBtnText:   { fontSize: 14, fontWeight: '700', color: '#fff' },
 });

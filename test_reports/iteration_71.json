@@ -38,7 +38,7 @@
   "seed_data_creation": "Aucune.",
   "retest_needed": false,
   "should_main_agent_self_test": false,
-  "context_for_next_testing_agent": "Iteration 71: 36/36 PASS. AuthContext offline token preservation + user spotu_user cache + ErrorNoData (TouchableOpacity, size 64, opacity 0.35, title 18/700/rgba(255,255,255,0.9)) + user/[id].tsx et profile.tsx utilisent ErrorNoData. APP_URL = https://admin-validation-3.preview.emergentagent.com. Test file: /app/frontend/e2e/test_15_authcontext_errornodata.py. Précédente session (iter70): 31/31 PASS. Test complet: cd /app/frontend/e2e && EXPO_PUBLIC_BACKEND_URL=https://admin-validation-3.preview.emergentagent.com python -m pytest test_15_authcontext_errornodata.py -v",
+  "context_for_next_testing_agent": "Iteration 71: 36/36 PASS. AuthContext offline token preservation + user spotu_user cache + ErrorNoData (TouchableOpacity, size 64, opacity 0.35, title 18/700/rgba(255,255,255,0.9)) + user/[id].tsx et profile.tsx utilisent ErrorNoData. APP_URL = https://moderation-dashboard-3.preview.emergentagent.com. Test file: /app/frontend/e2e/test_15_authcontext_errornodata.py. Précédente session (iter70): 31/31 PASS. Test complet: cd /app/frontend/e2e && EXPO_PUBLIC_BACKEND_URL=https://moderation-dashboard-3.preview.emergentagent.com python -m pytest test_15_authcontext_errornodata.py -v",
   "test_results_detail": {
     "TestAuthContextStatic (12 tests)": {
       "test_checkauth_uses_isOfflineOrTimeout": "PASS",

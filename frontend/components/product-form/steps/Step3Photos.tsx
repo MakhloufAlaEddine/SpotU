@@ -8,7 +8,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Colors, Spacing, Radius } from '../../../constants/Colors';
 import { useProductForm } from '../ProductFormContext';
 
-const VIOLET = '#8B5CF6';
+const BLUE = '#3B82F6';
 const MAX_IMAGES = 6;
 
 const TIPS = [
@@ -55,7 +55,7 @@ export function Step3Photos() {
         <Text style={p.tipsTitle}>Conseils pour de bonnes photos</Text>
         {TIPS.map(t => (
           <View key={t.text} style={p.tipRow}>
-            <Ionicons name={t.icon as any} size={14} color={VIOLET} />
+            <Ionicons name={t.icon as any} size={14} color={BLUE} />
             <Text style={p.tipText}>{t.text}</Text>
           </View>
         ))}
@@ -93,7 +93,7 @@ export function Step3Photos() {
               onPress={pickImages}
               testID="add-photo-btn"
             >
-              <Ionicons name="camera-outline" size={form.images.length === 0 ? 36 : 28} color={VIOLET} />
+              <Ionicons name="camera-outline" size={form.images.length === 0 ? 36 : 28} color={BLUE} />
               <Text style={p.addBtnText}>
                 {form.images.length === 0 ? 'Ajouter une photo principale' : 'Ajouter'}
               </Text>
@@ -118,8 +118,8 @@ const CELL = 156;
 
 const p = StyleSheet.create({
   wrap:        { gap: Spacing.lg },
-  tipsCard:    { backgroundColor: VIOLET + '0D', borderRadius: Radius.md, borderWidth: 1, borderColor: VIOLET + '30', padding: Spacing.md, gap: 8 },
-  tipsTitle:   { fontSize: 13, fontWeight: '700', color: VIOLET, marginBottom: 2 },
+  tipsCard:    { backgroundColor: BLUE + '0D', borderRadius: Radius.md, borderWidth: 1, borderColor: BLUE + '30', padding: Spacing.md, gap: 8 },
+  tipsTitle:   { fontSize: 13, fontWeight: '700', color: BLUE, marginBottom: 2 },
   tipRow:      { flexDirection: 'row', alignItems: 'center', gap: 8 },
   tipText:     { fontSize: 12, color: Colors.foreground, flex: 1, lineHeight: 17 },
   labelRow:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
@@ -129,12 +129,12 @@ const p = StyleSheet.create({
   imgWrap:     { width: CELL, height: CELL, borderRadius: Radius.md, overflow: 'hidden', position: 'relative' },
   imgMain:     { width: '100%', height: 180 },
   img:         { width: '100%', height: '100%' },
-  coverBadge:  { position: 'absolute', bottom: 8, left: 8, backgroundColor: VIOLET, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+  coverBadge:  { position: 'absolute', bottom: 8, left: 8, backgroundColor: BLUE, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
   coverText:   { fontSize: 10, fontWeight: '700', color: '#fff' },
   removeBtn:   { position: 'absolute', top: 6, right: 6 },
-  addBtn:      { width: CELL, height: CELL, borderRadius: Radius.md, borderWidth: 2, borderColor: VIOLET + '55', borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', gap: 4, backgroundColor: VIOLET + '05' },
+  addBtn:      { width: CELL, height: CELL, borderRadius: Radius.md, borderWidth: 2, borderColor: BLUE + '55', borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', gap: 4, backgroundColor: BLUE + '05' },
   addBtnMain:  { width: '100%', height: 180 },
-  addBtnText:  { fontSize: 12, fontWeight: '600', color: VIOLET, textAlign: 'center' },
+  addBtnText:  { fontSize: 12, fontWeight: '600', color: BLUE, textAlign: 'center' },
   hint:        { fontSize: 12, color: Colors.muted, textAlign: 'center', lineHeight: 18 },
-  hintGood:    { fontSize: 12, color: VIOLET, lineHeight: 18 },
+  hintGood:    { fontSize: 12, color: BLUE, lineHeight: 18 },
 });

@@ -10,7 +10,7 @@ import os
 BASE_URL = (
     os.environ.get("EXPO_PUBLIC_BACKEND_URL") or
     os.environ.get("REACT_APP_BACKEND_URL") or
-    "https://admin-validation-3.preview.emergentagent.com"
+    "https://moderation-dashboard-3.preview.emergentagent.com"
 ).rstrip("/")
 
 # Test credentials

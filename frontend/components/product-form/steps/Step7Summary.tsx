@@ -9,7 +9,7 @@ import { Colors, Spacing, Radius } from '../../../constants/Colors';
 import { useProductForm, calcProductQuality } from '../ProductFormContext';
 import { ProductDetailView } from '../../ProductDetailView';
 
-const VIOLET = '#8B5CF6';
+const BLUE = '#8B5CF6';
 
 const CAT_LABELS: Record<string, string> = {
   velo: 'Vélo / Trottinette', raquette: 'Raquette / Padel',
@@ -142,7 +142,7 @@ export function Step7Summary({ onSaveDraft, onPublish, isSubmitting }: Props) {
         onPress={() => setShowPreview(true)}
         testID="preview-btn"
       >
-        <Ionicons name="eye-outline" size={18} color={VIOLET} />
+        <Ionicons name="eye-outline" size={18} color={BLUE} />
         <Text style={sm.previewBtnText}>Voir l'aperçu du produit</Text>
       </TouchableOpacity>
 
@@ -156,7 +156,7 @@ export function Step7Summary({ onSaveDraft, onPublish, isSubmitting }: Props) {
           'Ta localisation est correcte',
         ].map(a => (
           <View key={a} style={sm.adviceRow}>
-            <Ionicons name="checkmark-circle-outline" size={14} color={VIOLET} />
+            <Ionicons name="checkmark-circle-outline" size={14} color={BLUE} />
             <Text style={sm.adviceText}>{a}</Text>
           </View>
         ))}
@@ -178,7 +178,7 @@ export function Step7Summary({ onSaveDraft, onPublish, isSubmitting }: Props) {
           disabled={isSubmitting}
           testID="save-draft-btn"
         >
-          {isSubmitting ? <ActivityIndicator size="small" color={VIOLET} /> : <Ionicons name="save-outline" size={18} color={VIOLET} />}
+          {isSubmitting ? <ActivityIndicator size="small" color={BLUE} /> : <Ionicons name="save-outline" size={18} color={BLUE} />}
           <Text style={sm.draftBtnText}>Brouillon</Text>
         </TouchableOpacity>
 
@@ -226,13 +226,13 @@ const sm = StyleSheet.create({
   coverImg:       { width: '100%', height: 160 },
   summaryContent: { padding: Spacing.md, gap: 10 },
   productTitle:   { fontSize: 17, fontWeight: '800', color: Colors.foreground },
-  productPrice:   { fontSize: 20, fontWeight: '900', color: VIOLET },
+  productPrice:   { fontSize: 20, fontWeight: '900', color: BLUE },
   rows:           { gap: 6 },
   row:            { flexDirection: 'row', alignItems: 'center', gap: 8 },
   rowLabel:       { fontSize: 12, color: Colors.muted, flex: 1 },
   rowValue:       { fontSize: 12, fontWeight: '600', color: Colors.foreground },
-  previewBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: VIOLET + '10', borderRadius: Radius.md, paddingVertical: 12, borderWidth: 1, borderColor: VIOLET + '40' },
-  previewBtnText: { fontSize: 14, fontWeight: '700', color: VIOLET },
+  previewBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: BLUE + '10', borderRadius: Radius.md, paddingVertical: 12, borderWidth: 1, borderColor: BLUE + '40' },
+  previewBtnText: { fontSize: 14, fontWeight: '700', color: BLUE },
   adviceCard:     { backgroundColor: Colors.card, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border, gap: 8 },
   adviceTitle:    { fontSize: 13, fontWeight: '700', color: Colors.foreground, marginBottom: 2 },
   adviceRow:      { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
@@ -240,8 +240,8 @@ const sm = StyleSheet.create({
   moderationNote: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: Colors.card, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border },
   moderationText: { flex: 1, fontSize: 12, color: Colors.muted, lineHeight: 17 },
   ctaRow:         { flexDirection: 'row', gap: 10, marginTop: 4 },
-  draftBtn:       { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.card, borderRadius: Radius.full, paddingVertical: 14, borderWidth: 1.5, borderColor: VIOLET },
-  draftBtnText:   { fontSize: 14, fontWeight: '700', color: VIOLET },
-  publishBtn:     { flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: VIOLET, borderRadius: Radius.pill, paddingVertical: 14 },
+  draftBtn:       { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.card, borderRadius: Radius.full, paddingVertical: 14, borderWidth: 1.5, borderColor: BLUE },
+  draftBtnText:   { fontSize: 14, fontWeight: '700', color: BLUE },
+  publishBtn:     { flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: BLUE, borderRadius: Radius.pill, paddingVertical: 14 },
   publishBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
 });

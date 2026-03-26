@@ -10,7 +10,7 @@ import { StepLocalisation } from '../../StepLocalisation';
 import { LocationPicker }   from '../../LocationPicker';
 import { useLocation }      from '../../../context/LocationContext';
 
-const VIOLET = '#8B5CF6';
+const BLUE = '#8B5CF6';
 
 const PRECISION_RADIUS: Record<LocationPrivacy, number> = {
   exact: 0,
@@ -55,7 +55,7 @@ export function Step5Availability() {
         } as any)}
         precisionRadius={PRECISION_RADIUS[form.location_privacy]}
         onOpenLocation={() => setShowLocationModal(true)}
-        accentColor={VIOLET}
+        accentColor={BLUE}
         showPrecision={true}
       />
 
@@ -107,7 +107,7 @@ export function Step5Availability() {
 
 const v = StyleSheet.create({
   wrap:     { gap: Spacing.lg },
-  infoCard: { backgroundColor: VIOLET + '0D', borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: VIOLET + '30' },
+  infoCard: { backgroundColor: BLUE + '0D', borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: BLUE + '30' },
   infoText: { fontSize: 13, color: Colors.foreground, lineHeight: 19 },
   label:    { fontSize: 12, fontWeight: '700', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.6 },
   hint:     { fontSize: 11, color: Colors.muted, lineHeight: 15 },

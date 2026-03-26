@@ -7,11 +7,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../../../constants/Colors';
 import { useProductForm, ConditionLabel, PricingType } from '../ProductFormContext';
 
-const VIOLET = '#8B5CF6';
+const BLUE = '#3B82F6';
 
 const CONDITIONS: { key: ConditionLabel; label: string; desc: string; color: string }[] = [
   { key: 'new',        label: 'Neuf',        desc: 'Jamais utilisé',          color: '#22C55E' },
-  { key: 'very_good',  label: 'Très bon',    desc: 'Utilisé quelques fois',   color: VIOLET    },
+  { key: 'very_good',  label: 'Très bon',    desc: 'Utilisé quelques fois',   color: BLUE    },
   { key: 'good',       label: 'Bon',         desc: 'Normal, avec traces',     color: '#F59E0B' },
   { key: 'acceptable', label: 'Acceptable',  desc: 'Visible usure, fonctionne', color: '#EF4444' },
 ];
@@ -155,8 +155,8 @@ export function Step2MainInfo() {
                   onPress={() => set({ pricing_type: p.key })}
                   testID={`pricing-${p.key}`}
                 >
-                  <Ionicons name={p.icon as any} size={14} color={active ? VIOLET : Colors.muted} />
-                  <Text style={[f.pricingLabel, active && { color: VIOLET }]}>{p.label}</Text>
+                  <Ionicons name={p.icon as any} size={14} color={active ? BLUE : Colors.muted} />
+                  <Text style={[f.pricingLabel, active && { color: BLUE }]}>{p.label}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -211,7 +211,7 @@ const f = StyleSheet.create({
   priceInput:     { width: 90 },
   priceCurrency:  { fontSize: 18, fontWeight: '700', color: Colors.foreground },
   pricingChip:    { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.card, borderRadius: Radius.sm, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: Colors.border },
-  pricingChipActive: { borderColor: VIOLET, backgroundColor: VIOLET + '10' },
+  pricingChipActive: { borderColor: BLUE, backgroundColor: BLUE + '10' },
   pricingLabel:   { fontSize: 13, fontWeight: '600', color: Colors.muted },
   qtyRow:         { flexDirection: 'row', alignItems: 'center', gap: 0, backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden', alignSelf: 'flex-start' },
   qtyBtn:         { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },

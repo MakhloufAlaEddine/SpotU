@@ -52,7 +52,7 @@ import pytest
 
 API_BASE = os.environ.get(
     "EXPO_PUBLIC_BACKEND_URL",
-    "https://admin-validation-3.preview.emergentagent.com",
+    "https://moderation-dashboard-3.preview.emergentagent.com",
 ).rstrip("/")
 
 DB_URL = os.environ.get(
