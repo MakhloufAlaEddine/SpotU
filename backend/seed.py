@@ -152,20 +152,27 @@ TAGS = [
     {"tag_id": "tag_endurance",   "domain_id": "dom_coaching", "name": "endurance",       "label_fr": "Endurance",        "label_en": "Endurance"},
     {"tag_id": "tag_performance", "domain_id": "dom_coaching", "name": "performance",     "label_fr": "Performance",      "label_en": "Performance"},
     # ── Niveau ───────────────────────────────────────────────────────────────
-    {"tag_id": "tag_debutant",    "domain_id": "dom_sport",    "name": "debutant",        "label_fr": "Débutant",         "label_en": "Beginner"},
-    {"tag_id": "tag_intermediaire","domain_id": "dom_sport",   "name": "intermediaire",   "label_fr": "Intermédiaire",    "label_en": "Intermediate"},
-    {"tag_id": "tag_avance",      "domain_id": "dom_sport",    "name": "avance",          "label_fr": "Avancé",           "label_en": "Advanced"},
-    {"tag_id": "tag_tous_niveaux","domain_id": "dom_sport",    "name": "tous_niveaux",    "label_fr": "Tous niveaux",     "label_en": "All Levels"},
-    {"tag_id": "tag_intensif",    "domain_id": "dom_sport",    "name": "intensif",        "label_fr": "Intensif",         "label_en": "Intensive"},
-    {"tag_id": "tag_loisir",      "domain_id": "dom_sport",    "name": "loisir",          "label_fr": "Loisir",           "label_en": "Leisure"},
-    {"tag_id": "tag_competition", "domain_id": "dom_sport",    "name": "competition",     "label_fr": "Compétition",      "label_en": "Competition"},
+    # (supprimé — tags génériques trop faibles pour le matching)
     # ── Contexte ─────────────────────────────────────────────────────────────
-    {"tag_id": "tag_indoor",      "domain_id": "dom_sport",    "name": "indoor",          "label_fr": "Indoor",           "label_en": "Indoor"},
-    {"tag_id": "tag_outdoor",     "domain_id": "dom_sport",    "name": "outdoor",         "label_fr": "Outdoor",          "label_en": "Outdoor"},
-    {"tag_id": "tag_matin",       "domain_id": "dom_sport",    "name": "matin",           "label_fr": "Matin",            "label_en": "Morning"},
-    {"tag_id": "tag_soir",        "domain_id": "dom_sport",    "name": "soir",            "label_fr": "Soir",             "label_en": "Evening"},
-    {"tag_id": "tag_weekend",     "domain_id": "dom_sport",    "name": "weekend",         "label_fr": "Weekend",          "label_en": "Weekend"},
-    {"tag_id": "tag_quotidien",   "domain_id": "dom_sport",    "name": "quotidien",       "label_fr": "Quotidien",        "label_en": "Daily"},
+    # (supprimé — indoor/outdoor/matin/soir/weekend/quotidien/competition trop génériques)
+    # ── Camping / Outdoor renforcé ────────────────────────────────────────────
+    {"tag_id": "tag_camping",          "domain_id": "dom_sport",    "name": "camping",          "label_fr": "Camping",          "label_en": "Camping"},
+    {"tag_id": "tag_bivouac",          "domain_id": "dom_sport",    "name": "bivouac",          "label_fr": "Bivouac",          "label_en": "Bivouac"},
+    {"tag_id": "tag_trekking",         "domain_id": "dom_sport",    "name": "trekking",         "label_fr": "Trekking",         "label_en": "Trekking"},
+    {"tag_id": "tag_survie",           "domain_id": "dom_sport",    "name": "survie",           "label_fr": "Survie",           "label_en": "Survival"},
+    {"tag_id": "tag_bushcraft",        "domain_id": "dom_sport",    "name": "bushcraft",        "label_fr": "Bushcraft",        "label_en": "Bushcraft"},
+    {"tag_id": "tag_randonnee_longue", "domain_id": "dom_sport",    "name": "randonnee_longue", "label_fr": "Randonnée longue", "label_en": "Long Hike"},
+    {"tag_id": "tag_montagne",         "domain_id": "dom_sport",    "name": "montagne",         "label_fr": "Montagne",         "label_en": "Mountain"},
+    {"tag_id": "tag_foret",            "domain_id": "dom_sport",    "name": "foret",            "label_fr": "Forêt",            "label_en": "Forest"},
+    {"tag_id": "tag_lac",              "domain_id": "dom_sport",    "name": "lac",              "label_fr": "Lac",              "label_en": "Lake"},
+    {"tag_id": "tag_mer",              "domain_id": "dom_sport",    "name": "mer",              "label_fr": "Mer",              "label_en": "Sea"},
+    {"tag_id": "tag_nature",           "domain_id": "dom_sport",    "name": "nature",           "label_fr": "Nature",           "label_en": "Nature"},
+    {"tag_id": "tag_aventure",         "domain_id": "dom_sport",    "name": "aventure",         "label_fr": "Aventure",         "label_en": "Adventure"},
+    {"tag_id": "tag_expedition",       "domain_id": "dom_sport",    "name": "expedition",       "label_fr": "Expédition",       "label_en": "Expedition"},
+    {"tag_id": "tag_vanlife",          "domain_id": "dom_sport",    "name": "vanlife",          "label_fr": "Vanlife",          "label_en": "Vanlife"},
+    {"tag_id": "tag_roadtrip",         "domain_id": "dom_sport",    "name": "roadtrip",         "label_fr": "Roadtrip",         "label_en": "Road Trip"},
+    {"tag_id": "tag_autonomie",        "domain_id": "dom_sport",    "name": "autonomie",        "label_fr": "Autonomie",        "label_en": "Self-Sufficiency"},
+    {"tag_id": "tag_nuit_exterieure",  "domain_id": "dom_sport",    "name": "nuit_exterieure",  "label_fr": "Nuit extérieure",  "label_en": "Night Outdoors"},
 ]
 
 # ─────────────────────────────────────────────────────────────────────────────

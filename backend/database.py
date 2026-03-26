@@ -670,8 +670,8 @@ async def connect_to_db():
         """)
 
     # 2. Seed données de base (users, tagpoints, tags, domaines...)
-    from seed import seed_initial_data
-    await seed_initial_data()
+    # NOTE: le seed est lancé APRÈS toutes les migrations (voir fin du bloc connect_to_db)
+    # pour garantir que toutes les colonnes existent
 
     # 3. Seed données de test (membres SpotYou, votes, saves)
     async with pool.acquire() as conn:
@@ -982,6 +982,10 @@ async def connect_to_db():
             ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS admin_validated_at TIMESTAMPTZ;
             ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
         """)
+
+    # Seed données de base (users, tagpoints, tags, domaines...) — APRÈS toutes les migrations
+    from seed import seed_initial_data
+    await seed_initial_data()
 
 
 async def close_db():
