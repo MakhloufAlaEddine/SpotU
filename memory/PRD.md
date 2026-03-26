@@ -191,6 +191,9 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 - Push notifications créateur (validation / refus avec deep link edit mode)
 - Admin auto-publish (status pending_review → active)
 - Worker de rappel 2h (AdminProductReminderWorker)
+- Mode édition produits refusés (pré-remplissage complet catégorie, durée max, etc.)
+- Validation stricte champs obligatoires avant soumission (front + back)
+- **[2026-03-26] Remplacement complet couleur VIOLET (#8B5CF6) → BLEU (#3B82F6)** dans tous les composants product-form (Step1…Step7, ProductCreationFlow, ProductFormContext)
 
 ## Known Issues
 - ngrok tunnel instability (infrastructure, not code)

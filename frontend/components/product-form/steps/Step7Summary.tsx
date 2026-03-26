@@ -9,7 +9,7 @@ import { Colors, Spacing, Radius } from '../../../constants/Colors';
 import { useProductForm, calcProductQuality } from '../ProductFormContext';
 import { ProductDetailView } from '../../ProductDetailView';
 
-const BLUE = '#8B5CF6';
+const BLUE = '#3B82F6';
 
 const CAT_LABELS: Record<string, string> = {
   velo: 'Vélo / Trottinette', raquette: 'Raquette / Padel',

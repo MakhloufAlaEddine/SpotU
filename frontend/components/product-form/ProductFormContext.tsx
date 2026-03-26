@@ -124,7 +124,7 @@ export function calcProductQuality(f: ProductFormData): {
   let label = 'Basique';
   let color = '#94A3B8';
   if (s >= 85) { label = 'Excellent !'; color = '#22C55E'; }
-  else if (s >= 65) { label = 'Très bien'; color = '#8B5CF6'; }
+  else if (s >= 65) { label = 'Très bien'; color = '#3B82F6'; }
   else if (s >= 40) { label = 'Bien'; color = '#F59E0B'; }
 
   return { score: s, label, color, checklist: todo };

@@ -1,6 +1,6 @@
 /**
  * ProductCreationFlow — orchestrateur du flow de création produit.
- * Stepper violet (couleur produit), 7 étapes guidées.
+ * Stepper bleu (couleur produit), 7 étapes guidées.
  */
 import React, { useState, useRef } from 'react';
 import {

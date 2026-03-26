@@ -10,7 +10,7 @@ import { StepLocalisation } from '../../StepLocalisation';
 import { LocationPicker }   from '../../LocationPicker';
 import { useLocation }      from '../../../context/LocationContext';
 
-const BLUE = '#8B5CF6';
+const BLUE = '#3B82F6';
 
 const PRECISION_RADIUS: Record<LocationPrivacy, number> = {
   exact: 0,
