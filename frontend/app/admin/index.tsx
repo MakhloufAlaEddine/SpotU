@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   Switch, TextInput, Modal, Alert, ActivityIndicator,
-  KeyboardAvoidingView, Platform, RefreshControl,
+  KeyboardAvoidingView, Platform, RefreshControl, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
@@ -13,8 +13,43 @@ import { Colors, Spacing } from '../../constants/Colors';
 import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-type Tab = 'stats' | 'rules' | 'plans' | 'payments' | 'booking' | 'tags';
+type Tab = 'stats' | 'rules' | 'plans' | 'payments' | 'booking' | 'tags' | 'products';
 type TagSubTab = 'domaines' | 'categories' | 'tags' | 'stats';
+
+// Couleur boutique
+const BLUE = '#3B82F6';
+
+interface PendingProduct {
+  product_id: string;
+  title: string;
+  short_description?: string;
+  description?: string;
+  price: number;
+  pricing_type: string;
+  category?: string;
+  subcategory?: string;
+  cover_image_url?: string;
+  image_urls?: string[];
+  condition_label?: string;
+  available_quantity: number;
+  deposit_required?: boolean;
+  deposit_amount?: number;
+  pickup_type?: string;
+  city?: string;
+  lat?: number;
+  lng?: number;
+  return_rules?: string;
+  cancellation_rules?: string;
+  pickup_notes?: string;
+  availability_note?: string;
+  related_spotyou_ids?: string[];
+  seller_id: string;
+  seller_name: string;
+  seller_picture?: string;
+  status: string;
+  created_at: string;
+  quality_score: number;
+}
 
 interface Domain {
   domain_id: string; name: string; label_fr: string; label_en: string;
@@ -1350,6 +1385,401 @@ function TagForm({ initial, domains, categories, onSave, onClose }: {
   );
 }
 
+// ── Onglet Produits (modération) ──────────────────────────────────────────────
+function ScoreBar({ score }: { score: number }) {
+  const color = score >= 70 ? '#22C55E' : score >= 45 ? '#F59E0B' : '#EF4444';
+  return (
+    <View style={pt.scoreWrap}>
+      <View style={pt.scoreBarBg}>
+        <View style={[pt.scoreBarFill, { width: `${score}%` as any, backgroundColor: color }]} />
+      </View>
+      <Text style={[pt.scoreNum, { color }]}>{score}/100</Text>
+    </View>
+  );
+}
+
+function ProductDetailModal({ product, onClose, onApprove, onReject, loading }: {
+  product: PendingProduct;
+  onClose: () => void;
+  onApprove: () => void;
+  onReject: (comment: string) => void;
+  loading: boolean;
+}) {
+  const [rejectMode, setRejectMode] = useState(false);
+  const [comment, setComment] = useState('');
+
+  const images = product.image_urls?.length ? product.image_urls : (product.cover_image_url ? [product.cover_image_url] : []);
+  const [imgIdx, setImgIdx] = useState(0);
+
+  const scoreColor = product.quality_score >= 70 ? '#22C55E' : product.quality_score >= 45 ? '#F59E0B' : '#EF4444';
+
+  const pricingLabel: Record<string, string> = {
+    day: '/jour', hour: '/heure', week: '/semaine', month: '/mois', unit: '/unité',
+  };
+
+  const conditionLabel: Record<string, string> = {
+    new: 'Neuf', like_new: 'Comme neuf', good: 'Bon état', fair: 'État correct', poor: 'Usé',
+  };
+
+  return (
+    <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }} edges={['top', 'bottom']}>
+        {/* Header */}
+        <View style={pt.modalHeader}>
+          <TouchableOpacity onPress={onClose} style={pt.modalClose} testID="product-detail-close">
+            <Ionicons name="close" size={22} color={Colors.foreground} />
+          </TouchableOpacity>
+          <Text style={pt.modalTitle} numberOfLines={1}>{product.title}</Text>
+          <View style={{ width: 36 }} />
+        </View>
+
+        <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
+          {/* Photos */}
+          {images.length > 0 ? (
+            <View>
+              <Image source={{ uri: images[imgIdx] }} style={pt.detailImg} resizeMode="cover" />
+              {images.length > 1 && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={pt.thumbRow}>
+                  {images.map((u, i) => (
+                    <TouchableOpacity key={i} onPress={() => setImgIdx(i)}>
+                      <Image source={{ uri: u }} style={[pt.thumb, i === imgIdx && pt.thumbActive]} resizeMode="cover" />
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
+            </View>
+          ) : (
+            <View style={pt.noImg}>
+              <Ionicons name="image-outline" size={48} color={Colors.muted} />
+              <Text style={pt.noImgText}>Aucune photo</Text>
+            </View>
+          )}
+
+          <View style={pt.detailBody}>
+            {/* Score qualité */}
+            <View style={pt.scoreSection}>
+              <Text style={[pt.detailSection, { marginBottom: 6 }]}>Score qualité</Text>
+              <ScoreBar score={product.quality_score} />
+              <View style={pt.scoreChecklist}>
+                <ScoreItem ok={!!product.cover_image_url} label="Photo de couverture (+20)" />
+                <ScoreItem ok={(product.image_urls?.length ?? 0) >= 3} label="3+ photos (+10)" />
+                <ScoreItem ok={(product.title?.length ?? 0) >= 10} label="Titre descriptif (+15)" />
+                <ScoreItem ok={(product.title?.length ?? 0) >= 25} label="Titre long (+5)" />
+                <ScoreItem ok={product.price > 0} label="Prix défini (+10)" />
+                <ScoreItem ok={!!product.pickup_type} label="Mode de remise (+10)" />
+                <ScoreItem ok={!!product.lat} label="Localisation (+10)" />
+              </View>
+            </View>
+
+            {/* Infos principales */}
+            <Text style={pt.detailSection}>Informations</Text>
+            <View style={pt.infoGrid}>
+              <InfoRow icon="pricetag-outline" label="Catégorie" value={[product.category, product.subcategory].filter(Boolean).join(' › ') || '—'} />
+              <InfoRow icon="cash-outline" label="Prix" value={`${product.price.toFixed(2)} €${pricingLabel[product.pricing_type] ?? ''}`} />
+              <InfoRow icon="layers-outline" label="État" value={conditionLabel[product.condition_label ?? ''] || product.condition_label || '—'} />
+              <InfoRow icon="cube-outline" label="Quantité" value={String(product.available_quantity)} />
+              {product.deposit_required && (
+                <InfoRow icon="shield-checkmark-outline" label="Caution" value={`${(product.deposit_amount ?? 0).toFixed(2)} €`} />
+              )}
+              <InfoRow icon="car-outline" label="Remise" value={product.pickup_type === 'local_pickup' ? 'Sur place' : product.pickup_type === 'creator_handoff' ? 'Livraison' : product.pickup_type || '—'} />
+              {product.city && <InfoRow icon="location-outline" label="Ville" value={product.city} />}
+            </View>
+
+            {/* Vendeur */}
+            <Text style={pt.detailSection}>Vendeur</Text>
+            <View style={pt.sellerRow}>
+              {product.seller_picture ? (
+                <Image source={{ uri: product.seller_picture }} style={pt.sellerAvatar} />
+              ) : (
+                <View style={[pt.sellerAvatar, pt.sellerAvatarPlaceholder]}>
+                  <Ionicons name="person" size={18} color={Colors.muted} />
+                </View>
+              )}
+              <View>
+                <Text style={pt.sellerName}>{product.seller_name}</Text>
+                <Text style={pt.sellerMeta}>Soumis le {new Date(product.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</Text>
+              </View>
+            </View>
+
+            {/* Description */}
+            {(product.short_description || product.description) && (
+              <>
+                <Text style={pt.detailSection}>Description</Text>
+                {product.short_description && <Text style={pt.descText}>{product.short_description}</Text>}
+                {product.description && product.description !== product.short_description && (
+                  <Text style={[pt.descText, { marginTop: 6, color: Colors.foreground + 'CC' }]}>{product.description}</Text>
+                )}
+              </>
+            )}
+
+            {/* Règles */}
+            {(product.return_rules || product.cancellation_rules || product.pickup_notes || product.availability_note) && (
+              <>
+                <Text style={pt.detailSection}>Conditions</Text>
+                {product.return_rules && <InfoRow icon="return-up-back-outline" label="Retour" value={product.return_rules} />}
+                {product.cancellation_rules && <InfoRow icon="ban-outline" label="Annulation" value={product.cancellation_rules} />}
+                {product.pickup_notes && <InfoRow icon="information-circle-outline" label="Notes remise" value={product.pickup_notes} />}
+                {product.availability_note && <InfoRow icon="calendar-outline" label="Disponibilité" value={product.availability_note} />}
+              </>
+            )}
+
+            {/* Zone refus */}
+            {rejectMode && (
+              <View style={pt.rejectBox}>
+                <Text style={pt.rejectBoxTitle}>Motif du refus (optionnel)</Text>
+                <TextInput
+                  style={pt.rejectInput}
+                  value={comment}
+                  onChangeText={setComment}
+                  multiline
+                  numberOfLines={4}
+                  placeholder="Ex: Photos de mauvaise qualité, description insuffisante…"
+                  placeholderTextColor={Colors.muted}
+                  testID="reject-comment-input"
+                />
+                <Text style={pt.rejectHint}>Ce message sera transmis au créateur.</Text>
+              </View>
+            )}
+          </View>
+        </ScrollView>
+
+        {/* Barre d'actions sticky */}
+        <View style={pt.actionBar}>
+          {!rejectMode ? (
+            <>
+              <TouchableOpacity style={[pt.actionBtn, pt.rejectBtn]} onPress={() => setRejectMode(true)} disabled={loading} testID="product-reject-open">
+                <Ionicons name="close-circle-outline" size={18} color="#fff" />
+                <Text style={pt.actionBtnText}>Refuser</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[pt.actionBtn, pt.approveBtn]} onPress={onApprove} disabled={loading} testID="product-approve-btn">
+                {loading ? <ActivityIndicator color="#fff" size="small" /> : (
+                  <>
+                    <Ionicons name="checkmark-circle-outline" size={18} color="#fff" />
+                    <Text style={pt.actionBtnText}>Valider</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <TouchableOpacity style={[pt.actionBtn, { backgroundColor: Colors.muted, flex: 1 }]} onPress={() => { setRejectMode(false); setComment(''); }} disabled={loading} testID="reject-cancel-btn">
+                <Text style={pt.actionBtnText}>Annuler</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[pt.actionBtn, pt.rejectBtn, { flex: 2 }]} onPress={() => onReject(comment)} disabled={loading} testID="reject-confirm-btn">
+                {loading ? <ActivityIndicator color="#fff" size="small" /> : (
+                  <>
+                    <Ionicons name="close-circle" size={18} color="#fff" />
+                    <Text style={pt.actionBtnText}>Confirmer le refus</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+      </SafeAreaView>
+    </Modal>
+  );
+}
+
+function ScoreItem({ ok, label }: { ok: boolean; label: string }) {
+  return (
+    <View style={pt.scoreItem}>
+      <Ionicons name={ok ? 'checkmark-circle' : 'ellipse-outline'} size={14} color={ok ? '#22C55E' : Colors.muted} />
+      <Text style={[pt.scoreItemText, !ok && { color: Colors.muted }]}>{label}</Text>
+    </View>
+  );
+}
+
+function InfoRow({ icon, label, value }: { icon: string; label: string; value: string }) {
+  return (
+    <View style={pt.infoRow}>
+      <Ionicons name={icon as any} size={14} color={BLUE} />
+      <Text style={pt.infoLabel}>{label} :</Text>
+      <Text style={pt.infoValue} numberOfLines={2}>{value}</Text>
+    </View>
+  );
+}
+
+function ProductsTab() {
+  const [products, setProducts] = useState<PendingProduct[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [selected, setSelected] = useState<PendingProduct | null>(null);
+  const [acting, setActing] = useState(false);
+
+  const load = useCallback(async (refresh = false) => {
+    if (refresh) setRefreshing(true);
+    try {
+      const data = await api.get<{ products: PendingProduct[]; count: number }>('/admin/products/pending');
+      setProducts(data.products);
+    } catch {
+      Alert.alert('Erreur', 'Impossible de charger les produits en attente');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleApprove = async () => {
+    if (!selected) return;
+    setActing(true);
+    try {
+      await api.post(`/admin/products/${selected.product_id}/approve`, {});
+      setSelected(null);
+      Alert.alert('Validé', `"${selected.title}" est maintenant en ligne.`);
+      load();
+    } catch {
+      Alert.alert('Erreur', 'La validation a échoué.');
+    } finally {
+      setActing(false);
+    }
+  };
+
+  const handleReject = async (comment: string) => {
+    if (!selected) return;
+    setActing(true);
+    try {
+      await api.post(`/admin/products/${selected.product_id}/reject`, { comment });
+      setSelected(null);
+      Alert.alert('Refusé', `"${selected.title}" a été refusé.`);
+      load();
+    } catch {
+      Alert.alert('Erreur', 'Le refus a échoué.');
+    } finally {
+      setActing(false);
+    }
+  };
+
+  const timeAgo = (iso: string): string => {
+    const diff = Date.now() - new Date(iso).getTime();
+    const h = Math.floor(diff / 3600000);
+    if (h < 1) return `${Math.floor(diff / 60000)} min`;
+    if (h < 24) return `${h}h`;
+    return `${Math.floor(h / 24)}j`;
+  };
+
+  if (loading) return <View style={s.center}><ActivityIndicator color={BLUE} /></View>;
+
+  return (
+    <ScrollView
+      contentContainerStyle={s.tabContent}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={BLUE} />}
+    >
+      {/* En-tête */}
+      <View style={pt.header}>
+        <View style={pt.headerLeft}>
+          <View style={pt.headerIcon}>
+            <Ionicons name="storefront" size={18} color="#fff" />
+          </View>
+          <View>
+            <Text style={pt.headerTitle}>Modération produits</Text>
+            <Text style={pt.headerSub}>{products.length} annonce{products.length !== 1 ? 's' : ''} en attente</Text>
+          </View>
+        </View>
+        <TouchableOpacity style={pt.refreshBtn} onPress={() => load(true)} testID="products-refresh-btn">
+          <Ionicons name="refresh-outline" size={18} color={BLUE} />
+        </TouchableOpacity>
+      </View>
+
+      {products.length === 0 ? (
+        <View style={s.empty}>
+          <Ionicons name="checkmark-done-circle-outline" size={52} color={BLUE + '55'} />
+          <Text style={s.emptyText}>File d'attente vide</Text>
+          <Text style={s.emptySubText}>Toutes les annonces ont été traitées.</Text>
+        </View>
+      ) : (
+        products.map(p => {
+          const scoreColor = p.quality_score >= 70 ? '#22C55E' : p.quality_score >= 45 ? '#F59E0B' : '#EF4444';
+          return (
+            <TouchableOpacity
+              key={p.product_id}
+              style={pt.card}
+              onPress={() => setSelected(p)}
+              activeOpacity={0.8}
+              testID={`pending-product-${p.product_id}`}
+            >
+              {/* Image */}
+              <View style={pt.cardImgWrap}>
+                {p.cover_image_url ? (
+                  <Image source={{ uri: p.cover_image_url }} style={pt.cardImg} resizeMode="cover" />
+                ) : (
+                  <View style={[pt.cardImg, pt.cardImgPlaceholder]}>
+                    <Ionicons name="image-outline" size={28} color={Colors.muted} />
+                  </View>
+                )}
+                {/* Badge score */}
+                <View style={[pt.scoreBadge, { backgroundColor: scoreColor }]}>
+                  <Text style={pt.scoreBadgeText}>{p.quality_score}</Text>
+                </View>
+              </View>
+
+              {/* Contenu */}
+              <View style={pt.cardBody}>
+                <View style={pt.cardTopRow}>
+                  <Text style={pt.cardTitle} numberOfLines={1}>{p.title}</Text>
+                  <Text style={pt.cardTime}>{timeAgo(p.created_at)}</Text>
+                </View>
+
+                {p.category && (
+                  <View style={pt.catBadge}>
+                    <Text style={pt.catBadgeText}>{p.category}{p.subcategory ? ` › ${p.subcategory}` : ''}</Text>
+                  </View>
+                )}
+
+                <Text style={pt.cardPrice}>{p.price.toFixed(2)} €</Text>
+
+                {/* Vendeur */}
+                <View style={pt.cardSeller}>
+                  {p.seller_picture ? (
+                    <Image source={{ uri: p.seller_picture }} style={pt.sellerAvatarSm} />
+                  ) : (
+                    <View style={[pt.sellerAvatarSm, { backgroundColor: Colors.muted + '33', alignItems: 'center', justifyContent: 'center' }]}>
+                      <Ionicons name="person" size={10} color={Colors.muted} />
+                    </View>
+                  )}
+                  <Text style={pt.cardSellerName} numberOfLines={1}>{p.seller_name}</Text>
+                </View>
+
+                {/* Score bar */}
+                <View style={pt.cardScoreRow}>
+                  <View style={pt.scoreBarBgSm}>
+                    <View style={[pt.scoreBarFillSm, { width: `${p.quality_score}%` as any, backgroundColor: scoreColor }]} />
+                  </View>
+                  <Text style={[pt.cardScoreLabel, { color: scoreColor }]}>{p.quality_score}/100</Text>
+                </View>
+
+                {/* Actions rapides */}
+                <View style={pt.quickActions}>
+                  <TouchableOpacity
+                    style={pt.quickReject}
+                    onPress={(e) => { e.stopPropagation?.(); setSelected(p); }}
+                    testID={`quick-review-${p.product_id}`}
+                  >
+                    <Ionicons name="eye-outline" size={13} color={BLUE} />
+                    <Text style={pt.quickRejectText}>Examiner</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableOpacity>
+          );
+        })
+      )}
+
+      {selected && (
+        <ProductDetailModal
+          product={selected}
+          onClose={() => setSelected(null)}
+          onApprove={handleApprove}
+          onReject={handleReject}
+          loading={acting}
+        />
+      )}
+    </ScrollView>
+  );
+}
+
 // ── Écran principal ───────────────────────────────────────────────────────────
 export default function AdminScreen() {
   const { user, loading: authLoading } = useAuth();
@@ -1359,6 +1789,7 @@ export default function AdminScreen() {
   const [rules, setRules] = useState<PricingRule[]>([]);
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
+  const [pendingCount, setPendingCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -1366,13 +1797,15 @@ export default function AdminScreen() {
   const load = useCallback(async (refresh = false) => {
     if (refresh) setRefreshing(true);
     try {
-      const [s, r, p, pay] = await Promise.all([
+      const [s, r, p, pay, pending] = await Promise.all([
         api.get<Stats>('/admin/stats'),
         api.get<PricingRule[]>('/admin/pricing-rules'),
         api.get<SubscriptionPlan[]>('/admin/subscription-plans'),
         api.get<any[]>('/admin/payments').catch(() => []),
+        api.get<{ count: number }>('/admin/products/pending').catch(() => ({ count: 0 })),
       ]);
       setStats(s); setRules(r); setPlans(p); setPayments(pay);
+      setPendingCount(pending.count ?? 0);
     } catch (e) {
       Alert.alert('Erreur', 'Impossible de charger les données admin');
     } finally {
@@ -1396,8 +1829,9 @@ export default function AdminScreen() {
   if (authLoading) return <View style={{ flex: 1, backgroundColor: Colors.background }}><ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 100 }} /></View>;
   if (!user || user.role !== 'admin') return null;
 
-  const TABS: { key: Tab; label: string; icon: string }[] = [
-    { key: 'stats',    label: 'Aperçu',        icon: 'bar-chart-outline' },
+  const TABS: { key: Tab; label: string; icon: string; badge?: number }[] = [
+    { key: 'stats',    label: 'Aperçu',       icon: 'bar-chart-outline' },
+    { key: 'products', label: 'Produits',      icon: 'storefront-outline', badge: pendingCount },
     { key: 'rules',    label: 'Règles',        icon: 'options-outline' },
     { key: 'plans',    label: 'Abonnements',   icon: 'card-outline' },
     { key: 'payments', label: 'Paiements',     icon: 'receipt-outline' },
@@ -1421,8 +1855,15 @@ export default function AdminScreen() {
           {TABS.map(t => (
             <TouchableOpacity key={t.key} style={[s.tabItem, tab === t.key && s.tabItemActive]}
               onPress={() => setTab(t.key)} testID={`admin-tab-${t.key}`}>
-              <Ionicons name={t.icon as any} size={16} color={tab === t.key ? Colors.primary : Colors.muted} />
-              <Text style={[s.tabLabel, tab === t.key && s.tabLabelActive]}>{t.label}</Text>
+              <View style={{ position: 'relative' }}>
+                <Ionicons name={t.icon as any} size={16} color={tab === t.key ? (t.key === 'products' ? BLUE : Colors.primary) : Colors.muted} />
+                {t.badge && t.badge > 0 ? (
+                  <View style={s.tabBadge}>
+                    <Text style={s.tabBadgeText}>{t.badge > 9 ? '9+' : t.badge}</Text>
+                  </View>
+                ) : null}
+              </View>
+              <Text style={[s.tabLabel, tab === t.key && (t.key === 'products' ? { color: BLUE, fontWeight: '700' } : s.tabLabelActive)]}>{t.label}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -1433,6 +1874,7 @@ export default function AdminScreen() {
       ) : (
         <View style={{ flex: 1 }}>
           {tab === 'stats'    && <StatsTab stats={stats} />}
+          {tab === 'products' && <ProductsTab />}
           {tab === 'rules'    && <RulesTab rules={rules} onRefresh={() => load(true)} />}
           {tab === 'plans'    && <PlansTab plans={plans} onRefresh={() => load(true)} />}
           {tab === 'payments' && <PaymentsTab payments={payments} />}
@@ -1505,6 +1947,10 @@ const s = StyleSheet.create({
   empty:       { alignItems: 'center', paddingVertical: 40, gap: 10 },
   emptyText:   { fontSize: 15, fontWeight: '600', color: Colors.muted },
   emptySubText:{ fontSize: 12, color: Colors.muted, textAlign: 'center' },
+
+  // Badge sur l'onglet Produits
+  tabBadge:     { position: 'absolute', top: -5, right: -8, minWidth: 15, height: 15, borderRadius: 7.5, backgroundColor: '#EF4444', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 2 },
+  tabBadgeText: { fontSize: 9, fontWeight: '800', color: '#fff' },
 });
 
 const bc = StyleSheet.create({
@@ -1592,4 +2038,92 @@ const td = StyleSheet.create({
   cascadeBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
   cancelLink:     { alignItems: 'center', paddingVertical: 8 },
   cancelLinkText: { fontSize: 14, color: Colors.muted },
+});
+
+// ── Styles Produits (modération) ──────────────────────────────────────────────
+const pt = StyleSheet.create({
+  // En-tête section
+  header:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: BLUE + '12', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: BLUE + '33', marginBottom: 4 },
+  headerLeft:   { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+  headerIcon:   { width: 36, height: 36, borderRadius: 10, backgroundColor: BLUE, alignItems: 'center', justifyContent: 'center' },
+  headerTitle:  { fontSize: 15, fontWeight: '700', color: BLUE },
+  headerSub:    { fontSize: 12, color: Colors.muted, marginTop: 1 },
+  refreshBtn:   { width: 36, height: 36, borderRadius: 10, backgroundColor: BLUE + '18', alignItems: 'center', justifyContent: 'center' },
+
+  // Carte produit
+  card:         { flexDirection: 'row', backgroundColor: Colors.card, borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border },
+  cardImgWrap:  { position: 'relative' },
+  cardImg:      { width: 100, height: 120 },
+  cardImgPlaceholder: { backgroundColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
+  scoreBadge:   { position: 'absolute', top: 6, left: 6, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 },
+  scoreBadgeText: { fontSize: 11, fontWeight: '800', color: '#fff' },
+  cardBody:     { flex: 1, padding: 10, gap: 4 },
+  cardTopRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  cardTitle:    { fontSize: 14, fontWeight: '700', color: Colors.foreground, flex: 1 },
+  cardTime:     { fontSize: 11, color: Colors.muted, marginLeft: 4 },
+  catBadge:     { alignSelf: 'flex-start', backgroundColor: BLUE + '18', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  catBadgeText: { fontSize: 10, color: BLUE, fontWeight: '600' },
+  cardPrice:    { fontSize: 14, fontWeight: '800', color: BLUE },
+  cardSeller:   { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  sellerAvatarSm: { width: 16, height: 16, borderRadius: 8 },
+  cardSellerName: { fontSize: 11, color: Colors.muted, flex: 1 },
+  cardScoreRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  scoreBarBgSm: { flex: 1, height: 4, backgroundColor: Colors.border, borderRadius: 2, overflow: 'hidden' },
+  scoreBarFillSm: { height: 4, borderRadius: 2 },
+  cardScoreLabel: { fontSize: 11, fontWeight: '700', minWidth: 36 },
+  quickActions: { flexDirection: 'row', gap: 6, marginTop: 2 },
+  quickReject:  { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: BLUE + '18', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: BLUE + '44' },
+  quickRejectText: { fontSize: 11, color: BLUE, fontWeight: '600' },
+
+  // Score qualité (détail)
+  scoreWrap:    { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  scoreBarBg:   { flex: 1, height: 8, backgroundColor: Colors.border, borderRadius: 4, overflow: 'hidden' },
+  scoreBarFill: { height: 8, borderRadius: 4 },
+  scoreNum:     { fontSize: 14, fontWeight: '800', minWidth: 50 },
+  scoreSection: { backgroundColor: Colors.card, borderRadius: 12, padding: 14, gap: 10, borderWidth: 1, borderColor: Colors.border },
+  scoreChecklist: { gap: 4 },
+  scoreItem:    { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  scoreItemText:{ fontSize: 12, color: Colors.foreground },
+
+  // Modal détail
+  modalHeader:  { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.border, gap: 8 },
+  modalClose:   { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  modalTitle:   { flex: 1, fontSize: 16, fontWeight: '700', color: Colors.foreground },
+  detailImg:    { width: '100%', height: 220 },
+  thumbRow:     { backgroundColor: Colors.background, paddingVertical: 8, paddingHorizontal: 12, gap: 8 },
+  thumb:        { width: 56, height: 56, borderRadius: 8, marginRight: 8, opacity: 0.6 },
+  thumbActive:  { opacity: 1, borderWidth: 2, borderColor: BLUE },
+  noImg:        { height: 140, backgroundColor: Colors.border, alignItems: 'center', justifyContent: 'center', gap: 8 },
+  noImgText:    { fontSize: 13, color: Colors.muted },
+  detailBody:   { padding: 16, gap: 14 },
+  detailSection:{ fontSize: 13, fontWeight: '700', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.8 },
+
+  // Infos grille
+  infoGrid:     { gap: 6 },
+  infoRow:      { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
+  infoLabel:    { fontSize: 13, color: Colors.muted, fontWeight: '600', minWidth: 90 },
+  infoValue:    { fontSize: 13, color: Colors.foreground, flex: 1 },
+
+  // Vendeur
+  sellerRow:    { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.card, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: Colors.border },
+  sellerAvatar: { width: 40, height: 40, borderRadius: 20 },
+  sellerAvatarPlaceholder: { backgroundColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
+  sellerName:   { fontSize: 14, fontWeight: '700', color: Colors.foreground },
+  sellerMeta:   { fontSize: 11, color: Colors.muted, marginTop: 2 },
+
+  // Description
+  descText:     { fontSize: 14, color: Colors.foreground, lineHeight: 20 },
+
+  // Zone refus
+  rejectBox:    { backgroundColor: '#FEF2F2', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#FCA5A5', gap: 8 },
+  rejectBoxTitle: { fontSize: 13, fontWeight: '700', color: '#EF4444' },
+  rejectInput:  { backgroundColor: '#fff', borderWidth: 1, borderColor: '#FCA5A5', borderRadius: 10, padding: 12, fontSize: 14, color: Colors.foreground, minHeight: 90, textAlignVertical: 'top' },
+  rejectHint:   { fontSize: 11, color: '#EF4444', opacity: 0.7 },
+
+  // Barre d'actions sticky
+  actionBar:    { position: 'absolute', bottom: 0, left: 0, right: 0, flexDirection: 'row', gap: 10, padding: 16, backgroundColor: Colors.background, borderTopWidth: 1, borderTopColor: Colors.border },
+  actionBtn:    { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 14, borderRadius: 14 },
+  approveBtn:   { backgroundColor: '#22C55E' },
+  rejectBtn:    { backgroundColor: '#EF4444' },
+  actionBtnText:{ fontSize: 15, fontWeight: '700', color: '#fff' },
 });

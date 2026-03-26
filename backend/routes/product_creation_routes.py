@@ -1,6 +1,7 @@
 """
 Product creation routes — flow complet de création produit (location, vente, etc.)
 Status: draft → pending_review → active (validation admin)
+Admin: auto-publication directe (pas de validation)
 """
 import uuid
 from datetime import datetime, timezone
@@ -85,6 +86,12 @@ async def create_product(request: Request):
     body = await request.json()
     product_id = body.get("product_id") or _new_id()
     status = body.get("status", "draft")  # 'draft' ou 'pending_review'
+    requested_status = status  # statut voulu par l'utilisateur
+
+    # Si l'utilisateur est admin et soumet en pending_review → publication directe
+    is_admin = user.get("role") == "admin"
+    if is_admin and status == "pending_review":
+        status = "active"
 
     # Validation minimale
     title = (body.get("title") or "").strip()
@@ -268,7 +275,35 @@ async def create_product(request: Request):
                 now,
             )
 
+    # Notification admins si soumission en validation par un non-admin
+    if requested_status == "pending_review" and not is_admin:
+        await _notify_admins_new_product(pool, product_id, title, is_admin)
+
     return {"product_id": product_id, "status": status}
+
+
+async def _notify_admins_new_product(pool, product_id: str, title: str, is_admin: bool):
+    """Notifie tous les admins qu'un nouveau produit attend validation.
+    Ignoré si le créateur est lui-même admin (publication directe).
+    """
+    if is_admin:
+        return
+    from push_service import send_push_to_user
+    async with pool.acquire() as conn:
+        admin_rows = await conn.fetch("SELECT user_id FROM users WHERE role = 'admin'")
+    for row in admin_rows:
+        await send_push_to_user(
+            pool,
+            row["user_id"],
+            title="Nouvelle annonce à valider",
+            body=f"« {title} » est en attente de publication.",
+            data={
+                "type": "admin_product_pending",
+                "product_id": product_id,
+                "action": "/admin?tab=products",
+            },
+            notif_type="admin_product_pending",
+        )
 
 
 # ─── DELETE /api/products/{product_id} ───────────────────────────────────────

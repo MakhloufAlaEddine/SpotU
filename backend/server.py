@@ -29,6 +29,7 @@ from routes.home_routes import router as home_router
 from routes.address_routes import router as address_router
 from routes.marketplace_routes import router as marketplace_router
 from routes.product_creation_routes import router as product_creation_router
+from routes.admin_product_routes import router as admin_product_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -80,6 +81,7 @@ api_router.include_router(subscription_router, tags=["subscriptions"])
 api_router.include_router(address_router, tags=["addresses"])
 api_router.include_router(marketplace_router, tags=["marketplace"])
 api_router.include_router(product_creation_router, tags=["products"])
+api_router.include_router(admin_product_router, tags=["admin-products"])
 
 
 # ── Endpoint public : configuration des fonctionnalités de réservation ─────────
@@ -196,6 +198,12 @@ async def startup():
     notif_worker.start()
     app.state.spotyou_notif_worker = notif_worker
 
+    # ── Démarrage du worker de rappel admin produits ───────────────────────────
+    from admin_product_reminder_worker import AdminProductReminderWorker
+    reminder_worker = AdminProductReminderWorker(get_pool())
+    reminder_worker.start()
+    app.state.admin_product_reminder_worker = reminder_worker
+
     logger.info(
         "SpotU API started successfully (expiry TTL=%dh, worker_interval=%ds)",
         ttl_hours, interval_secs,
@@ -208,4 +216,6 @@ async def shutdown():
         await app.state.expiry_worker.stop()
     if hasattr(app.state, "spotyou_notif_worker"):
         await app.state.spotyou_notif_worker.stop()
+    if hasattr(app.state, "admin_product_reminder_worker"):
+        await app.state.admin_product_reminder_worker.stop()
     await close_db()

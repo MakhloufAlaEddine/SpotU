@@ -1,0 +1,68 @@
+{
+  "summary": "Tests complets admin product moderation (iteration 91). Backend: 22/22 tests passés après correction d'un bug critique 500→403. Frontend: tous les flows UI testés avec succès — tab Produits avec badge rouge, liste pending, modal détail, boutons Valider/Refuser, champ commentaire, mise à jour liste après action.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "GET /api/admin/products/pending, POST /api/admin/products/{id}/approve, POST /api/admin/products/{id}/reject",
+        "issue": "FIXED: `_require_admin` lançait PermissionError au lieu de HTTPException(403), causant une réponse 500 Internal Server Error pour les utilisateurs non-admin (au lieu de 403 Forbidden). Corrigé en remplaçant `raise PermissionError(\"Admin only\")` par `raise HTTPException(status_code=403, detail=\"Admin only\")`.",
+        "priority": "CRITICAL",
+        "status": "FIXED"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Badge count Produits tab",
+        "issue": "Après approbation/refus d'un produit via ProductsTab, le badge rouge sur l'onglet 'Produits' ne se met pas à jour immédiatement. Il faut quitter et revenir sur l'écran admin (useFocusEffect) pour que le pendingCount dans AdminScreen soit rafraîchi. Le contenu de l'onglet (ProductsTab) se rafraîchit correctement, mais pas le badge de la tab bar.",
+        "affected_selectors": ["[data-testid='admin-tab-products']", ".tabBadge"]
+      }
+    ],
+    "design_issues": [
+      {
+        "screen": "Admin Dashboard - onglet Produits actif",
+        "issues": [
+          "Légère incohérence: texte onglet actif Produits = BLUE (#3B82F6) mais bordure active = Colors.primary (teal). Les autres tabs ont texte+bordure en Colors.primary. Non critique car intentionnel selon la spec."
+        ]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_admin_products_iter91.py",
+    "/app/test_reports/pytest/iter91_admin_products.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: Après approbation/refus dans ProductsTab, appeler une callback (ex: onCountChange) vers AdminScreen pour mettre à jour le badge sans attendre le prochain useFocusEffect.",
+    "OPTIONAL: Uniformiser la couleur de la bordure active de l'onglet Produits en BLUE pour cohérence avec le texte bleu."
+  ],
+  "critical_code_review_comments": [
+    "BUG FIXÉ: `_require_admin` dans admin_product_routes.py lançait `PermissionError` non capturée → 500. Corrigé en `HTTPException(403)`.",
+    "ATTENTION: La même erreur peut exister dans d'autres fichiers admin si le même pattern `raise PermissionError` est utilisé. Vérifier d'autres routes admin.",
+    "COMPORTEMENT CORRECT: Auto-publication admin (status pending_review → active) fonctionne correctement dans product_creation_routes.py.",
+    "COMPORTEMENT CORRECT: Score qualité calculé correctement côté backend et affiché avec bonne couleur (vert ≥70, orange 45-69, rouge <45).",
+    "COMPORTEMENT CORRECT: Badge rouge sur l'onglet Produits affiche le bon count (rafraîchi au focus)."
+  ],
+  "updated_files": [
+    "/app/backend/routes/admin_product_routes.py"
+  ],
+  "success_rate": {
+    "backend": "100% (22/22 tests passés après correction)",
+    "frontend": "100% — tous les flows validés"
+  },
+  "test_credentials": {
+    "admin": "admin@winek.app / WinekAdmin2024!",
+    "user": "user@winek.app / WinekUser2024!"
+  },
+  "seed_data_creation": "Produits de test créés pendant les tests backend: TEST_Produit en attente de validation admin (approuvé via test), TEST_Produit à refuser modération (rejeté avec commentaire), TEST_Produit refus sans commentaire (rejeté), TEST_User pending review submission (approuvé via UI test). Un TEST_Admin auto-publish product (approuvé automatiquement puis supprimé via cleanup).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Admin product moderation fully tested and working. Bug fixed: _require_admin now raises HTTPException(403) instead of PermissionError (was causing 500 for non-admin users). All 22 backend tests pass. Frontend: Produits tab with red badge, product cards with score/seller/price, detail modal, Valider (green) and Refuser (red) buttons, comment field on reject, list refresh after action - all working correctly. Remaining pending products in DB: 2 real products (prod_2f63a41f73e9 Vélo électrique Decathlon, prod_10b81015fddf Tente camping 2 places) + 1 TEST_ product (prod_e2b426f75969). Minor: badge count doesn't refresh until screen re-focus after approve/reject action.",
+  "rca_of_the_issue": {
+    "bug": "admin_product_routes.py - _require_admin raised PermissionError instead of HTTPException",
+    "root_cause": "FastAPI does not handle Python's built-in PermissionError - it propagates as an unhandled exception causing a 500 Internal Server Error. HTTPException is the correct FastAPI mechanism for returning HTTP error responses.",
+    "reproduction": "Call GET /api/admin/products/pending with non-admin user token → 500 Internal Server Error",
+    "mitigation": "Changed `raise PermissionError('Admin only')` to `raise HTTPException(status_code=403, detail='Admin only')`. Also added `from fastapi import APIRouter, Request, HTTPException` import."
+  }
+}
