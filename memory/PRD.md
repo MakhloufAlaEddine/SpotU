@@ -53,7 +53,24 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 
 **Problème résolu** : Boucle de crash ngrok lors des redémarrages Expo (conflit sous-domaine `delivery-badges`).
 
-### Vue Détail Produit dans le Marketplace (2026-03-24)
+### Navigation Boutique en Écran Dédié (2026-03-26)
+| Composant | Changement |
+|-----------|-----------|
+| `frontend/app/marketplace/_layout.tsx` | **NOUVEAU** — Stack layout pour les écrans boutique |
+| `frontend/app/marketplace/[spotYouId].tsx` | **NOUVEAU** — Écran grille produits (remplace MarketplaceModal) avec flèche retour |
+| `frontend/app/marketplace/product-detail.tsx` | **NOUVEAU** — Écran détail produit avec flèche retour |
+| `frontend/lib/marketplaceStore.ts` | **NOUVEAU** — Store module-level léger pour passer les données entre écrans |
+| `frontend/app/spot-you/[id].tsx` | **MODIFIÉ** — Boutique navigue vers `/marketplace/[spotYouId]` (router.push) au lieu d'ouvrir un modal |
+| `frontend/app/_layout.tsx` | **MODIFIÉ** — Enregistrement du stack `marketplace` |
+| `frontend/components/MarketplaceModal.tsx` | **SUPPRIMÉ** — Code mort après migration |
+
+**Comportement:**
+- Clic "Boutique" dans un SpotYou → navigation vers `/marketplace/[spotYouId]` (slide depuis la droite)
+- Clic sur un produit → navigation vers `/marketplace/product-detail` (slide depuis la droite)
+- Panier flottant → navigation vers `/cart` (écran existant)
+- Flèche retour disponible sur chaque écran (Boutique, Détail, Panier)
+
+
 | Composant | Changement |
 |-----------|-----------|
 | `frontend/components/ProductDetailView.tsx` | **NOUVEAU** — Vue détail produit complète (image, identité, infos, description dépliable, bloc propriétaire toggle, autres contenus, footer CTA sticky) |

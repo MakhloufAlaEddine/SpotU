@@ -1,10 +1,10 @@
 /**
- * ProductDetailView — Vue détail produit dans le modal boutique SpotYou.
- * Reste dans le même modal, sans navigation vers un autre écran.
+ * ProductDetailView — Vue détail produit.
+ * Utilisé dans : écran /marketplace/product-detail (navigation par stack).
  *
  * @param item       Produit ou service sélectionné
  * @param allItems   Tous les items chargés (pour calculer les autres contenus du vendeur)
- * @param onBack     Callback retour vers la liste
+ * @param onBack     Callback retour (router.back())
  * @param onCta      Callback CTA (placeholder pour usage futur)
  */
 import React, { useState } from 'react';

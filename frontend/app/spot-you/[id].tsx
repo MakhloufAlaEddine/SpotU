@@ -8,7 +8,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { MapPreview } from '../../components/MapPreview';
-import { MarketplaceModal } from '../../components/MarketplaceModal';
 import { TagImage, DOMAIN_COLORS, DOMAIN_ICONS } from '../../components/TagImage';
 import { MarkdownText } from '../../components/RichTextInput';
 import ConfirmActionModal, { ConfirmAction } from '../../components/ConfirmActionModal';
@@ -393,7 +392,6 @@ export default function SpotYouDetail() {
   const [isPublic, setIsPublic] = useState(true);
   const [ownerActionLoading, setOwnerActionLoading] = useState(false);
   const [showExactAddress, setShowExactAddress] = useState(false);
-  const [showMarketplace, setShowMarketplace] = useState(false);
 
   // ── Animation pulse bouton Marketplace ───────────────────────────────────
   const marketplacePulse = useRef(new Animated.Value(1)).current;
@@ -1419,7 +1417,18 @@ export default function SpotYouDetail() {
 
           <TouchableOpacity
             style={st.actionBtn}
-            onPress={() => setShowMarketplace(true)}
+            onPress={() => {
+              const tagIdList = (point.tags || []).map((t: any) => t.tag_id).join(',');
+              router.push({
+                pathname: '/marketplace/[spotYouId]' as any,
+                params: {
+                  spotYouId: id,
+                  tagIds: tagIdList,
+                  userLat: location?.lat?.toString() ?? '',
+                  userLng: location?.lng?.toString() ?? '',
+                },
+              });
+            }}
             activeOpacity={0.7}
             testID="marketplace-btn"
           >
@@ -1876,15 +1885,6 @@ export default function SpotYouDetail() {
         onCancel={() => setConfirmVisible(false)}
       />
 
-      {/* Marketplace Modal */}
-      <MarketplaceModal
-        visible={showMarketplace}
-        onClose={() => setShowMarketplace(false)}
-        spotYouId={id as string}
-        tagIds={tags.map((t: any) => t.tag_id)}
-        userLat={location?.lat}
-        userLng={location?.lng}
-      />
     </View>
   );
 }

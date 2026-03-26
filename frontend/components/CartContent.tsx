@@ -1,6 +1,6 @@
 /**
  * CartContent — Composant partagé panier
- * Utilisé dans : MarketplaceModal (vue slide) + écran /cart (standalone)
+ * Utilisé dans : écran /cart (standalone)
  */
 import React from 'react';
 import {
