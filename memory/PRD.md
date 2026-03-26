@@ -43,7 +43,26 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 | `frontend/app/booking/confirm.tsx` | Ventilation prix : base + frais service + total a payer |
 | `backend/tests/test_commission_e2e.py` | 6 tests E2E : taux, calculs, coherence preview vs config |
 
-### Fix Stabilité Tunnel ngrok (2026-03-24)
+### Refonte Taxonomie — Domaines/Catégories/Tags (2026-03-26)
+| Composant | Changement |
+|-----------|-----------|
+| `backend/database.py` | Ajout colonne `entity_type` sur `tag_categories`, tables `tag_category_links` et `tag_entity_type_links` |
+| `backend/seed.py` | Reset complet + nouvelle architecture : 4 domaines, 58 catégories (entity_type), 60 tags, liaisons M:M |
+| `backend/routes/domain_routes.py` | Filtrage `entity_type` sur /tags/categories et /tags, désactivation cascade Domaine→Catégories |
+| `backend/models.py` | `TagCategoryCreate` avec champ `entity_type` |
+| `frontend/app/admin/index.tsx` | Badges entity_type + filtres Tout/SpotYou/Service/Produit dans CategoriesPanel et TagsPanel |
+| `frontend/app/admin/index.tsx` | CategoryForm avec sélecteur entity_type obligatoire |
+| `frontend/components/product-form/steps/Step1TypeCategory.tsx` | Catégories dynamiques via API `entity_type=product` |
+| `frontend/app/(tabs)/create.tsx` | Filtre `entity_type=spotyou` sur categories fetch |
+| `frontend/app/create-service.tsx` | Filtre `entity_type=service` sur categories fetch |
+
+**Architecture:**
+- Domaines → communs (sport, coaching, services_locaux, social)
+- Catégories → avec entity_type (spotyou=21, service=21, product=16)
+- Tags → 60 tags partagés, liés via `tag_category_links` (M:M) et `tag_entity_type_links`
+- Règle: désactivation domaine → cascade catégories (écrans création uniquement)
+
+
 | Fichier | Changement |
 |---------|-----------|
 | `node_modules/@expo/ngrok/src/process.js` | Détection processus ngrok existant (ports 4040-4044) + kill zombies avant démarrage |

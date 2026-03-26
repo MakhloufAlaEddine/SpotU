@@ -601,7 +601,11 @@ async def seed_initial_data():
                          seller_type, seller_id, tag_ids, image_url, in_stock,
                          status, category)
                     VALUES ($1,$2,$3,$4,$5,'creator',$6,$7,$8,TRUE,'active',$9)
-                    ON CONFLICT DO NOTHING
+                    ON CONFLICT (product_id) DO UPDATE SET
+                        title=EXCLUDED.title, description=EXCLUDED.description,
+                        price=EXCLUDED.price, product_type=EXCLUDED.product_type,
+                        seller_id=EXCLUDED.seller_id, tag_ids=EXCLUDED.tag_ids,
+                        image_url=EXCLUDED.image_url, category=EXCLUDED.category
                 """, p[0], p[1], p[2], p[3], p[4], p[6], p[7], p[8], p[5])
 
             logger.info("Seeded 5 demo marketplace products")
