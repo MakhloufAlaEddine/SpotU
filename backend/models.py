@@ -119,6 +119,7 @@ class DomainCreate(BaseModel):
 # --- TAG CATEGORY ---
 class TagCategoryCreate(BaseModel):
     domain_id: str
+    entity_type: Optional[str] = None
     name: str
     label_fr: str
     label_en: str

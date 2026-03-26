@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS domains (
 CREATE TABLE IF NOT EXISTS tag_categories (
     category_id TEXT PRIMARY KEY,
     domain_id TEXT,
+    entity_type TEXT,
     name TEXT NOT NULL,
     label_fr TEXT NOT NULL,
     label_en TEXT NOT NULL,
@@ -60,6 +61,22 @@ CREATE TABLE IF NOT EXISTS tags (
     active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS tag_category_links (
+    tag_id TEXT REFERENCES tags(tag_id) ON DELETE CASCADE,
+    category_id TEXT REFERENCES tag_categories(category_id) ON DELETE CASCADE,
+    PRIMARY KEY (tag_id, category_id)
+);
+
+CREATE TABLE IF NOT EXISTS tag_entity_type_links (
+    tag_id TEXT REFERENCES tags(tag_id) ON DELETE CASCADE,
+    entity_type TEXT NOT NULL CHECK (entity_type IN ('spotyou', 'service', 'product')),
+    PRIMARY KEY (tag_id, entity_type)
+);
+
+CREATE INDEX IF NOT EXISTS idx_tag_category_links_cat ON tag_category_links(category_id);
+CREATE INDEX IF NOT EXISTS idx_tag_entity_type_links_type ON tag_entity_type_links(entity_type);
+CREATE INDEX IF NOT EXISTS idx_tag_categories_entity_type ON tag_categories(entity_type);
 
 CREATE TABLE IF NOT EXISTS tag_points (
     point_id TEXT PRIMARY KEY,
@@ -656,159 +673,37 @@ async def connect_to_db():
     from seed import seed_initial_data
     await seed_initial_data()
 
-    # 3. Seed données de test (events, participants, votes, saves)
+    # 3. Seed données de test (membres SpotYou, votes, saves)
     async with pool.acquire() as conn:
-        await conn.execute("""
-            UPDATE tag_points SET event_date = NOW() + INTERVAL '1 day 9 hours 30 minutes'   WHERE point_id = 'pt_demo001';
-            UPDATE tag_points SET event_date = NOW() + INTERVAL '2 days 7 hours'              WHERE point_id = 'pt_demo014';
-            UPDATE tag_points SET event_date = NOW() + INTERVAL '3 days 18 hours 30 minutes'  WHERE point_id = 'pt_demo002';
-            UPDATE tag_points SET event_date = NOW() + INTERVAL '5 days 14 hours'             WHERE point_id = 'pt_demo008';
-            UPDATE tag_points SET event_date = NOW() + INTERVAL '7 days 10 hours'             WHERE point_id = 'pt_demo004';
-            UPDATE tag_points SET event_date = NOW() - INTERVAL '2 days 17 hours'             WHERE point_id = 'pt_demo013';
-            UPDATE tag_points SET event_date = NOW() - INTERVAL '5 days 9 hours'              WHERE point_id = 'pt_demo006';
-            UPDATE tag_points SET event_schedule = '{"type":"weekly","day":0,"time":"07:00"}' WHERE point_id = 'pt_demo005';
-            UPDATE tag_points SET event_schedule = '{"type":"weekly","day":2,"time":"18:30"}' WHERE point_id = 'pt_demo007';
-            UPDATE tag_points SET event_schedule = '{"type":"weekly","day":5,"time":"09:00"}' WHERE point_id = 'pt_demo010';
-            UPDATE tag_points SET event_schedule = '{"type":"weekly","day":6,"time":"08:00"}' WHERE point_id = 'pt_demo009';
-            UPDATE tag_points SET event_schedule = '{"type":"weekly","day":1,"time":"12:30"}' WHERE point_id = 'pt_demo003';
-            UPDATE tag_points SET event_schedule = '{"type":"weekly","day":4,"time":"19:00"}' WHERE point_id = 'pt_demo012';
-        """)
+        # Members SpotYou — seulement les IDs existants
         await conn.execute("""
             INSERT INTO spot_you_members (id, spot_you_id, user_id) VALUES
-              ('mbr_001','pt_demo005','user_demo001'),
-              ('mbr_002','pt_demo007','user_demo001'),
-              ('mbr_003','pt_demo014','user_demo001'),
-              ('mbr_004','pt_demo013','user_demo001'),
-              ('mbr_005','pt_demo001','user_demo002'),
-              ('mbr_006','pt_demo002','user_demo002'),
-              ('mbr_007','pt_demo007','user_demo002'),
-              ('mbr_008','pt_demo010','user_demo002'),
-              ('mbr_009','pt_demo003','user_demo003'),
-              ('mbr_010','pt_demo009','user_demo003'),
-              ('mbr_011','pt_demo014','user_demo003'),
-              ('mbr_012','pt_demo012','user_coach001')
+              ('mbr_p1_u1','pt_demo001','user_demo001'),
+              ('mbr_p1_u2','pt_demo001','user_demo002'),
+              ('mbr_p2_u1','pt_demo002','user_demo001'),
+              ('mbr_p2_u3','pt_demo002','user_demo003'),
+              ('mbr_p3_u2','pt_demo003','user_demo002'),
+              ('mbr_p3_u3','pt_demo003','user_demo003'),
+              ('mbr_p4_u1','pt_demo004','user_demo001'),
+              ('mbr_p5_u2','pt_demo005','user_demo002'),
+              ('mbr_p5_u3','pt_demo005','user_demo003')
             ON CONFLICT (spot_you_id, user_id) DO NOTHING;
         """)
         await conn.execute("""
             INSERT INTO tag_point_votes (vote_id, point_id, user_id, rating, comment, created_at) VALUES
-              ('vote_001','pt_demo001','user_demo002',5,'Super groupe, ambiance top ! On était une quinzaine ce matin 💪', NOW()-INTERVAL '2 days'),
-              ('vote_002','pt_demo001','user_demo003',4,'Bon rythme, accessible à tous. Le tracé longe le canal, vraiment sympa.', NOW()-INTERVAL '1 day'),
-              ('vote_003','pt_demo001','user_coach001',5,'Organisateur très motivant. J''ai découvert ce spot grâce à WINEK !', NOW()-INTERVAL '3 hours'),
-              ('vote_004','pt_demo002','user_demo001',5,'Terrain en bon état, bon niveau global. On a joué 3x3 en attendant.', NOW()-INTERVAL '3 days'),
-              ('vote_005','pt_demo002','user_demo003',4,'Bonne organisation, les équipes étaient bien équilibrées. À refaire !', NOW()-INTERVAL '1 day'),
-              ('vote_006','pt_demo002','user_coach001',3,'Match sympa mais il manquait un peu d''arbitrage. L''endroit est parfait.', NOW()-INTERVAL '5 hours'),
-              ('vote_007','pt_demo003','user_demo001',5,'Vue imprenable sur la Tour Eiffel, séance vraiment ressourçante. Merci !', NOW()-INTERVAL '4 days'),
-              ('vote_008','pt_demo003','user_demo002',5,'Instructeur patient et bienveillant, parfait pour les débutants 🧘', NOW()-INTERVAL '2 days'),
-              ('vote_009','pt_demo003','user_coach001',4,'Belle séance, bon niveau. J''aurais aimé 15 min de plus pour la relaxation.', NOW()-INTERVAL '6 hours'),
-              ('vote_010','pt_demo004','user_demo002',4,'Workout intense ! Les WOD étaient bien construits. Le bois de Vincennes est parfait.', NOW()-INTERVAL '1 day'),
-              ('vote_011','pt_demo004','user_demo003',5,'Niveau costaud mais le coach adapte bien. J''ai progressé en 2 séances !', NOW()-INTERVAL '8 hours'),
-              ('vote_012','pt_demo005','user_demo001',4,'Bonne ambiance, terrain synthé nickel. On a eu 3 équipes, super soirée.', NOW()-INTERVAL '2 days'),
-              ('vote_013','pt_demo005','user_demo002',5,'Organisé à la perfection, tout le monde à l''heure. Niveau accessible.', NOW()-INTERVAL '1 day'),
-              ('vote_014','pt_demo005','user_demo003',4,'Fun et convivial. Le terrain est petit mais ça donne du rythme !', NOW()-INTERVAL '3 hours'),
-              ('vote_015','pt_demo006','user_demo001',5,'Parcours magnifique le long du canal, on a terminé par un café 😄', NOW()-INTERVAL '6 days'),
-              ('vote_016','pt_demo006','user_demo003',4,'Rythme modéré, parfait pour une sortie détente. Guide au top.', NOW()-INTERVAL '4 days'),
-              ('vote_017','pt_demo007','user_demo001',5,'Coach au top, très pédagogue. On apprend vite les bases tout en se défoulant.', NOW()-INTERVAL '5 days'),
-              ('vote_018','pt_demo007','user_demo002',4,'Bonne initiation à la boxe thaï. Les gants et protèges-dents sont fournis.', NOW()-INTERVAL '3 days'),
-              ('vote_019','pt_demo007','user_demo003',5,'Meilleure séance de sport de l''année ! On repart vidé mais heureux.', NOW()-INTERVAL '1 day'),
-              ('vote_020','pt_demo008','user_demo001',4,'Courts bien entretenus, bon partenaire d''entraînement. Niveau intermédiaire.', NOW()-INTERVAL '3 days'),
-              ('vote_021','pt_demo008','user_coach001',5,'Excellente session, l''organisateur donne de bons conseils techniques.', NOW()-INTERVAL '1 day'),
-              ('vote_022','pt_demo009','user_demo002',5,'Circuit impeccable dans le bois de Boulogne. 8km, parfait pour un 10km.', NOW()-INTERVAL '1 week'),
-              ('vote_023','pt_demo009','user_demo003',4,'Groupe de 8 personnes, très bonne ambiance. Le briefing est très utile.', NOW()-INTERVAL '4 days'),
-              ('vote_024','pt_demo009','user_coach001',5,'Pace régulier et bien expliqué. J''ai adoré le sprint final !', NOW()-INTERVAL '2 days'),
-              ('vote_025','pt_demo010','user_demo001',5,'Séance de yoga en plein air au parc Monceau, c''est magique !', NOW()-INTERVAL '3 days'),
-              ('vote_026','pt_demo010','user_demo002',4,'Super encadrante, très attentive à la posture de chacun.', NOW()-INTERVAL '1 day'),
-              ('vote_027','pt_demo014','user_demo002',5,'Le meilleur HIIT outdoor. 45 min non-stop, ça met en forme pour la journée.', NOW()-INTERVAL '2 days'),
-              ('vote_028','pt_demo014','user_demo003',5,'Super coach, exercices variés et bien expliqués. Circuit au top 🔥', NOW()-INTERVAL '1 day'),
-              ('vote_029','pt_demo014','user_coach001',4,'Intensité au rendez-vous, bonne progression sur 4 semaines.', NOW()-INTERVAL '5 hours'),
-              ('vote_030','pt_demo015','user_demo001',5,'Approche très professionnelle. Elle m''a aidé à surmonter mon blocage.', NOW()-INTERVAL '4 days'),
-              ('vote_031','pt_demo015','user_demo002',5,'Session très enrichissante. Les techniques de visualisation sont bluffantes.', NOW()-INTERVAL '2 days'),
-              ('vote_032','pt_demo015','user_demo003',4,'Très bien pour la gestion du stress en compétition. Je reviendrai.', NOW()-INTERVAL '6 hours')
+              ('vote_001','pt_demo001','user_demo002',5,'Super groupe HIIT, ambiance top !', NOW()-INTERVAL '2 days'),
+              ('vote_002','pt_demo001','user_demo003',4,'Bon rythme, accessible à tous.', NOW()-INTERVAL '1 day'),
+              ('vote_003','pt_demo002','user_demo001',5,'Parcours running magnifique, parfait.', NOW()-INTERVAL '3 days'),
+              ('vote_004','pt_demo002','user_demo003',4,'Bonne organisation, rythme adapté.', NOW()-INTERVAL '1 day'),
+              ('vote_005','pt_demo003','user_demo001',5,'Vue imprenable, séance ressourçante.', NOW()-INTERVAL '4 days'),
+              ('vote_006','pt_demo003','user_demo002',5,'Instructeur patient et bienveillant.', NOW()-INTERVAL '2 days'),
+              ('vote_007','pt_demo004','user_demo002',4,'Randonnée magnifique en forêt.', NOW()-INTERVAL '1 day'),
+              ('vote_008','pt_demo005','user_demo001',5,'Initiation bushcraft top !', NOW()-INTERVAL '2 days'),
+              ('vote_009','pt_demo005','user_demo003',5,'Week-end incroyable, je recommande.', NOW()-INTERVAL '1 day')
             ON CONFLICT (point_id, user_id) DO UPDATE SET rating=EXCLUDED.rating, comment=EXCLUDED.comment;
         """)
-        await conn.execute("""
-            INSERT INTO tag_point_saves (save_id, point_id, user_id, saved_at) VALUES
-              ('save_001','pt_demo003','user_demo001', NOW()-INTERVAL '2 days'),
-              ('save_002','pt_demo007','user_demo001', NOW()-INTERVAL '1 day'),
-              ('save_003','pt_demo014','user_demo001', NOW()-INTERVAL '3 hours'),
-              ('save_004','pt_demo001','user_demo002', NOW()-INTERVAL '1 day'),
-              ('save_005','pt_demo010','user_demo002', NOW()-INTERVAL '5 hours'),
-              ('save_006','pt_demo005','user_demo003', NOW()-INTERVAL '2 days')
-            ON CONFLICT (point_id, user_id) DO NOTHING;
-        """)
 
-        # [MARKETPLACE] Seed produits marketplace
-        await conn.execute("""
-            INSERT INTO marketplace_products (product_id, title, description, price, product_type, seller_type, seller_id, tag_ids, image_url, in_stock, skill_level) VALUES
-              -- Produits SpotU (plateforme)
-              ('mp_001', 'Corde à sauter professionnelle', 'Corde speed rope en acier avec poignées ergonomiques. Parfaite pour le HIIT et le CrossFit.', 24.90, 'sale', 'spotu', NULL, '{tag_hiit,tag_crossfit,tag_cardio}', 'https://images.unsplash.com/photo-1598289431512-b97b0917affc?w=400&h=400&fit=crop', TRUE, 'tous'),
-              ('mp_002', 'Bandes de résistance (lot de 5)', 'Set complet de 5 bandes élastiques, résistance progressive. Idéal pour le renforcement musculaire.', 19.90, 'sale', 'spotu', NULL, '{tag_hiit,tag_crossfit,tag_musculation,tag_fitness}', 'https://images.unsplash.com/photo-1598632640487-6ea4a4e8b963?w=400&h=400&fit=crop', TRUE, 'tous'),
-              ('mp_003', 'Tapis de yoga premium éco', 'Tapis antidérapant en caoutchouc naturel, 183x68cm, 5mm. Respectueux de l''environnement.', 49.90, 'sale', 'spotu', NULL, '{tag_yoga,tag_pilates,tag_meditation,tag_stretching}', 'https://images.unsplash.com/photo-1592432678016-e910b452f9a2?w=400&h=400&fit=crop', TRUE, 'tous'),
-              ('mp_004', 'Gants de boxe 12oz', 'Gants de boxe en cuir synthétique premium, fermeture velcro. Protection optimale pour l''entraînement.', 39.90, 'sale', 'spotu', NULL, '{tag_boxe,tag_mma,tag_combat}', 'https://images.unsplash.com/photo-1583473848882-f9a5bc1db73e?w=400&h=400&fit=crop', TRUE, 'intermediaire'),
-              ('mp_005', 'Ballon de football taille 5', 'Ballon cousu main, revêtement polyuréthane. Qualité match, FIFA Quality Pro.', 34.90, 'sale', 'spotu', NULL, '{tag_foot,tag_foot5}', 'https://images.unsplash.com/photo-1614632537197-38a17061c2bd?w=400&h=400&fit=crop', TRUE, 'tous'),
-              ('mp_006', 'Raquette de tennis intermédiaire', 'Raquette 280g, tamis 100 pouces carrés. Idéale pour les joueurs en progression.', 89.90, 'sale', 'spotu', NULL, '{tag_tennis,tag_padel}', 'https://images.unsplash.com/photo-1602211844066-d3bb556e983b?w=400&h=400&fit=crop', FALSE, 'intermediaire'),
-              ('mp_007', 'Montre GPS running', 'Montre connectée avec GPS intégré, cardio au poignet. Parfaite pour le suivi de course.', 149.90, 'sale', 'affiliated', NULL, '{tag_trail,tag_route,tag_5k,tag_10k,tag_semi,tag_cardio}', 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&h=400&fit=crop', TRUE, 'tous'),
-              ('mp_008', 'Pack haltères réglables 2-24kg', 'Paire d''haltères réglables de 2 à 24kg par incréments de 2kg. Gain de place garanti.', 199.90, 'sale', 'sponsored', NULL, '{tag_musculation,tag_crossfit,tag_fitness}', 'https://images.pexels.com/photos/6550843/pexels-photo-6550843.jpeg?w=400&h=400&fit=crop', TRUE, 'intermediaire'),
-              -- Produits créateurs
-              ('mp_009', 'Location vélo de route (journée)', 'Vélo de route carbone taille M/L, dérailleur Shimano 105. Casque et cadenas inclus.', 35.00, 'rental', 'creator', 'user_coach001', '{tag_route,tag_trail,tag_cardio}', 'https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=400&h=400&fit=crop', TRUE, 'intermediaire'),
-              ('mp_010', 'Location tapis + briques yoga', 'Kit complet yoga : tapis, 2 briques liège, sangle. Pour 1 séance.', 5.00, 'rental', 'creator', 'user_coach001', '{tag_yoga,tag_pilates,tag_stretching}', 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=400&h=400&fit=crop', TRUE, 'debutant'),
-              ('mp_011', 'Programme HIIT 8 semaines (PDF)', 'Programme d''entraînement complet : 5 séances/semaine, vidéos explicatives incluses.', 14.90, 'sale', 'creator', 'user_demo001', '{tag_hiit,tag_crossfit,tag_cardio,tag_fitness}', 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=400&h=400&fit=crop', TRUE, 'tous'),
-              ('mp_012', 'Protège-tibias MMA', 'Protège-tibias moulés en mousse EVA haute densité. Taille unique ajustable.', 29.90, 'sale', 'creator', 'user_demo002', '{tag_boxe,tag_mma,tag_combat}', 'https://images.unsplash.com/photo-1615117972428-28de87cc363d?w=400&h=400&fit=crop', FALSE, 'avance'),
-              ('mp_013', 'Location raquettes padel (2h)', 'Paire de raquettes padel + balles. Modèle intermédiaire, drop shape.', 12.00, 'rental', 'creator', 'user_coach001', '{tag_tennis,tag_padel}', 'https://images.unsplash.com/photo-1554068865-24cecd4e34b8?w=400&h=400&fit=crop', TRUE, 'tous'),
-              ('mp_014', 'Kettlebell 16kg compétition', 'Kettlebell en fonte d''acier, finition poudre. Norme compétition, poignée 33mm.', 59.90, 'sale', 'recommended', NULL, '{tag_crossfit,tag_musculation,tag_fitness}', 'https://images.unsplash.com/photo-1517344884509-a0c97ec11bcc?w=400&h=400&fit=crop', TRUE, 'avance'),
-              -- ── RUNNING / TRAIL ──────────────────────────────────────────────────────
-              ('mp_015','Chaussures trail Gore-Tex','Chaussures running trail imperméables, semelle Vibram, drop 6mm. Idéales pour tous terrains.',129.90,'sale','spotu',NULL,'{tag_trail,tag_route,tag_10k,tag_semi}','https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop',TRUE,'intermediaire'),
-              ('mp_016','Gilet hydratation 5L','Gilet trail avec 2 flasks 500ml incluses. Poche dorsale 5L, réglable. Pour sorties longues.',59.90,'sale','spotu',NULL,'{tag_trail,tag_semi,tag_10k}','https://images.unsplash.com/photo-1538805060514-97d9cc17730c?w=400&h=400&fit=crop',TRUE,'intermediaire'),
-              ('mp_017','Chaussettes compression running (x3)','Lot de 3 paires de chaussettes de compression. Récupération accélérée, anti-ampoules.',24.90,'sale','spotu',NULL,'{tag_route,tag_trail,tag_5k,tag_10k,tag_semi,tag_cardio}','https://images.unsplash.com/photo-1586350977771-b3b0abd50c82?w=400&h=400&fit=crop',TRUE,'tous'),
-              ('mp_018','Brassard téléphone running','Brassard universel avec fenêtre tactile et poche zippée. Compatible iPhone et Android.',12.90,'sale','spotu',NULL,'{tag_route,tag_trail,tag_5k,tag_10k,tag_semi}','https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400&h=400&fit=crop',TRUE,'tous'),
-              ('mp_019','Plan d''entraînement 10km (PDF)','Programme 8 semaines pour courir 10km en moins d''1h. 4 séances/semaine, VMA incluse.',9.90,'sale','creator','user_coach001','{tag_10k,tag_5k,tag_route}','https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?w=400&h=400&fit=crop',TRUE,'debutant'),
-              ('mp_020','Ceinture running porte-bidon','Ceinture élastique avec 2 bidons 250ml et poche téléphone. Tour de taille ajustable.',19.90,'sale','spotu',NULL,'{tag_route,tag_trail,tag_10k,tag_semi}','https://images.unsplash.com/photo-1502224562085-639556652f33?w=400&h=400&fit=crop',TRUE,'tous'),
-              ('mp_021','Location vélo route (weekend)','Vélo carbone taille S disponible sam-dim. Pédales automatiques SPD incluses.',55.00,'rental','creator','user_coach001','{tag_route,tag_trail,tag_cardio}','https://images.unsplash.com/photo-1532298229144-0ec0c57515c7?w=400&h=400&fit=crop',TRUE,'intermediaire'),
-              -- ── HIIT / CROSSFIT / FITNESS ─────────────────────────────────────────────
-              ('mp_022','Barre de traction porte','Barre ajustable sans vis de 62 à 100cm. Supporte jusqu''à 150kg. Installation en 30 sec.',34.90,'sale','spotu',NULL,'{tag_hiit,tag_crossfit,tag_fitness,tag_musculation}','https://images.unsplash.com/photo-1598971639058-fab3c3109a34?w=400&h=400&fit=crop',TRUE,'tous'),
-              ('mp_023','Tabata Timer Pro (app)','Accès 1 an à l''application Tabata Timer Pro. Intervalles personnalisables, musique sync.',7.99,'sale','affiliated',NULL,'{tag_hiit,tag_crossfit,tag_cardio,tag_fitness}','https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=400&h=400&fit=crop',TRUE,'tous'),
-              ('mp_024','Rouleau de massage fascia','Foam roller dentelé haute densité 33cm. Récupération musculaire, réduction courbatures.',22.90,'sale','spotu',NULL,'{tag_hiit,tag_crossfit,tag_fitness,tag_yoga,tag_pilates,tag_musculation}','https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=400&h=400&fit=crop',TRUE,'tous'),
-              ('mp_025','TRX System complet','Suspension trainer TRX avec ancrage porte et sac de transport. 300+ exercices possibles.',79.90,'sale','sponsored',NULL,'{tag_hiit,tag_crossfit,tag_fitness,tag_musculation}','https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=400&h=400&fit=crop',TRUE,'intermediaire'),
-              ('mp_026','Tapis de sol antidérapant 10mm','Tapis fitness épais 10mm, 180x60cm. Protection articulations, lavable machine.',27.90,'sale','spotu',NULL,'{tag_hiit,tag_fitness,tag_pilates,tag_stretching,tag_yoga}','https://images.unsplash.com/photo-1518611012118-696072aa579a?w=400&h=400&fit=crop',TRUE,'tous'),
-              ('mp_027','Chrono & capteur cardio','Montre cardio-training avec capteur HRV. Compatible Strava, Garmin Connect.',89.90,'sale','affiliated',NULL,'{tag_hiit,tag_cardio,tag_crossfit,tag_fitness}','https://images.unsplash.com/photo-1434682881908-b43d0467b798?w=400&h=400&fit=crop',TRUE,'tous'),
-              ('mp_028','Session CrossFit privée (1h)','Coaching individuel CrossFit, tous niveaux. WOD personnalisé, technique garantie.',45.00,'rental','creator','user_coach001','{tag_crossfit,tag_hiit,tag_fitness,tag_musculation}','https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=400&h=400&fit=crop',TRUE,'tous'),
-              ('mp_029','Boîte plyométrique 3-en-1','Box de pliométrie 50/60/75cm. Contreplaqué 18mm, bords biseautés anti-blessure.',69.90,'sale','spotu',NULL,'{tag_crossfit,tag_hiit,tag_fitness}','https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=400&h=400&fit=crop',FALSE,'avance'),
-              ('mp_030','Programme musculation 12 semaines','Plan de musculation progressif. Prise de masse + définition. 4 jours/semaine.',19.90,'sale','creator','user_demo001','{tag_musculation,tag_fitness,tag_crossfit}','https://images.unsplash.com/photo-1583454155184-870a1f63be6e?w=400&h=400&fit=crop',TRUE,'intermediaire'),
-              -- ── YOGA / PILATES / MÉDITATION ───────────────────────────────────────────
-              ('mp_031','Bloc yoga liège (x2)','Paire de blocs de yoga en liège naturel 22,5x15x10cm. Soutien parfait en cours.',18.90,'sale','spotu',NULL,'{tag_yoga,tag_pilates,tag_stretching}','https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=400&h=400&fit=crop',TRUE,'tous'),
-              ('mp_032','Sangle yoga 183cm','Sangle de yoga en coton biologique avec boucle métallique. 6 positions de réglage.',11.90,'sale','spotu',NULL,'{tag_yoga,tag_pilates,tag_stretching,tag_meditation}','https://images.unsplash.com/photo-1616803140344-6682afbb5c7a?w=400&h=400&fit=crop',TRUE,'debutant'),
-              ('mp_033','Coussin méditation zafu','Coussin de méditation en kapok biologique, housse lavable. Hauteur 15cm.',39.90,'sale','spotu',NULL,'{tag_meditation,tag_yoga}','https://images.unsplash.com/photo-1508672019048-805c876b67e2?w=400&h=400&fit=crop',TRUE,'tous'),
-              ('mp_034','Cours de yoga enregistrés (1 mois)','Accès à 50+ vidéos Vinyasa, Hatha et Yin yoga. Débutants à confirmés.',14.90,'sale','creator','user_coach001','{tag_yoga,tag_pilates,tag_meditation,tag_stretching}','https://images.unsplash.com/photo-1545205597-3d9d02c29597?w=400&h=400&fit=crop',TRUE,'tous'),
-              ('mp_035','Séance yoga privée (1h)','Cours particulier yoga en plein air ou en salle. Adaptation à votre niveau.',50.00,'rental','creator','user_coach001','{tag_yoga,tag_pilates,tag_stretching,tag_meditation}','https://images.unsplash.com/photo-1552196563-55cd4e45efb3?w=400&h=400&fit=crop',TRUE,'tous'),
-              ('mp_036','Huile essentielle relaxation','Diffuseur + 3 huiles essentielles (lavande, eucalyptus, menthe). Coffret bien-être.',24.90,'sale','affiliated',NULL,'{tag_meditation,tag_yoga,tag_stretching}','https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=400&fit=crop',TRUE,'tous'),
-              -- ── BOXE / MMA / COMBAT ──────────────────────────────────────────────────
-              ('mp_037','Corde à sauter boxe pro','Speed rope câblé acier chromé, roulements à billes. Vitesse max atteinte.',29.90,'sale','spotu',NULL,'{tag_boxe,tag_mma,tag_combat,tag_cardio}','https://images.unsplash.com/photo-1594737625785-a6cbdabd333c?w=400&h=400&fit=crop',TRUE,'intermediaire'),
-              ('mp_038','Bandages boxe 4,5m (x2)','Paire de bandages en coton élastique 4,5m. Protection poignets et phalanges.',9.90,'sale','spotu',NULL,'{tag_boxe,tag_mma,tag_combat}','https://images.unsplash.com/photo-1581009137042-c552e485697a?w=400&h=400&fit=crop',TRUE,'tous'),
-              ('mp_039','Sac de frappe sur pied 180cm','Sac de frappe autoportant rempli de sable, base lestée. Hauteur réglable.',149.90,'sale','sponsored',NULL,'{tag_boxe,tag_mma,tag_combat}','https://images.unsplash.com/photo-1547347298-4074fc3086f0?w=400&h=400&fit=crop',TRUE,'intermediaire'),
-              ('mp_040','Location gants boxe (séance)','Gants de boxe 10/12/14oz selon votre poids. Nettoyés et désinfectés après chaque usage.',5.00,'rental','creator','user_demo002','{tag_boxe,tag_mma,tag_combat}','https://images.unsplash.com/photo-1601422407692-ec4eeec1d9b3?w=400&h=400&fit=crop',TRUE,'tous'),
-              ('mp_041','Cours boxe thaï débutant (x5)','Pack 5 séances d''initiation Muay Thaï. Techniques de base, cardio et self-défense.',75.00,'sale','creator','user_demo002','{tag_boxe,tag_mma,tag_combat}','https://images.unsplash.com/photo-1616803140344-6682afbb5c7a?w=400&h=400&fit=crop',TRUE,'debutant'),
-              -- ── FOOTBALL / COLLECTIF ─────────────────────────────────────────────────
-              ('mp_042','Chasubles fluo (lot de 10)','10 chasubles de sport fluorescentes. Filet de rangement inclus. Taille unique.',19.90,'sale','spotu',NULL,'{tag_foot,tag_foot5}','https://images.unsplash.com/photo-1511886929837-354d827aae26?w=400&h=400&fit=crop',TRUE,'tous'),
-              ('mp_043','Cônes d''entraînement (lot de 20)','20 cônes de marquage football 23cm. Résistants aux UV, empilables.',14.90,'sale','spotu',NULL,'{tag_foot,tag_foot5}','https://images.unsplash.com/photo-1517466787929-bc90951d0974?w=400&h=400&fit=crop',TRUE,'tous'),
-              ('mp_044','Pompe à ballon électrique','Pompe électrique USB. Gonfle un ballon en 30 secondes. Embouts multisports.',22.90,'sale','spotu',NULL,'{tag_foot,tag_foot5,tag_tennis,tag_padel}','https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=400&h=400&fit=crop',TRUE,'tous'),
-              ('mp_045','Location terrain foot 5v5 (1h)','Terrain synthétique 5v5 couvert. Vestiaires, douches, éclairage inclus.',40.00,'rental','creator','user_demo001','{tag_foot,tag_foot5}','https://images.unsplash.com/photo-1529900748604-07564a03e7a6?w=400&h=400&fit=crop',TRUE,'tous'),
-              -- ── TENNIS / PADEL ────────────────────────────────────────────────────────
-              ('mp_046','Balles de tennis (tube de 4)','Balles de tennis pressurisées, homologuées tournoi. Lot de 4 balles.',7.90,'sale','spotu',NULL,'{tag_tennis,tag_padel}','https://images.unsplash.com/photo-1551773188-0801da12ddae?w=400&h=400&fit=crop',TRUE,'tous'),
-              ('mp_047','Sac raquette padel','Sac raquette padel avec compartiment chaussures, 2 poches latérales. Volume 20L.',44.90,'sale','spotu',NULL,'{tag_padel,tag_tennis}','https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=400&fit=crop',TRUE,'tous'),
-              ('mp_048','Cours padel débutant (2h)','Stage initiation padel : service, volée, smash, positionnement. Raquettes incluses.',30.00,'rental','creator','user_coach001','{tag_padel,tag_tennis}','https://images.unsplash.com/photo-1554068865-24cecd4e34b8?w=400&h=400&fit=crop',TRUE,'debutant'),
-              -- ── MUSCULATION / GENERAL ────────────────────────────────────────────────
-              ('mp_049','Ceinture de musculation cuir','Ceinture lombaire en cuir véritable 10cm. Sécurité maximale pour les gros exercices.',49.90,'sale','spotu',NULL,'{tag_musculation,tag_crossfit}','https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400&h=400&fit=crop',TRUE,'avance'),
-              ('mp_050','Magnésie liquide 200ml','Magnésie liquide anti-dérapage. Idéale escalade, haltérophilie et barres gymniques.',8.90,'sale','spotu',NULL,'{tag_musculation,tag_crossfit,tag_hiit}','https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?w=400&h=400&fit=crop',TRUE,'tous'),
-              ('mp_051','Barre de dips parallèles pliable','Barres de dips en acier, pliables, réglables en hauteur. Supporte 200kg.',59.90,'sale','affiliated',NULL,'{tag_musculation,tag_crossfit,tag_fitness}','https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=400&h=400&fit=crop',FALSE,'intermediaire'),
-              ('mp_052','Shaker protéine 700ml','Shaker avec grille anti-grumeaux, graduation intérieure. BPA-free, lavable lave-vaisselle.',12.90,'sale','spotu',NULL,'{tag_musculation,tag_crossfit,tag_fitness,tag_hiit}','https://images.unsplash.com/photo-1593095948071-474c5cc2989d?w=400&h=400&fit=crop',TRUE,'tous'),
-              ('mp_053','Analyse posturale + bilan','Bilan posture complet : analyse video, rapport PDF personnalisé, 3 exercices correctifs.',35.00,'sale','creator','user_coach001','{tag_musculation,tag_yoga,tag_pilates,tag_stretching,tag_fitness}','https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=400&h=400&fit=crop',TRUE,'tous'),
-              -- ── CARDIO / GÉNÉRAL ─────────────────────────────────────────────────────
-              ('mp_054','Casque audio sport IPX5','Casque Bluetooth 5.3 waterproof IPX5. 30h d''autonomie, antiglisse.',69.90,'sale','affiliated',NULL,'{tag_cardio,tag_route,tag_trail,tag_hiit,tag_fitness}','https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop',TRUE,'tous'),
-              ('mp_055','Carnet d''entraînement','Carnet de suivi sportif 52 semaines. Objectifs, séances, nutrition, progression.',14.90,'sale','spotu',NULL,'{tag_hiit,tag_cardio,tag_route,tag_musculation,tag_crossfit,tag_fitness}','https://images.unsplash.com/photo-1471107340929-a87cd0f5b5f3?w=400&h=400&fit=crop',TRUE,'tous'),
-              ('mp_056','Gourde isotherme 750ml','Gourde inox double paroi. Maintien chaud 12h / froid 24h. 100% étanche.',28.90,'sale','spotu',NULL,'{tag_route,tag_trail,tag_hiit,tag_yoga,tag_fitness,tag_cardio}','https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=400&h=400&fit=crop',TRUE,'tous'),
-              ('mp_057','Séance coaching bilan gratuit (30min)','Premier bilan offert : objectifs, morphologie, programme adapté. Sans engagement.',0.00,'sale','creator','user_coach001','{tag_fitness,tag_musculation,tag_hiit,tag_yoga,tag_cardio}','https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=400&fit=crop',TRUE,'tous'),
-              ('mp_058','Ceinture cardio Bluetooth HR','Cardiofréquencemètre ceinture thoracique Bluetooth/ANT+. Précision médicale.',39.90,'sale','affiliated',NULL,'{tag_cardio,tag_hiit,tag_route,tag_crossfit,tag_fitness}','https://images.unsplash.com/photo-1434682881908-b43d0467b798?w=400&h=400&fit=crop',TRUE,'tous')
-            ON CONFLICT (product_id) DO NOTHING;
-        """)
+
 
         # [MARKETPLACE-GEO] Colonnes lat/lng pour produits physiques + coordonnées seed
         await conn.execute("""

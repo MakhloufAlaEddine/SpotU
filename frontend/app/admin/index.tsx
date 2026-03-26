@@ -57,7 +57,7 @@ interface Domain {
   icon: string; color: string; active: boolean;
 }
 interface TagCategory {
-  category_id: string; domain_id: string; name: string; label_fr: string;
+  category_id: string; domain_id: string; entity_type?: string; name: string; label_fr: string;
   label_en: string; icon: string; active: boolean;
   domain_name?: string; domain_color?: string;
 }
@@ -1029,28 +1029,61 @@ function DomainesPanel({ domains, onRefresh, refreshing, onEdit, onDelete, onAdd
   );
 }
 
+// ── Constantes entity_type ─────────────────────────────────────────────────────
+const ENTITY_TYPES = [
+  { key: null,       label: 'Tout',     color: Colors.muted },
+  { key: 'spotyou',  label: 'SpotYou',  color: '#22C55E' },
+  { key: 'service',  label: 'Service',  color: '#F59E0B' },
+  { key: 'product',  label: 'Produit',  color: '#3B82F6' },
+];
+
+function EntityTypeBadge({ type }: { type?: string | null }) {
+  const et = ENTITY_TYPES.find(e => e.key === type);
+  if (!et || !et.key) return null;
+  return (
+    <View style={[td.entityBadge, { backgroundColor: et.color + '22' }]}>
+      <Text style={[td.entityBadgeText, { color: et.color }]}>{et.label}</Text>
+    </View>
+  );
+}
+
 // ── Panel Catégories ───────────────────────────────────────────────────────────
 function CategoriesPanel({ categories, domains, onRefresh, refreshing, onEdit, onDelete, onAdd }: {
   categories: TagCategory[]; domains: Domain[]; onRefresh: () => void; refreshing: boolean;
   onEdit: (c: TagCategory) => void; onDelete: (c: TagCategory) => void; onAdd: () => void;
 }) {
+  const [entityFilter, setEntityFilter] = useState<string | null>(null);
+  const filtered = entityFilter ? categories.filter(c => c.entity_type === entityFilter) : categories;
+
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={s.tabContent}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}>
-      <SectionHeader title={`Catégories (${categories.length})`} onAdd={onAdd} />
-      {categories.length === 0 && (
+      <SectionHeader title={`Catégories (${filtered.length})`} onAdd={onAdd} />
+      {/* Filtre entity_type */}
+      <View style={td.filterRow}>
+        {ENTITY_TYPES.map(et => (
+          <TouchableOpacity key={String(et.key)} style={[td.filterChip, entityFilter === et.key && { backgroundColor: et.color }]}
+            onPress={() => setEntityFilter(et.key)} testID={`cat-filter-${et.key || 'all'}`}>
+            <Text style={[td.filterChipText, entityFilter === et.key && { color: '#fff' }]}>{et.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      {filtered.length === 0 && (
         <View style={s.empty}>
           <Ionicons name="folder-outline" size={40} color={Colors.muted} />
           <Text style={s.emptyText}>Aucune catégorie</Text>
         </View>
       )}
-      {categories.map(c => (
+      {filtered.map(c => (
         <View key={c.category_id} style={[s.card, !c.active && s.cardInactive]} testID={`cat-card-${c.category_id}`}>
           <View style={s.cardHeader}>
             <View style={[td.colorDot, { backgroundColor: c.domain_color || Colors.primary }]} />
-            <View style={{ flex: 1 }}>
+            <View style={{ flex: 1, gap: 2 }}>
               <Text style={s.cardTitle}>{c.label_fr}</Text>
-              <Text style={s.cardMeta}>{c.icon} · {c.domain_name || c.domain_id}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={s.cardMeta}>{c.icon} · {c.domain_name || c.domain_id}</Text>
+                <EntityTypeBadge type={c.entity_type} />
+              </View>
             </View>
             <View style={s.cardActions}>
               <View style={[s.activeDot, { backgroundColor: c.active ? Colors.success : Colors.muted }]} />
@@ -1075,19 +1108,38 @@ function TagsPanel({ tags, domains, categories, onRefresh, refreshing, onEdit, o
   onEdit: (t: Tag) => void; onDelete: (t: Tag) => void; onAdd: () => void;
 }) {
   const [search, setSearch] = useState('');
-  const filtered = search.trim()
-    ? tags.filter(t => t.label_fr.toLowerCase().includes(search.toLowerCase()) || t.name.toLowerCase().includes(search.toLowerCase()))
-    : tags;
+  const [entityFilter, setEntityFilter] = useState<string | null>(null);
+  const [domainFilter, setDomainFilter] = useState<string | null>(null);
+
+  const filtered = tags.filter(t => {
+    const matchSearch = !search.trim() || t.label_fr.toLowerCase().includes(search.toLowerCase()) || t.name.toLowerCase().includes(search.toLowerCase());
+    const matchDomain = !domainFilter || t.domain_id === domainFilter;
+    return matchSearch && matchDomain;
+  });
 
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={s.tabContent}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}>
-      <SectionHeader title={`Tags (${tags.length})`} onAdd={onAdd} />
+      <SectionHeader title={`Tags (${filtered.length})`} onAdd={onAdd} />
       <View style={td.searchRow}>
         <Ionicons name="search-outline" size={16} color={Colors.muted} />
         <TextInput style={td.searchInput} value={search} onChangeText={setSearch}
           placeholder="Rechercher un tag…" placeholderTextColor={Colors.muted}
           testID="tag-search-input" />
+      </View>
+      {/* Filtre domaine */}
+      <View style={td.filterRow}>
+        <TouchableOpacity style={[td.filterChip, !domainFilter && { backgroundColor: Colors.primary }]}
+          onPress={() => setDomainFilter(null)} testID="tag-filter-all-domains">
+          <Text style={[td.filterChipText, !domainFilter && { color: '#fff' }]}>Tous</Text>
+        </TouchableOpacity>
+        {domains.map(d => (
+          <TouchableOpacity key={d.domain_id} style={[td.filterChip, domainFilter === d.domain_id && { backgroundColor: d.color || Colors.primary }]}
+            onPress={() => setDomainFilter(domainFilter === d.domain_id ? null : d.domain_id)}
+            testID={`tag-filter-domain-${d.domain_id}`}>
+            <Text style={[td.filterChipText, domainFilter === d.domain_id && { color: '#fff' }]}>{d.label_fr}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
       {filtered.length === 0 && (
         <View style={s.empty}>
@@ -1253,13 +1305,14 @@ function CategoryForm({ initial, domains, onSave, onClose }: {
 }) {
   const isNew = !(initial as TagCategory).category_id;
   const [form, setForm] = useState<Partial<TagCategory>>({
-    domain_id: domains[0]?.domain_id || '', name: '', label_fr: '', label_en: '', icon: '', active: true, ...initial,
+    domain_id: domains[0]?.domain_id || '', entity_type: 'spotyou', name: '', label_fr: '', label_en: '', icon: '', active: true, ...initial,
   });
   const [saving, setSaving] = useState(false);
   const set = (k: keyof TagCategory, v: any) => setForm(f => ({ ...f, [k]: v }));
 
   const handleSave = async () => {
     if (!form.name?.trim() || !form.label_fr?.trim()) return Alert.alert('Erreur', 'Nom et libellé FR requis');
+    if (!form.entity_type) return Alert.alert('Erreur', 'Type d\'entité requis');
     setSaving(true);
     try { await onSave(form); }
     finally { setSaving(false); }
@@ -1281,6 +1334,15 @@ function CategoryForm({ initial, domains, onSave, onClose }: {
             </TouchableOpacity>
           ))}
         </View>
+        <Label>Type d'entité *</Label>
+        <View style={mf.chipRow}>
+          {ENTITY_TYPES.filter(e => e.key).map(et => (
+            <TouchableOpacity key={et.key!} style={[mf.chip, form.entity_type === et.key && { backgroundColor: et.color, borderColor: et.color }]}
+              onPress={() => set('entity_type', et.key)} testID={`cat-entity-${et.key}`}>
+              <Text style={[mf.chipText, form.entity_type === et.key && { color: '#fff' }]}>{et.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
         <Label>Nom (slug) *</Label>
         <TextInput style={mf.input} value={form.name} onChangeText={v => set('name', v)}
           placeholder="ex: cardio" placeholderTextColor={Colors.muted} testID="cat-name-input" />
@@ -1292,7 +1354,7 @@ function CategoryForm({ initial, domains, onSave, onClose }: {
           placeholder="ex: Cardio" placeholderTextColor={Colors.muted} />
         <Label>Icône</Label>
         <TextInput style={mf.input} value={form.icon} onChangeText={v => set('icon', v)}
-          placeholder="ex: 🏃" placeholderTextColor={Colors.muted} />
+          placeholder="ex: barbell-outline" placeholderTextColor={Colors.muted} />
         <View style={mf.switchRow}>
           <View style={mf.switchBlock}>
             <Label>Active</Label>
@@ -2008,6 +2070,11 @@ const td = StyleSheet.create({
   colorDot:       { width: 12, height: 12, borderRadius: 6, marginRight: 8, marginTop: 3 },
   searchRow:      { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.card, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: Colors.border, marginBottom: 8 },
   searchInput:    { flex: 1, fontSize: 14, color: Colors.foreground },
+  filterRow:      { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
+  filterChip:     { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border },
+  filterChipText: { fontSize: 12, fontWeight: '500', color: Colors.foreground },
+  entityBadge:    { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
+  entityBadgeText:{ fontSize: 10, fontWeight: '600' },
   // Stats bars
   statRow:        { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: Colors.card, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: Colors.border },
   statDot:        { width: 10, height: 10, borderRadius: 5, marginTop: 5 },

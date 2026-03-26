@@ -1,0 +1,100 @@
+{
+  "summary": "Backend taxonomy refactor tests (iter 94): 34/35 passed. All entity_type filtering, cascade deactivation, domain/category/tag counts verified. One failure: marketplace demo products mp_demo001-005 not present in DB (seed skipped because table already had 20 old products).",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "N/A — DB seeding issue",
+        "issue": "Marketplace table already contains 20 products with old IDs (mp_001..mp_050). seed.py uses 'if count == 0' guard so mp_demo001-005 were never inserted. Full DB reset required for marketplace_products table.",
+        "priority": "HIGH"
+      },
+      {
+        "endpoint": "GET/PUT /api/domains, /api/tags/categories, /api/tags",
+        "issue": "domain_routes.py contains DUPLICATE route definitions (lines 1-370 vs 376-648). The second set is dead code but includes a PUT /domains/{domain_id} handler WITHOUT cascade logic (line 479-496). If routing order ever changes, cascade would silently break. File must be deduplicated.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_results": {
+    "total": 35,
+    "passed": 34,
+    "failed": 1,
+    "skipped": 0,
+    "failed_tests": [
+      "TestDBCountsViaAPI::test_marketplace_products_demo_exist — Expected mp_demo001-005, DB has mp_001..mp_051 (old data, seed blocked by count>0 guard)"
+    ]
+  },
+  "passed_tests_summary": [
+    "Admin login works (admin@winek.app)",
+    "GET /api/domains returns exactly 4 domains with correct slugs (sport, coaching, services_locaux, social)",
+    "GET /api/tags/categories?entity_type=product returns exactly 16 product categories",
+    "All 16 product categories have entity_type='product' (no spotyou/service leakage)",
+    "GET /api/tags/categories?entity_type=spotyou returns exactly 21 spotyou categories",
+    "Spotyou filter excludes product/service correctly",
+    "GET /api/tags/categories?entity_type=service returns exactly 21 service categories",
+    "Service filter excludes spotyou/product correctly",
+    "GET /api/tags/categories?entity_type=spotyou&domain_id=dom_sport returns exactly 12 categories",
+    "All spotyou/sport categories have correct entity_type and domain_id",
+    "Categories response includes nested 'tags' list",
+    "Total categories without filter = 58",
+    "GET /api/tags?entity_type=spotyou returns non-empty tag list",
+    "GET /api/tags?entity_type=product returns non-empty tag list",
+    "GET /api/tags?entity_type=service returns non-empty tag list",
+    "Total active tags = 60",
+    "GET /api/admin/all-categories returns >= 58 categories (admin auth)",
+    "All 58 seed categories have entity_type field non-null",
+    "entity_type values are valid (spotyou/service/product)",
+    "Admin categories include domain_name joined field",
+    "Unauthenticated /admin/all-categories → 401/403",
+    "CASCADE: PUT /api/domains/dom_sport {active:false} deactivates all dom_sport categories",
+    "CASCADE verified via /api/tags/categories?domain_id=dom_sport returns 0 after cascade",
+    "CASCADE verified via /api/admin/all-categories showing inactive categories",
+    "dom_sport and all 38 sport categories successfully restored to active after cascade test",
+    "tag_category_links working (categories have nested tags)",
+    "tag_entity_type_links working (entity_type filter on /api/tags returns different sets)",
+    "entity_type filter is operative (not dead code from duplicate routes)",
+    "tags entity_type filter operative"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_taxonomy_entity_type_iter94.py",
+    "/app/test_reports/pytest/iter94_taxonomy.xml"
+  ],
+  "action_items": [
+    "CRITICAL: Remove duplicate route definitions from domain_routes.py (lines 376-648 are duplicates of lines 1-374). The duplicate PUT /domains/{domain_id} at line 479 has NO cascade logic — if routing order changes, cascade breaks silently.",
+    "CRITICAL: Run DB reset for marketplace_products table and re-seed to get mp_demo001-005. Either: (a) clear the table and restart server so seed runs, or (b) change seed to use ON CONFLICT DO UPDATE for products.",
+    "INFO: The cascade re-activation is NOT implemented — PUT /domains/{domain_id} {active:true} does NOT re-activate previously deactivated categories. This is by design per code comment ('écrans de création uniquement') but should be documented."
+  ],
+  "critical_code_review_comments": [
+    "domain_routes.py: Lines 376-648 are a complete duplicate of lines 1-374. FastAPI uses first match so the new entity_type-aware code works. But the dead duplicate at line 479 (update_domain without cascade) is a silent time-bomb. Must be removed.",
+    "seed.py marketplace_products: Uses 'if count == 0' guard which prevents re-seeding when old data exists. Consider using 'ON CONFLICT DO UPDATE' or adding a hard reset for demo data.",
+    "update_domain cascade (PUT): Only cascades on active=False, not on active=True (no reverse cascade). This is documented as intentional but could confuse admins who re-enable a domain and don't see categories come back."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_taxonomy_entity_type_iter94.py"
+  ],
+  "success_rate": {
+    "backend": "97% (34/35)",
+    "frontend": "N/A — backend only testing"
+  },
+  "seed_data_creation": "No seed data created. Used existing seed data. Restored dom_sport + 38 sport categories to active after cascade test.",
+  "retest_needed": true,
+  "main_agent_can_self_test": false,
+  "context_for_next_testing_agent": "Taxonomy refactor is 97% working. entity_type filtering on /api/tags/categories and /api/tags works correctly. CASCADE deactivation on domains works. The only failure is marketplace demo products not seeded (DB had old data). Main agent must: 1) Remove duplicate routes from domain_routes.py lines 376-648, 2) Reset/re-seed marketplace_products to get mp_demo001-005.",
+  "rca_of_issues": {
+    "marketplace_products_missing": {
+      "root_cause": "seed.py checks 'SELECT COUNT(*) FROM marketplace_products' and skips insertion if count > 0. DB already had 20 products (from prior test iterations with IDs mp_001-mp_051). The new seed with mp_demo001-005 was never applied.",
+      "reproduction": "GET /api/marketplace/products returns 20 products with IDs mp_001..mp_051, not mp_demo001-005",
+      "mitigation": "Option A: DELETE FROM marketplace_products; restart backend → seed will run. Option B: Add ON CONFLICT (product_id) DO UPDATE in seed for products."
+    },
+    "duplicate_routes": {
+      "root_cause": "domain_routes.py was refactored to add entity_type support (new code at top) but old code was not removed (kept from line 376). FastAPI registers both sets; first match wins. Entity_type filtering works because new code is first.",
+      "risk": "The duplicate PUT /domains/{domain_id} at line 479 has NO cascade. If the route order is ever changed (reorder includes, etc.), cascade silently stops working.",
+      "mitigation": "Delete lines 376-648 from domain_routes.py (they are exact duplicates of lines 1-374 without the new features)"
+    }
+  }
+}

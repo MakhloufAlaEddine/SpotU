@@ -346,7 +346,7 @@ export default function CreateServiceScreen() {
   const loadCategories = useCallback(async () => {
     const version = ++loadVersionRef.current;
     try {
-      const data = await api.get(`/tags/categories?domain_id=${domainId}`);
+      const data = await api.get(`/tags/categories?domain_id=${domainId}&entity_type=service`);
       if (version === loadVersionRef.current) setCategories(data);
     } catch {}
   }, [domainId]);

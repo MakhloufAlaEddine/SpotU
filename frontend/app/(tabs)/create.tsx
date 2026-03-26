@@ -282,7 +282,7 @@ export default function CreateSpotYouScreen() {
     const version = ++loadCategoriesVersionRef.current;
     const domain = domainId; // capture current domain to avoid stale closure
     try {
-      const url = domain ? `/tags/categories?domain_id=${domain}` : '/tags/categories';
+      const url = domain ? `/tags/categories?domain_id=${domain}&entity_type=spotyou` : '/tags/categories?entity_type=spotyou';
       const data = await api.get(url);
       // Only apply if this is still the latest request (prevents race condition
       // where dom_sport response arrives after dom_coaching and overwrites it)
