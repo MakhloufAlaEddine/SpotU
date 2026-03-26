@@ -159,23 +159,38 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 ├── backend/
 │   ├── server.py
 │   ├── pricing_engine.py
+│   ├── admin_product_reminder_worker.py  # NEW - Worker rappel 2h produits
 │   ├── routes/
-│   │   ├── tagpoint_routes.py    # Masquage adresse + precision
+│   │   ├── tagpoint_routes.py
 │   │   ├── booking_routes.py
 │   │   ├── service_routes.py
-│   │   └── admin_routes.py
+│   │   ├── admin_routes.py
+│   │   ├── product_creation_routes.py    # Création produit (auto-publish admin)
+│   │   └── admin_product_routes.py       # Modération admin (approve/reject)
 │   └── tests/
 └── frontend/
     ├── components/
-    │   ├── MapPreview.tsx         # NOUVEAU - Composant partage carte
-    │   ├── MapViewComponent.tsx   # Composant carte bas niveau (Leaflet)
-    │   ├── StepLocalisation.tsx   # Selection adresse + precision
-    │   └── ServicePlaceholder.tsx # Placeholder images services
+    │   ├── product-form/               # Flux création 7 étapes
+    │   │   ├── steps/Step1...Step7.tsx
+    │   │   ├── ProductCreationFlow.tsx
+    │   │   └── ProductFormContext.tsx
     └── app/
-        ├── service/[id].tsx      # Detail service (utilise MapPreview)
-        ├── spot-you/[id].tsx     # Detail SpotYou (utilise MapPreview)
-        └── create-service.tsx    # Creation service
+        ├── admin/index.tsx             # Dashboard admin (onglet Produits ajouté)
+        ├── products/                   # Écrans produits
+        │   ├── create.tsx
+        │   ├── my-products.tsx
+        │   └── _layout.tsx
+        ├── service/[id].tsx
+        ├── spot-you/[id].tsx
+        └── create-service.tsx
 ```
+
+## Recently Completed (Mar 2026)
+- Admin Product Moderation Dashboard (onglet « Produits » en bleu #3B82F6)
+- Push notifications admin (nouveau produit pending)
+- Push notifications créateur (validation / refus avec deep link edit mode)
+- Admin auto-publish (status pending_review → active)
+- Worker de rappel 2h (AdminProductReminderWorker)
 
 ## Known Issues
 - ngrok tunnel instability (infrastructure, not code)

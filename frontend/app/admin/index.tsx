@@ -1600,7 +1600,7 @@ function InfoRow({ icon, label, value }: { icon: string; label: string; value: s
   );
 }
 
-function ProductsTab() {
+function ProductsTab({ onCountChange }: { onCountChange?: (n: number) => void }) {
   const [products, setProducts] = useState<PendingProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -1612,13 +1612,14 @@ function ProductsTab() {
     try {
       const data = await api.get<{ products: PendingProduct[]; count: number }>('/admin/products/pending');
       setProducts(data.products);
+      onCountChange?.(data.count ?? 0);
     } catch {
       Alert.alert('Erreur', 'Impossible de charger les produits en attente');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [onCountChange]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -1853,7 +1854,7 @@ export default function AdminScreen() {
         {/* Tabs */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.tabBar}>
           {TABS.map(t => (
-            <TouchableOpacity key={t.key} style={[s.tabItem, tab === t.key && s.tabItemActive]}
+            <TouchableOpacity key={t.key} style={[s.tabItem, tab === t.key && (t.key === 'products' ? s.tabItemActiveBlue : s.tabItemActive)]}
               onPress={() => setTab(t.key)} testID={`admin-tab-${t.key}`}>
               <View style={{ position: 'relative' }}>
                 <Ionicons name={t.icon as any} size={16} color={tab === t.key ? (t.key === 'products' ? BLUE : Colors.primary) : Colors.muted} />
@@ -1874,7 +1875,7 @@ export default function AdminScreen() {
       ) : (
         <View style={{ flex: 1 }}>
           {tab === 'stats'    && <StatsTab stats={stats} />}
-          {tab === 'products' && <ProductsTab />}
+          {tab === 'products' && <ProductsTab onCountChange={setPendingCount} />}
           {tab === 'rules'    && <RulesTab rules={rules} onRefresh={() => load(true)} />}
           {tab === 'plans'    && <PlansTab plans={plans} onRefresh={() => load(true)} />}
           {tab === 'payments' && <PaymentsTab payments={payments} />}
@@ -1894,6 +1895,7 @@ const s = StyleSheet.create({
   tabBar:         { borderBottomWidth: 1, borderBottomColor: Colors.border },
   tabItem:        { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 10 },
   tabItemActive:  { borderBottomWidth: 2, borderBottomColor: Colors.primary },
+  tabItemActiveBlue: { borderBottomWidth: 2, borderBottomColor: BLUE },
   tabLabel:       { fontSize: 13, color: Colors.muted },
   tabLabelActive: { color: Colors.primary, fontWeight: '600' },
   tabContent:     { padding: 16, paddingBottom: 40, gap: 10 },
