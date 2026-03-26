@@ -1,0 +1,300 @@
+"""
+Product creation routes — flow complet de création produit (location, vente, etc.)
+Status: draft → pending_review → active (validation admin)
+"""
+import uuid
+from datetime import datetime, timezone
+from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse
+
+from database import get_pool
+from routes.auth_routes import require_auth
+
+router = APIRouter()
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _new_id() -> str:
+    return "prod_" + uuid.uuid4().hex[:12]
+
+
+def _clean(row: dict) -> dict:
+    """Retire les champs non-sérialisables."""
+    out = {}
+    for k, v in row.items():
+        if hasattr(v, 'isoformat'):
+            out[k] = v.isoformat()
+        else:
+            out[k] = v
+    return out
+
+
+# ─── GET /api/products/mine ───────────────────────────────────────────────────
+@router.get("/products/mine")
+async def get_my_products(request: Request):
+    """Retourne les produits créés par l'utilisateur connecté."""
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    user_id = user["user_id"]
+
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT
+                product_id, title, short_description, description,
+                price, currency, product_type, pricing_type,
+                status, category, subcategory,
+                cover_image_url, image_url, image_urls,
+                condition_label, available_quantity,
+                deposit_required, deposit_amount,
+                pickup_type, city, location_privacy,
+                related_spotyou_ids, created_at, updated_at,
+                rejection_reason
+            FROM marketplace_products
+            WHERE seller_id = $1
+              AND status != 'deleted'
+            ORDER BY created_at DESC
+            """,
+            user_id,
+        )
+
+    products = [_clean(dict(r)) for r in rows]
+    return {"products": products, "count": len(products)}
+
+
+# ─── POST /api/products ───────────────────────────────────────────────────────
+@router.post("/products")
+async def create_product(request: Request):
+    """
+    Crée ou met à jour un produit en brouillon.
+    Si `product_id` est fourni dans le body, met à jour le brouillon existant.
+    Sinon, crée un nouveau produit.
+    Retourne le product_id.
+    """
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    user_id = user["user_id"]
+
+    body = await request.json()
+    product_id = body.get("product_id") or _new_id()
+    status = body.get("status", "draft")  # 'draft' ou 'pending_review'
+
+    # Validation minimale
+    title = (body.get("title") or "").strip()
+    if not title:
+        return JSONResponse({"error": "Le titre est obligatoire."}, status_code=400)
+
+    price_raw = body.get("price")
+    try:
+        price = float(str(price_raw).replace(",", ".")) if price_raw is not None else 0.0
+    except (ValueError, TypeError):
+        price = 0.0
+
+    deposit_raw = body.get("deposit_amount")
+    try:
+        deposit_amount = float(str(deposit_raw).replace(",", ".")) if deposit_raw else None
+    except (ValueError, TypeError):
+        deposit_amount = None
+
+    max_days_raw = body.get("max_duration_days")
+    try:
+        max_duration_days = int(max_days_raw) if max_days_raw else None
+    except (ValueError, TypeError):
+        max_duration_days = None
+
+    qty_raw = body.get("available_quantity")
+    try:
+        available_quantity = max(1, int(qty_raw)) if qty_raw else 1
+    except (ValueError, TypeError):
+        available_quantity = 1
+
+    image_urls = body.get("image_urls") or []
+    cover_image_url = body.get("cover_image_url") or (image_urls[0] if image_urls else None)
+    # Rétro-compatibilité avec le champ image_url existant
+    image_url = cover_image_url
+
+    related_ids = body.get("related_spotyou_ids") or []
+
+    now = _now()
+
+    async with pool.acquire() as conn:
+        # Vérifie si le produit existe déjà et appartient à l'utilisateur
+        existing = await conn.fetchrow(
+            "SELECT product_id FROM marketplace_products WHERE product_id = $1 AND seller_id = $2",
+            product_id, user_id,
+        )
+
+        if existing:
+            # UPDATE
+            await conn.execute(
+                """
+                UPDATE marketplace_products SET
+                    title = $1, short_description = $2, description = $3,
+                    price = $4, currency = $5, product_type = $6, pricing_type = $7,
+                    category = $8, subcategory = $9,
+                    cover_image_url = $10, image_url = $11, image_urls = $12,
+                    condition_label = $13, included_items = $14,
+                    brand_model = $15, size_dimensions = $16,
+                    available_quantity = $17, in_stock = $18,
+                    deposit_required = $19, deposit_amount = $20,
+                    max_duration_days = $21,
+                    pickup_type = $22, pickup_notes = $23,
+                    availability_note = $24,
+                    return_rules = $25, cancellation_rules = $26,
+                    city = $27, lat = $28, lng = $29,
+                    location_privacy = $30, radius_km = $31,
+                    related_spotyou_ids = $32,
+                    tag_ids = $33,
+                    delivery_modes = $34,
+                    status = $35, updated_at = $36
+                WHERE product_id = $37 AND seller_id = $38
+                """,
+                title,
+                body.get("short_description"),
+                body.get("description"),
+                price,
+                body.get("currency", "EUR"),
+                body.get("product_type", "rental"),
+                body.get("pricing_type", "day"),
+                body.get("category"),
+                body.get("subcategory"),
+                cover_image_url,
+                image_url,
+                image_urls,
+                body.get("condition_label", "good"),
+                body.get("included_items"),
+                body.get("brand_model"),
+                body.get("size_dimensions"),
+                available_quantity,
+                available_quantity > 0,
+                body.get("deposit_required", False),
+                deposit_amount,
+                max_duration_days,
+                body.get("pickup_type"),
+                body.get("pickup_notes"),
+                body.get("availability_note"),
+                body.get("return_rules"),
+                body.get("cancellation_rules"),
+                body.get("city"),
+                body.get("lat"),
+                body.get("lng"),
+                body.get("location_privacy", "100m"),
+                body.get("radius_km", 0.1),
+                related_ids,
+                body.get("tag_ids") or [],
+                body.get("delivery_modes") or _delivery_modes(body),
+                status,
+                now,
+                product_id,
+                user_id,
+            )
+        else:
+            # INSERT
+            seller_name = user.get("full_name") or user.get("username") or "Utilisateur"
+            seller_picture = user.get("picture_url")
+
+            await conn.execute(
+                """
+                INSERT INTO marketplace_products (
+                    product_id, title, short_description, description,
+                    price, currency, product_type, pricing_type,
+                    seller_id, seller_type, seller_name, seller_picture_url,
+                    category, subcategory,
+                    cover_image_url, image_url, image_urls,
+                    condition_label, included_items,
+                    brand_model, size_dimensions,
+                    available_quantity, in_stock,
+                    deposit_required, deposit_amount, max_duration_days,
+                    pickup_type, pickup_notes, availability_note,
+                    return_rules, cancellation_rules,
+                    city, lat, lng, location_privacy, radius_km,
+                    related_spotyou_ids, tag_ids, delivery_modes,
+                    status, skill_level, created_at, updated_at
+                ) VALUES (
+                    $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,
+                    $18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,
+                    $33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43
+                )
+                """,
+                product_id,
+                title,
+                body.get("short_description"),
+                body.get("description"),
+                price,
+                body.get("currency", "EUR"),
+                body.get("product_type", "rental"),
+                body.get("pricing_type", "day"),
+                user_id,
+                "user",
+                seller_name,
+                seller_picture,
+                body.get("category"),
+                body.get("subcategory"),
+                cover_image_url,
+                image_url,
+                image_urls,
+                body.get("condition_label", "good"),
+                body.get("included_items"),
+                body.get("brand_model"),
+                body.get("size_dimensions"),
+                available_quantity,
+                available_quantity > 0,
+                body.get("deposit_required", False),
+                deposit_amount,
+                max_duration_days,
+                body.get("pickup_type"),
+                body.get("pickup_notes"),
+                body.get("availability_note"),
+                body.get("return_rules"),
+                body.get("cancellation_rules"),
+                body.get("city"),
+                body.get("lat"),
+                body.get("lng"),
+                body.get("location_privacy", "100m"),
+                body.get("radius_km", 0.1),
+                related_ids,
+                body.get("tag_ids") or [],
+                body.get("delivery_modes") or _delivery_modes(body),
+                status,
+                "tous",
+                now,
+                now,
+            )
+
+    return {"product_id": product_id, "status": status}
+
+
+# ─── DELETE /api/products/{product_id} ───────────────────────────────────────
+@router.delete("/products/{product_id}")
+async def delete_product(request: Request, product_id: str):
+    """Suppression douce — met le statut à 'deleted'."""
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    user_id = user["user_id"]
+
+    async with pool.acquire() as conn:
+        result = await conn.execute(
+            "UPDATE marketplace_products SET status='deleted', updated_at=$1 WHERE product_id=$2 AND seller_id=$3",
+            _now(), product_id, user_id,
+        )
+    if result == "UPDATE 0":
+        return JSONResponse({"error": "Produit introuvable ou non autorisé."}, status_code=404)
+    return {"ok": True}
+
+
+# ─── helpers ──────────────────────────────────────────────────────────────────
+def _delivery_modes(body: dict) -> list:
+    pickup = body.get("pickup_type", "")
+    modes = []
+    if pickup == "local_pickup":
+        modes.append("local_pickup")
+    elif pickup == "creator_handoff":
+        modes.append("creator_handoff")
+    return modes or ["local_pickup"]

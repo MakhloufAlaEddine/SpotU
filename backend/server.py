@@ -28,6 +28,7 @@ from routes.spot_you_routes import router as spot_you_router
 from routes.home_routes import router as home_router
 from routes.address_routes import router as address_router
 from routes.marketplace_routes import router as marketplace_router
+from routes.product_creation_routes import router as product_creation_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -78,6 +79,7 @@ api_router.include_router(payment_router, tags=["payments"])
 api_router.include_router(subscription_router, tags=["subscriptions"])
 api_router.include_router(address_router, tags=["addresses"])
 api_router.include_router(marketplace_router, tags=["marketplace"])
+api_router.include_router(product_creation_router, tags=["products"])
 
 
 # ── Endpoint public : configuration des fonctionnalités de réservation ─────────

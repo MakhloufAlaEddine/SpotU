@@ -137,6 +137,7 @@ export default function RootLayout() {
               <Stack.Screen name="saved" options={{ headerShown: false, animation: 'slide_from_right' }} />
               <Stack.Screen name="cart" options={{ headerShown: false, animation: 'slide_from_right' }} />
               <Stack.Screen name="marketplace" options={{ headerShown: false, animation: 'slide_from_right' }} />
+              <Stack.Screen name="products"    options={{ headerShown: false, animation: 'slide_from_right' }} />
             </Stack>
             {/* Bannière réseau globale — toujours au-dessus du contenu */}
             <OfflineBanner />

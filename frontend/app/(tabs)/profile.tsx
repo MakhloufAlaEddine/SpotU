@@ -368,6 +368,46 @@ export default function MenuScreen() {
           </View>
         )}
 
+        {/* ── MES PRODUITS ────────────────────────────────────── */}
+        <View style={st.section}>
+          <View style={st.sectionHeader}>
+            <Text style={st.sectionTitle}>Mes produits</Text>
+            <TouchableOpacity onPress={() => router.push('/products/my-products' as any)} testID="see-my-products-btn">
+              <Text style={st.sectionLink}>Voir tout</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={st.settingsCard}>
+            <TouchableOpacity
+              style={st.settingRow}
+              onPress={() => router.push('/products/my-products' as any)}
+              activeOpacity={0.7}
+              testID="my-products-menu-btn"
+            >
+              <View style={st.settingLeft}>
+                <View style={[st.settingIconBox, { backgroundColor: 'rgba(139,92,246,0.14)' }]}>
+                  <Ionicons name="cube-outline" size={18} color="#8B5CF6" />
+                </View>
+                <Text style={st.settingLabel}>Mes annonces de location</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={Colors.muted} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[st.settingRow, { borderTopWidth: 1, borderTopColor: Colors.border }]}
+              onPress={() => router.push('/products/create' as any)}
+              activeOpacity={0.7}
+              testID="create-product-menu-btn"
+            >
+              <View style={st.settingLeft}>
+                <View style={[st.settingIconBox, { backgroundColor: 'rgba(139,92,246,0.14)' }]}>
+                  <Ionicons name="add-circle-outline" size={18} color="#8B5CF6" />
+                </View>
+                <Text style={st.settingLabel}>Ajouter un produit</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={Colors.muted} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* ── RÉSERVATIONS & ABONNEMENTS ────────────────────── */}
         <View style={st.section}>
           <Text style={st.sectionTitle}>Réservations & Services</Text>

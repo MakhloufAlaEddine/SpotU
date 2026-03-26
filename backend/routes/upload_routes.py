@@ -26,7 +26,7 @@ _UPLOADS_DIR_RESOLVED = UPLOADS_DIR.resolve()
 
 MAX_UPLOAD_SIZE = 5 * 1024 * 1024  # 5 Mo
 
-_ALLOWED_CATEGORIES = {"profiles", "services", "spotyou", "chats", "other"}
+_ALLOWED_CATEGORIES = {"profiles", "services", "spotyou", "chats", "products", "other"}
 
 # Mapping img_type → extension locale (fallback filesystem)
 _EXT_MAP = {

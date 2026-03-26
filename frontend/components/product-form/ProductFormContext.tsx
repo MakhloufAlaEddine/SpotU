@@ -1,0 +1,198 @@
+/**
+ * ProductFormContext — état global du flow de création produit.
+ * Fournit useProductForm() à tous les composants d'étape.
+ */
+import React, { createContext, useContext, useState, useCallback } from 'react';
+
+export type ProductType = 'rental' | 'sale' | 'digital' | 'affiliation';
+export type PricingType = 'day' | 'session';
+export type ConditionLabel = 'new' | 'very_good' | 'good' | 'acceptable';
+export type PickupType = 'local_pickup' | 'creator_handoff';
+export type LocationPrivacy = 'exact' | '100m' | '1000m';
+export type ProductStatus = 'draft' | 'pending_review';
+
+export interface ProductFormData {
+  // Step 1 — Type + Catégorie
+  product_type: ProductType;
+  category: string;
+  subcategory: string;
+
+  // Step 2 — Infos principales
+  title: string;
+  short_description: string;
+  description: string;
+  condition_label: ConditionLabel;
+  included_items: string;
+  brand_model: string;
+  size_dimensions: string;
+  price: string;
+  pricing_type: PricingType;
+  available_quantity: string;
+
+  // Step 3 — Photos
+  images: string[];         // URIs locaux ou URLs R2 après upload
+
+  // Step 4 — Conditions de location
+  deposit_required: boolean;
+  deposit_amount: string;
+  max_duration_days: string;
+  pickup_type: PickupType | '';
+  pickup_notes: string;
+  return_rules: string;
+  cancellation_rules: string;
+
+  // Step 5 — Disponibilité + localisation
+  city: string;
+  selectedLat: number;
+  selectedLng: number;
+  locationAddress: string;
+  location_privacy: LocationPrivacy;
+  availability_note: string;
+
+  // Step 6 — SpotYou
+  related_spotyou_ids: string[];
+
+  // Meta
+  product_id?: string;
+}
+
+const DEFAULT: ProductFormData = {
+  product_type:       'rental',
+  category:           '',
+  subcategory:        '',
+  title:              '',
+  short_description:  '',
+  description:        '',
+  condition_label:    'good',
+  included_items:     '',
+  brand_model:        '',
+  size_dimensions:    '',
+  price:              '',
+  pricing_type:       'day',
+  available_quantity: '1',
+  images:             [],
+  deposit_required:   false,
+  deposit_amount:     '',
+  max_duration_days:  '',
+  pickup_type:        '',
+  pickup_notes:       '',
+  return_rules:       '',
+  cancellation_rules: '',
+  city:               '',
+  selectedLat:        0,
+  selectedLng:        0,
+  locationAddress:    '',
+  location_privacy:   '100m',
+  availability_note:  '',
+  related_spotyou_ids:[],
+};
+
+/* ── Qualité ────────────────────────────────────────────────────────────── */
+export function calcProductQuality(f: ProductFormData): {
+  score: number; label: string; color: string; checklist: string[];
+} {
+  let s = 0;
+  const done: string[] = [];
+  const todo: string[] = [];
+
+  if (f.images.length >= 1) { s += 20; done.push('Photo principale'); }
+  else                        todo.push('Photo principale');
+
+  if (f.images.length >= 3) { s += 10; done.push('3 photos ou plus'); }
+
+  if (f.title.trim().length >= 10) { s += 15; done.push('Titre clair'); }
+  else                               todo.push('Titre (min. 10 car.)');
+
+  if (f.title.trim().length >= 25) s += 5;
+
+  if (f.description.trim().length >= 50) { s += 10; done.push('Description'); }
+  else                                     todo.push('Description (min. 50 car.)');
+
+  if (f.description.trim().length >= 150) s += 10;
+
+  if (f.price) { s += 10; done.push('Prix défini'); }
+  else           todo.push('Prix');
+
+  if (f.pickup_type) { s += 10; done.push('Mode de remise'); }
+  else                todo.push('Mode de remise');
+
+  if (f.selectedLat && f.selectedLng) { s += 10; done.push('Localisation'); }
+  else                                  todo.push('Localisation');
+
+  s = Math.min(s, 100);
+
+  let label = 'Basique';
+  let color = '#94A3B8';
+  if (s >= 85) { label = 'Excellent !'; color = '#22C55E'; }
+  else if (s >= 65) { label = 'Très bien'; color = '#8B5CF6'; }
+  else if (s >= 40) { label = 'Bien'; color = '#F59E0B'; }
+
+  return { score: s, label, color, checklist: todo };
+}
+
+/* ── Validation par étape ──────────────────────────────────────────────── */
+export function validateStep(step: number, f: ProductFormData): string | null {
+  switch (step) {
+    case 1:
+      if (!f.category) return 'Choisissez une catégorie de produit.';
+      break;
+    case 2:
+      if (!f.title.trim() || f.title.trim().length < 3)
+        return 'Le titre doit faire au moins 3 caractères.';
+      if (!f.price || isNaN(Number(f.price.replace(',', '.'))) || Number(f.price.replace(',', '.')) < 0)
+        return 'Indiquez un prix valide.';
+      if (!f.pricing_type)
+        return 'Choisissez le type de tarification.';
+      if (!f.available_quantity || parseInt(f.available_quantity, 10) < 1)
+        return 'La quantité doit être au minimum 1.';
+      break;
+    case 3:
+      if (f.images.length === 0)
+        return 'Ajoutez au moins une photo principale.';
+      break;
+    case 4:
+      if (!f.pickup_type)
+        return 'Précisez le mode de remise du matériel.';
+      if (f.deposit_required && (!f.deposit_amount || Number(f.deposit_amount.replace(',', '.')) <= 0))
+        return 'Indiquez le montant de la caution.';
+      if (f.pricing_type === 'day' && !f.max_duration_days)
+        return 'Précisez la durée maximale de location.';
+      break;
+    case 5:
+      if (!f.locationAddress.trim() && !f.selectedLat)
+        return 'Indiquez une localisation.';
+      break;
+    case 6:
+      break; // optionnel
+    default:
+      break;
+  }
+  return null;
+}
+
+/* ── Context ────────────────────────────────────────────────────────────── */
+interface ProductFormContextValue {
+  form:   ProductFormData;
+  set:    (partial: Partial<ProductFormData>) => void;
+  reset:  () => void;
+}
+
+const Ctx = createContext<ProductFormContextValue | null>(null);
+
+export function ProductFormProvider({ children }: { children: React.ReactNode }) {
+  const [form, setForm] = useState<ProductFormData>(DEFAULT);
+
+  const set = useCallback((partial: Partial<ProductFormData>) => {
+    setForm(prev => ({ ...prev, ...partial }));
+  }, []);
+
+  const reset = useCallback(() => setForm(DEFAULT), []);
+
+  return <Ctx.Provider value={{ form, set, reset }}>{children}</Ctx.Provider>;
+}
+
+export function useProductForm() {
+  const ctx = useContext(Ctx);
+  if (!ctx) throw new Error('useProductForm must be inside ProductFormProvider');
+  return ctx;
+}
