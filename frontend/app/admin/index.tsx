@@ -11,6 +11,7 @@ import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
 import { Colors, Spacing } from '../../constants/Colors';
 import { useGuardedRouter } from '../../hooks/useGuardedRouter';
+import { RichTextInput } from '../../components/RichTextInput';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type Tab = 'stats' | 'rules' | 'plans' | 'payments' | 'booking' | 'tags' | 'products';
@@ -1527,14 +1528,11 @@ function ProductDetailModal({ product, onClose, onApprove, onReject, loading }: 
             {rejectMode && (
               <View style={pt.rejectBox}>
                 <Text style={pt.rejectBoxTitle}>Motif du refus (optionnel)</Text>
-                <TextInput
-                  style={pt.rejectInput}
+                <RichTextInput
                   value={comment}
                   onChangeText={setComment}
-                  multiline
-                  numberOfLines={4}
                   placeholder="Ex: Photos de mauvaise qualité, description insuffisante…"
-                  placeholderTextColor={Colors.muted}
+                  maxLength={500}
                   testID="reject-comment-input"
                 />
                 <Text style={pt.rejectHint}>Ce message sera transmis au créateur.</Text>
@@ -2117,10 +2115,9 @@ const pt = StyleSheet.create({
   descText:     { fontSize: 14, color: Colors.foreground, lineHeight: 20 },
 
   // Zone refus
-  rejectBox:    { backgroundColor: '#FEF2F2', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#FCA5A5', gap: 8 },
-  rejectBoxTitle: { fontSize: 13, fontWeight: '700', color: '#EF4444' },
-  rejectInput:  { backgroundColor: '#fff', borderWidth: 1, borderColor: '#FCA5A5', borderRadius: 10, padding: 12, fontSize: 14, color: Colors.foreground, minHeight: 90, textAlignVertical: 'top' },
-  rejectHint:   { fontSize: 11, color: '#EF4444', opacity: 0.7 },
+  rejectBox:    { borderRadius: 12, padding: 0, borderWidth: 1, borderColor: '#EF444455', gap: 8, overflow: 'hidden' },
+  rejectBoxTitle: { fontSize: 13, fontWeight: '700', color: '#EF4444', paddingHorizontal: 14, paddingTop: 12 },
+  rejectHint:   { fontSize: 11, color: '#EF4444', opacity: 0.7, paddingHorizontal: 14, paddingBottom: 10 },
 
   // Barre d'actions sticky
   actionBar:    { position: 'absolute', bottom: 0, left: 0, right: 0, flexDirection: 'row', gap: 10, padding: 16, backgroundColor: Colors.background, borderTopWidth: 1, borderTopColor: Colors.border },
