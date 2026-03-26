@@ -1,149 +1,148 @@
 <analysis>**original_problem_statement**: 
-The user requested a massive expansion and refinement of the SpotYou Marketplace feature. Requirements included:
-- Changing the layout to a 2-column grid.
-- Adding dual-distance display (SpotYou-to-product and User-to-product) for physical products.
-- Distinguishing delivery modes: Local (pickup, creator handoff), Digital, External (partner sites) via UI badges.
-- Standardizing rental durations (hours, days, weeks) and pricing.
-- Implementing a Shopping Cart (Panier) with local storage, a floating trigger in the marketplace, an Add to cart button on products, and accessibility via the main menu.
-- Fixing chronic Expo/Metro Bundler crashes ( file watcher limits) with a robust, container-friendly approach rather than hacky node_module patches.
+The user requested a massive refactor of the app's taxonomy (Domains, Categories, Tags) across all features (SpotYou, Services, Products, Admin). The goal was to wipe old data, introduce an  (spotyou, service, product) constraint to categories, and restructure the creation flows. Subsequently, the user requested the removal of generic tags (e.g., beginner, indoor, outdoor) to improve matching quality. Currently, the user is blocked because the backend fails to start due to a database seeding error (Login ne marche pas).
 
-**PRODUCT REQUIREMENTS**:
-- Cart Storage: Use  () for a persistent shopping cart.
-- Cart UI: Displayed via sliding view within the existing Marketplace Modal to avoid stacked modals.
-- Geolocation: / columns exist for physical products; distances must be successfully passed from frontend context.
-- Metro Bundler: Use Watchman effectively, avoiding  fallback loops that blow up  limits.
+PRODUCT REQUIREMENTS:
+- **Taxonomy Refactor**: Reset domains, categories, and tags. Link categories to an . Update Admin UI to filter by . Update Create flows to fetch specific categories.
+- **Tag Cleanup**: Permanently delete generic tags (beginner, intermediate, advanced, leisure, daily, indoor, outdoor, weekend, etc.) and replace them with stronger contextual tags in seeds/DB.
+- **UI Tweaks**: Finalize the migration of old Violet colors to Blue across profile icons and product forms.
 
-**User's preferred language**: French
-**INSTRUCTION**: The next agent MUST respond to the user in **French** only.
+**User's preferred language**: French (FR). (You MUST automatically detect the user's primary language from their messages inside the <trajectory> tag and INSTRUCT next agent to respond in **French** only).
 
 **what currently exists?** 
-A robust, geolocated Marketplace modal integrated into SpotYou detail pages, featuring a fully functional Shopping Cart backed by . The cart is accessible via a floating button in the marketplace and from the user's profile menu. Product cards show dynamic, icon-based delivery badges (Sur place, Par le créateur, En ligne, Site partenaire) and properly normalized rental prices (e.g., 35€/jour). The backend database was cleaned of fake service products, and the Expo Metro Bundler has been stabilized via  and optimized  to prevent  file watcher crashes.
+A React Native + FastAPI full-stack app. The taxonomy refactor has been implemented successfully in both the frontend (Admin, Create flows) and backend (Models, Routes). The generic tags have been purged. However, the backend is currently in a **BROKEN STATE** because the initialization script () is executing dummy data insertions before the tables are fully migrated and the base seed () has run, resulting in  and missing column crashes on startup.
 
 **Last working item**: 
-    - Last item agent was working: Fixing the Expo Metro  (System limit for number of file watchers reached) crash cleanly. The agent removed redundant  from , created a  to exclude native folders (, , , etc.) from being watched, and reverted prior hacky patches in . 
-    - Status: USER VERIFICATION PENDING
-    - Agent Testing Done: Y (Verified Expo bundles correctly without ENOSPC errors)
-    - Which testing method agent to use? manual testing by screenshot tool or waiting for user confirmation on physical device.
+    - Last item agent was working: Fixing the backend startup crash. The agent was attempting to restructure  so that all  and  commands execute *before* , and secondary dummy data insertions (like  and ) execute *after* the seed.
+    - Status: IN PROGRESS (BLOCKED)
+    - Agent Testing Done: N
+    - Which testing method agent to use? Backend manual testing (check DETAIL:  Key (follower_id)=(user_demo001) is not present in table "users".
+
+ERROR:    Application startup failed. Exiting.
+INFO:     Will watch for changes in these directories: ['/app/backend']
+INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
+INFO:     Started reloader process [121] using WatchFiles
+INFO:     Started server process [166]
+INFO:     Waiting for application startup.
+2026-03-26 23:01:17,600 database WARNING DB not ready (attempt 1/15), retrying in 1s… ([Errno 111] Connect call failed ('127.0.0.1', 5432))
+2026-03-26 23:01:18,601 database WARNING DB not ready (attempt 2/15), retrying in 2s… ([Errno 111] Connect call failed ('127.0.0.1', 5432)) after backend: ERROR (not running)
+backend: ERROR (abnormal termination)) followed by Frontend screenshot tool (verify login works).
     - User Testing Done: N
 
 **All Pending/In progress Issue list**: 
-  Issue 1: Unstable  Tunnel
-     - Attempted fixes: Regular process kills and server restarts.
-     - Next debug checklist: Check if logs show , run  and restart Expo if needed.
-     - Why fix this issue and what will be achieved with the fix? It is an infrastructure constraint blocking the user from previewing the app seamlessly.
-     - Status: IN PROGRESS (Ongoing workaround)
-     - Is recurring issue? Y
-     - Should Test frontend/backend/both after fix? NA
+  Issue 1: Backend Crash on Startup (P0)
+     - Attempted fixes: Agent tried moving blocks of SQL inside  but left the file in a state where  is called prematurely or tables are altered too late.
+     - Next debug checklist: 
+        1. Open .
+        2. Ensure the  function follows this strict order:
+           a. Execute ALL  statements.
+           b. Execute ALL  statements (specifically adding , , ,  to ).
+           c. Call .
+           d. Execute secondary dummy test data insertions (, , updating lat/lng of seeded products).
+        3. Run backend: ERROR (not running)
+backend: ERROR (abnormal termination) and check logs to ensure Application startup complete.
+     - Why fix this issue and what will be achieved with the fix? The backend is completely down; resolving this restores the app's functionality and fixes the Login ne marche pas issue.
+     - Status: IN PROGRESS
+     - Is recurring issue? Y (Database seeding sequences have broken multiple times).
+     - Should Test frontend/backend/both after fix? Both
      - Blocked on other issue: None
 
 **In progress Task List**: 
-None. 
+  *None. The taxonomy refactor and tag cleanup were completed; the only active item is fixing the resulting backend crash.*
 
 **Upcoming and Future Tasks**
-  Upcoming Tasks:
-  - (P0) Product Detail Screen: Build a dedicated product detail screen (triggered on clicking a marketplace card) that displays the full delivery badges (with text), full tags list, dual distance, and complete description.
-  - (P1) Stripe Checkout Integration: Integrate payment flow from the new Shopping Cart.
-  - (P1) Move Hardcoded Backend Values to Config: Move , ,  to the  table.
-  - (P1) Set up Automatic Database Backups & CI pipeline.
-
-  Future Tasks:
-  - (P2) Bilingual Support (i18n).
-  - (P2) Implement an Offline Mutations queue.
-  - (P2) Finalize Push Notifications for production.
-  - (P3) Refactor  into smaller components.
+    Upcoming Tasks:
+    - (P1) **Implement Image Quality Validation System**: Create a client-side utility module for SpotYou image uploads (Resolution, Size, Ratio, Brightness scoring) at .
+    - (P1) **Stripe Checkout Integration**: Integrate payment flow starting from the Shopping Cart.
+    
+    Future Tasks:
+    - (P2) **Move Hardcoded Backend Values to Config**: Move values like  to  table.
+    - (P2) **Auto-suggest Top Tags**: Automatically suggest the top 5 tags when a user selects a category during creation (Agent suggested, pending user approval).
+    - (P2) Bilingual Support (i18n).
+    - (P2) Implement an Offline Mutations queue.
+    - (P3) Refactor  into smaller components (currently ~2000 lines).
 
 **Completed work in this session**
-- Passed / from  to  for User-to-Product distance mapping (DONE).
-- Added / columns to  and seeded coordinates (DONE).
-- Deleted 6 redundant coaching services from the  table (DONE).
-- Added  (ARRAY) to  and seeded data (DONE).
-- Converted text delivery badges to overlay icons directly on product images in  (DONE).
-- Normalized rental pricing logic (removed journée from title, display as €/jour, €/h) (DONE).
-- Built generic  and  using  (DONE).
-- Embedded cart view toggling and floating action button in  (DONE).
-- Added Mon Panier navigation link to the user profile menu (DONE).
-- Fixed Metro Bundler  file watcher limits cleanly via  and  (DONE).
+- Profile Icons and Product Form Stepper Color Update (Violet to Blue) (DONE)
+- Complete DB Taxonomy Architecture Refactor (Domains -> Categories with  -> Tags) (DONE)
+- Admin UI Taxonomy Management (entity_type filters, badges) (DONE)
+- SpotYou, Service, and Product Create Flows updated to fetch filtered categories (DONE)
+- Fix: Deduplicated  rendering in SpotYou edit mode to prevent React key errors (DONE)
+- Deletion of 12 generic tags and insertion of robust outdoor tags across DB and Seeds (DONE)
 
 **Earlier issues found/mentioned but not fixed**
-None.
+   - *None. The primary focus must be the P0 backend crash.*
 
 **Known issue recurrence from previous fork**
-  - Issue recurrence in previous fork: ngrok tunnel instability causing Expo connection drops.
-  - Recurrence count: Very High
-  - Status: IN PROGRESS / WORKAROUND (Agent must manually kill ngrok and restart Expo when it crashes).
+  - Issue recurrence in previous fork:  tunnel instability and  Metro crashes.
+  - Recurrence count: High
+  - Status: RESOLVED / MONITORING (Agent successfully recovered the tunnel this session. Avoid running yarn install v1.22.22
+[1/4] Resolving packages...
+success Already up-to-date.
+Done in 0.48s.).
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-- **AsyncStorage Cart**: Leveraging  in a React Context () to persist user cart state across reloads.
-- **Metro File Watching**: Proper usage of Watchman over Node's  fallback by ignoring large native directories (, , ) via  to avoid exceeding container  limits.
-- **SQL Arrays**: Using PostgreSQL text arrays () for .
+- **Taxonomy **: Categories are now strictly bound to an  (, , or ). The frontend dynamically fetches categories using .
+- **Database Initialization**: The FastAPI lifespan runs . This function acts as a rudimentary migration script, creating/altering tables before triggering .
 
 **key DB schema**
-  - : {product_id, title, description, price, delivery_modes, seller_id, tag_ids, lat, lng}
+  - : {domain_id, name, label_fr, icon, color}
+  - : {category_id, domain_id, entity_type, name, label_fr}
+  - : {tag_id, domain_id, slug}
+  - : {tag_id, category_id}
 
 **changes in tech stack**
-- Configured native  rules for the Expo Metro bundler to prevent ENOSPC container crashes. 
+  - None.
 
 **All files of reference** 
--  
--  
-- 
-- 
-- 
-- 
+  -  (CRITICAL: Contains the broken startup sequence)
+  - 
+  - 
+  - 
+  - 
 
-**Areas that need refactoring**
--  is very large and complex.
+**Areas that need refactoring**: 
+  - : The inline schema migrations and dummy data insertions are becoming too brittle and causing startup failures.
+  -  remains massive (~2000 lines).
 
 **key api endpoints**
-- 
+  - 
+  - 
 
 **Critical Info for New Agent** 
-- **Language**: Always respond in French.
-- **Metro Bundler Issue**: Do NOT patch  (e.g., ) or add blanket  to . The  crash has been cleanly resolved using .
-- **Cart Storage**: The cart uses  and is globally provided by  in .
-- **Delivery Badges**: Keep the visual approach of overlaying delivery mode icons on the bottom-left of images in the marketplace grid. The full text equivalents are reserved for the upcoming Product Detail Screen.
+- **Language**: You MUST respond in **French**.
+- **DO NOT TOUCH THE FRONTEND YET**: Your absolute first priority is fixing . The app is currently dead on arrival because FastAPI cannot start. Restructure the  function so that ALL SQL schema definitions (CREATE/ALTER) run *before* , and any relational dummy data (, ) runs *after* it.
 
 **documents and test reports created in this job** 
-  -  (Updated)
+  - 
+  - 
 
 **Last 10 User Messages and any pending HUMAN messages** 
-1. User: Instructs not to manage coaching services like bilan gratuit in products.
-2. User: Asks for a list of product types displayed.
-3. User: Clarifies just to list the types briefly.
-4. User: Requests adding delivery modes (Local, Digital, Externe) to products in DB.
-5. User: Asks for a clearer/better way to display delivery badges (e.g., icons) and keep text versions for future detail screens.
-6. User: Asks to modify DB to specify rental duration properly and adjust pricing display (not per session).
-7. User: Asks for a list of products and their tags.
-8. User: Wonders if tags can be shown on the product card itself.
-9. User: Decides NOT to show tags on the card, keep them for the detail screen.
-10. User: Requests a Shopping Cart (local storage, floating icon, add to cart button) accessible via Marketplace and Main Menu.
-11. User: Starts backend, reports app crash.
-12. **Latest User**: Asks for a definitive, clean fix for the  Metro file watcher problem without using hacky node_module patches (Ensure Watchman is used, reduce watched files, exclude useless dirs).
+  1. **User**: continuer tache en cours
+  2. **User**: Reports app tunnel error (image).
+  3. **User**: Requests changing the color of profile icons to blue.
+  4. **User**: Huge taxonomy refactor request (domains, categories by entity_type, tags).
+  5. **User**: Reports app launch error (API import path issue).
+  6. **User**: Reports error editing a SpotYou (two children with same key).
+  7. **User**: Requests complete deletion of generic tags (beginner, indoor, daily) and replacement with strong tags.
+  8. **User**: Login ne marche pas (Login doesn't work). -> **PENDING (Backend is crashed)**
 
 **Project Health Check:**
-- Broken: Expo Ngrok tunnel (Intermittent).
-- Mocked: None.
+  - Broken: Backend startup is failing due to  and missing columns in .
 
 **3rd Party Integrations** 
-- Cloudflare R2 (Images)
-- Stripe (Payments) - requires User API Key
-- EAS (Expo Application Services)
-- Google Places API
-- Emergent-managed Google Auth
+  - Cloudflare R2 (Image Uploads)
+  - Expo Push API (Notifications)
+  - Stripe (Payments) — requires User API Key
+  - EAS / Google Places API
 
 **Testing status**
-  - Testing agent used after significant changes: NO (Tested via bash scripts and Metro logs).
+  - Testing agent used after significant changes: YES (iteration 94)
   - Troubleshoot agent used after agent stuck in loop: NO
-  - Test files created: None
-  - Known regressions: None
-
-**Credentials to test flow:**
-- Admin:  / 
-- Coach (Profile Owner):  / 
-- User (Visitor):  / 
+  - Test files created: none
+  - Known regressions: Backend startup sequence broken during cleanup.
 
 **What agent forgot to execute**
-The implementation of the Shopping Cart and the definitive Watchman/Metro fix were executed successfully in backend logs, but the user was waiting to verify if the app loads successfully on their physical device. Monitor the chat to ensure the app booted for them. If the user moves to the next task, prioritize building the **Product Detail Screen** (P0) or integrating **Stripe Checkout from the Cart** (P1).</analysis>
+The agent successfully finished the taxonomy and tag cleanup tasks but ran out of context while trying to untangle the resulting SQL sequence errors in . Consequently, the backend was left in a broken state preventing login. Start your session by fixing this startup sequence.</analysis>

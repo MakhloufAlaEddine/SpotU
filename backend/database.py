@@ -673,38 +673,6 @@ async def connect_to_db():
     # NOTE: le seed est lancé APRÈS toutes les migrations (voir fin du bloc connect_to_db)
     # pour garantir que toutes les colonnes existent
 
-    # 3. Seed données de test (membres SpotYou, votes, saves)
-    async with pool.acquire() as conn:
-        # Members SpotYou — seulement les IDs existants
-        await conn.execute("""
-            INSERT INTO spot_you_members (id, spot_you_id, user_id) VALUES
-              ('mbr_p1_u1','pt_demo001','user_demo001'),
-              ('mbr_p1_u2','pt_demo001','user_demo002'),
-              ('mbr_p2_u1','pt_demo002','user_demo001'),
-              ('mbr_p2_u3','pt_demo002','user_demo003'),
-              ('mbr_p3_u2','pt_demo003','user_demo002'),
-              ('mbr_p3_u3','pt_demo003','user_demo003'),
-              ('mbr_p4_u1','pt_demo004','user_demo001'),
-              ('mbr_p5_u2','pt_demo005','user_demo002'),
-              ('mbr_p5_u3','pt_demo005','user_demo003')
-            ON CONFLICT (spot_you_id, user_id) DO NOTHING;
-        """)
-        await conn.execute("""
-            INSERT INTO tag_point_votes (vote_id, point_id, user_id, rating, comment, created_at) VALUES
-              ('vote_001','pt_demo001','user_demo002',5,'Super groupe HIIT, ambiance top !', NOW()-INTERVAL '2 days'),
-              ('vote_002','pt_demo001','user_demo003',4,'Bon rythme, accessible à tous.', NOW()-INTERVAL '1 day'),
-              ('vote_003','pt_demo002','user_demo001',5,'Parcours running magnifique, parfait.', NOW()-INTERVAL '3 days'),
-              ('vote_004','pt_demo002','user_demo003',4,'Bonne organisation, rythme adapté.', NOW()-INTERVAL '1 day'),
-              ('vote_005','pt_demo003','user_demo001',5,'Vue imprenable, séance ressourçante.', NOW()-INTERVAL '4 days'),
-              ('vote_006','pt_demo003','user_demo002',5,'Instructeur patient et bienveillant.', NOW()-INTERVAL '2 days'),
-              ('vote_007','pt_demo004','user_demo002',4,'Randonnée magnifique en forêt.', NOW()-INTERVAL '1 day'),
-              ('vote_008','pt_demo005','user_demo001',5,'Initiation bushcraft top !', NOW()-INTERVAL '2 days'),
-              ('vote_009','pt_demo005','user_demo003',5,'Week-end incroyable, je recommande.', NOW()-INTERVAL '1 day')
-            ON CONFLICT (point_id, user_id) DO UPDATE SET rating=EXCLUDED.rating, comment=EXCLUDED.comment;
-        """)
-
-
-
         # [MARKETPLACE-GEO] Colonnes lat/lng pour produits physiques + coordonnées seed
         await conn.execute("""
             ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS lat FLOAT;
@@ -945,47 +913,47 @@ async def connect_to_db():
             'cdurand@winek.app',
         ])
 
-        # [PRODUCTS-V2] Admin review + reminders
-        await conn.execute("""
-            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS admin_reminder_sent_at TIMESTAMPTZ;
-            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS admin_comment TEXT;
-        """)
-        await conn.execute("""
-            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active';
-            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS short_description TEXT;
-            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS category TEXT;
-            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS subcategory TEXT;
-            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS cover_image_url TEXT;
-            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS image_urls TEXT[] DEFAULT '{}';
-            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS pricing_type TEXT DEFAULT 'day';
-            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS condition_label TEXT DEFAULT 'good';
-            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS included_items TEXT;
-            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS brand_model TEXT;
-            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS size_dimensions TEXT;
-            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS available_quantity INTEGER DEFAULT 1;
-            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS deposit_required BOOLEAN DEFAULT FALSE;
-            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS deposit_amount NUMERIC(10,2);
-            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS max_duration_days INTEGER;
-            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS pickup_type TEXT;
-            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS pickup_notes TEXT;
-            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS availability_note TEXT;
-            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS return_rules TEXT;
-            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS cancellation_rules TEXT;
-            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS city TEXT;
-            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS location_privacy TEXT DEFAULT '100m';
-            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS radius_km FLOAT DEFAULT 0.1;
-            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS related_spotyou_ids TEXT[] DEFAULT '{}';
-            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS seller_name TEXT;
-            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS seller_picture_url TEXT;
-            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
-            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS admin_validated_by TEXT;
-            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS admin_validated_at TIMESTAMPTZ;
-            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
-        """)
-
-    # Seed données de base (users, tagpoints, tags, domaines...) — APRÈS toutes les migrations
+        # Seed données de base (users, tagpoints, tags, domaines...) — APRÈS toutes les migrations
     from seed import seed_initial_data
     await seed_initial_data()
+
+    # Seed données de test (membres SpotYou, votes, saves) — APRÈS seed_initial_data
+    async with pool.acquire() as conn:
+        # Members SpotYou — seulement les IDs existants
+        await conn.execute("""
+            INSERT INTO spot_you_members (id, spot_you_id, user_id) VALUES
+              ('mbr_p1_u1','pt_demo001','user_demo001'),
+              ('mbr_p1_u2','pt_demo001','user_demo002'),
+              ('mbr_p2_u1','pt_demo002','user_demo001'),
+              ('mbr_p2_u3','pt_demo002','user_demo003'),
+              ('mbr_p3_u2','pt_demo003','user_demo002'),
+              ('mbr_p3_u3','pt_demo003','user_demo003'),
+              ('mbr_p4_u1','pt_demo004','user_demo001'),
+              ('mbr_p5_u2','pt_demo005','user_demo002'),
+              ('mbr_p5_u3','pt_demo005','user_demo003')
+            ON CONFLICT (spot_you_id, user_id) DO NOTHING;
+        """)
+        await conn.execute("""
+            INSERT INTO tag_point_votes (vote_id, point_id, user_id, rating, comment, created_at) VALUES
+              ('vote_001','pt_demo001','user_demo002',5,'Super groupe HIIT, ambiance top !', NOW()-INTERVAL '2 days'),
+              ('vote_002','pt_demo001','user_demo003',4,'Bon rythme, accessible à tous.', NOW()-INTERVAL '1 day'),
+              ('vote_003','pt_demo002','user_demo001',5,'Parcours running magnifique, parfait.', NOW()-INTERVAL '3 days'),
+              ('vote_004','pt_demo002','user_demo003',4,'Bonne organisation, rythme adapté.', NOW()-INTERVAL '1 day'),
+              ('vote_005','pt_demo003','user_demo001',5,'Vue imprenable, séance ressourçante.', NOW()-INTERVAL '4 days'),
+              ('vote_006','pt_demo003','user_demo002',5,'Instructeur patient et bienveillant.', NOW()-INTERVAL '2 days'),
+              ('vote_007','pt_demo004','user_demo002',4,'Randonnée magnifique en forêt.', NOW()-INTERVAL '1 day'),
+              ('vote_008','pt_demo005','user_demo001',5,'Initiation bushcraft top !', NOW()-INTERVAL '2 days'),
+              ('vote_009','pt_demo005','user_demo003',5,'Week-end incroyable, je recommande.', NOW()-INTERVAL '1 day')
+            ON CONFLICT (point_id, user_id) DO UPDATE SET rating=EXCLUDED.rating, comment=EXCLUDED.comment;
+        """)
+        await conn.execute("""
+            INSERT INTO tag_point_saves (save_id, point_id, user_id, saved_at) VALUES
+              ('save_001','pt_demo001','user_demo002', NOW()-INTERVAL '2 days'),
+              ('save_002','pt_demo003','user_demo001', NOW()-INTERVAL '1 day'),
+              ('save_003','pt_demo004','user_demo003', NOW()-INTERVAL '3 hours'),
+              ('save_004','pt_demo005','user_demo002', NOW()-INTERVAL '1 day')
+            ON CONFLICT (point_id, user_id) DO NOTHING;
+        """)
 
 
 async def close_db():

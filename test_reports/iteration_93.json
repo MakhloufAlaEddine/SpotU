@@ -46,6 +46,6 @@
   "seed_data_creation": "Produits créés et supprimés automatiquement pendant tests: TEST_Vélo de route (pending_review valid), TEST_Brouillon sans photo/catégorie, TEST_session pricing, TEST_deposit with amount",
   "retest_needed": false,
   "should_main_agent_self_test": false,
-  "context_for_next_testing_agent": "Toutes les validations backend et frontend testées et validées (iteration 93). Backend 21/21 OK: 422 pour category/image/condition/max_duration/deposit manquants en pending_review, 200 pour draft sans validation, GET /products/{id}/detail retourne tous les champs édition. Frontend: mode édition pré-remplit catégorie (chip purple), condition (chip amber), max_duration_days (valeur texte), pickup_type. Validations par étape fonctionnelles (step3 photo, step4 max_duration). API URL: https://moderation-dashboard-3.preview.emergentagent.com",
+  "context_for_next_testing_agent": "Toutes les validations backend et frontend testées et validées (iteration 93). Backend 21/21 OK: 422 pour category/image/condition/max_duration/deposit manquants en pending_review, 200 pour draft sans validation, GET /products/{id}/detail retourne tous les champs édition. Frontend: mode édition pré-remplit catégorie (chip purple), condition (chip amber), max_duration_days (valeur texte), pickup_type. Validations par étape fonctionnelles (step3 photo, step4 max_duration). API URL: https://taxonomy-refactor-2.preview.emergentagent.com",
   "rca_of_issue": null
 }
