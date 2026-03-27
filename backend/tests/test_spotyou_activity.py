@@ -14,7 +14,7 @@ import httpx
 from datetime import datetime, timezone
 
 # URL de l'API
-API_BASE = "https://taxonomy-refactor-2.preview.emergentagent.com/api"
+API_BASE = "https://creation-flow-v2.preview.emergentagent.com/api"
 
 # Credentials
 USER_EMAIL = "user@winek.app"

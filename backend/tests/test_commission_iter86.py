@@ -6,7 +6,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://taxonomy-refactor-2.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://creation-flow-v2.preview.emergentagent.com').rstrip('/')
 
 class TestCommissionEndpoint:
     """Tests for GET /api/config/commission public endpoint"""
