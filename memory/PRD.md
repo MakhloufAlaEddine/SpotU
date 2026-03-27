@@ -19,7 +19,28 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 
 ## What's Been Implemented
 
-### Composant partage MapPreview (2026-03-17)
+### Refactoring Stepper Produit — UX + Validation Complète (2026-03-27)
+| Composant | Changement |
+|-----------|-----------|
+| `ProductFormContext.tsx` | validateStep corrigé : tags obligatoires step1, pricing_modes step4, session→SpotYou step6, step7 final complet |
+| `create.tsx` | apiToFormData : pre-fill 100% champs edit mode (tag_ids, pricing_modes, price_per_hour/day/week/month) |
+| `Step6SpotYouLink.tsx` | Logique métier corrigée : texte visibilité par tags, warning séance seule, badge obligatoire si session |
+| `ProductCreationFlow.tsx` | UX épurée : erreurs fixes (hors ScrollView), bouton unique Suivant, header compact |
+| `product_creation_routes.py` | Validation backend : tags obligatoires, session sans SpotYou bloqué |
+| `test_product_stepper_iter95.py` | 21 tests nouveaux |
+| `test_product_validation_iter93.py` | Mis à jour catégories DB IDs, session pricing, max_duration_days |
+
+### Tags produit + Tarification multi-unité (2026-03-27)
+- `Step1TypeCategory.tsx` : sélection tags par catégorie (max 5), block repair idempotent DB
+- `Step2MainInfo.tsx` : UI multi-tarifs (heure/jour/semaine/mois/séance)
+- DB migrations : pricing_modes, price_per_hour/day/week/month, admin_validated_*, short_description...
+
+### Corrections backend startup (2026-03-27)
+- `database.py` : user_follows et cover photos après seed_initial_data
+- `seed.py` : tags dupliqués et liaisons FK corrects
+- Toutes migrations marketplace_products ajoutées
+
+
 | Composant | Changement |
 |-----------|-----------|
 | `frontend/components/MapPreview.tsx` | **NOUVEAU** - Composant partage pour affichage carte avec precision |
