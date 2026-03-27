@@ -37,7 +37,7 @@ const catColor = (id: string) => CAT_PALETTE[Math.abs(id.split('').reduce((a, c)
 
 /* ── Props ──────────────────────────────────────────────────────────────── */
 interface TagPickerFieldProps {
-  entityType:       string;          // 'product' | 'service' | 'spotyou'
+  entityType?:      string;          // 'product' | 'service' | 'spotyou' | '' = toutes
   selectedTagIds:   string[];
   onChangeTagIds:   (ids: string[]) => void;
   filterCategoryId?: string;         // product : restreindre au tags d'une catégorie
@@ -47,13 +47,15 @@ interface TagPickerFieldProps {
   label?:           string;
   hint?:            string;
   required?:        boolean;
+  /** Callback appelé à chaque chargement : expose tous les tags (avec category_id) au parent */
+  onTagsLoaded?:    (tags: { tag_id: string; label_fr: string; label_en?: string; category_id: string }[]) => void;
 }
 
 export function TagPickerField({
-  entityType, selectedTagIds, onChangeTagIds,
+  entityType = '', selectedTagIds, onChangeTagIds,
   filterCategoryId, showDomains = false,
   maxSelect, accentColor = '#3B82F6',
-  label, hint, required,
+  label, hint, required, onTagsLoaded,
 }: TagPickerFieldProps) {
   const [allCategories, setAllCategories] = useState<CategoryItem[]>([]);
   const [domains,       setDomains]       = useState<DomainItem[]>([]);
@@ -65,9 +67,21 @@ export function TagPickerField({
   /* ── Fetch catégories ────────────────────────────────────────────────── */
   useEffect(() => {
     setLoading(true);
-    const url = `/tags/categories?entity_type=${entityType}${domainId ? `&domain_id=${domainId}` : ''}`;
+    const qs = [
+      entityType ? `entity_type=${entityType}` : '',
+      domainId   ? `domain_id=${domainId}`      : '',
+    ].filter(Boolean).join('&');
+    const url = `/tags/categories${qs ? `?${qs}` : ''}`;
     api.get(url)
-      .then((data: CategoryItem[]) => setAllCategories(data || []))
+      .then((data: CategoryItem[]) => {
+        const cats = data || [];
+        setAllCategories(cats);
+        onTagsLoaded?.(
+          cats.flatMap(cat =>
+            (cat.tags || []).map(t => ({ ...t, category_id: cat.category_id }))
+          )
+        );
+      })
       .catch(() => setAllCategories([]))
       .finally(() => setLoading(false));
   }, [entityType, domainId]);

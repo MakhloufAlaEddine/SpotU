@@ -1,0 +1,70 @@
+{
+  "summary": "Complete testing of TagPickerField unified component rollout across 4 flows: Service creation (step 3 Domaine), SpotYou creation (step 2 Le contenu), Search page (list + map), and Product creation regression (step 1 Classification). All core features pass. One medium bug found: duplicate categories/tags in search modal when entityType=''.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "TagPickerField (search.tsx)",
+        "issue": "With entityType='' (no filter), the /tags/categories API returns the same category header multiple times (e.g. BASKETBALL appears twice, CAMPING & OUTDOOR twice). This causes: (1) duplicate category sections in the modal, (2) the same tag_id appearing multiple times in allTags flatMap, causing duplicate preview pills for a single selected tag. Example: selecting '3×3' shows 3 duplicate preview pills. The counter 'selectedTagIds.length' remains correct at 1.",
+        "selector": "[data-testid='tag-preview-{tag_id}']",
+        "priority": "MEDIUM",
+        "fix": "In TagPickerField.tsx: deduplicate allCategories by category_id before flatMap, and deduplicate allTags by tag_id. OR fix backend /tags/categories to return unique categories when entity_type is not specified."
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_results": {
+    "T1_service_creation_step3": {
+      "status": "PASS",
+      "details": "Step 3 'Domaine & Tags' in create-service.tsx shows TagPickerField with entityType='service' and showDomains=true. Domain chips visible: Sport & Outdoor (selected), Coaching, Services locaux, Social & Communautés. Trigger button 'open-tag-picker-btn' works. Modal opens with title 'Choisir des tags', search input (tag-search-input), category sections with color-coded dots, 40 tag chips. Tag selection/deselection works. Confirm button (confirm-tag-picker-btn) closes modal. Preview pills update after selection. Step label 'Domaine' at position 3 is correct. Old inline modal removed - no duplicate modal visible."
+    },
+    "T2_spotyou_creation_step2": {
+      "status": "PASS",
+      "details": "Step 2 'Le contenu' in create.tsx (SpotYou) shows TagPickerField under description field with entityType='spotyou' and showDomains=true. Description field appears ABOVE the TagPickerField as expected. Domain chips: Sport & Outdoor (active), Coaching, Services locaux (partially visible), Social & Communautés. Trigger 'Choisir des tags' present. Modal opens with search input and all categories. 40 tag chips visible. Tag '3×3' selected successfully, preview pill '3×3 ×' appears, trigger shows '1 tag sélectionné'."
+    },
+    "T3_search_list_view": {
+      "status": "PASS_WITH_BUG",
+      "details": "TagPickerField present in search list view with entityType='' and showDomains=false. No domain chips visible above trigger (correct). Trigger 'Choisir des tags' clickable. Modal opens with 138 tag chips (all entity types combined, unfiltered). Tag selection works - selected '3×3'. Filter badge 'X résultats · 1 tag (OU) Effacer' appears correctly. BUG: Duplicate categories in modal (BASKETBALL appears twice, CAMPING & OUTDOOR twice). Duplicate preview pills when tag selected."
+    },
+    "T4_search_map_view": {
+      "status": "PASS_WITH_BUG",
+      "details": "TagPickerField present in search map view. Trigger 'Choisir des tags' found and clickable. After selecting '3×3' tag and switching to map, the filter badge shows '0 résultats · 1 tag (OU) Effacer'. Tag preview pills visible. Same duplicate preview pill bug as list view (3 '3×3' pills shown for 1 selected tag)."
+    },
+    "T5_product_creation_regression": {
+      "status": "PASS",
+      "details": "Classification step (Step 1 of 9) fully functional. product-type-rental ('Location') selectable. 16 category buttons appear. Selecting 'Sports collectifs' category reveals TagPickerField with filterCategoryId and entityType='product'. Modal shows ONLY 5 tags from 'Sports collectifs' category (3×3, Basketball, Football, Futsal, Streetball) - filterCategoryId works correctly. maxSelect=5 counter shows '0/5'. Tag selected → '1 tag sélectionné 1/5' in trigger. Visibility card 'Ton produit apparaît automatiquement dans la boutique des SpotYou...' appears after tag selection. Full regression passes."
+    }
+  },
+  "test_report_links": ["/app/test_reports/iteration_98.json"],
+  "action_items": [
+    "FIX (MEDIUM): TagPickerField.tsx allTags computation does not deduplicate by tag_id. When entityType='' (search page), /tags/categories returns same tags across multiple entity types causing duplicate preview pills and duplicate category sections in modal. Fix: deduplicate allCategories by category_id, and deduplicate allTags by tag_id before filtering.",
+    "INFO: 138 tag chips in search modal (entityType='') vs 40 for service/spotyou. This is because all entity types' tags are combined. Consider whether this is the desired UX for search.",
+    "INFO: The old inline tag modal styles in create-service.tsx (tagModalOverlay, tagModalBackdrop, tagModalSheet, etc.) are dead code and can be safely removed."
+  ],
+  "critical_code_review_comments": [
+    "MEDIUM BUG: TagPickerField.tsx line 134 - `const allTags = useMemo(() => allCategories.flatMap(c => c.tags || []), [allCategories])`. When entityType='' and API returns same category multiple times (for different entity_type associations), the same tag_id appears N times in allTags. Line 135 `const selTagObjs = allTags.filter(t => selectedTagIds.includes(t.tag_id))` then returns N duplicate tag objects, causing N preview pills for 1 selected tag. Fix: add deduplication by tag_id.",
+    "INFO: create-service.tsx has leftover style definitions for a removed inline modal (lines 1113-1145: tagModalOverlay, tagModalBackdrop, tagModalSheet, sheetHandle, tagModalHeader, tagModalTitle, modalCancel, catGroup, catRow, catDot, catLabel) - dead code, safe to remove.",
+    "INFO: The STEP_LABELS in create-service.tsx correctly maps internal step 3 to 'Domaine' (visual position 3), and renderStep2() (Domaine & Tags) is correctly called at step===3. The naming (renderStep2 at step===3) could be confusing for maintainers."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A (frontend only)",
+    "frontend": "90% (4/4 flows working, 1 medium bug in search duplicate tags/categories)"
+  },
+  "test_credentials": "coach@winek.app / WinekCoach2024! (logged in as Sophie)",
+  "seed_data_creation": "Used svc_demo001 to test edit mode for service creation (avoids location picker issue)",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "TagPickerField rollout tested across 4 flows. All pass. Key remaining bug: when entityType='' (search page), /tags/categories API returns duplicate categories/tags across entity types. TagPickerField needs tag_id deduplication in allTags useMemo (line 134) and potentially category_id deduplication in filteredCategories. svc_demo001 pre-filled edit mode was used to navigate to step 3 (DOMAINE) bypassing the location picker issue in fresh service creation. Product regression uses /products/create?no params, works correctly.",
+  "rca_of_issue": {
+    "search_duplicate_tags": {
+      "root_cause": "TagPickerField fetches /tags/categories without entityType filter (entityType=''). The backend returns categories associated with ALL entity types (product, service, spotyou). If the same category (e.g. 'Basketball') is associated with both 'service' and 'spotyou', it appears twice in the response. TagPickerField's allTags flatMap does not deduplicate by tag_id, so selecting a tag that appears in 2 categories returns 2 identical objects → 2 preview pills.",
+      "reproduction": "Go to /search, open TagPickerField modal, observe BASKETBALL appears twice. Select any tag → see duplicate preview pills.",
+      "mitigation": "In TagPickerField.tsx: const allTags = useMemo(() => { const seen = new Set<string>(); return allCategories.flatMap(c => c.tags || []).filter(t => { if (seen.has(t.tag_id)) return false; seen.add(t.tag_id); return true; }); }, [allCategories]); AND similarly deduplicate allCategories by category_id in filteredCategories."
+    }
+  }
+}

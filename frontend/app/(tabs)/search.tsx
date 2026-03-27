@@ -13,6 +13,7 @@ import { useLocation } from '../../context/LocationContext';
 import { haversineDistance, formatDistance } from '../../utils/distance';
 import { MapViewComponent, MapPin } from '../../components/MapViewComponent';
 import { useGuardedRouter } from '../../hooks/useGuardedRouter';
+import { TagPickerField } from '../../components/TagPickerField';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Tag { tag_id: string; label_fr: string; label_en: string; name: string; }
@@ -89,74 +90,6 @@ const itemSt = StyleSheet.create({
   viewText: { fontSize: 13, color: Colors.muted },
 });
 
-// ─── Tag Modal ─────────────────────────────────────────────────────────────────
-function TagModal({ visible, categories, selectedTags, onToggle, onClear, onClose }:
-  { visible: boolean; categories: Category[]; selectedTags: string[];
-    onToggle: (id: string) => void; onClear: () => void; onClose: () => void }) {
-  return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={modalSt.overlay}>
-        <View style={modalSt.sheet}>
-          {/* Header */}
-          <View style={modalSt.header}>
-            <TouchableOpacity onPress={onClear} testID="modal-clear-btn">
-              <Text style={modalSt.clearText}>Effacer</Text>
-            </TouchableOpacity>
-            <Text style={modalSt.headerTitle}>Chercher des tags</Text>
-            <TouchableOpacity onPress={onClose} testID="modal-close-btn">
-              <Text style={modalSt.doneText}>Terminer</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Categories + Tags */}
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={modalSt.scroll}>
-            {categories.filter(c => c.tags.length > 0).map(cat => (
-              <View key={cat.category_id} style={modalSt.category}>
-                <Text style={modalSt.catLabel}>{cat.label_fr}</Text>
-                <View style={modalSt.tagRow}>
-                  {cat.tags.map(tag => {
-                    const isSelected = selectedTags.includes(tag.tag_id);
-                    return (
-                      <TouchableOpacity
-                        key={tag.tag_id}
-                        style={[modalSt.tagPill, isSelected && modalSt.tagPillSelected]}
-                        onPress={() => onToggle(tag.tag_id)}
-                        testID={`tag-pill-${tag.tag_id}`}
-                      >
-                        <Text style={[modalSt.tagText, isSelected && modalSt.tagTextSelected]}>
-                          {tag.label_fr}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
-            ))}
-            <View style={{ height: 40 }} />
-          </ScrollView>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-const modalSt = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: Colors.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '85%' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  headerTitle: { fontSize: 16, fontWeight: '700', color: Colors.foreground },
-  clearText: { fontSize: 14, color: Colors.muted },
-  doneText: { fontSize: 14, fontWeight: '600', color: Colors.primary },
-  scroll: { padding: Spacing.md },
-  category: { marginBottom: Spacing.lg },
-  catLabel: { fontSize: 13, fontWeight: '700', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: Spacing.sm },
-  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  tagPill: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: Radius.full, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.card },
-  tagPillSelected: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  tagText: { fontSize: 13, color: Colors.foreground, fontWeight: '500' },
-  tagTextSelected: { color: '#fff', fontWeight: '700' },
-});
-
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function SearchScreen() {
   const router = useGuardedRouter();
@@ -174,19 +107,6 @@ export default function SearchScreen() {
 
   // Tag state
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [showTagModal, setShowTagModal] = useState(false);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [tagsMap, setTagsMap] = useState<Record<string, Tag>>({});
-
-  // Load categories + tags map once
-  useEffect(() => {
-    api.get('/tags/categories').then((cats: Category[]) => {
-      setCategories(cats);
-      const map: Record<string, Tag> = {};
-      cats.forEach(c => c.tags.forEach(t => { map[t.tag_id] = t; }));
-      setTagsMap(map);
-    }).catch(() => {});
-  }, []);
 
   // Search on location / radius change
   useEffect(() => {
@@ -281,10 +201,6 @@ export default function SearchScreen() {
     ) : null,
   [selectedItemId, combinedResults]);
 
-  const toggleTag = (id: string) => {
-    setSelectedTags(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]);
-  };
-
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       {/* Header */}
@@ -318,23 +234,16 @@ export default function SearchScreen() {
         <View style={{ flex: 1 }}>
           {/* Barre de filtres compacte */}
           <View style={styles.tagInputRow}>
-            <TouchableOpacity
-              style={[styles.tagBtn, selectedTags.length > 0 && styles.tagBtnActive]}
-              onPress={() => setShowTagModal(true)} testID="tag-search-button" activeOpacity={0.8}
-            >
-              <Ionicons name="pricetags-outline" size={16} color={selectedTags.length > 0 ? Colors.primary : Colors.muted} />
-              {selectedTags.length === 0
-                ? <Text style={styles.tagBtnPlaceholder}>Chercher des tags</Text>
-                : <Text style={styles.tagBtnCount} numberOfLines={1}>
-                    {tagsMap[selectedTags[0]]?.label_fr || '1 tag'}
-                    {selectedTags.length > 1 ? ` +${selectedTags.length - 1}` : ''}
-                  </Text>}
-              {selectedTags.length > 0
-                ? <TouchableOpacity onPress={() => setSelectedTags([])} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <Ionicons name="close-circle" size={18} color={Colors.primary} />
-                  </TouchableOpacity>
-                : <Ionicons name="chevron-down" size={16} color={Colors.muted} />}
-            </TouchableOpacity>
+            <View style={{ flex: 1 }}>
+              <TagPickerField
+                entityType=""
+                showDomains={false}
+                selectedTagIds={selectedTags}
+                onChangeTagIds={setSelectedTags}
+                accentColor={Colors.primary}
+                label=""
+              />
+            </View>
             <View style={{ paddingHorizontal: 10, paddingVertical: 8, backgroundColor: Colors.card, borderRadius: Radius.full, borderWidth: 1.5, borderColor: Colors.border }}>
               <Text style={{ fontSize: 13, fontWeight: '600', color: Colors.foreground }}>{radiusKm} km</Text>
             </View>
@@ -419,38 +328,16 @@ export default function SearchScreen() {
       >
         {/* Tag search row */}
         <View style={styles.tagInputRow}>
-          <TouchableOpacity
-            style={[styles.tagBtn, selectedTags.length > 0 && styles.tagBtnActive]}
-            onPress={() => setShowTagModal(true)}
-            testID="tag-search-button"
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name="pricetags-outline"
-              size={16}
-              color={selectedTags.length > 0 ? Colors.primary : Colors.muted}
+          <View style={{ flex: 1 }}>
+            <TagPickerField
+              entityType=""
+              showDomains={false}
+              selectedTagIds={selectedTags}
+              onChangeTagIds={setSelectedTags}
+              accentColor={Colors.primary}
+              label=""
             />
-            {selectedTags.length === 0 ? (
-              <Text style={styles.tagBtnPlaceholder}>Chercher des tags</Text>
-            ) : (
-              <Text style={styles.tagBtnCount} numberOfLines={1}>
-                {selectedTags.length === 1
-                  ? tagsMap[selectedTags[0]]?.label_fr || '1 tag'
-                  : `${tagsMap[selectedTags[0]]?.label_fr || ''}${selectedTags.length > 1 ? ` +${selectedTags.length - 1}` : ''}`}
-              </Text>
-            )}
-            {selectedTags.length > 0 ? (
-              <TouchableOpacity
-                onPress={(e) => { e.stopPropagation?.(); setSelectedTags([]); }}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                testID="clear-tags-btn"
-              >
-                <Ionicons name="close-circle" size={18} color={Colors.primary} />
-              </TouchableOpacity>
-            ) : (
-              <Ionicons name="chevron-down" size={16} color={Colors.muted} />
-            )}
-          </TouchableOpacity>
+          </View>
 
           {/* Combine toggle */}
           <View style={styles.combineRow}>
@@ -464,28 +351,6 @@ export default function SearchScreen() {
             </TouchableOpacity>
           </View>
         </View>
-
-        {/* Selected tags chips row */}
-        {selectedTags.length > 0 && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.chipsRow}
-            style={styles.chipsScroll}
-          >
-            {selectedTags.map(id => (
-              <View key={id} style={styles.chip} testID={`selected-chip-${id}`}>
-                <Text style={styles.chipText}>{tagsMap[id]?.label_fr || id}</Text>
-                <TouchableOpacity
-                  onPress={() => toggleTag(id)}
-                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                >
-                  <Ionicons name="close" size={13} color={Colors.primary} />
-                </TouchableOpacity>
-              </View>
-            ))}
-          </ScrollView>
-        )}
 
         {/* Location row */}
         <TouchableOpacity style={styles.locationRow} onPress={() => router.push('/set-location' as any)}>
@@ -575,15 +440,6 @@ export default function SearchScreen() {
       </ScrollView>
       )}
 
-      {/* Tag Modal */}
-      <TagModal
-        visible={showTagModal}
-        categories={categories}
-        selectedTags={selectedTags}
-        onToggle={toggleTag}
-        onClear={() => setSelectedTags([])}
-        onClose={() => setShowTagModal(false)}
-      />
     </SafeAreaView>
   );
 }

@@ -22,6 +22,7 @@ import { useRefresh } from '../../context/RefreshContext';
 import { reverseGeocodeGoogle } from '../../services/googlePlacesService';
 import * as Location from 'expo-location';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
+import { TagPickerField } from '../../components/TagPickerField';
 import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 
 const { width: SW, height: SH } = Dimensions.get('window');
@@ -105,10 +106,6 @@ export default function CreateSpotYouScreen() {
     minParticipants?: string; maxParticipants?: string;
   }>();
   const isEditMode = params.editMode === 'true';
-  // Prevents domainId-effect from clearing tags on the initial edit pre-fill
-  const editTagsRef = useRef<string[] | null>(null);
-  // Race-condition guard: ensures stale loadCategories responses are discarded
-  const loadCategoriesVersionRef = useRef(0);
 
   // Step state
   const [step, setStep] = useState(0); // 0-3 = steps, 4 = preview
@@ -119,7 +116,6 @@ export default function CreateSpotYouScreen() {
   const [description, setDescription] = useState('');
   const [precision, setPrecision] = useState('exact');
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
-  const [domainId, setDomainId] = useState('dom_sport');
   const [images, setImages] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
@@ -149,29 +145,14 @@ export default function CreateSpotYouScreen() {
   // Full preview modal (at root level to avoid ScrollView clipping)
   const [showFullPreview, setShowFullPreview] = useState(false);
 
-  // Domain & Tag data
-  const [domains, setDomains] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [showTagModal, setShowTagModal] = useState(false);
+  // Tags — map peuplé par onTagsLoaded du TagPickerField
+  const [allTagsMap, setAllTagsMap] = useState<Record<string, { label_fr: string; label_en?: string; category_id: string }>>({});
+  const selectedTags = selectedTagIds.map(id => allTagsMap[id]).filter(Boolean);
 
   const precisionRadius = precision === 'exact' ? 0 : precision === '100m' ? 100 : 1000;
   const quality = calcQuality({ images, title, description, selectedTagIds, scheduleType });
-  const allTags = Array.from(
-    new Map(categories.flatMap(c => c.tags || []).map((t: any) => [t.tag_id, t])).values()
-  );
-  const selectedTags = allTags.filter((t: any) => selectedTagIds.includes(t.tag_id));
 
-  useEffect(() => { loadGPS(); loadDomains(); }, []);
-  useEffect(() => {
-    loadCategories();
-    // In edit mode, restore the original tags instead of clearing them
-    if (editTagsRef.current !== null) {
-      setSelectedTagIds(editTagsRef.current);
-      editTagsRef.current = null;
-    } else if (!isEditMode) {
-      setSelectedTagIds([]);
-    }
-  }, [domainId]);
+  useEffect(() => { loadGPS(); }, []);
 
   // Pre-fill form in edit mode
   useEffect(() => {
@@ -180,16 +161,10 @@ export default function CreateSpotYouScreen() {
     if (params.description) setDescription(params.description);
     if (params.precision) setPrecision(params.precision as any);
     if (params.images) { try { setImages(JSON.parse(params.images)); } catch {} }
-    // Set tags DIRECTLY — don't rely on domainId effect (it won't fire if domainId hasn't changed)
+    // Set tags directement en mode édition
     if (params.tagIds) {
-      try {
-        const tags = JSON.parse(params.tagIds);
-        setSelectedTagIds(tags);
-        editTagsRef.current = null; // Clear ref so domainId effect doesn't double-set
-      } catch {}
+      try { setSelectedTagIds(JSON.parse(params.tagIds)); } catch {}
     }
-    // Set domainId — this triggers loadCategories() so tag labels render correctly
-    if (params.domainId) setDomainId(params.domainId);
     // Restore location (after domainId to avoid GPS override)
     if (params.lat && params.lng) {
       const lat = parseFloat(params.lat);
@@ -272,27 +247,6 @@ export default function CreateSpotYouScreen() {
     }).start();
   }, [step]);
 
-  const loadDomains = async () => {
-    try {
-      const data: any[] = await api.get('/domains');
-      // Put dom_sport first (default selection)
-      data.sort((a, b) => (a.domain_id === 'dom_sport' ? -1 : b.domain_id === 'dom_sport' ? 1 : 0));
-      setDomains(data);
-    } catch {}
-  };
-  const loadCategories = async () => {
-    const version = ++loadCategoriesVersionRef.current;
-    const domain = domainId; // capture current domain to avoid stale closure
-    try {
-      const url = domain ? `/tags/categories?domain_id=${domain}&entity_type=spotyou` : '/tags/categories?entity_type=spotyou';
-      const data = await api.get(url);
-      // Only apply if this is still the latest request (prevents race condition
-      // where dom_sport response arrives after dom_coaching and overwrites it)
-      if (version === loadCategoriesVersionRef.current) {
-        setCategories(data);
-      }
-    } catch {}
-  };
   const loadGPS = async () => {
     if (isEditMode) return; // Don't override pre-filled coordinates in edit mode
     try {
@@ -436,7 +390,7 @@ export default function CreateSpotYouScreen() {
         title: title.trim(),
         description: description.trim() || null,
         latitude: selectedLat, longitude: selectedLng,
-        precision, domain_id: domainId,
+        precision,
         tag_ids: selectedTagIds,
         images: uploadedUrls,
         address: locationAddress || null,
@@ -481,9 +435,6 @@ export default function CreateSpotYouScreen() {
     }
   };
 
-  const toggleTag = (id: string) =>
-    setSelectedTagIds(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
-
   // ─── Render steps ────────────────────────────────────────────────────────────
   const renderStep = () => {
     switch (step) {
@@ -491,8 +442,8 @@ export default function CreateSpotYouScreen() {
       case 1: return (
         <StepContenu
           description={description} setDescription={setDescription}
-          domainId={domainId} setDomainId={setDomainId} domains={domains}
-          selectedTags={selectedTags} onOpenTags={() => setShowTagModal(true)}
+          selectedTagIds={selectedTagIds} onChangeTagIds={setSelectedTagIds}
+          onTagsLoaded={(tags: any[]) => setAllTagsMap(prev => ({ ...prev, ...Object.fromEntries(tags.map((t: any) => [t.tag_id, t])) }))}
           lang={lang}
         />
       );
@@ -805,67 +756,6 @@ export default function CreateSpotYouScreen() {
         minParticipants={minParticipants} maxParticipants={maxParticipants}
       />
 
-      {/* ── Tag Modal ───────────────────────── */}
-      <Modal visible={showTagModal} animationType="slide" transparent onRequestClose={() => setShowTagModal(false)}>
-        <View style={ms.overlay}>
-          <TouchableOpacity style={ms.backdrop} activeOpacity={1} onPress={() => setShowTagModal(false)} />
-          <View style={ms.sheet}>
-            <View style={ms.handle} />
-            <View style={ms.modalHeader}>
-              <TouchableOpacity onPress={() => setShowTagModal(false)}>
-                <Text style={ms.cancel}>Annuler</Text>
-              </TouchableOpacity>
-              <Text style={ms.modalTitle}>Choisir des tags</Text>
-              <TouchableOpacity onPress={() => setShowTagModal(false)} testID="close-tag-modal">
-                <Ionicons name="checkmark-circle" size={28} color={Colors.primary} />
-              </TouchableOpacity>
-            </View>
-            {selectedTagIds.length > 0 && (
-              <View style={ms.selectedBanner}>
-                <Text style={ms.selectedBannerText}>{selectedTagIds.length} tag{selectedTagIds.length > 1 ? 's' : ''} sélectionné{selectedTagIds.length > 1 ? 's' : ''}</Text>
-                <TouchableOpacity onPress={() => setSelectedTagIds([])}>
-                  <Text style={ms.clearText}>Effacer</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-            <ScrollView
-              style={{ flex: 1 }}
-              contentContainerStyle={{ padding: Spacing.md, paddingBottom: 50 }}
-              showsVerticalScrollIndicator={false}
-            >
-              {categories.filter(c => (c.tags || []).length > 0).map(cat => {
-                const col = tagColor(cat.category_id);
-                return (
-                  <View key={cat.category_id} style={ms.catGroup}>
-                    <View style={ms.catRow}>
-                      <View style={[ms.catDot, { backgroundColor: col }]} />
-                      <Text style={ms.catLabel}>{lang === 'fr' ? cat.label_fr : cat.label_en}</Text>
-                    </View>
-                    <View style={ms.tagsWrap}>
-                      {(cat.tags || []).map((tag: any) => {
-                        const sel = selectedTagIds.includes(tag.tag_id);
-                        return (
-                          <TouchableOpacity
-                            key={tag.tag_id}
-                            style={[ms.tagChip, sel && { backgroundColor: col + '22', borderColor: col }]}
-                            onPress={() => toggleTag(tag.tag_id)}
-                            testID={`tag-chip-${tag.tag_id}`}
-                          >
-                            {sel && <Ionicons name="checkmark" size={12} color={col} style={{ marginRight: 3 }} />}
-                            <Text style={[ms.tagChipText, sel && { color: col, fontWeight: '700' }]}>
-                              {lang === 'fr' ? tag.label_fr : tag.label_en}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  </View>
-                );
-              })}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -1086,7 +976,7 @@ function StepEssentiel({ images, title, setTitle, onPickImages, onRemoveImage, m
 }
 
 // ─── Step 2: Le contenu ─────────────────────────────────────────────────────────
-function StepContenu({ description, setDescription, domainId, setDomainId, domains, selectedTags, onOpenTags, lang }: any) {
+function StepContenu({ description, setDescription, selectedTagIds, onChangeTagIds, onTagsLoaded, lang }: any) {
   return (
     <View style={{ gap: Spacing.lg }}>
       {/* Description */}
@@ -1107,62 +997,17 @@ function StepContenu({ description, setDescription, domainId, setDomainId, domai
         <Text style={sc.charCount}>{description.length}/500</Text>
       </View>
 
-      {/* Domain */}
-      <View>
-        <Text style={sc.label}>Domaine</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {domains.map((d: any) => {
-            const sel = domainId === d.domain_id;
-            const col = d.color || Colors.primary;
-            return (
-              <TouchableOpacity
-                key={d.domain_id}
-                style={[sc.domainPill, sel && { backgroundColor: col + '22', borderColor: col }]}
-                onPress={() => setDomainId(d.domain_id)}
-                testID={`domain-${d.domain_id}`}
-              >
-                <Text style={[sc.domainText, sel && { color: col, fontWeight: '700' }]}>
-                  {lang === 'fr' ? d.label_fr : d.label_en}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
-
-      {/* Tags */}
-      <View>
-        <View style={sc.rowBetween}>
-          <Text style={sc.label}>Tags</Text>
-          {selectedTags.length > 0 && <Text style={[sc.hint, { color: Colors.primary }]}>{selectedTags.length} sélectionné{selectedTags.length > 1 ? 's' : ''}</Text>}
-        </View>
-        <TouchableOpacity style={sc.tagTrigger} onPress={onOpenTags} testID="open-tags-btn">
-          {selectedTags.length === 0 ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Ionicons name="pricetags-outline" size={18} color={Colors.muted} />
-              <Text style={{ color: Colors.muted, fontSize: 15 }}>Choisir des tags</Text>
-            </View>
-          ) : (
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, flex: 1 }}>
-              {Array.from(new Map(selectedTags.map((t: any) => [t.tag_id, t])).values()).slice(0, 5).map((t: any) => {
-                const c = tagColor(t.category_id);
-                return (
-                  <View key={t.tag_id} style={[sc.tagPill, { backgroundColor: c + '22', borderColor: c }]}>
-                    <Text style={[sc.tagPillText, { color: c }]}>{lang === 'fr' ? t.label_fr : t.label_en}</Text>
-                  </View>
-                );
-              })}
-              {selectedTags.length > 5 && <Text style={{ color: Colors.primary, fontWeight: '700', fontSize: 12, alignSelf: 'center' }}>+{selectedTags.length - 5}</Text>}
-            </View>
-          )}
-          <Ionicons name="chevron-forward" size={16} color={Colors.muted} />
-        </TouchableOpacity>
-        {selectedTags.length === 0 && (
-          <View style={sc.fieldTip}>
-            <Text style={sc.fieldTipText}>Les tags permettent à votre SpotYou d'apparaître dans les recherches filtrées</Text>
-          </View>
-        )}
-      </View>
+      {/* Domaine & Tags */}
+      <TagPickerField
+        entityType="spotyou"
+        showDomains
+        selectedTagIds={selectedTagIds}
+        onChangeTagIds={onChangeTagIds}
+        onTagsLoaded={onTagsLoaded}
+        accentColor={Colors.primary}
+        label="Tags"
+        hint="Les tags permettent à votre SpotYou d'apparaître dans les recherches filtrées"
+      />
     </View>
   );
 }

@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
-  Modal, Dimensions, Image, Animated,
+  Modal, Dimensions, Image,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -20,6 +20,7 @@ import { useLang } from '../context/LanguageContext';
 import { Colors, Spacing, Radius } from '../constants/Colors';
 import { useBookingConfig } from '../lib/useBookingConfig';
 import { useGuardedRouter } from '../hooks/useGuardedRouter';
+import { TagPickerField } from '../components/TagPickerField';
 
 // ─── Hook pour charger la commission dynamique ────────────────────────────────
 let _commissionCache: { receiverPct: number; payerPct: number; hasRule: boolean } | null = null;
@@ -213,15 +214,10 @@ export default function CreateServiceScreen() {
     setImages(prev => [...prev, ...localUris].slice(0, 5));
   };
 
-  // Step 2 - Domain & Tags
-  const [domainId, setDomainId] = useState('dom_sport');
+  // Step 2 - Tags
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
-  // Ref pour préserver les tags chargés en mode édition (évite que useEffect[domainId] les efface)
-  const pendingTagIdsRef = useRef<string[] | null>(null);
-  const [domains, setDomains] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [showTagModal, setShowTagModal] = useState(false);
-  const loadVersionRef = useRef(0);
+  const [allTagsMap, setAllTagsMap] = useState<Record<string, { label_fr: string; label_en?: string; category_id: string }>>({});
+  const selectedTagLabels = selectedTagIds.map(id => allTagsMap[id]?.label_fr).filter(Boolean);
 
   // Step 3 - Configuration
   const [price, setPrice] = useState('');
@@ -236,9 +232,6 @@ export default function CreateServiceScreen() {
   const [allowPayLater, setAllowPayLater] = useState(enablePayLater);
   const [payLaterExpirationMinutes, setPayLaterExpirationMinutes] = useState(60);
 
-  const allTags = categories.flatMap(c => c.tags || []);
-  const selectedTags = allTags.filter(t => selectedTagIds.includes(t.tag_id));
-
   useEffect(() => {
     if (!user) return;
     if (user.role !== 'coach' && user.role !== 'admin') {
@@ -249,18 +242,6 @@ export default function CreateServiceScreen() {
       }, 100);
     }
   }, [user]);
-
-  useEffect(() => { loadDomains(); }, []);
-  useEffect(() => {
-    loadCategories();
-    // Si des tags sont en attente (mode édition), les restaurer au lieu de vider
-    if (pendingTagIdsRef.current !== null) {
-      setSelectedTagIds(pendingTagIdsRef.current);
-      pendingTagIdsRef.current = null;
-    } else {
-      setSelectedTagIds([]);
-    }
-  }, [domainId]);
 
   // ─── Load existing service for edit mode ───────────────────────────────────
   useEffect(() => {
@@ -291,19 +272,10 @@ export default function CreateServiceScreen() {
           : typeof rawImages === 'string' ? (() => { try { return JSON.parse(rawImages); } catch { return []; } })()
           : []
       );
-      if (data.domain_id) {
-        const parsedTags = Array.isArray(data.tag_ids) ? data.tag_ids
-          : typeof data.tag_ids === 'string' ? (() => { try { return JSON.parse(data.tag_ids); } catch { return []; } })()
-          : [];
-        if (data.domain_id === domainId) {
-          // Domaine identique au défaut → useEffect[domainId] ne se déclenchera pas
-          // Appliquer les tags directement
-          setSelectedTagIds(parsedTags);
-        } else {
-          pendingTagIdsRef.current = parsedTags;
-          setDomainId(data.domain_id);
-        }
-      }
+      const parsedTags = Array.isArray(data.tag_ids) ? data.tag_ids
+        : typeof data.tag_ids === 'string' ? (() => { try { return JSON.parse(data.tag_ids); } catch { return []; } })()
+        : [];
+      setSelectedTagIds(parsedTags);
       // Address from first location (use original_description for edit to avoid overwriting with masked value)
       const firstLoc = (data.locations || [])[0];
       if (firstLoc) {
@@ -335,27 +307,7 @@ export default function CreateServiceScreen() {
     }
   };
 
-  const loadDomains = async () => {
-    try {
-      const data: any[] = await api.get('/domains');
-      data.sort((a, b) => (a.domain_id === 'dom_sport' ? -1 : b.domain_id === 'dom_sport' ? 1 : 0));
-      setDomains(data);
-    } catch {}
-  };
-
-  const loadCategories = useCallback(async () => {
-    const version = ++loadVersionRef.current;
-    try {
-      const data = await api.get(`/tags/categories?domain_id=${domainId}&entity_type=service`);
-      if (version === loadVersionRef.current) setCategories(data);
-    } catch {}
-  }, [domainId]);
-
   const scrollTop = () => scrollRef.current?.scrollTo({ y: 0, animated: true });
-
-  const toggleTag = (tagId: string) => {
-    setSelectedTagIds(prev => prev.includes(tagId) ? prev.filter(id => id !== tagId) : [...prev, tagId]);
-  };
 
   const goNext = () => {
     if (step === 1) {
@@ -415,7 +367,6 @@ export default function CreateServiceScreen() {
         price: priceNum,
         duration_min: durationMin,
         max_participants: maxParticipants,
-        domain_id: domainId,
         tag_ids: selectedTagIds,
         images: finalImages,
         booking_approval_mode: bookingApprovalMode,
@@ -578,68 +529,16 @@ export default function CreateServiceScreen() {
       <Text style={s.stepTitle}>Domaine & Tags</Text>
       <Text style={s.stepHint}>Catégorisez votre service pour être trouvé par les bons clients</Text>
 
-      {/* Domaine */}
-      <View style={s.field}>
-        <Text style={s.fieldLabel}>Domaine</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View style={{ flexDirection: 'row', gap: 8, paddingBottom: 2 }}>
-            {domains.map((d: any) => {
-              const sel = domainId === d.domain_id;
-              const col = d.color || Colors.primary;
-              return (
-                <TouchableOpacity
-                  key={d.domain_id}
-                  style={[s.domainPill, sel && { backgroundColor: col + '22', borderColor: col }]}
-                  onPress={() => setDomainId(d.domain_id)}
-                  testID={`domain-${d.domain_id}`}
-                >
-                  <Text style={[s.domainPillText, sel && { color: col, fontWeight: '700' }]}>
-                    {lang === 'fr' ? d.label_fr : d.label_en}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </ScrollView>
-      </View>
-
-      {/* Tags */}
-      <View style={s.field}>
-        <View style={s.rowBetween}>
-          <Text style={s.fieldLabel}>Tags</Text>
-          {selectedTags.length > 0 && (
-            <Text style={[s.fieldLabel, { color: Colors.primary }]}>
-              {selectedTags.length} sélectionné{selectedTags.length > 1 ? 's' : ''}
-            </Text>
-          )}
-        </View>
-        <TouchableOpacity style={s.tagTrigger} onPress={() => setShowTagModal(true)} testID="open-tags-btn">
-          {selectedTags.length === 0 ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Ionicons name="pricetags-outline" size={18} color={Colors.muted} />
-              <Text style={{ color: Colors.muted, fontSize: 15 }}>Choisir des tags</Text>
-            </View>
-          ) : (
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, flex: 1 }}>
-              {selectedTags.slice(0, 5).map((t: any) => {
-                const c = tagColor(t.category_id);
-                return (
-                  <View key={t.tag_id} style={[s.tagPill, { backgroundColor: c + '22', borderColor: c }]}>
-                    <Text style={[s.tagPillText, { color: c }]}>{lang === 'fr' ? t.label_fr : t.label_en}</Text>
-                  </View>
-                );
-              })}
-              {selectedTags.length > 5 && (
-                <Text style={{ color: Colors.primary, fontWeight: '700', fontSize: 12, alignSelf: 'center' }}>+{selectedTags.length - 5}</Text>
-              )}
-            </View>
-          )}
-          <Ionicons name="chevron-forward" size={16} color={Colors.muted} />
-        </TouchableOpacity>
-        {selectedTags.length === 0 && (
-          <Text style={s.fieldTip}>Les tags permettent à votre service d'apparaître dans les recherches filtrées</Text>
-        )}
-      </View>
+      <TagPickerField
+        entityType="service"
+        showDomains
+        selectedTagIds={selectedTagIds}
+        onChangeTagIds={setSelectedTagIds}
+        onTagsLoaded={(tags) => setAllTagsMap(prev => ({ ...prev, ...Object.fromEntries(tags.map(t => [t.tag_id, t])) }))}
+        accentColor={ORANGE}
+        label="Tags"
+        hint="Les tags permettent à votre service d'apparaître dans les recherches filtrées"
+      />
     </View>
   );
 
@@ -880,7 +779,6 @@ export default function CreateServiceScreen() {
     [title, coachDesc, address, selectedTagIds, price, slots, images]
   );
   const scoreColor = score >= 80 ? GREEN : score >= 50 ? ORANGE : Colors.destructive;
-  const selectedDomain = domains.find(d => d.domain_id === domainId);
 
   const renderStep5 = () => (
     <View style={s.stepContent}>
@@ -919,13 +817,12 @@ export default function CreateServiceScreen() {
             <Text style={s.summaryMeta}>{address}</Text>
           </View>
         )}
-        {selectedDomain && (
+        {selectedTagIds.length > 0 && (
           <View style={s.summaryRow}>
-            <Ionicons name="grid-outline" size={14} color={Colors.primary} />
-            <Text style={s.summaryMeta}>{lang === 'fr' ? selectedDomain.label_fr : selectedDomain.label_en}</Text>
-            {selectedTags.length > 0 && (
-              <Text style={s.summaryMeta}> · {selectedTags.slice(0, 3).map((t: any) => lang === 'fr' ? t.label_fr : t.label_en).join(', ')}</Text>
-            )}
+            <Ionicons name="pricetag-outline" size={14} color={ORANGE} />
+            <Text style={s.summaryMeta}>
+              {selectedTagLabels.slice(0, 3).join(', ')}{selectedTagIds.length > 3 ? ` +${selectedTagIds.length - 3}` : ''}
+            </Text>
           </View>
         )}
         <View style={s.summaryStatsRow}>
@@ -952,69 +849,6 @@ export default function CreateServiceScreen() {
   );
 
   // ─── Tag Modal ────────────────────────────────────────────────────────────────
-  const renderTagModal = () => (
-    <Modal visible={showTagModal} animationType="slide" transparent onRequestClose={() => setShowTagModal(false)}>
-      <View style={s.tagModalOverlay}>
-        <TouchableOpacity style={s.tagModalBackdrop} activeOpacity={1} onPress={() => setShowTagModal(false)} />
-        <View style={s.tagModalSheet}>
-          <View style={s.sheetHandle} />
-          <View style={s.tagModalHeader}>
-            <TouchableOpacity onPress={() => setShowTagModal(false)}>
-              <Text style={s.modalCancel}>Annuler</Text>
-            </TouchableOpacity>
-            <Text style={s.tagModalTitle}>Choisir des tags</Text>
-            <TouchableOpacity onPress={() => setShowTagModal(false)} testID="close-tag-modal">
-              <Ionicons name="checkmark-circle" size={28} color={Colors.primary} />
-            </TouchableOpacity>
-          </View>
-          {selectedTagIds.length > 0 && (
-            <View style={s.selectedBanner}>
-              <Text style={s.selectedBannerText}>{selectedTagIds.length} tag{selectedTagIds.length > 1 ? 's' : ''} sélectionné{selectedTagIds.length > 1 ? 's' : ''}</Text>
-              <TouchableOpacity onPress={() => setSelectedTagIds([])}>
-                <Text style={s.clearText}>Effacer</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-          <ScrollView
-            style={{ flex: 1 }}
-            contentContainerStyle={{ padding: Spacing.md, paddingBottom: 50 }}
-            showsVerticalScrollIndicator={false}
-          >
-            {categories.filter(c => (c.tags || []).length > 0).map((cat: any) => {
-              const col = tagColor(cat.category_id);
-              return (
-                <View key={cat.category_id} style={s.catGroup}>
-                  <View style={s.catRow}>
-                    <View style={[s.catDot, { backgroundColor: col }]} />
-                    <Text style={s.catLabel}>{lang === 'fr' ? cat.label_fr : cat.label_en}</Text>
-                  </View>
-                  <View style={s.tagsWrap}>
-                    {(cat.tags || []).map((tag: any) => {
-                      const sel = selectedTagIds.includes(tag.tag_id);
-                      return (
-                        <TouchableOpacity
-                          key={tag.tag_id}
-                          style={[s.tagChip, sel && { backgroundColor: col + '22', borderColor: col }]}
-                          onPress={() => toggleTag(tag.tag_id)}
-                          testID={`tag-chip-${tag.tag_id}`}
-                        >
-                          {sel && <Ionicons name="checkmark" size={12} color={col} style={{ marginRight: 3 }} />}
-                          <Text style={[s.tagChipText, sel && { color: col, fontWeight: '700' }]}>
-                            {lang === 'fr' ? tag.label_fr : tag.label_en}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </View>
-              );
-            })}
-          </ScrollView>
-        </View>
-      </View>
-    </Modal>
-  );
-
   // ─── Main Render ──────────────────────────────────────────────────────────────
   if (loadingEdit) {
     return (
@@ -1113,9 +947,6 @@ export default function CreateServiceScreen() {
           setShowLocPicker(false);
         }}
       />
-
-      {/* Tag modal */}
-      {renderTagModal()}
     </SafeAreaView>
   );
 }
