@@ -195,6 +195,16 @@ export function Step1TypeCategory() {
               <Text style={s.clearTagsText}>Effacer les tags sélectionnés</Text>
             </TouchableOpacity>
           )}
+
+          {/* Info visibilité par tags — visible si au moins 1 tag sélectionné */}
+          {selectedCount > 0 && (
+            <View style={s.visibilityCard}>
+              <Ionicons name="information-circle-outline" size={16} color={BLUE} />
+              <Text style={s.visibilityText}>
+                Ton produit apparaît automatiquement dans la boutique des SpotYou dont les tags correspondent aux tiens et dans la boutique globale.
+              </Text>
+            </View>
+          )}
         </View>
       )}
     </View>
@@ -243,4 +253,6 @@ const s = StyleSheet.create({
   emptyTagsText:    { fontSize: 13, color: Colors.muted, fontStyle: 'italic' },
   clearTags:        { alignSelf: 'flex-start', marginTop: 4 },
   clearTagsText:    { fontSize: 12, color: Colors.muted, textDecorationLine: 'underline' },
+  visibilityCard:   { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: BLUE + '0D', borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: BLUE + '25', marginTop: 4 },
+  visibilityText:   { flex: 1, fontSize: 12, color: Colors.foreground, lineHeight: 18 },
 });

@@ -292,14 +292,11 @@ export function Step2MainInfo() {
             </View>
           )}
 
-          {/* Explication visibilité — texte corrigé */}
+          {/* Explication visibilité — uniquement les infos SpotYou/séance */}
           <View style={f.infoCard}>
             <Ionicons name="information-circle-outline" size={18} color={BLUE} />
             <View style={{ flex: 1, gap: 5 }}>
-              <Text style={f.infoTitle}>Comment fonctionne la visibilité ?</Text>
-              <Text style={f.infoText}>
-                Ton produit apparaît automatiquement dans la boutique des SpotYou dont les tags correspondent aux tiens et dans la boutique globale.
-              </Text>
+              <Text style={f.infoTitle}>À quoi sert le rattachement ?</Text>
               <Text style={[f.infoText, { color: BLUE, fontWeight: '600' }]}>
                 Lier ton produit à un SpotYou permet aux membres de cette communauté de le louer dans les créneaux proposés par le SpotYou.
               </Text>
