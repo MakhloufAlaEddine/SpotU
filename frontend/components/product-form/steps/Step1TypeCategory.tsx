@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../../../constants/Colors';
 import { useProductForm } from '../ProductFormContext';
 import { api } from '../../../lib/api';
+import { TagPickerField } from '../../TagPickerField';
 
 const BLUE = '#3B82F6';
 const MAX_TAGS = 5;
@@ -33,18 +34,7 @@ export function Step1TypeCategory() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Tags de la catégorie sélectionnée
-  const selectedCat = categories.find(c => c.category_id === form.category);
-  const availableTags: TagItem[] = selectedCat?.tags ?? [];
-
-  const toggleTag = (tid: string) => {
-    const current = form.tag_ids ?? [];
-    if (current.includes(tid)) {
-      set({ tag_ids: current.filter(t => t !== tid) });
-    } else if (current.length < MAX_TAGS) {
-      set({ tag_ids: [...current, tid] });
-    }
-  };
+  // selectedCat et availableTags maintenant gérés par TagPickerField
 
   const selectCategory = (cid: string) => {
     // Réinitialise les tags quand la catégorie change
@@ -144,60 +134,21 @@ export function Step1TypeCategory() {
         )}
       </View>
 
-      {/* ── Tags (visible seulement quand une catégorie est sélectionnée) ─── */}
+      {/* ── Tags (visible quand catégorie sélectionnée) ──────────────────── */}
       {form.category !== '' && (
         <View style={s.section}>
-          <View style={s.tagHeader}>
-            <Text style={s.label}>Tags</Text>
-            {availableTags.length > 0 && (
-              <Text style={[s.tagCounter, selectedCount === MAX_TAGS && s.tagCounterFull]}>
-                {selectedCount}/{MAX_TAGS} sélectionnés
-              </Text>
-            )}
-          </View>
-
-          {availableTags.length === 0 ? (
-            <View style={s.emptyTags}>
-              <Ionicons name="pricetag-outline" size={18} color={Colors.muted} />
-              <Text style={s.emptyTagsText}>Aucun tag disponible pour cette catégorie</Text>
-            </View>
-          ) : (
-            <View style={s.tagGrid}>
-              {availableTags.map(tag => {
-                const selected = (form.tag_ids ?? []).includes(tag.tag_id);
-                const disabled = !selected && selectedCount >= MAX_TAGS;
-                return (
-                  <TouchableOpacity
-                    key={tag.tag_id}
-                    style={[s.tagChip, selected && s.tagChipSelected, disabled && s.tagChipDisabled]}
-                    onPress={() => toggleTag(tag.tag_id)}
-                    disabled={disabled}
-                    testID={`tag-${tag.tag_id}`}
-                  >
-                    {selected && (
-                      <Ionicons name="checkmark-circle" size={14} color={BLUE} />
-                    )}
-                    <Text style={[s.tagLabel, selected && s.tagLabelSelected, disabled && { color: Colors.muted + '60' }]}>
-                      {tag.label_fr}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
-
-          {selectedCount > 0 && (
-            <TouchableOpacity
-              style={s.clearTags}
-              onPress={() => set({ tag_ids: [] })}
-              testID="clear-tags-btn"
-            >
-              <Text style={s.clearTagsText}>Effacer les tags sélectionnés</Text>
-            </TouchableOpacity>
-          )}
-
-          {/* Info visibilité par tags — visible si au moins 1 tag sélectionné */}
-          {selectedCount > 0 && (
+          <TagPickerField
+            entityType="product"
+            filterCategoryId={form.category}
+            selectedTagIds={form.tag_ids ?? []}
+            onChangeTagIds={(ids) => set({ tag_ids: ids })}
+            maxSelect={MAX_TAGS}
+            accentColor={BLUE}
+            label="TAGS"
+            required
+            hint={`Sélectionne jusqu'à ${MAX_TAGS} tags pour aider les locataires à te trouver`}
+          />
+          {(form.tag_ids ?? []).length > 0 && (
             <View style={s.visibilityCard}>
               <Ionicons name="information-circle-outline" size={16} color={BLUE} />
               <Text style={s.visibilityText}>

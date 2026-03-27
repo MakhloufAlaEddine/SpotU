@@ -13,7 +13,7 @@ import os
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
 if not BASE_URL:
-    BASE_URL = "https://creation-flow-v2.preview.emergentagent.com"
+    BASE_URL = "https://tag-modal-rollout.preview.emergentagent.com"
 
 USER_EMAIL = "user@winek.app"
 USER_PASSWORD = "WinekUser2024!"

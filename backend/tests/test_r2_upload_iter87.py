@@ -8,7 +8,7 @@ import pytest
 import requests
 from PIL import Image
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://creation-flow-v2.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://tag-modal-rollout.preview.emergentagent.com").rstrip("/")
 
 # ─── Fixtures ─────────────────────────────────────────────────────────────────
 

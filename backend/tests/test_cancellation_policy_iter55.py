@@ -137,7 +137,7 @@ def api_url():
     """URL de l'API backend (depuis env ou valeur par défaut)."""
     return os.environ.get(
         "BACKEND_URL",
-        "https://creation-flow-v2.preview.emergentagent.com/api",
+        "https://tag-modal-rollout.preview.emergentagent.com/api",
     )
 
 

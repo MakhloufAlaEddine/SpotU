@@ -6,7 +6,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = "https://creation-flow-v2.preview.emergentagent.com"
+BASE_URL = "https://tag-modal-rollout.preview.emergentagent.com"
 
 ADMIN_EMAIL = "admin@winek.app"
 ADMIN_PASS = "WinekAdmin2024!"

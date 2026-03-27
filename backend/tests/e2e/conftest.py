@@ -27,7 +27,7 @@ def _load_env():
 
 _load_env()
 
-API_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://creation-flow-v2.preview.emergentagent.com")
+API_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://tag-modal-rollout.preview.emergentagent.com")
 
 CREDENTIALS = {
     "admin":  {"email": "admin@winek.app",  "password": "WinekAdmin2024!"},

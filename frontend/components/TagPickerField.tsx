@@ -1,0 +1,376 @@
+/**
+ * TagPickerField — composant partagé de sélection de tags avec modal + recherche.
+ *
+ * Utilisé dans :
+ *  - Création produit (Step1TypeCategory) — filterCategoryId={form.category}
+ *  - Création / édition SpotYou (create.tsx) — entityType="spotyou", showDomains
+ *  - Création / édition Service (create-service.tsx) — entityType="service", showDomains
+ *
+ * Fonctionnalités :
+ *  - Bouton trigger "Choisir des tags >" avec aperçu des tags sélectionnés (mini-pills)
+ *  - Modal bottom sheet :
+ *      · Champ de recherche (filtre catégories + tags en temps réel)
+ *      · Catégories groupées avec code couleur
+ *      · Compteur + bouton Effacer
+ *  - Filtre domaine optionnel (spotyou / service) : chips au-dessus du trigger
+ */
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  Modal, ScrollView, ActivityIndicator,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Colors, Spacing, Radius } from '../constants/Colors';
+import { api } from '../lib/api';
+
+/* ── Types ─────────────────────────────────────────────────────────────── */
+interface TagItem     { tag_id: string; label_fr: string; label_en?: string }
+interface CategoryItem { category_id: string; label_fr: string; label_en?: string; domain_id?: string; tags: TagItem[] }
+interface DomainItem   { domain_id: string; label_fr?: string; name?: string; color?: string }
+
+/* ── Couleurs par catégorie (déterministe) ──────────────────────────────── */
+const CAT_PALETTE = [
+  '#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6',
+  '#EC4899','#06B6D4','#84CC16','#F97316','#6366F1',
+];
+const catColor = (id: string) => CAT_PALETTE[Math.abs(id.split('').reduce((a, c) => a + c.charCodeAt(0), 0)) % CAT_PALETTE.length];
+
+/* ── Props ──────────────────────────────────────────────────────────────── */
+interface TagPickerFieldProps {
+  entityType:       string;          // 'product' | 'service' | 'spotyou'
+  selectedTagIds:   string[];
+  onChangeTagIds:   (ids: string[]) => void;
+  filterCategoryId?: string;         // product : restreindre au tags d'une catégorie
+  showDomains?:     boolean;         // afficher les chips domaine (service / spotyou)
+  maxSelect?:       number;          // défaut: illimité
+  accentColor?:     string;          // défaut: bleu
+  label?:           string;
+  hint?:            string;
+  required?:        boolean;
+}
+
+export function TagPickerField({
+  entityType, selectedTagIds, onChangeTagIds,
+  filterCategoryId, showDomains = false,
+  maxSelect, accentColor = '#3B82F6',
+  label, hint, required,
+}: TagPickerFieldProps) {
+  const [allCategories, setAllCategories] = useState<CategoryItem[]>([]);
+  const [domains,       setDomains]       = useState<DomainItem[]>([]);
+  const [domainId,      setDomainId]      = useState<string | null>(null);
+  const [modalVisible,  setModalVisible]  = useState(false);
+  const [query,         setQuery]         = useState('');
+  const [loading,       setLoading]       = useState(false);
+
+  /* ── Fetch catégories ────────────────────────────────────────────────── */
+  useEffect(() => {
+    setLoading(true);
+    const url = `/tags/categories?entity_type=${entityType}${domainId ? `&domain_id=${domainId}` : ''}`;
+    api.get(url)
+      .then((data: CategoryItem[]) => setAllCategories(data || []))
+      .catch(() => setAllCategories([]))
+      .finally(() => setLoading(false));
+  }, [entityType, domainId]);
+
+  /* ── Fetch domaines (si showDomains) ────────────────────────────────── */
+  useEffect(() => {
+    if (!showDomains) return;
+    api.get('/domains')
+      .then((data: DomainItem[]) => {
+        const sorted = [...(data || [])].sort((a, b) =>
+          a.domain_id === 'dom_sport' ? -1 : b.domain_id === 'dom_sport' ? 1 : 0
+        );
+        setDomains(sorted);
+        if (!domainId && sorted.length > 0) setDomainId(sorted[0].domain_id);
+      })
+      .catch(() => {});
+  }, [showDomains]);
+
+  /* ── Filtrage dans le modal ──────────────────────────────────────────── */
+  const filteredCategories = useMemo(() => {
+    let cats = filterCategoryId
+      ? allCategories.filter(c => c.category_id === filterCategoryId)
+      : allCategories;
+    const q = query.trim().toLowerCase();
+    if (!q) return cats.filter(c => (c.tags || []).length > 0);
+    return cats
+      .map(cat => ({
+        ...cat,
+        tags: (cat.tags || []).filter(t =>
+          t.label_fr.toLowerCase().includes(q) ||
+          (t.label_en ?? '').toLowerCase().includes(q) ||
+          cat.label_fr.toLowerCase().includes(q)
+        ),
+      }))
+      .filter(cat =>
+        cat.label_fr.toLowerCase().includes(q) || cat.tags.length > 0
+      );
+  }, [allCategories, query, filterCategoryId]);
+
+  /* ── Toggle tag ─────────────────────────────────────────────────────── */
+  const toggleTag = (id: string) => {
+    if (selectedTagIds.includes(id)) {
+      onChangeTagIds(selectedTagIds.filter(t => t !== id));
+    } else if (!maxSelect || selectedTagIds.length < maxSelect) {
+      onChangeTagIds([...selectedTagIds, id]);
+    }
+  };
+
+  /* ── Tags sélectionnés (pour aperçu pills) ──────────────────────────── */
+  const allTags    = useMemo(() => allCategories.flatMap(c => c.tags || []), [allCategories]);
+  const selTagObjs = allTags.filter(t => selectedTagIds.includes(t.tag_id));
+  const count      = selectedTagIds.length;
+
+  /* ── Couleur domaine ─────────────────────────────────────────────────── */
+  const domainColor = (d: DomainItem): string => d.color || '#3B82F6';
+
+  /* ────────────────────────────────────────────────────────────────────── */
+  return (
+    <View style={t.wrap}>
+      {label && (
+        <Text style={t.fieldLabel}>
+          {label}{required && <Text style={{ color: '#EF4444' }}> *</Text>}
+        </Text>
+      )}
+
+      {/* ── Chips domaine (spotyou / service) ──────────────────────────── */}
+      {showDomains && domains.length > 0 && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 4 }}>
+          <View style={t.domainsRow}>
+            {domains.map(d => {
+              const sel = domainId === d.domain_id;
+              const col = domainColor(d);
+              return (
+                <TouchableOpacity
+                  key={d.domain_id}
+                  style={[t.domainPill, sel && { backgroundColor: col + '22', borderColor: col }]}
+                  onPress={() => setDomainId(sel ? null : d.domain_id)}
+                  testID={`domain-${d.domain_id}`}
+                >
+                  <Text style={[t.domainPillText, sel && { color: col, fontWeight: '700' }]}>
+                    {d.label_fr || d.name || d.domain_id}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </ScrollView>
+      )}
+
+      {/* ── Pills aperçu des tags sélectionnés ─────────────────────────── */}
+      {selTagObjs.length > 0 && (
+        <View style={t.previewRow}>
+          {selTagObjs.map(tg => (
+            <TouchableOpacity
+              key={tg.tag_id}
+              style={[t.previewPill, { borderColor: accentColor, backgroundColor: accentColor + '15' }]}
+              onPress={() => toggleTag(tg.tag_id)}
+              testID={`tag-preview-${tg.tag_id}`}
+            >
+              <Text style={[t.previewPillText, { color: accentColor }]}>{tg.label_fr}</Text>
+              <Ionicons name="close-circle" size={13} color={accentColor} />
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {/* ── Bouton trigger ─────────────────────────────────────────────── */}
+      <TouchableOpacity
+        style={[t.trigger, count > 0 && { borderColor: accentColor + '60' }]}
+        onPress={() => setModalVisible(true)}
+        testID="open-tag-picker-btn"
+        activeOpacity={0.75}
+      >
+        <Ionicons name="pricetag-outline" size={16} color={count > 0 ? accentColor : Colors.muted} />
+        <Text style={[t.triggerText, count > 0 && { color: accentColor }]}>
+          {count > 0
+            ? `${count} tag${count > 1 ? 's' : ''} sélectionné${count > 1 ? 's' : ''}`
+            : 'Choisir des tags'}
+        </Text>
+        {maxSelect && (
+          <Text style={[t.triggerCount, count === maxSelect && { color: accentColor }]}>
+            {count}/{maxSelect}
+          </Text>
+        )}
+        <Ionicons name="chevron-forward" size={16} color={Colors.muted} />
+      </TouchableOpacity>
+
+      {hint && <Text style={t.hint}>{hint}</Text>}
+
+      {/* ══ MODAL ═══════════════════════════════════════════════════════════ */}
+      <Modal
+        visible={modalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => { setModalVisible(false); setQuery(''); }}
+      >
+        <View style={t.overlay}>
+          {/* Backdrop */}
+          <TouchableOpacity
+            style={t.backdrop}
+            activeOpacity={1}
+            onPress={() => { setModalVisible(false); setQuery(''); }}
+          />
+
+          {/* Sheet */}
+          <View style={t.sheet}>
+            {/* Handle */}
+            <View style={t.handle} />
+
+            {/* Header */}
+            <View style={t.modalHeader}>
+              <TouchableOpacity onPress={() => { setModalVisible(false); setQuery(''); }}>
+                <Text style={t.cancelText}>Annuler</Text>
+              </TouchableOpacity>
+              <Text style={t.modalTitle}>Choisir des tags</Text>
+              <TouchableOpacity
+                onPress={() => { setModalVisible(false); setQuery(''); }}
+                testID="confirm-tag-picker-btn"
+              >
+                <Ionicons name="checkmark-circle" size={28} color={accentColor} />
+              </TouchableOpacity>
+            </View>
+
+            {/* ── Champ de recherche ────────────────────────────────────── */}
+            <View style={t.searchRow}>
+              <Ionicons name="search-outline" size={16} color={Colors.muted} style={{ marginLeft: 12 }} />
+              <TextInput
+                style={t.searchInput}
+                value={query}
+                onChangeText={setQuery}
+                placeholder="Rechercher une catégorie ou un tag…"
+                placeholderTextColor={Colors.muted}
+                autoCorrect={false}
+                clearButtonMode="while-editing"
+                testID="tag-search-input"
+              />
+              {query.length > 0 && (
+                <TouchableOpacity onPress={() => setQuery('')} style={{ marginRight: 10 }}>
+                  <Ionicons name="close-circle" size={16} color={Colors.muted} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* ── Compteur + Effacer ───────────────────────────────────── */}
+            {count > 0 && (
+              <View style={t.selectedBanner}>
+                <Text style={[t.selectedText, { color: accentColor }]}>
+                  {count} tag{count > 1 ? 's' : ''} sélectionné{count > 1 ? 's' : ''}
+                  {maxSelect ? ` (max ${maxSelect})` : ''}
+                </Text>
+                <TouchableOpacity onPress={() => onChangeTagIds([])}>
+                  <Text style={t.clearText}>Effacer</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* ── Liste catégories + tags ──────────────────────────────── */}
+            {loading ? (
+              <ActivityIndicator color={accentColor} style={{ marginTop: 32 }} />
+            ) : (
+              <ScrollView
+                style={{ flex: 1 }}
+                contentContainerStyle={t.listContent}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+              >
+                {filteredCategories.length === 0 && (
+                  <View style={t.emptyState}>
+                    <Ionicons name="search-outline" size={28} color={Colors.muted} />
+                    <Text style={t.emptyText}>Aucun résultat pour "{query}"</Text>
+                  </View>
+                )}
+
+                {filteredCategories.map(cat => {
+                  const col = catColor(cat.category_id);
+                  const catTags = cat.tags || [];
+                  return (
+                    <View key={cat.category_id} style={t.catGroup}>
+                      <View style={t.catLabelRow}>
+                        <View style={[t.catDot, { backgroundColor: col }]} />
+                        <Text style={t.catLabel}>{cat.label_fr}</Text>
+                      </View>
+                      <View style={t.tagsWrap}>
+                        {catTags.map(tag => {
+                          const sel      = selectedTagIds.includes(tag.tag_id);
+                          const disabled = !sel && !!maxSelect && count >= maxSelect;
+                          return (
+                            <TouchableOpacity
+                              key={tag.tag_id}
+                              style={[
+                                t.tagChip,
+                                sel      && { backgroundColor: col + '22', borderColor: col },
+                                disabled && { opacity: 0.35 },
+                              ]}
+                              onPress={() => !disabled && toggleTag(tag.tag_id)}
+                              testID={`tag-chip-${tag.tag_id}`}
+                              activeOpacity={0.75}
+                            >
+                              {sel && <Ionicons name="checkmark" size={12} color={col} style={{ marginRight: 3 }} />}
+                              <Text style={[t.tagChipText, sel && { color: col, fontWeight: '700' }]}>
+                                {tag.label_fr}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+/* ── Styles ─────────────────────────────────────────────────────────────── */
+const t = StyleSheet.create({
+  wrap:          { gap: 8 },
+  fieldLabel:    { fontSize: 11, fontWeight: '700', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 1 },
+  hint:          { fontSize: 11, color: Colors.muted, lineHeight: 15 },
+
+  domainsRow:    { flexDirection: 'row', gap: 8, paddingVertical: 4 },
+  domainPill:    { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: Colors.card, borderWidth: 1.5, borderColor: Colors.border },
+  domainPillText:{ fontSize: 13, fontWeight: '600', color: Colors.muted },
+
+  previewRow:    { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  previewPill:   { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1.5 },
+  previewPillText:{ fontSize: 12, fontWeight: '600' },
+
+  trigger:       { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 14, paddingVertical: 13 },
+  triggerText:   { flex: 1, fontSize: 14, fontWeight: '500', color: Colors.muted },
+  triggerCount:  { fontSize: 12, fontWeight: '700', color: Colors.muted },
+
+  // Modal
+  overlay:       { flex: 1, justifyContent: 'flex-end' },
+  backdrop:      { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.55)' },
+  sheet:         { backgroundColor: Colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '88%', overflow: 'hidden' },
+  handle:        { width: 40, height: 4, borderRadius: 2, backgroundColor: Colors.border, alignSelf: 'center', marginTop: 10, marginBottom: 4 },
+
+  modalHeader:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  cancelText:    { fontSize: 15, color: Colors.muted },
+  modalTitle:    { fontSize: 16, fontWeight: '800', color: Colors.foreground },
+
+  searchRow:     { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.background, borderRadius: Radius.md, margin: Spacing.md, marginBottom: 4, borderWidth: 1, borderColor: Colors.border, gap: 6 },
+  searchInput:   { flex: 1, fontSize: 14, color: Colors.foreground, paddingVertical: 11, paddingRight: 4 },
+
+  selectedBanner:{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, paddingVertical: 8, backgroundColor: Colors.background },
+  selectedText:  { fontSize: 13, fontWeight: '600' },
+  clearText:     { fontSize: 13, color: Colors.muted, textDecorationLine: 'underline' },
+
+  listContent:   { padding: Spacing.md, paddingBottom: 40, gap: 20 },
+  emptyState:    { alignItems: 'center', gap: 10, paddingVertical: 40 },
+  emptyText:     { fontSize: 14, color: Colors.muted },
+
+  catGroup:      { gap: 10 },
+  catLabelRow:   { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  catDot:        { width: 8, height: 8, borderRadius: 4 },
+  catLabel:      { fontSize: 12, fontWeight: '700', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.8 },
+
+  tagsWrap:      { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  tagChip:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.background },
+  tagChipText:   { fontSize: 13, fontWeight: '500', color: Colors.foreground },
+});
