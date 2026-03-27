@@ -105,13 +105,21 @@ export function ProductCreationFlow({ isEditMode = false }: { isEditMode?: boole
   /* ── Upload des images ──────────────────────────────────────────────── */
   const uploadAllImages = async (): Promise<string[]> => {
     const uploaded: string[] = [];
+    let failedCount = 0;
     for (const uri of form.images) {
       if (uri.startsWith('http')) {
         uploaded.push(uri); // Déjà uploadé
       } else {
         const url = await uploadImage(uri, token || '', 'products');
-        if (url) uploaded.push(url);
+        if (url) {
+          uploaded.push(url);
+        } else {
+          failedCount++;
+        }
       }
+    }
+    if (failedCount > 0 && uploaded.length === 0) {
+      throw new Error(`Échec de l'envoi des photos. Vérifiez votre connexion et réessayez.`);
     }
     return uploaded;
   };

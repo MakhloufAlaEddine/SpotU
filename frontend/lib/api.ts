@@ -37,6 +37,11 @@ async function request<T = any>(
           detail = err.detail;
         } else if (err.detail) {
           detail = JSON.stringify(err.detail);
+        } else if (typeof err.error === 'string') {
+          // Format maison : {"error": "...", "details": [...]}
+          detail = err.error;
+        } else if (err.message) {
+          detail = err.message;
         }
       } catch {}
       throw classifyHttpError(res.status, detail);
