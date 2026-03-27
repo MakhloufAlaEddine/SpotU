@@ -5,7 +5,7 @@
 import React, { useState, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
-  Animated, Alert, ActivityIndicator,
+  Animated, Alert, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -243,28 +243,33 @@ export function ProductCreationFlow({ isEditMode = false }: { isEditMode?: boole
         </View>
       ) : null}
 
-      {/* ── Contenu étape ────────────────────────────────────────────────── */}
-      <ScrollView
-        ref={scrollRef}
+      {/* ── Contenu étape + navigation (KeyboardAvoidingView) ──────────── */}
+      <KeyboardAvoidingView
         style={{ flex: 1 }}
-        contentContainerStyle={c.content}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
       >
-        {step === 8 ? (
-          <Step7Summary
-            onSaveDraft={() => submit('draft')}
-            onPublish={() => submit('pending_review')}
-            isSubmitting={isSubmitting}
-          />
-        ) : (
-          <StepComponent />
-        )}
-      </ScrollView>
+        <ScrollView
+          ref={scrollRef}
+          style={{ flex: 1 }}
+          contentContainerStyle={c.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {step === 8 ? (
+            <Step7Summary
+              onSaveDraft={() => submit('draft')}
+              onPublish={() => submit('pending_review')}
+              isSubmitting={isSubmitting}
+            />
+          ) : (
+            <StepComponent />
+          )}
+        </ScrollView>
 
-      {/* ── Navigation bottom (sauf récap) ───────────────────────────────── */}
-      {!isLast && (
-        <View style={c.navBar}>
+        {/* ── Navigation bottom (sauf récap) ───────────────────────────── */}
+        {!isLast && (
+          <View style={c.navBar}>
           <TouchableOpacity
             style={c.nextBtn}
             onPress={goNext}
@@ -279,6 +284,7 @@ export function ProductCreationFlow({ isEditMode = false }: { isEditMode?: boole
         </View>
       )}
 
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
