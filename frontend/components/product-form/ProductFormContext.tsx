@@ -5,7 +5,7 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 
 export type ProductType = 'rental' | 'sale' | 'digital' | 'affiliation';
-export type PricingType = 'day' | 'session';
+export type PricingMode = 'hour' | 'day' | 'week' | 'month' | 'session';
 export type ConditionLabel = 'new' | 'very_good' | 'good' | 'acceptable';
 export type PickupType = 'local_pickup' | 'creator_handoff';
 export type LocationPrivacy = 'exact' | '100m' | '1000m';
@@ -26,8 +26,13 @@ export interface ProductFormData {
   included_items: string;
   brand_model: string;
   size_dimensions: string;
-  price: string;
-  pricing_type: PricingType;
+
+  // Tarification multi-unité
+  pricing_modes: PricingMode[];  // ex: ['hour','day'] = location à l'heure ET à la journée
+  price_per_hour: string;
+  price_per_day: string;
+  price_per_week: string;
+  price_per_month: string;
   available_quantity: string;
 
   // Step 3 — Photos
@@ -69,8 +74,11 @@ const DEFAULT: ProductFormData = {
   included_items:     '',
   brand_model:        '',
   size_dimensions:    '',
-  price:              '',
-  pricing_type:       'day',
+  pricing_modes:      ['day'],
+  price_per_hour:     '',
+  price_per_day:      '',
+  price_per_week:     '',
+  price_per_month:    '',
   available_quantity: '1',
   images:             [],
   deposit_required:   false,
@@ -88,6 +96,25 @@ const DEFAULT: ProductFormData = {
   availability_note:  '',
   related_spotyou_ids:[],
 };
+
+/* ── Helpers ─────────────────────────────────────────────────────────────── */
+export function getMinPrice(f: ProductFormData): number {
+  const rates = [f.price_per_hour, f.price_per_day, f.price_per_week, f.price_per_month]
+    .map(v => parseFloat(v?.replace(',', '.') || '0'))
+    .filter(n => n > 0);
+  return rates.length > 0 ? Math.min(...rates) : 0;
+}
+
+export function hasValidPricing(f: ProductFormData): boolean {
+  if (f.pricing_modes.includes('session')) return true;
+  return f.pricing_modes.some(mode => {
+    const val = mode === 'hour'  ? f.price_per_hour
+              : mode === 'day'   ? f.price_per_day
+              : mode === 'week'  ? f.price_per_week
+              : mode === 'month' ? f.price_per_month : '';
+    return parseFloat(val?.replace(',', '.') || '0') > 0;
+  });
+}
 
 /* ── Qualité ────────────────────────────────────────────────────────────── */
 export function calcProductQuality(f: ProductFormData): {
@@ -112,8 +139,8 @@ export function calcProductQuality(f: ProductFormData): {
 
   if (f.description.trim().length >= 150) s += 10;
 
-  if (f.price) { s += 10; done.push('Prix défini'); }
-  else           todo.push('Prix');
+  if (hasValidPricing(f)) { s += 10; done.push('Tarification définie'); }
+  else                       todo.push('Au moins un tarif');
 
   if (f.pickup_type) { s += 10; done.push('Mode de remise'); }
   else                todo.push('Mode de remise');
@@ -146,10 +173,8 @@ export function validateStep(step: number, f: ProductFormData): string | null {
         return 'Le titre doit faire au moins 3 caractères.';
       if (!f.condition_label)
         return "Précisez l'état du matériel.";
-      if (!f.price || isNaN(Number(f.price.replace(',', '.'))) || Number(f.price.replace(',', '.')) <= 0)
-        return 'Indiquez un prix valide (supérieur à 0).';
-      if (!f.pricing_type)
-        return 'Choisissez le type de tarification.';
+      if (!hasValidPricing(f))
+        return 'Définissez au moins un tarif (heure, jour, semaine, mois ou séance).';
       if (!f.available_quantity || parseInt(f.available_quantity, 10) < 1)
         return 'La quantité doit être au minimum 1.';
       break;

@@ -71,9 +71,9 @@ export function Step4RentalConditions() {
         />
       </Field>
 
-      {/* Durée max (location au jour) */}
-      {form.pricing_type === 'day' && (
-        <Field label="Durée maximale de location" hint="En nombre de jours" required>
+      {/* Durée maximale — seulement si mode jour/semaine/mois actif */}
+      {(form.pricing_modes ?? []).some(m => ['day','week','month'].includes(m)) && (
+        <Field label="Durée maximale de location" hint="Nombre maximum de jours consécutifs" required>
           <View style={r.rowInput}>
             <TextInput
               style={[r.input, { width: 80 }]}

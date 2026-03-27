@@ -18,6 +18,7 @@ import {
   useProductForm,
   calcProductQuality,
   validateStep,
+  getMinPrice,
 } from './ProductFormContext';
 import { Step1TypeCategory }     from './steps/Step1TypeCategory';
 import { Step2MainInfo }         from './steps/Step2MainInfo';
@@ -132,8 +133,13 @@ export function ProductCreationFlow({ isEditMode = false }: { isEditMode?: boole
         included_items:       form.included_items.trim(),
         brand_model:          form.brand_model.trim(),
         size_dimensions:      form.size_dimensions.trim(),
-        price:                Number(form.price.replace(',', '.') || '0'),
-        pricing_type:         form.pricing_type,
+        price:                getMinPrice(form),
+        pricing_type:         (form.pricing_modes ?? ['day'])[0],
+        pricing_modes:        form.pricing_modes ?? ['day'],
+        price_per_hour:       form.price_per_hour ? Number(form.price_per_hour.replace(',', '.')) : null,
+        price_per_day:        form.price_per_day  ? Number(form.price_per_day.replace(',', '.'))  : null,
+        price_per_week:       form.price_per_week ? Number(form.price_per_week.replace(',', '.')) : null,
+        price_per_month:      form.price_per_month ? Number(form.price_per_month.replace(',', '.')) : null,
         available_quantity:   parseInt(form.available_quantity || '1', 10),
         cover_image_url:      coverImg,
         image_url:            coverImg,

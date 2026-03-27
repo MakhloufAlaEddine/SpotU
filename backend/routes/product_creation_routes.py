@@ -51,6 +51,7 @@ async def get_my_products(request: Request):
             SELECT
                 product_id, title, short_description, description,
                 price, currency, product_type, pricing_type,
+                pricing_modes, price_per_hour, price_per_day, price_per_week, price_per_month,
                 status, category, subcategory,
                 cover_image_url, image_url, image_urls,
                 condition_label, available_quantity,
@@ -91,6 +92,7 @@ async def get_product_detail(request: Request, product_id: str):
                    return_rules, cancellation_rules, availability_note,
                    included_items, brand_model, size_dimensions,
                    tag_ids,
+                   pricing_modes, price_per_hour, price_per_day, price_per_week, price_per_month,
                    related_spotyou_ids,
                    rejection_reason, admin_comment,
                    created_at, updated_at
@@ -216,15 +218,25 @@ async def create_product(request: Request):
                     deposit_required = $19, deposit_amount = $20,
                     max_duration_days = $21,
                     pickup_type = $22, pickup_notes = $23,
-                    availability_note = $24,
-                    return_rules = $25, cancellation_rules = $26,
-                    city = $27, lat = $28, lng = $29,
-                    location_privacy = $30, radius_km = $31,
-                    related_spotyou_ids = $32,
-                    tag_ids = $33,
-                    delivery_modes = $34,
-                    status = $35, updated_at = $36
-                WHERE product_id = $37 AND seller_id = $38
+                UPDATE marketplace_products SET
+                    title = $1, short_description = $2, description = $3,
+                    price = $4, currency = $5, product_type = $6, pricing_type = $7,
+                    pricing_modes = $8, price_per_hour = $9, price_per_day = $10,
+                    price_per_week = $11, price_per_month = $12,
+                    category = $13, subcategory = $14,
+                    cover_image_url = $15, image_url = $16, image_urls = $17,
+                    condition_label = $18, included_items = $19, brand_model = $20,
+                    size_dimensions = $21, available_quantity = $22, in_stock = $23,
+                    deposit_required = $24, deposit_amount = $25, max_duration_days = $26,
+                    pickup_type = $27, pickup_notes = $28, availability_note = $29,
+                    return_rules = $30, cancellation_rules = $31,
+                    city = $32, lat = $33, lng = $34,
+                    location_privacy = $35, radius_km = $36,
+                    related_spotyou_ids = $37,
+                    tag_ids = $38,
+                    delivery_modes = $39,
+                    status = $40, updated_at = $41
+                WHERE product_id = $42 AND seller_id = $43
                 """,
                 title,
                 body.get("short_description"),
@@ -233,6 +245,11 @@ async def create_product(request: Request):
                 body.get("currency", "EUR"),
                 body.get("product_type", "rental"),
                 body.get("pricing_type", "day"),
+                body.get("pricing_modes") or ["day"],
+                body.get("price_per_hour"),
+                body.get("price_per_day"),
+                body.get("price_per_week"),
+                body.get("price_per_month"),
                 body.get("category"),
                 body.get("subcategory"),
                 cover_image_url,
@@ -275,6 +292,7 @@ async def create_product(request: Request):
                 INSERT INTO marketplace_products (
                     product_id, title, short_description, description,
                     price, currency, product_type, pricing_type,
+                    pricing_modes, price_per_hour, price_per_day, price_per_week, price_per_month,
                     seller_id, seller_type, seller_name, seller_picture_url,
                     category, subcategory,
                     cover_image_url, image_url, image_urls,
@@ -290,7 +308,7 @@ async def create_product(request: Request):
                 ) VALUES (
                     $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,
                     $18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,
-                    $33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43
+                    $33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46,$47,$48
                 )
                 """,
                 product_id,
@@ -301,6 +319,11 @@ async def create_product(request: Request):
                 body.get("currency", "EUR"),
                 body.get("product_type", "rental"),
                 body.get("pricing_type", "day"),
+                body.get("pricing_modes") or ["day"],
+                body.get("price_per_hour"),
+                body.get("price_per_day"),
+                body.get("price_per_week"),
+                body.get("price_per_month"),
                 user_id,
                 "user",
                 seller_name,
