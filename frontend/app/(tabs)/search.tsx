@@ -107,6 +107,30 @@ export default function SearchScreen() {
 
   // Tag state
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  // Expansion map: spotyou tag_id → [syu_id, svc_id correspondant par label]
+  // Permet de filtrer AUSSI les services quand un tag spotyou est sélectionné
+  const [tagExpansion, setTagExpansion] = useState<Record<string, string[]>>({});
+
+  useEffect(() => {
+    Promise.all([
+      api.get('/tags/categories?entity_type=spotyou').catch(() => []),
+      api.get('/tags/categories?entity_type=service').catch(() => []),
+    ]).then(([syuCats, svcCats]: [any[], any[]]) => {
+      const map: Record<string, string[]> = {};
+      syuCats.forEach((syuCat: any) => {
+        const matchSvcCat = svcCats.find((s: any) => s.label_fr === syuCat.label_fr);
+        (syuCat.tags || []).forEach((syuTag: any) => {
+          const ids = [syuTag.tag_id];
+          if (matchSvcCat) {
+            const svcTag = (matchSvcCat.tags || []).find((t: any) => t.label_fr === syuTag.label_fr);
+            if (svcTag) ids.push(svcTag.tag_id);
+          }
+          map[syuTag.tag_id] = ids;
+        });
+      });
+      setTagExpansion(map);
+    });
+  }, []);
 
   // Search on location / radius change
   useEffect(() => {
@@ -159,11 +183,13 @@ export default function SearchScreen() {
     };
     const filterByTags = (items: any[], getTagsFn: (i: any) => string[]) => {
       if (selectedTags.length === 0) return items;
+      // Expansion: chaque tag spotyou sélectionné → inclure aussi l'équivalent service
+      const expandedTags = [...new Set(selectedTags.flatMap(id => tagExpansion[id] ?? [id]))];
       return items.filter(item => {
         const itemTags = getTagsFn(item);
         return combineMode
-          ? selectedTags.every(t => itemTags.includes(t))
-          : selectedTags.some(t => itemTags.includes(t));
+          ? selectedTags.every(id => (tagExpansion[id] ?? [id]).some(t => itemTags.includes(t)))
+          : expandedTags.some(t => itemTags.includes(t));
       });
     };
     const filteredSpotYou = filterByTags(SpotYou, pt => pt.tag_ids || []);
@@ -173,7 +199,7 @@ export default function SearchScreen() {
       ...filteredSpotYou.map(p => ({ ...p, _type: 'spotyou' as const })),
     ];
     return mixed.sort((a, b) => getDistVal(a) - getDistVal(b));
-  }, [SpotYou, services, selectedTags, combineMode, location.lat, location.lng]);
+  }, [SpotYou, services, selectedTags, combineMode, location.lat, location.lng, tagExpansion]);
 
   // ─── Pins pour la vue carte ───────────────────────────────────────────────
   const mapPins = useMemo<MapPin[]>(() => {
@@ -236,7 +262,7 @@ export default function SearchScreen() {
           <View style={styles.tagInputRow}>
             <View style={{ flex: 1 }}>
               <TagPickerField
-                entityType=""
+                entityType="spotyou"
                 showDomains={false}
                 selectedTagIds={selectedTags}
                 onChangeTagIds={setSelectedTags}
@@ -330,7 +356,7 @@ export default function SearchScreen() {
         <View style={styles.tagInputRow}>
           <View style={{ flex: 1 }}>
             <TagPickerField
-              entityType=""
+              entityType="spotyou"
               showDomains={false}
               selectedTagIds={selectedTags}
               onChangeTagIds={setSelectedTags}
