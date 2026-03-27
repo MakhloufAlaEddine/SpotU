@@ -19,6 +19,14 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 
 ## What's Been Implemented
 
+### Unification Sélecteur de Tags — TagPickerField Partagé (2026-03-27)
+| Composant | Changement |
+|-----------|-----------|
+| `TagPickerField.tsx` | Mis à jour : entityType optionnel ('' = tous), onTagsLoaded callback, déduplication catégories et tags par id |
+| `create-service.tsx` | Step 2 Domaine & Tags → `<TagPickerField entityType="service" showDomains />`, suppression modal inline + loadDomains/loadCategories/toggleTag |
+| `create.tsx` (SpotYou) | StepContenu → `<TagPickerField entityType="spotyou" showDomains />`, suppression modal inline + fonctions redondantes |
+| `search.tsx` | TagModal local supprimé, remplacement par `<TagPickerField entityType="" showDomains={false} />` dans vue liste ET carte |
+
 ### Refactoring Stepper Produit — UX + Validation Complète (2026-03-27)
 | Composant | Changement |
 |-----------|-----------|

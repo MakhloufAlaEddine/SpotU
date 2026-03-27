@@ -102,9 +102,14 @@ export function TagPickerField({
 
   /* ── Filtrage dans le modal ──────────────────────────────────────────── */
   const filteredCategories = useMemo(() => {
-    let cats = filterCategoryId
-      ? allCategories.filter(c => c.category_id === filterCategoryId)
-      : allCategories;
+    // Déduplique les catégories par category_id (évite les doublons quand entityType='')
+    const seenCats = new Set<string>();
+    let cats = allCategories.filter(c => {
+      if (seenCats.has(c.category_id)) return false;
+      seenCats.add(c.category_id);
+      return true;
+    });
+    if (filterCategoryId) cats = cats.filter(c => c.category_id === filterCategoryId);
     const q = query.trim().toLowerCase();
     if (!q) return cats.filter(c => (c.tags || []).length > 0);
     return cats
@@ -131,7 +136,15 @@ export function TagPickerField({
   };
 
   /* ── Tags sélectionnés (pour aperçu pills) ──────────────────────────── */
-  const allTags    = useMemo(() => allCategories.flatMap(c => c.tags || []), [allCategories]);
+  const allTags = useMemo(() => {
+    // Déduplique les tags par tag_id (évite les pills multiples quand entityType='')
+    const seen = new Set<string>();
+    return allCategories.flatMap(c => c.tags || []).filter(t => {
+      if (seen.has(t.tag_id)) return false;
+      seen.add(t.tag_id);
+      return true;
+    });
+  }, [allCategories]);
   const selTagObjs = allTags.filter(t => selectedTagIds.includes(t.tag_id));
   const count      = selectedTagIds.length;
 
