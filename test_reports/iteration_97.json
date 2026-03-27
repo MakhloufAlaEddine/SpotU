@@ -1,0 +1,98 @@
+{
+  "summary": "Complete testing of 9-step product creation stepper refactoring. All 10 test scenarios verified. 9-step navigation fully functional from Classification to Publication. One minor display issue found in summary (Category label shows '—').",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Step7Summary (Step 9 — Publication)",
+        "issue": "Catégorie always shows '—' in summary. CAT_LABELS in Step7Summary.tsx maps keys like 'velo', 'raquette' etc, but form.category contains the actual category_id from the API (e.g., 'cat_velo' or similar UUID). The CAT_LABELS[form.category] lookup fails, so category displays as '—'.",
+        "selector": "[data-testid=save-draft-btn]",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Step 5 — Tarification",
+        "issues": ["SpotYou 'Yoga en plein air — Trocadéro' correctly visible when session mode active. Fully functional."]
+      }
+    ]
+  },
+  "test_results": {
+    "T1_navigation_9_steps": {
+      "status": "PASS",
+      "details": "Header shows 'Étape 1 sur 9', all 9 dots (1-9) present, 'Classification' title correct"
+    },
+    "T2_step1_classification": {
+      "status": "PASS",
+      "details": "product-type-rental (Location) clickable, Vélo/Trottinette category selectable, tag (Cyclisme) selectable, visibility card 'Ton produit apparaît automatiquement...' appears when tag selected"
+    },
+    "T3_step2_essentiel": {
+      "status": "PASS",
+      "details": "product-title-input fillable, condition-new/condition-very_good/condition-good/condition-acceptable all present, qty-minus/qty-plus work (1→2→1), product-brand-input with '(optionnel)' label present",
+      "note": "Test request said testID 'condition-neuf' but code correctly uses 'condition-new' matching ConditionLabel type"
+    },
+    "T4_step3_details": {
+      "status": "PASS",
+      "details": "All 3 fields present and marked '(optionnel)': RÉSUMÉ RAPIDE (product-short-desc-input), DESCRIPTION COMPLÈTE (product-desc-input), CE QUI EST INCLUS (product-included-input). optionnel count=4"
+    },
+    "T5_step4_photos": {
+      "status": "PASS",
+      "details": "Photos component present with add-photo-btn, tips card, hint text. Blocking validation works: clicking Next without photo shows 'Ajoutez au moins une photo principale.'",
+      "note": "expo-image-picker on web does not expose a standard file input until triggered. Photo added via React fiber injection for testing purposes."
+    },
+    "T6_step5_tarification": {
+      "status": "PASS",
+      "details": "All 5 pills present: toggle-mode-hour/day/week/month/session. Price inputs appear for active modes. SpotYou section 'RATTACHER UN SPOTYOU' with 'Obligatoire' badge appears when Séance activated. Coach's SpotYou 'Yoga en plein air — Trocadéro' loads correctly. Clicking Next without SpotYou shows error: 'Avec la tarification par séance, sélectionne au moins un SpotYou.'"
+    },
+    "T7_step6_logistique": {
+      "status": "PASS",
+      "details": "pickup-local_pickup ('Sur place') and pickup-creator_handoff ('Remise en main propre') cards present and selectable. deposit-switch present. DURÉE MAXIMALE DE LOCATION field appears (day mode active). Toggling caution switch makes MONTANT DE LA CAUTION field and deposit-amount-input appear."
+    },
+    "T8_step7_regles": {
+      "status": "PASS",
+      "details": "All 3 textareas present and marked optionnel: CONSIGNES DE REMISE (pickup-notes-input), RÈGLES DE RETOUR (return-rules-input), CONDITIONS D'ANNULATION (cancellation-rules-input). optionnel count=4 (>=3 expected)"
+    },
+    "T9_step8_localisation": {
+      "status": "PASS",
+      "details": "Step 8 'Localisation' present, city-input and availability-note-input functional. StepLocalisation component shows map, precision selector (Lieu exact, ~100m, ~1km). 'Voir le récapitulatif' button text correct on penultimate step."
+    },
+    "T10_step9_publication": {
+      "status": "PASS",
+      "details": "Step 9 'Publication/Étape 9 sur 9' shown. Quality score 65/100 displayed. save-draft-btn text='Brouillon', publish-btn text='Soumettre pour validation'. No 'Suivant' button on last step. Summary rows: Catégorie (shows '—' - see ui_bugs), État='Très bon', Quantité='1 unité(s)', Mode remise='Récupération sur place', Ville='Paris'. 'Avant de publier' advice section and admin moderation note present."
+    }
+  },
+  "critical_code_review_comments": [
+    "MINOR: Step7Summary.tsx CAT_LABELS uses hardcoded keys like 'velo', 'raquette' but form.category stores the category_id from the API (likely 'cat_velo' format or UUID). CAT_LABELS[form.category] always returns undefined → shows '—' in summary. Should use the category label from available context or map category_id to display name.",
+    "INFO: testID 'condition-neuf' mentioned in test request but code correctly uses 'condition-new' (matches ConditionLabel TypeScript type). Minor doc discrepancy.",
+    "INFO: Step5Pricing.tsx correctly inherits the fix from iteration_96: Array.isArray(d) ? d : (d.points || []) for /tag-points/mine API response.",
+    "INFO: 9 TOTAL_STEPS confirmed. STEP_COMPONENTS has 9 entries. step===8 conditional renders Step7Summary with special props correctly.",
+    "INFO: validateStep cases 1-9 all verified. Step 3 (Détails) and Step 7 (Règles) are correctly 'all optional' (break immediately). Step 8 (Localisation) requires locationAddress or selectedLat."
+  ],
+  "test_report_links": ["/app/test_reports/iteration_97.json"],
+  "action_items": [
+    "FIX (LOW): Step7Summary.tsx — CAT_LABELS mapping doesn't match API category_id format, so Catégorie always shows '—' in summary. Either fetch category label from taxonomy context or pass category label through form state.",
+    "INFO: Step6SpotYouLink.tsx (dead code) still exists — can be removed safely.",
+    "INFO: testID 'condition-neuf' in documentation should be updated to 'condition-new' to match actual code."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A (frontend only)",
+    "frontend": "100% (10/10 test scenarios passed, 1 minor display bug found)"
+  },
+  "test_credentials": "coach@winek.app / WinekCoach2024!",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "9-step stepper refactoring fully verified. All steps navigate correctly. Key fix from iter_96 (SpotYou array parsing) now in Step5Pricing.tsx. Photo step (Step 4) uses expo-image-picker which doesn't expose HTML file input on web — photo was injected via React fiber for testing. Coach has SpotYou 'Yoga en plein air — Trocadéro' (pt_demo003) visible in step 5 session mode. Minor: Category label shows '—' in step 9 summary due to CAT_LABELS key mismatch with API category_id values.",
+  "rca_of_issues": {
+    "category_label_in_summary": {
+      "root_cause": "Step7Summary.tsx has CAT_LABELS with hardcoded keys ('velo', 'raquette', 'fitness' etc). form.category stores the category_id from /tags/categories API. If the API returns category_ids like 'cat_velo' or UUIDs, CAT_LABELS[form.category] returns undefined and falls back to '—'.",
+      "reproduction": "Navigate to step 9 (Publication) — the summary card shows 'Catégorie: —' instead of the category name.",
+      "mitigation": "Pass the category label through form state in step 1, or fetch it from the taxonomy context in Step7Summary."
+    }
+  }
+}

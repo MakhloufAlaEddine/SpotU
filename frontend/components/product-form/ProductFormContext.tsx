@@ -162,7 +162,7 @@ export function calcProductQuality(f: ProductFormData): {
 /* ── Validation par étape ──────────────────────────────────────────────── */
 export function validateStep(step: number, f: ProductFormData): string | null {
   switch (step) {
-    case 1:
+    case 1: // Classification
       if (!f.product_type)
         return 'Sélectionnez un type de produit.';
       if (!f.category)
@@ -170,26 +170,30 @@ export function validateStep(step: number, f: ProductFormData): string | null {
       if (!f.tag_ids || f.tag_ids.length === 0)
         return 'Sélectionne au moins un tag pour continuer.';
       break;
-    case 2:
+    case 2: // L'essentiel
       if (!f.title.trim() || f.title.trim().length < 3)
         return 'Le titre doit faire au moins 3 caractères.';
       if (!f.condition_label)
         return "Précisez l'état du matériel.";
+      if (!f.available_quantity || parseInt(f.available_quantity, 10) < 1)
+        return 'La quantité doit être au minimum 1.';
+      break;
+    case 3: // Détails — tout optionnel
+      break;
+    case 4: // Photos
+      if (f.images.length === 0)
+        return 'Ajoutez au moins une photo principale.';
+      break;
+    case 5: // Tarification + SpotYou
       if (!hasValidPricing(f))
-        return 'Définissez au moins un tarif (heure, jour, semaine, mois ou séance).';
+        return 'Activez au moins un mode de tarification et saisissez un prix.';
       if (
         (f.pricing_modes ?? []).includes('session') &&
         (!f.related_spotyou_ids || f.related_spotyou_ids.length === 0)
       )
-        return 'Avec la tarification par séance, sélectionne au moins un SpotYou ci-dessous.';
-      if (!f.available_quantity || parseInt(f.available_quantity, 10) < 1)
-        return 'La quantité doit être au minimum 1.';
+        return 'Avec la tarification par séance, sélectionne au moins un SpotYou.';
       break;
-    case 3:
-      if (f.images.length === 0)
-        return 'Ajoutez au moins une photo principale.';
-      break;
-    case 4:
+    case 6: // Logistique
       if (!f.pickup_type)
         return 'Précisez le mode de remise du matériel.';
       if (
@@ -200,30 +204,27 @@ export function validateStep(step: number, f: ProductFormData): string | null {
       if (f.deposit_required && (!f.deposit_amount || Number((f.deposit_amount || '').replace(',', '.')) <= 0))
         return 'Indiquez le montant de la caution.';
       break;
-    case 5:
+    case 7: // Règles — tout optionnel
+      break;
+    case 8: // Localisation
       if (!f.locationAddress.trim() && !f.selectedLat)
         return 'Indiquez une localisation.';
       break;
-    case 6:
-      // SpotYou validation moved to step 2 (same step as pricing)
-      break;
-    case 7:
+    case 9: // Vérification finale complète (publication)
       if (!f.category)           return 'Étape 1 — Choisissez une catégorie.';
       if (!f.tag_ids || f.tag_ids.length === 0)
                                  return 'Étape 1 — Sélectionne au moins un tag.';
       if (!f.title.trim())       return 'Étape 2 — Le titre est obligatoire.';
       if (!f.condition_label)    return "Étape 2 — Précisez l'état du matériel.";
-      if (!hasValidPricing(f))   return 'Étape 2 — Définissez au moins un tarif.';
-      if (f.images.length === 0) return 'Étape 3 — Ajoutez au moins une photo.';
-      if (!f.pickup_type)        return 'Étape 4 — Précisez le mode de remise.';
-      if (
-        (f.pricing_modes ?? []).some(m => ['day', 'week', 'month'].includes(m)) &&
-        !f.max_duration_days
-      )                          return 'Étape 4 — Précisez la durée maximale de location.';
-      if (f.deposit_required && (!f.deposit_amount || Number((f.deposit_amount || '').replace(',', '.')) <= 0))
-                                 return 'Étape 4 — Indiquez le montant de la caution.';
+      if (f.images.length === 0) return 'Étape 4 — Ajoutez au moins une photo.';
+      if (!hasValidPricing(f))   return 'Étape 5 — Définissez au moins un tarif.';
       if ((f.pricing_modes ?? []).includes('session') && (!f.related_spotyou_ids || f.related_spotyou_ids.length === 0))
-                                 return 'Étape 2 — Sélectionne un SpotYou pour la tarification par séance.';
+                                 return 'Étape 5 — Sélectionne un SpotYou pour la tarification par séance.';
+      if (!f.pickup_type)        return 'Étape 6 — Précisez le mode de remise.';
+      if ((f.pricing_modes ?? []).some(m => ['day', 'week', 'month'].includes(m)) && !f.max_duration_days)
+                                 return 'Étape 6 — Précisez la durée maximale de location.';
+      if (f.deposit_required && (!f.deposit_amount || Number((f.deposit_amount || '').replace(',', '.')) <= 0))
+                                 return 'Étape 6 — Indiquez le montant de la caution.';
       break;
     default:
       break;
