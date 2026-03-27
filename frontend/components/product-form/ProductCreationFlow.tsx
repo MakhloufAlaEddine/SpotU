@@ -154,6 +154,7 @@ export function ProductCreationFlow({ isEditMode = false }: { isEditMode?: boole
         price_per_day:        form.price_per_day  ? Number(String(form.price_per_day).replace(',', '.'))  : null,
         price_per_week:       form.price_per_week ? Number(String(form.price_per_week).replace(',', '.')) : null,
         price_per_month:      form.price_per_month ? Number(String(form.price_per_month).replace(',', '.')) : null,
+        price_per_session:    form.price_per_session ? Number(String(form.price_per_session).replace(',', '.')) : null,
         available_quantity:   parseInt(form.available_quantity || '1', 10),
         cover_image_url:      coverImg,
         image_url:            coverImg,

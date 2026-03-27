@@ -33,6 +33,7 @@ export interface ProductFormData {
   price_per_day: string;
   price_per_week: string;
   price_per_month: string;
+  price_per_session: string;
   available_quantity: string;
 
   // Step 3 — Photos
@@ -80,6 +81,7 @@ const DEFAULT: ProductFormData = {
   price_per_day:      '',
   price_per_week:     '',
   price_per_month:    '',
+  price_per_session:  '',
   available_quantity: '1',
   images:             [],
   deposit_required:   false,
@@ -101,7 +103,7 @@ const DEFAULT: ProductFormData = {
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
 export function getMinPrice(f: ProductFormData): number {
-  const rates = [f.price_per_hour, f.price_per_day, f.price_per_week, f.price_per_month]
+  const rates = [f.price_per_hour, f.price_per_day, f.price_per_week, f.price_per_month, f.price_per_session]
     .map(v => parseFloat(v?.replace(',', '.') || '0'))
     .filter(n => n > 0);
   return rates.length > 0 ? Math.min(...rates) : 0;

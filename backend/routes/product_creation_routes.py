@@ -51,7 +51,7 @@ async def get_my_products(request: Request):
             SELECT
                 product_id, title, short_description, description,
                 price, currency, product_type, pricing_type,
-                pricing_modes, price_per_hour, price_per_day, price_per_week, price_per_month,
+                pricing_modes, price_per_hour, price_per_day, price_per_week, price_per_month, price_per_session,
                 status, category, subcategory,
                 cover_image_url, image_url, image_urls,
                 condition_label, available_quantity,
@@ -92,7 +92,7 @@ async def get_product_detail(request: Request, product_id: str):
                    return_rules, cancellation_rules, availability_note,
                    included_items, brand_model, size_dimensions,
                    tag_ids,
-                   pricing_modes, price_per_hour, price_per_day, price_per_week, price_per_month,
+                   pricing_modes, price_per_hour, price_per_day, price_per_week, price_per_month, price_per_session,
                    related_spotyou_ids,
                    rejection_reason, admin_comment,
                    created_at, updated_at
@@ -355,6 +355,18 @@ async def create_product(request: Request):
                 now,
                 now,
             )
+
+    # Sauvegarder price_per_session séparément (évite de renuméroter tous les $params)
+    async with pool.acquire() as conn:
+        ps_val = body.get("price_per_session")
+        try:
+            ps_val = float(str(ps_val).replace(",", ".")) if ps_val else None
+        except (ValueError, TypeError):
+            ps_val = None
+        await conn.execute(
+            "UPDATE marketplace_products SET price_per_session = $1 WHERE product_id = $2",
+            ps_val, product_id,
+        )
 
     # Notification admins si soumission en validation par un non-admin
     if requested_status == "pending_review" and not is_admin:

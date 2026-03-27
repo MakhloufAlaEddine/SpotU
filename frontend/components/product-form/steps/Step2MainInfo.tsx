@@ -85,21 +85,23 @@ export function Step2MainInfo() {
 
   const getPriceField = (mode: PricingMode): string => {
     switch (mode) {
-      case 'hour':  return form.price_per_hour;
-      case 'day':   return form.price_per_day;
-      case 'week':  return form.price_per_week;
-      case 'month': return form.price_per_month;
-      default:      return '';
+      case 'hour':    return form.price_per_hour;
+      case 'day':     return form.price_per_day;
+      case 'week':    return form.price_per_week;
+      case 'month':   return form.price_per_month;
+      case 'session': return form.price_per_session;
+      default:        return '';
     }
   };
 
   const setPriceField = (mode: PricingMode, val: string) => {
     const clean = val.replace(/[^0-9.,]/g, '');
     switch (mode) {
-      case 'hour':  set({ price_per_hour: clean }); break;
-      case 'day':   set({ price_per_day: clean }); break;
-      case 'week':  set({ price_per_week: clean }); break;
-      case 'month': set({ price_per_month: clean }); break;
+      case 'hour':    set({ price_per_hour: clean }); break;
+      case 'day':     set({ price_per_day: clean }); break;
+      case 'week':    set({ price_per_week: clean }); break;
+      case 'month':   set({ price_per_month: clean }); break;
+      case 'session': set({ price_per_session: clean }); break;
     }
   };
 
@@ -239,8 +241,8 @@ export function Step2MainInfo() {
                   <Text style={f.rateHint} numberOfLines={1}>{unit.hint}</Text>
                 </View>
 
-                {/* Saisie prix (pas pour séance) */}
-                {active && !isSession && (
+                {/* Saisie prix (tous les modes actifs) */}
+                {active && (
                   <View style={f.ratePriceRow}>
                     <TextInput
                       style={f.ratePriceInput}
@@ -255,11 +257,11 @@ export function Step2MainInfo() {
                   </View>
                 )}
 
-                {/* Badge séance actif */}
+                {/* Badge séance actif (info seulement — le prix est maintenant saisi ci-dessus) */}
                 {isSession && active && (
-                  <View style={f.sessionBadge}>
+                  <View style={[f.sessionBadge, { marginTop: -2 }]}>
                     <Ionicons name="link-outline" size={13} color={BLUE} />
-                    <Text style={f.sessionBadgeText}>Lier SpotYou</Text>
+                    <Text style={f.sessionBadgeText}>+ Lier SpotYou</Text>
                   </View>
                 )}
               </View>
