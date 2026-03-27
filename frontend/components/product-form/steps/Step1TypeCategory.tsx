@@ -86,51 +86,77 @@ export function Step1TypeCategory() {
       <View style={s.section}>
         <Text style={s.label}>Catégorie du matériel *</Text>
 
-        {domains.length > 1 && (
-          <View style={s.domainRow}>
-            <TouchableOpacity
-              style={[s.domainChip, !domainFilter && s.domainChipActive]}
-              onPress={() => setDomainFilter(null)}
-            >
-              <Text style={[s.domainChipText, !domainFilter && { color: BLUE }]}>Tout</Text>
-            </TouchableOpacity>
-            {domains.map(d => (
-              <TouchableOpacity
-                key={d.domain_id}
-                style={[s.domainChip, domainFilter === d.domain_id && s.domainChipActive]}
-                onPress={() => setDomainFilter(domainFilter === d.domain_id ? null : d.domain_id)}
-                testID={`product-domain-${d.domain_id}`}
-              >
-                <Text style={[s.domainChipText, domainFilter === d.domain_id && { color: BLUE }]}>{d.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-
-        {loading ? (
-          <ActivityIndicator color={BLUE} style={{ marginTop: 12 }} />
-        ) : (
-          <View style={s.catGrid}>
-            {filteredCats.map(c => {
-              const active = form.category === c.category_id;
+        {/* Si catégorie sélectionnée → badge compact avec bouton "Changer" */}
+        {form.category !== '' ? (
+          <TouchableOpacity
+            style={s.selectedCatBadge}
+            onPress={() => set({ category: '', tag_ids: [] })}
+            testID="change-category-btn"
+            activeOpacity={0.7}
+          >
+            {(() => {
+              const cat = categories.find(c => c.category_id === form.category);
               return (
-                <TouchableOpacity
-                  key={c.category_id}
-                  style={[s.catChip, active && s.catChipActive]}
-                  onPress={() => selectCategory(c.category_id)}
-                  testID={`category-${c.category_id}`}
-                >
-                  <Ionicons name={(c.icon || 'grid-outline') as any} size={18} color={active ? BLUE : Colors.muted} />
-                  <Text style={[s.catLabel, active && { color: BLUE }]} numberOfLines={1}>
-                    {c.label_fr}
-                  </Text>
-                </TouchableOpacity>
+                <>
+                  <Ionicons name={(cat?.icon || 'grid-outline') as any} size={18} color={BLUE} />
+                  <Text style={s.selectedCatLabel}>{cat?.label_fr ?? form.category}</Text>
+                  <View style={s.changePill}>
+                    <Text style={s.changeText}>Changer</Text>
+                  </View>
+                </>
               );
-            })}
-            {filteredCats.length === 0 && !loading && (
-              <Text style={{ color: Colors.muted, fontSize: 13 }}>Aucune catégorie disponible</Text>
+            })()}
+          </TouchableOpacity>
+        ) : (
+          /* Grille complète si aucune catégorie sélectionnée */
+          <>
+            {domains.length > 1 && (
+              <View style={s.domainRow}>
+                <TouchableOpacity
+                  style={[s.domainChip, !domainFilter && s.domainChipActive]}
+                  onPress={() => setDomainFilter(null)}
+                >
+                  <Text style={[s.domainChipText, !domainFilter && { color: BLUE }]}>Tout</Text>
+                </TouchableOpacity>
+                {domains.map(d => (
+                  <TouchableOpacity
+                    key={d.domain_id}
+                    style={[s.domainChip, domainFilter === d.domain_id && s.domainChipActive]}
+                    onPress={() => setDomainFilter(domainFilter === d.domain_id ? null : d.domain_id)}
+                    testID={`product-domain-${d.domain_id}`}
+                  >
+                    <Text style={[s.domainChipText, domainFilter === d.domain_id && { color: BLUE }]}>{d.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             )}
-          </View>
+
+            {loading ? (
+              <ActivityIndicator color={BLUE} style={{ marginTop: 12 }} />
+            ) : (
+              <View style={s.catGrid}>
+                {filteredCats.map(c => {
+                  const active = form.category === c.category_id;
+                  return (
+                    <TouchableOpacity
+                      key={c.category_id}
+                      style={[s.catChip, active && s.catChipActive]}
+                      onPress={() => selectCategory(c.category_id)}
+                      testID={`category-${c.category_id}`}
+                    >
+                      <Ionicons name={(c.icon || 'grid-outline') as any} size={18} color={active ? BLUE : Colors.muted} />
+                      <Text style={[s.catLabel, active && { color: BLUE }]} numberOfLines={1}>
+                        {c.label_fr}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+                {filteredCats.length === 0 && !loading && (
+                  <Text style={{ color: Colors.muted, fontSize: 13 }}>Aucune catégorie disponible</Text>
+                )}
+              </View>
+            )}
+          </>
         )}
       </View>
 
@@ -189,6 +215,12 @@ const s = StyleSheet.create({
   catChip:          { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.card, borderRadius: Radius.sm, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: Colors.border },
   catChipActive:    { borderColor: BLUE, backgroundColor: BLUE + '10' },
   catLabel:         { fontSize: 13, fontWeight: '600', color: Colors.muted },
+
+  // Selected category badge
+  selectedCatBadge: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: BLUE + '10', borderRadius: Radius.md, borderWidth: 1.5, borderColor: BLUE + '40', paddingHorizontal: 14, paddingVertical: 12 },
+  selectedCatLabel: { flex: 1, fontSize: 14, fontWeight: '700', color: BLUE },
+  changePill:       { backgroundColor: BLUE, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
+  changeText:       { fontSize: 12, fontWeight: '700', color: '#fff' },
 
   // Tags
   tagHeader:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
