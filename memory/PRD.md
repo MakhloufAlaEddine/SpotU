@@ -216,3 +216,4 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 
 ## Known Issues
 - ngrok tunnel instability (infrastructure, not code)
+- `admin_reminder_sent_at` column manquante (AdminProductReminderWorker — erreur non bloquante)

@@ -677,6 +677,9 @@ async def connect_to_db():
         await conn.execute("""
             ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS lat FLOAT;
             ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS lng FLOAT;
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active';
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS category TEXT;
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS admin_reminder_sent_at TIMESTAMPTZ;
         """)
         # [MARKETPLACE-CLEANUP] Supprimer les produits qui sont en réalité des services coach
         # (séances, cours, bilans) — déjà gérés via la table services
@@ -815,41 +818,6 @@ async def connect_to_db():
             CREATE INDEX IF NOT EXISTS idx_saved_addresses_user ON user_saved_addresses(user_id);
         """)
 
-        # Seed quelques relations follow pour les démos (ON CONFLICT DO NOTHING = idempotent)
-        await conn.execute("""
-            INSERT INTO user_follows(follower_id, following_id) VALUES
-                ('user_demo001', 'user_coach001'),
-                ('user_demo002', 'user_coach001'),
-                ('user_demo003', 'user_coach001'),
-                ('user_coach001', 'user_demo001'),
-                ('user_demo001', 'user_demo002'),
-                ('user_demo002', 'user_demo003')
-            ON CONFLICT DO NOTHING;
-        """)
-
-        # Seed cover photos for test profiles (only if not already set)
-        await conn.execute("""
-            UPDATE users SET
-                cover_picture = 'https://images.pexels.com/photos/1552242/pexels-photo-1552242.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940',
-                cover_offset_y = 0.4
-            WHERE user_id = 'user_coach001' AND cover_picture IS NULL;
-
-            UPDATE users SET
-                cover_picture = 'https://images.pexels.com/photos/5038834/pexels-photo-5038834.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940',
-                cover_offset_y = 0.5
-            WHERE user_id = 'user_demo001' AND cover_picture IS NULL;
-
-            UPDATE users SET
-                cover_picture = 'https://images.pexels.com/photos/5274806/pexels-photo-5274806.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940',
-                cover_offset_y = 0.3
-            WHERE user_id = 'user_demo002' AND cover_picture IS NULL;
-
-            UPDATE users SET
-                cover_picture = 'https://images.unsplash.com/photo-1758274536083-b821befda77c?crop=entropy&cs=srgb&fm=jpg&ixlib=rb-4.1.0&q=85',
-                cover_offset_y = 0.5
-            WHERE user_id = 'user_demo003' AND cover_picture IS NULL;
-        """)
-
         # [REFACTOR-V1] spot_you_participants → spot_you_members + supprimer tag_point_participants
         await conn.execute("""
             DO $$ BEGIN
@@ -917,8 +885,43 @@ async def connect_to_db():
     from seed import seed_initial_data
     await seed_initial_data()
 
-    # Seed données de test (membres SpotYou, votes, saves) — APRÈS seed_initial_data
+    # Seed données de test (follows, cover photos, membres SpotYou, votes, saves) — APRÈS seed_initial_data
     async with pool.acquire() as conn:
+        # User follows — dépend des utilisateurs créés par seed_initial_data
+        await conn.execute("""
+            INSERT INTO user_follows(follower_id, following_id) VALUES
+                ('user_demo001', 'user_coach001'),
+                ('user_demo002', 'user_coach001'),
+                ('user_demo003', 'user_coach001'),
+                ('user_coach001', 'user_demo001'),
+                ('user_demo001', 'user_demo002'),
+                ('user_demo002', 'user_demo003')
+            ON CONFLICT DO NOTHING;
+        """)
+
+        # Cover photos — dépend des utilisateurs créés par seed_initial_data
+        await conn.execute("""
+            UPDATE users SET
+                cover_picture = 'https://images.pexels.com/photos/1552242/pexels-photo-1552242.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940',
+                cover_offset_y = 0.4
+            WHERE user_id = 'user_coach001' AND cover_picture IS NULL;
+
+            UPDATE users SET
+                cover_picture = 'https://images.pexels.com/photos/5038834/pexels-photo-5038834.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940',
+                cover_offset_y = 0.5
+            WHERE user_id = 'user_demo001' AND cover_picture IS NULL;
+
+            UPDATE users SET
+                cover_picture = 'https://images.pexels.com/photos/5274806/pexels-photo-5274806.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940',
+                cover_offset_y = 0.3
+            WHERE user_id = 'user_demo002' AND cover_picture IS NULL;
+
+            UPDATE users SET
+                cover_picture = 'https://images.unsplash.com/photo-1758274536083-b821befda77c?crop=entropy&cs=srgb&fm=jpg&ixlib=rb-4.1.0&q=85',
+                cover_offset_y = 0.5
+            WHERE user_id = 'user_demo003' AND cover_picture IS NULL;
+        """)
+
         # Members SpotYou — seulement les IDs existants
         await conn.execute("""
             INSERT INTO spot_you_members (id, spot_you_id, user_id) VALUES

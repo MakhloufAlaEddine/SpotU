@@ -130,17 +130,23 @@ TAGS = [
     {"tag_id": "tag_cycling",     "domain_id": "dom_sport",    "name": "cycling",     "label_fr": "Cyclisme",         "label_en": "Cycling"},
     {"tag_id": "tag_vtt",         "domain_id": "dom_sport",    "name": "vtt",         "label_fr": "VTT",              "label_en": "MTB"},
     # ── Camping / Outdoor ─────────────────────────────────────────────────────
-    {"tag_id": "tag_camping",     "domain_id": "dom_sport",    "name": "camping",     "label_fr": "Camping",          "label_en": "Camping"},
-    {"tag_id": "tag_bivouac",     "domain_id": "dom_sport",    "name": "bivouac",     "label_fr": "Bivouac",          "label_en": "Bivouac"},
-    {"tag_id": "tag_trekking",    "domain_id": "dom_sport",    "name": "trekking",    "label_fr": "Trekking",         "label_en": "Trekking"},
-    {"tag_id": "tag_survie",      "domain_id": "dom_sport",    "name": "survie",      "label_fr": "Survie",           "label_en": "Survival"},
-    {"tag_id": "tag_bushcraft",   "domain_id": "dom_sport",    "name": "bushcraft",   "label_fr": "Bushcraft",        "label_en": "Bushcraft"},
-    {"tag_id": "tag_montagne",    "domain_id": "dom_sport",    "name": "montagne",    "label_fr": "Montagne",         "label_en": "Mountain"},
-    {"tag_id": "tag_foret",       "domain_id": "dom_sport",    "name": "foret",       "label_fr": "Forêt",            "label_en": "Forest"},
-    {"tag_id": "tag_nature",      "domain_id": "dom_sport",    "name": "nature",      "label_fr": "Nature",           "label_en": "Nature"},
-    {"tag_id": "tag_aventure",    "domain_id": "dom_sport",    "name": "aventure",    "label_fr": "Aventure",         "label_en": "Adventure"},
-    {"tag_id": "tag_vanlife",     "domain_id": "dom_sport",    "name": "vanlife",     "label_fr": "Vanlife",          "label_en": "Vanlife"},
-    {"tag_id": "tag_roadtrip",    "domain_id": "dom_sport",    "name": "roadtrip",    "label_fr": "Roadtrip",         "label_en": "Road Trip"},
+    {"tag_id": "tag_camping",          "domain_id": "dom_sport",    "name": "camping",          "label_fr": "Camping",          "label_en": "Camping"},
+    {"tag_id": "tag_bivouac",          "domain_id": "dom_sport",    "name": "bivouac",          "label_fr": "Bivouac",          "label_en": "Bivouac"},
+    {"tag_id": "tag_trekking",         "domain_id": "dom_sport",    "name": "trekking",         "label_fr": "Trekking",         "label_en": "Trekking"},
+    {"tag_id": "tag_survie",           "domain_id": "dom_sport",    "name": "survie",           "label_fr": "Survie",           "label_en": "Survival"},
+    {"tag_id": "tag_bushcraft",        "domain_id": "dom_sport",    "name": "bushcraft",        "label_fr": "Bushcraft",        "label_en": "Bushcraft"},
+    {"tag_id": "tag_randonnee_longue", "domain_id": "dom_sport",    "name": "randonnee_longue", "label_fr": "Randonnée longue", "label_en": "Long Hike"},
+    {"tag_id": "tag_montagne",         "domain_id": "dom_sport",    "name": "montagne",         "label_fr": "Montagne",         "label_en": "Mountain"},
+    {"tag_id": "tag_foret",            "domain_id": "dom_sport",    "name": "foret",            "label_fr": "Forêt",            "label_en": "Forest"},
+    {"tag_id": "tag_lac",              "domain_id": "dom_sport",    "name": "lac",              "label_fr": "Lac",              "label_en": "Lake"},
+    {"tag_id": "tag_mer",              "domain_id": "dom_sport",    "name": "mer",              "label_fr": "Mer",              "label_en": "Sea"},
+    {"tag_id": "tag_nature",           "domain_id": "dom_sport",    "name": "nature",           "label_fr": "Nature",           "label_en": "Nature"},
+    {"tag_id": "tag_aventure",         "domain_id": "dom_sport",    "name": "aventure",         "label_fr": "Aventure",         "label_en": "Adventure"},
+    {"tag_id": "tag_expedition",       "domain_id": "dom_sport",    "name": "expedition",       "label_fr": "Expédition",       "label_en": "Expedition"},
+    {"tag_id": "tag_vanlife",          "domain_id": "dom_sport",    "name": "vanlife",          "label_fr": "Vanlife",          "label_en": "Vanlife"},
+    {"tag_id": "tag_roadtrip",         "domain_id": "dom_sport",    "name": "roadtrip",         "label_fr": "Roadtrip",         "label_en": "Road Trip"},
+    {"tag_id": "tag_autonomie",        "domain_id": "dom_sport",    "name": "autonomie",        "label_fr": "Autonomie",        "label_en": "Self-Sufficiency"},
+    {"tag_id": "tag_nuit_exterieure",  "domain_id": "dom_sport",    "name": "nuit_exterieure",  "label_fr": "Nuit extérieure",  "label_en": "Night Outdoors"},
     # ── Coaching ─────────────────────────────────────────────────────────────
     {"tag_id": "tag_perte_poids", "domain_id": "dom_coaching", "name": "perte_de_poids",  "label_fr": "Perte de poids",   "label_en": "Weight Loss"},
     {"tag_id": "tag_prise_masse", "domain_id": "dom_coaching", "name": "prise_de_masse",  "label_fr": "Prise de masse",   "label_en": "Muscle Gain"},
@@ -187,7 +193,7 @@ def _build_tag_category_links():
             links.append({"tag_id": tag_id, "category_id": cid})
 
     # fitness tags
-    for t in ["tag_hiit", "tag_cardio", "tag_crossfit", "tag_musculation", "tag_intensif"]:
+    for t in ["tag_hiit", "tag_cardio", "tag_crossfit", "tag_musculation"]:
         add(t, "cat_syu_fitness", "cat_svc_fitness", "cat_prd_fitness_eq")
     # running tags
     for t in ["tag_running", "tag_trail", "tag_marathon", "tag_10km", "tag_5km", "tag_endurance"]:
