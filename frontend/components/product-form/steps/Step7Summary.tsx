@@ -6,7 +6,7 @@ import React, { useState } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../../../constants/Colors';
-import { useProductForm, calcProductQuality } from '../ProductFormContext';
+import { useProductForm, calcProductQuality, getMinPrice } from '../ProductFormContext';
 import { ProductDetailView } from '../../ProductDetailView';
 
 const BLUE = '#3B82F6';
@@ -39,8 +39,14 @@ export function Step7Summary({ onSaveDraft, onPublish, isSubmitting }: Props) {
   const quality = calcProductQuality(form);
   const [showPreview, setShowPreview] = useState(false);
 
-  const priceLabel = form.price
-    ? `${Number(form.price.replace(',', '.')).toFixed(2)} € / ${form.pricing_type === 'day' ? 'jour' : 'séance'}`
+  const minPrice = getMinPrice(form);
+  const activeModes = form.pricing_modes ?? ['day'];
+  const priceLabel = minPrice > 0
+    ? activeModes.map(m => {
+        const val = m === 'hour' ? form.price_per_hour : m === 'day' ? form.price_per_day : m === 'week' ? form.price_per_week : m === 'month' ? form.price_per_month : '';
+        const n = parseFloat((val ?? '').replace(',', '.'));
+        return n > 0 ? `${n.toFixed(2)} €${m === 'hour' ? '/h' : m === 'day' ? '/j' : m === 'week' ? '/sem' : m === 'month' ? '/mois' : '/séance'}` : null;
+      }).filter(Boolean).join(' · ')
     : '—';
 
   // Fake product object pour réutiliser ProductDetailView
@@ -50,7 +56,7 @@ export function Step7Summary({ onSaveDraft, onPublish, isSubmitting }: Props) {
     product_type:         'rental',
     title:                form.title || 'Titre non défini',
     description:          form.description || form.short_description || '',
-    price:                Number(form.price.replace(',', '.') || '0'),
+    price:                minPrice,
     image_url:            form.images[0] || null,
     image_urls:           form.images,
     condition_label:      form.condition_label,
@@ -63,8 +69,9 @@ export function Step7Summary({ onSaveDraft, onPublish, isSubmitting }: Props) {
     available_quantity:   parseInt(form.available_quantity || '1', 10),
     in_stock:             true,
     city:                 form.city,
-    pricing_type:         form.pricing_type,
-    rental_duration_unit: form.pricing_type === 'day' ? 'jour' : 'séance',
+    pricing_type:         activeModes[0] ?? 'day',
+    pricing_modes:        activeModes,
+    rental_duration_unit: activeModes[0] === 'hour' ? 'heure' : activeModes[0] === 'week' ? 'semaine' : 'jour',
     rental_duration_qty:  1,
     seller_name:          'Moi',
     badge_type:           'owner',
