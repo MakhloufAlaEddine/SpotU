@@ -4,11 +4,11 @@
  */
 import { Platform } from 'react-native';
 
-const MAX_UPLOAD_BYTES = 4.5 * 1024 * 1024; // 4.5 Mo (marge de sécurité par rapport à la limite backend de 5 Mo)
+const MAX_UPLOAD_BYTES = 13 * 1024 * 1024; // 13 Mo (marge sous la limite backend de 15 Mo)
 
 /**
  * Compression canvas côté web — redimensionne à max 2000px + compresse en JPEG.
- * Garantit que le blob envoyé au backend ne dépasse pas la limite de 5 Mo.
+ * Utilise toDataURL (synchrone) plutôt que toBlob (peut retourner null sur iOS WebKit).
  */
 async function compressBlobWeb(blob: Blob, maxDim = 2000, quality = 0.75): Promise<Blob> {
   return new Promise((resolve) => {
@@ -17,6 +17,7 @@ async function compressBlobWeb(blob: Blob, maxDim = 2000, quality = 0.75): Promi
     img.onload = () => {
       let w = img.naturalWidth;
       let h = img.naturalHeight;
+      if (!w || !h) { URL.revokeObjectURL(url); resolve(blob); return; }
       if (w > maxDim || h > maxDim) {
         if (w > h) { h = Math.round((maxDim / w) * h); w = maxDim; }
         else        { w = Math.round((maxDim / h) * w); h = maxDim; }
@@ -26,7 +27,18 @@ async function compressBlobWeb(blob: Blob, maxDim = 2000, quality = 0.75): Promi
       canvas.height = h;
       canvas.getContext('2d')?.drawImage(img, 0, 0, w, h);
       URL.revokeObjectURL(url);
-      canvas.toBlob((compressed) => resolve(compressed || blob), 'image/jpeg', quality);
+      try {
+        // toDataURL est synchrone et ne retourne jamais null (contrairement à toBlob)
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        const parts       = dataUrl.split(',');
+        const byteString  = atob(parts[1]);
+        const ab          = new ArrayBuffer(byteString.length);
+        const ia          = new Uint8Array(ab);
+        for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
+        resolve(new Blob([ab], { type: 'image/jpeg' }));
+      } catch {
+        resolve(blob); // fallback : blob original
+      }
     };
     img.onerror = () => { URL.revokeObjectURL(url); resolve(blob); };
     img.src = url;

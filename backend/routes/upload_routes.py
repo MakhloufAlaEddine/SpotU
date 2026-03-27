@@ -24,7 +24,7 @@ UPLOADS_DIR = Path("/app/backend/uploads")
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 _UPLOADS_DIR_RESOLVED = UPLOADS_DIR.resolve()
 
-MAX_UPLOAD_SIZE = 5 * 1024 * 1024  # 5 Mo
+MAX_UPLOAD_SIZE = 15 * 1024 * 1024  # 15 Mo — HEIC converti en JPEG peut tripler en taille ; Pillow comprime après réception
 
 _ALLOWED_CATEGORIES = {"profiles", "services", "spotyou", "chats", "products", "other"}
 
