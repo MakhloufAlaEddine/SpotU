@@ -707,6 +707,8 @@ async def connect_to_db():
             ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
             ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
             ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS admin_comment TEXT;
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS admin_validated_by TEXT;
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS admin_validated_at TIMESTAMPTZ;
         """)
         # [MARKETPLACE-CLEANUP] Supprimer les produits qui sont en réalité des services coach
         # (séances, cours, bilans) — déjà gérés via la table services

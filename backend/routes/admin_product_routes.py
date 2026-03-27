@@ -62,7 +62,7 @@ async def list_pending_products(request: Request):
                 -- Score qualité simplifié côté backend
                 (
                     CASE WHEN p.cover_image_url IS NOT NULL THEN 20 ELSE 0 END +
-                    CASE WHEN array_length(p.image_urls, 1) >= 3 THEN 10 ELSE 0 END +
+                    CASE WHEN jsonb_array_length(COALESCE(p.image_urls, '[]'::jsonb)) >= 3 THEN 10 ELSE 0 END +
                     CASE WHEN length(p.title) >= 10 THEN 15 ELSE 0 END +
                     CASE WHEN length(p.title) >= 25 THEN 5 ELSE 0 END +
                     CASE WHEN length(COALESCE(p.description,'')) >= 50 THEN 10 ELSE 0 END +
@@ -92,7 +92,7 @@ async def get_product_for_review(request: Request, product_id: str):
             SELECT p.*, u.name AS seller_name, u.picture AS seller_picture, u.email AS seller_email,
                    (
                        CASE WHEN p.cover_image_url IS NOT NULL THEN 20 ELSE 0 END +
-                       CASE WHEN array_length(p.image_urls, 1) >= 3 THEN 10 ELSE 0 END +
+                       CASE WHEN jsonb_array_length(COALESCE(p.image_urls, '[]'::jsonb)) >= 3 THEN 10 ELSE 0 END +
                        CASE WHEN length(p.title) >= 10 THEN 15 ELSE 0 END +
                        CASE WHEN length(p.title) >= 25 THEN 5 ELSE 0 END +
                        CASE WHEN length(COALESCE(p.description,'')) >= 50 THEN 10 ELSE 0 END +
