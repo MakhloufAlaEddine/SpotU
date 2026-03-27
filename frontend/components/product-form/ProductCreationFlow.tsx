@@ -186,51 +186,58 @@ export function ProductCreationFlow({ isEditMode = false }: { isEditMode?: boole
   return (
     <SafeAreaView style={c.root} edges={['top', 'bottom']}>
 
-      {/* ── En-tête ───────────────────────────────────────────────────── */}
+      {/* ── En-tête compact ──────────────────────────────────────────────── */}
       <View style={c.header}>
         <TouchableOpacity style={c.backBtn} onPress={goBack} testID="product-flow-back">
           <Ionicons name="arrow-back" size={20} color={Colors.foreground} />
         </TouchableOpacity>
-
         <View style={{ flex: 1 }}>
-          <Text style={c.stepCount}>Étape {step + 1} / {TOTAL_STEPS}</Text>
-          <Text style={c.stepTitle}>{cfg.title}</Text>
+          <Text style={c.stepTitle} numberOfLines={1}>{cfg.title}</Text>
+          <Text style={c.stepCount}>Étape {step + 1} sur {TOTAL_STEPS}</Text>
         </View>
-
-        {/* Score qualité */}
-        <View style={[c.qualityBadge, { backgroundColor: quality.color + '18' }]}>
+        {/* Score qualité — compact */}
+        <View style={[c.qualityBadge, { borderColor: quality.color + '40', backgroundColor: quality.color + '12' }]}>
           <Text style={[c.qualityScore, { color: quality.color }]}>{quality.score}</Text>
           <Text style={c.qualityMax}>/100</Text>
         </View>
       </View>
 
-      {/* ── Barre de progression ─────────────────────────────────────── */}
+      {/* ── Barre de progression ─────────────────────────────────────────── */}
       <View style={c.progressBar}>
         <View style={[c.progressFill, { width: `${((step + 1) / TOTAL_STEPS) * 100}%` as any }]} />
       </View>
 
-      {/* ── Dots d'étapes ────────────────────────────────────────────── */}
+      {/* ── Dots d'étapes ────────────────────────────────────────────────── */}
       <View style={c.dotsRow}>
-        {STEP_CONFIG.map((s_cfg, i) => (
+        {STEP_CONFIG.map((_, i) => (
           <TouchableOpacity
             key={i}
-            style={[c.dot, i <= step && c.dotActive, i === step && c.dotCurrent]}
+            style={[c.dot, i < step && c.dotDone, i === step && c.dotCurrent]}
             onPress={() => i < step && setStep(i)}
+            hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
           >
             {i < step
-              ? <Ionicons name="checkmark" size={10} color="#fff" />
-              : <Text style={[c.dotNum, i === step && { color: '#fff' }]}>{i + 1}</Text>}
+              ? <Ionicons name="checkmark" size={9} color="#fff" />
+              : <Text style={[c.dotNum, i === step && { color: '#fff', fontWeight: '800' }]}>{i + 1}</Text>}
           </TouchableOpacity>
         ))}
       </View>
 
-      {/* ── Tip ──────────────────────────────────────────────────────── */}
+      {/* ── Tip ──────────────────────────────────────────────────────────── */}
       <View style={c.tipBanner}>
-        <Ionicons name="bulb-outline" size={14} color={BLUE} />
+        <Ionicons name="bulb-outline" size={13} color={BLUE} />
         <Text style={c.tipText} numberOfLines={2}>{cfg.tip}</Text>
       </View>
 
-      {/* ── Contenu étape ────────────────────────────────────────────── */}
+      {/* ── Erreur de validation (fixe, au-dessus du contenu) ────────────── */}
+      {error ? (
+        <View style={c.errorBanner} testID="step-error-banner">
+          <Ionicons name="alert-circle" size={16} color="#EF4444" />
+          <Text style={c.errorText}>{error}</Text>
+        </View>
+      ) : null}
+
+      {/* ── Contenu étape ────────────────────────────────────────────────── */}
       <ScrollView
         ref={scrollRef}
         style={{ flex: 1 }}
@@ -247,33 +254,19 @@ export function ProductCreationFlow({ isEditMode = false }: { isEditMode?: boole
         ) : (
           <StepComponent />
         )}
-
-        {/* Erreur de validation */}
-        {error && (
-          <View style={c.errorBanner} testID="step-error-banner">
-            <Ionicons name="alert-circle" size={16} color="#EF4444" />
-            <Text style={c.errorText}>{error}</Text>
-          </View>
-        )}
       </ScrollView>
 
-      {/* ── Navigation bottom ────────────────────────────────────────── */}
+      {/* ── Navigation bottom (sauf récap) ───────────────────────────────── */}
       {!isLast && (
         <View style={c.navBar}>
-          {step > 0 && (
-            <TouchableOpacity style={c.prevBtn} onPress={goBack} testID="prev-step-btn">
-              <Ionicons name="arrow-back" size={18} color={Colors.foreground} />
-              <Text style={c.prevBtnText}>Précédent</Text>
-            </TouchableOpacity>
-          )}
           <TouchableOpacity
-            style={[c.nextBtn, step === 0 && { flex: 1 }]}
+            style={c.nextBtn}
             onPress={goNext}
             disabled={isSubmitting}
             testID="next-step-btn"
           >
             <Text style={c.nextBtnText}>
-              {step === 5 ? 'Voir le récapitulatif' : 'Suivant'}
+              {step === TOTAL_STEPS - 2 ? 'Voir le récapitulatif' : 'Suivant'}
             </Text>
             <Ionicons name="arrow-forward" size={18} color="#fff" />
           </TouchableOpacity>
@@ -285,29 +278,33 @@ export function ProductCreationFlow({ isEditMode = false }: { isEditMode?: boole
 }
 
 const c = StyleSheet.create({
-  root:          { flex: 1, backgroundColor: Colors.background },
-  header:        { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: Spacing.md, paddingVertical: 12 },
-  backBtn:       { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center' },
-  stepCount:     { fontSize: 11, color: Colors.muted, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-  stepTitle:     { fontSize: 16, fontWeight: '800', color: Colors.foreground, marginTop: 1 },
-  qualityBadge:  { flexDirection: 'row', alignItems: 'baseline', gap: 1, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 },
-  qualityScore:  { fontSize: 18, fontWeight: '900' },
-  qualityMax:    { fontSize: 11, color: Colors.muted },
-  progressBar:   { height: 3, backgroundColor: Colors.border, marginHorizontal: Spacing.md, borderRadius: 2, overflow: 'hidden' },
-  progressFill:  { height: '100%', backgroundColor: BLUE, borderRadius: 2 },
-  dotsRow:       { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, paddingVertical: 10 },
-  dot:           { width: 26, height: 26, borderRadius: 13, backgroundColor: Colors.card, borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
-  dotActive:     { borderColor: BLUE, backgroundColor: BLUE },
-  dotCurrent:    { backgroundColor: BLUE, borderColor: BLUE, width: 30, height: 30, borderRadius: 15 },
-  dotNum:        { fontSize: 10, fontWeight: '700', color: Colors.muted },
-  tipBanner:     { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginHorizontal: Spacing.md, marginBottom: 8, backgroundColor: BLUE_DIM, borderRadius: Radius.md, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: BLUE + '28' },
-  tipText:       { flex: 1, fontSize: 12, color: Colors.foreground, lineHeight: 17 },
-  content:       { paddingHorizontal: Spacing.md, paddingTop: 4, paddingBottom: 100 },
-  errorBanner:   { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#FEE2E2', borderRadius: Radius.md, padding: Spacing.md, marginTop: Spacing.md, borderWidth: 1, borderColor: '#FECACA' },
-  errorText:     { flex: 1, fontSize: 13, color: '#DC2626', fontWeight: '600' },
-  navBar:        { flexDirection: 'row', gap: 10, paddingHorizontal: Spacing.md, paddingVertical: 12, borderTopWidth: 1, borderTopColor: Colors.border },
-  prevBtn:       { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 14, borderRadius: Radius.full, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border },
-  prevBtnText:   { fontSize: 14, fontWeight: '600', color: Colors.foreground },
-  nextBtn:       { flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: Radius.full, backgroundColor: BLUE },
-  nextBtnText:   { fontSize: 14, fontWeight: '700', color: '#fff' },
+  root:         { flex: 1, backgroundColor: Colors.background },
+  header:       { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: Spacing.md, paddingTop: 8, paddingBottom: 10 },
+  backBtn:      { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
+  stepTitle:    { fontSize: 15, fontWeight: '800', color: Colors.foreground },
+  stepCount:    { fontSize: 11, color: Colors.muted, fontWeight: '600', marginTop: 1 },
+  qualityBadge: { flexDirection: 'row', alignItems: 'baseline', gap: 1, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 16, borderWidth: 1 },
+  qualityScore: { fontSize: 16, fontWeight: '900' },
+  qualityMax:   { fontSize: 10, color: Colors.muted },
+
+  progressBar:  { height: 2, backgroundColor: Colors.border, marginHorizontal: Spacing.md, borderRadius: 1, overflow: 'hidden' },
+  progressFill: { height: '100%', backgroundColor: BLUE, borderRadius: 1 },
+
+  dotsRow:      { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 7, paddingVertical: 8 },
+  dot:          { width: 24, height: 24, borderRadius: 12, backgroundColor: Colors.card, borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
+  dotDone:      { backgroundColor: BLUE, borderColor: BLUE },
+  dotCurrent:   { width: 28, height: 28, borderRadius: 14, backgroundColor: BLUE, borderColor: BLUE },
+  dotNum:       { fontSize: 10, fontWeight: '600', color: Colors.muted },
+
+  tipBanner:    { flexDirection: 'row', alignItems: 'flex-start', gap: 7, marginHorizontal: Spacing.md, marginBottom: 6, backgroundColor: BLUE_DIM, borderRadius: Radius.md, paddingHorizontal: 12, paddingVertical: 7, borderWidth: 1, borderColor: BLUE + '22' },
+  tipText:      { flex: 1, fontSize: 12, color: Colors.foreground, lineHeight: 16 },
+
+  errorBanner:  { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#FEF2F2', marginHorizontal: Spacing.md, borderRadius: Radius.md, padding: 10, marginBottom: 4, borderWidth: 1, borderColor: '#FECACA' },
+  errorText:    { flex: 1, fontSize: 13, color: '#DC2626', fontWeight: '600' },
+
+  content:      { paddingHorizontal: Spacing.md, paddingTop: 4, paddingBottom: 100 },
+
+  navBar:       { paddingHorizontal: Spacing.md, paddingVertical: 12, borderTopWidth: 1, borderTopColor: Colors.border },
+  nextBtn:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 15, borderRadius: Radius.full, backgroundColor: BLUE },
+  nextBtnText:  { fontSize: 15, fontWeight: '700', color: '#fff' },
 });

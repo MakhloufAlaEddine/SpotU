@@ -10,40 +10,35 @@ import { ProductCreationFlow } from '../../components/product-form/ProductCreati
 import { api } from '../../lib/api';
 import { Colors } from '../../constants/Colors';
 
-// ── Mapping catégories DB → clés CATEGORIES du stepper ────────────────────────
-const CATEGORY_NORMALIZE: Record<string, string> = {
-  sport: 'autre', Sport: 'autre', Outdoor: 'autre', outdoor: 'autre',
-  Test: 'autre',  test: 'autre',  Other: 'autre',   other: 'autre',
-};
-const VALID_CATEGORY_KEYS = new Set([
-  'velo', 'raquette', 'fitness', 'yoga', 'ballon',
-  'natation', 'glisse', 'running', 'accessoire', 'autre',
-]);
-
-function normalizeCategory(cat: string | null | undefined): string {
-  if (!cat) return '';
-  if (VALID_CATEGORY_KEYS.has(cat)) return cat;
-  return CATEGORY_NORMALIZE[cat] ?? 'autre';
-}
-
 /** Mappe une réponse API vers les champs du formulaire */
 function apiToFormData(data: any): Partial<ProductFormData> {
   return {
     product_id:          data.product_id,
     product_type:        data.product_type        || 'rental',
-    category:            normalizeCategory(data.category),
+    // category_id est maintenant un DB ID direct (ex: 'cat_prd_bike')
+    category:            data.category            || '',
     subcategory:         data.subcategory          || '',
+    // Tags
+    tag_ids:             Array.isArray(data.tag_ids) ? data.tag_ids : [],
     title:               data.title               || '',
     short_description:   data.short_description   || '',
     description:         data.description         || '',
-    condition_label:     data.condition_label      || '',
+    condition_label:     data.condition_label      || 'good',
     included_items:      data.included_items       || '',
     brand_model:         data.brand_model          || '',
     size_dimensions:     data.size_dimensions      || '',
-    price:               data.price != null ? String(data.price) : '',
-    pricing_type:        data.pricing_type         || 'day',
+    // Tarification multi-unité
+    pricing_modes:       Array.isArray(data.pricing_modes) && data.pricing_modes.length > 0
+                           ? data.pricing_modes
+                           : (data.pricing_type ? [data.pricing_type] : ['day']),
+    price_per_hour:      data.price_per_hour  != null ? String(data.price_per_hour)  : '',
+    price_per_day:       data.price_per_day   != null ? String(data.price_per_day)   : '',
+    price_per_week:      data.price_per_week  != null ? String(data.price_per_week)  : '',
+    price_per_month:     data.price_per_month != null ? String(data.price_per_month) : '',
     available_quantity:  data.available_quantity != null ? String(data.available_quantity) : '1',
-    images:              data.image_urls?.length ? data.image_urls : (data.cover_image_url ? [data.cover_image_url] : []),
+    images:              Array.isArray(data.image_urls) && data.image_urls.length > 0
+                           ? data.image_urls
+                           : (data.cover_image_url ? [data.cover_image_url] : []),
     deposit_required:    !!data.deposit_required,
     deposit_amount:      data.deposit_amount != null ? String(data.deposit_amount) : '',
     max_duration_days:   data.max_duration_days != null ? String(data.max_duration_days) : '',
@@ -57,7 +52,7 @@ function apiToFormData(data: any): Partial<ProductFormData> {
     locationAddress:     data.city                 || '',
     location_privacy:    data.location_privacy     || '100m',
     availability_note:   data.availability_note    || '',
-    related_spotyou_ids: data.related_spotyou_ids  || [],
+    related_spotyou_ids: Array.isArray(data.related_spotyou_ids) ? data.related_spotyou_ids : [],
   };
 }
 

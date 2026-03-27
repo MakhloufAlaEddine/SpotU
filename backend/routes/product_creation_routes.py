@@ -169,15 +169,19 @@ async def create_product(request: Request):
 
     # ── Validation complète pour pending_review ────────────────────────────────
     if requested_status == "pending_review":
-        category    = (body.get("category")       or "").strip()
-        cond_label  = (body.get("condition_label") or "").strip()
-        pickup_type = (body.get("pickup_type")     or "").strip()
-        p_type      = (body.get("pricing_type")    or "day")
-        deposit_req = body.get("deposit_required", False)
+        category      = (body.get("category")       or "").strip()
+        cond_label    = (body.get("condition_label") or "").strip()
+        pickup_type   = (body.get("pickup_type")     or "").strip()
+        p_modes       = body.get("pricing_modes")    or [body.get("pricing_type") or "day"]
+        deposit_req   = body.get("deposit_required", False)
+        tag_ids_check = body.get("tag_ids")          or []
+        spotyou_ids   = body.get("related_spotyou_ids") or []
 
         errors = []
         if not category:
             errors.append("La catégorie du matériel est obligatoire.")
+        if not tag_ids_check:
+            errors.append("Sélectionne au moins un tag pour publier le produit.")
         if not cond_label:
             errors.append("L'état du matériel est obligatoire.")
         if not price or price <= 0:
@@ -186,8 +190,10 @@ async def create_product(request: Request):
             errors.append("Au moins une photo est requise.")
         if not pickup_type:
             errors.append("Le mode de remise du matériel est obligatoire.")
-        if p_type == "day" and not max_duration_days:
+        if any(m in ["day", "week", "month"] for m in p_modes) and not max_duration_days:
             errors.append("La durée maximale de location est obligatoire.")
+        if "session" in p_modes and not spotyou_ids:
+            errors.append("La tarification par séance nécessite de sélectionner au moins un SpotYou.")
         if deposit_req and (not deposit_amount or deposit_amount <= 0):
             errors.append("Le montant de la caution est obligatoire si une caution est requise.")
         if errors:
@@ -207,17 +213,6 @@ async def create_product(request: Request):
             # UPDATE
             await conn.execute(
                 """
-                UPDATE marketplace_products SET
-                    title = $1, short_description = $2, description = $3,
-                    price = $4, currency = $5, product_type = $6, pricing_type = $7,
-                    category = $8, subcategory = $9,
-                    cover_image_url = $10, image_url = $11, image_urls = $12,
-                    condition_label = $13, included_items = $14,
-                    brand_model = $15, size_dimensions = $16,
-                    available_quantity = $17, in_stock = $18,
-                    deposit_required = $19, deposit_amount = $20,
-                    max_duration_days = $21,
-                    pickup_type = $22, pickup_notes = $23,
                 UPDATE marketplace_products SET
                     title = $1, short_description = $2, description = $3,
                     price = $4, currency = $5, product_type = $6, pricing_type = $7,

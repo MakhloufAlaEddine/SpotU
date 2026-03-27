@@ -1,0 +1,135 @@
+{
+  "summary": "Backend & frontend testing for iter 95 — Stepper produit refactoré. 21/21 backend tests passed. CRITICAL SQL bug fixed in product_creation_routes.py (duplicate UPDATE statement). All new features validated: tags required, session→SpotYou, pricing modes, GET detail pre-fill, product UPDATE working after fix.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/products (UPDATE path)",
+        "issue": "FIXED: product_creation_routes.py had a duplicate 'UPDATE marketplace_products SET' SQL statement (old version at lines 215-226 without pricing_modes/tag_ids was concatenated with the new version). Any product UPDATE (product_id already exists) returned 500 PostgreSQL syntax error. Removed first incomplete UPDATE fragment.",
+        "priority": "CRITICAL",
+        "status": "FIXED"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "test_product_validation_iter93.py",
+        "issue": "REGRESSION: iter93 VALID_PAYLOAD has no tag_ids → 3 tests now return 422 (test_session_pricing_no_max_days_ok, test_deposit_required_with_amount_ok, test_valid_pending_review_returns_200). Also EDIT_PRODUCT_ID='prod_e8c1e7a2e742' no longer exists in DB → 3 detail tests fail (404). These are expected regressions from new tag_ids + session SpotYou validations.",
+        "priority": "LOW"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_results": {
+    "total": 21,
+    "passed": 21,
+    "failed": 0,
+    "skipped": 0,
+    "suite": "test_product_stepper_iter95.py"
+  },
+  "passed_tests_summary": [
+    "tag_ids=[] → 422 pending_review",
+    "tag_ids=null → 422 pending_review",
+    "tag_ids absent → 422 pending_review",
+    "tag_ids=['tag_aventure'] → 200 pending_review",
+    "Draft sans tag_ids → 200 OK",
+    "Draft complet pricing_modes=['hour','day'], price_per_hour=12, price_per_day=40, tag_ids → 200 + GET detail confirms persistence",
+    "session pricing_modes sans related_spotyou_ids=[] → 422",
+    "session pricing_modes related_spotyou_ids=null → 422",
+    "session pricing_modes en DRAFT sans SpotYou → 200 OK",
+    "pricing_modes=['day'] sans max_duration_days → 422",
+    "pricing_modes=['week'] sans max_duration_days → 422",
+    "pricing_modes=['hour'] sans max_duration_days → 200 OK",
+    "GET /products/mp_demo003/detail retourne tag_ids (liste)",
+    "GET /products/mp_demo003/detail retourne pricing_modes (liste)",
+    "GET /products/mp_demo003/detail retourne price_per_hour/day/week/month",
+    "GET /products/mp_demo003/detail retourne related_spotyou_ids",
+    "UPDATE produit existant (Draft→Draft) fonctionne sans 500 (SQL bug fix validé)",
+    "UPDATE product persist pricing_modes + price_per_* correctement",
+    "Final submit (pending_review) bloque si tag_ids=[]",
+    "Final submit (pending_review) passe avec tag_ids=['tag_aventure']",
+    "Admin POST pending_review → status=active (publication directe)"
+  ],
+  "frontend_code_review": {
+    "ProductFormContext.tsx": [
+      "validateStep(1): tag_ids required ✅",
+      "validateStep(4): max_duration_days required pour day/week/month ✅",
+      "validateStep(6): SpotYou required si pricing_modes includes 'session' ✅",
+      "validateStep(7): Re-valide tout (tag_ids, session→SpotYou, etc.) ✅",
+      "hasValidPricing: session mode returns true sans prix spécifique ✅"
+    ],
+    "ProductCreationFlow.tsx": [
+      "Error banner OUTSIDE ScrollView (position fixe au-dessus du contenu) ✅",
+      "Single 'Suivant' button in navBar (pas de bouton 'Précédent') ✅",
+      "Retour via header back button ✅",
+      "goNext appelle validateStep(step + 1, form) pour validation 1-indexed ✅",
+      "testID='step-error-banner' et testID='next-step-btn' présents ✅"
+    ],
+    "Step6SpotYouLink.tsx": [
+      "Texte visibilité mis à jour — plus de 'marketplace global' ✅",
+      "Nouveau texte: 'résultats de recherche des utilisateurs dont les tags correspondent' ✅",
+      "Warning pour mode séance uniquement (isSessionOnly) ✅",
+      "Badge 'Obligatoire avec la tarification par séance' si hasSession ✅",
+      "Message erreur si session sans SpotYou créé ✅"
+    ],
+    "create.tsx apiToFormData": [
+      "tag_ids: Array.isArray(data.tag_ids) ? data.tag_ids : [] ✅",
+      "pricing_modes: correctement mappé avec fallback sur pricing_type ✅",
+      "price_per_hour/day/week/month: mappés comme strings ✅",
+      "related_spotyou_ids: mappé correctement ✅",
+      "category: data.category direct (pas de category_id → category mapping) ✅"
+    ]
+  },
+  "frontend_ui_test": {
+    "result": "PASS",
+    "notes": [
+      "Login flow works (user@winek.app)",
+      "Product creation Step 1 loads correctly",
+      "Tag validation error 'Sélectionne au moins un tag pour continuer.' shows in fixed red banner ABOVE ScrollView ✅ (feature #1 + #8 confirmed)",
+      "Single 'Suivant →' button visible in navBar ✅",
+      "Category selection (Vélo / Trottinette) works ✅"
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_product_stepper_iter95.py",
+    "/app/test_reports/pytest/iter95_stepper.xml"
+  ],
+  "action_items": [
+    "ACTION DONE (by T1): Removed duplicate UPDATE SQL from product_creation_routes.py lines 215-226 — any product edit would have returned 500.",
+    "Update test_product_validation_iter93.py VALID_PAYLOAD to include tag_ids=['tag_aventure'] — 3 tests now fail (expected regression). Also update EDIT_PRODUCT_ID from 'prod_e8c1e7a2e742' (stale) to 'mp_demo003' (valid).",
+    "INFO: iter93 test_session_pricing_no_max_days_ok must now include related_spotyou_ids=['...'] AND tag_ids to pass with session pricing in pending_review mode."
+  ],
+  "critical_code_review_comments": [
+    "CRITICAL (FIXED): product_creation_routes.py lines 213-246 had two UPDATE statements in the same SQL string — old incomplete fragment (lines 215-226, without pricing_modes/tag_ids) was left before the new complete UPDATE. Fixed by T1.",
+    "MINOR: iter93 VALID_PAYLOAD lacks tag_ids — 3 regression test failures now expected since new backend validation requires tag_ids for pending_review. Main agent should update iter93 test payload.",
+    "INFO: validateStep in ProductFormContext.tsx uses 1-indexed steps matching STEP_CONFIG. goNext() calls validateStep(step + 1, form) correctly. No off-by-one bug.",
+    "INFO: Step 6 visibility text is correct — no mention of 'marketplace global', text explains tags-based search visibility + SpotYou boutique link."
+  ],
+  "updated_files": [
+    "/app/backend/routes/product_creation_routes.py",
+    "/app/backend/tests/test_product_stepper_iter95.py"
+  ],
+  "success_rate": {
+    "backend": "100% (21/21 iter95 tests)",
+    "frontend": "80% (UI loads, tag validation confirmed; 20% limited by React Native web mode)"
+  },
+  "seed_data_creation": "No seed data created. Used existing mp_demo003 (user@winek.app seller) for GET detail tests.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Stepper refactoring is 100% working after SQL fix. All 21 backend tests pass: tags required for pending_review, session requires SpotYou, pricing modes validation, GET detail pre-fill, product UPDATE works. Frontend confirms tag error banner is fixed above ScrollView. iter93 tests now have 6 failures (3 from new tag_ids validation, 3 from stale EDIT_PRODUCT_ID). Main agent should update iter93 VALID_PAYLOAD to include tag_ids and change EDIT_PRODUCT_ID to 'mp_demo003'.",
+  "rca_of_issues": {
+    "duplicate_sql_update": {
+      "root_cause": "product_creation_routes.py UPDATE branch (lines 213-290) had two 'UPDATE marketplace_products SET' statements concatenated in the same SQL triple-quoted string. The first fragment (lines 215-226) was the old version without pricing_modes/tag_ids fields; the second (lines 227-245) was the new refactored version. This was a merge/refactor artifact.",
+      "impact": "Any POST /api/products with an existing product_id would fail with PostgreSQL syntax error (not 200/422 but 500). Edit mode was completely broken.",
+      "reproduction": "POST /api/products with product_id of an existing product → 500 Internal Server Error",
+      "fix": "Removed lines 215-226 (first incomplete UPDATE fragment) via search_replace. Kept the correct new UPDATE starting at what was line 227.",
+      "verification": "All 21 tests pass including test_update_existing_product_draft_ok which creates and then updates a product."
+    },
+    "iter93_regressions": {
+      "root_cause": "VALID_PAYLOAD in test_product_validation_iter93.py does not include tag_ids. New backend validation added in iter95 requires tag_ids for pending_review. Also EDIT_PRODUCT_ID='prod_e8c1e7a2e742' is a stale product that no longer exists.",
+      "fix_needed": "Add tag_ids=['tag_aventure'] to VALID_PAYLOAD in iter93. Change EDIT_PRODUCT_ID to 'mp_demo003' or any valid product ID from GET /api/products/mine."
+    }
+  }
+}
