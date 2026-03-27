@@ -680,6 +680,33 @@ async def connect_to_db():
             ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active';
             ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS category TEXT;
             ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS admin_reminder_sent_at TIMESTAMPTZ;
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS short_description TEXT;
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS pricing_type TEXT DEFAULT 'day';
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS seller_name TEXT;
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS seller_picture_url TEXT;
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS subcategory TEXT;
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS cover_image_url TEXT;
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS image_urls JSONB DEFAULT '[]'::jsonb;
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS condition_label TEXT DEFAULT 'good';
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS included_items TEXT;
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS brand_model TEXT;
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS size_dimensions TEXT;
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS available_quantity INTEGER DEFAULT 1;
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS deposit_required BOOLEAN DEFAULT FALSE;
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS deposit_amount NUMERIC(10,2) DEFAULT 0;
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS max_duration_days INTEGER;
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS pickup_type TEXT;
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS pickup_notes TEXT;
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS availability_note TEXT;
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS return_rules TEXT;
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS cancellation_rules TEXT;
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS city TEXT;
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS location_privacy TEXT DEFAULT '100m';
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS radius_km FLOAT DEFAULT 0.1;
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS related_spotyou_ids TEXT[] DEFAULT '{}';
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS admin_comment TEXT;
         """)
         # [MARKETPLACE-CLEANUP] Supprimer les produits qui sont en réalité des services coach
         # (séances, cours, bilans) — déjà gérés via la table services
