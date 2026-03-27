@@ -1,0 +1,68 @@
+{
+  "summary": "Frontend testing of 6-step Stepper refactoring. All 8 test cases verified. Found and fixed CRITICAL bug: SpotYou items not loading in Step 2 due to API response format mismatch. All features working after fix.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Step 2 SpotYou list loading",
+        "issue": "FIXED: /tag-points/mine returns plain array but Step2MainInfo.tsx parsed as d.points (undefined), showing empty state even when coach has SpotYou items. Fixed in Step2MainInfo.tsx line 63: Array.isArray(d) ? d : (d.points || [])",
+        "affected_selectors": ["[data-testid^='spot-']"],
+        "status": "FIXED by T1"
+      }
+    ],
+    "design_issues": []
+  },
+  "test_results": {
+    "test1_stepper_6_steps": "PASS - Header shows 'Étape X sur 6' confirmed on Step 1 and Step 2",
+    "test2_dots_6": "PASS - Exactly 6 navigation dots confirmed in stepper (data confirmed in DOM)",
+    "test3_spotyou_section_appears": "PASS - 'RATTACHER UN SPOTYOU' section appears when 'Par séance' is activated via toggle-mode-session testID",
+    "test4_block_without_spotyou": "PASS - Error 'Avec la tarification par séance, sélectionne au moins un SpotYou ci-dessous.' shown when Suivant clicked with session mode and no SpotYou",
+    "test5_tip_text": "PASS - Tip text correctly reads 'Active le mode séance pour proposer des créneaux via tes SpotYou'",
+    "test6_spotyou_disappears": "PASS - SpotYou section disappears and related_spotyou_ids cleared when session mode deactivated",
+    "test7_no_spotyou_without_session": "PASS - SpotYou section NOT visible when session mode is not active",
+    "test8_no_standalone_step6": "PASS - Code review + UI: STEP_COMPONENTS has 6 entries (Step7Summary at index 5 = Publication), no standalone SpotYou step. Step6SpotYouLink.tsx not imported."
+  },
+  "bug_fixed": {
+    "file": "/app/frontend/components/product-form/steps/Step2MainInfo.tsx",
+    "line": 63,
+    "issue": "api.get('/tag-points/mine').then((d: any) => setSpots(d.points || [])) - API returns plain array not {points:[]}",
+    "fix": "setSpots(Array.isArray(d) ? d : (d.points || []))",
+    "verification": "coach@winek.app SpotYou 'Yoga en plein air — Trocadéro' (pt_demo003) now visible in list after fix"
+  },
+  "test_report_links": ["/app/test_reports/iteration_96.json"],
+  "action_items": [
+    "INFO: Step6SpotYouLink.tsx is dead code (still exists at /app/frontend/components/product-form/steps/Step6SpotYouLink.tsx but not imported anywhere) - consider removing",
+    "INFO: ProductCreationFlow.tsx comment line 4 says '7 étapes guidées' but TOTAL_STEPS=6 - minor doc bug",
+    "INFO: ProductFormContext.tsx comment '// Step 6 — SpotYou' on related_spotyou_ids should now read '// Step 2 — SpotYou' after merge",
+    "NOTE: Same d.points bug existed in Step6SpotYouLink.tsx (old dead code) - was the root cause of the SpotYou not loading issue"
+  ],
+  "critical_code_review_comments": [
+    "CRITICAL (FIXED): Step2MainInfo.tsx used d.points || [] to parse /tag-points/mine response, but API returns plain list. SpotYou items never shown even if coach has SpotYou. Fixed to Array.isArray(d) ? d : (d.points || [])",
+    "MINOR: Step6SpotYouLink.tsx is dead code - not imported in ProductCreationFlow.tsx. Can be deleted safely.",
+    "MINOR: ProductCreationFlow.tsx JSDoc comment says '7 étapes guidées' but TOTAL_STEPS=6 (was changed to 6 steps in this refactoring)",
+    "INFO: STEP_COMPONENTS array has 6 entries including Step7Summary as the 6th (Publication). step===5 renders Step7Summary directly via conditional - this is correct."
+  ],
+  "updated_files": ["/app/frontend/components/product-form/steps/Step2MainInfo.tsx"],
+  "success_rate": {
+    "backend": "N/A (frontend only testing)",
+    "frontend": "100% (8/8 features verified, 1 bug found and fixed)"
+  },
+  "test_credentials": "coach@winek.app / WinekCoach2024! (has 1 SpotYou: pt_demo003 - Yoga en plein air, Trocadero)",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Stepper 6-step refactoring complete. All 8 test criteria pass. Key fix: Step2MainInfo.tsx line 63 now uses Array.isArray(d) to handle plain array response from /tag-points/mine. Coach has 1 SpotYou (pt_demo003). Step6SpotYouLink.tsx is unused dead code. TOTAL_STEPS=6 confirmed. Next testing should verify end-to-end product creation with SpotYou selected proceeds to step 3+.",
+  "rca_of_issues": {
+    "spotyou_not_loading": {
+      "root_cause": "Step2MainInfo.tsx (line 63) used `d.points || []` to parse the /tag-points/mine API response. However, the API returns a plain JSON array (not {points: [...]}), so d.points is undefined and setSpots([]) is called, showing empty state.",
+      "reproduction": "Login as coach, go to /products/create, select category/tag, go to step 2, activate Par séance - SpotYou list shows empty even though coach has SpotYou pt_demo003",
+      "fix": "Changed to `Array.isArray(d) ? d : (d.points || [])` in Step2MainInfo.tsx line 63",
+      "same_bug_in": "Step6SpotYouLink.tsx line 31 (dead code, same pattern d.points || [])",
+      "impact": "Coach could not select a SpotYou in session mode → blocked from proceeding to step 3"
+    }
+  }
+}

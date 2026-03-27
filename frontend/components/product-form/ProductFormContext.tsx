@@ -177,6 +177,11 @@ export function validateStep(step: number, f: ProductFormData): string | null {
         return "Précisez l'état du matériel.";
       if (!hasValidPricing(f))
         return 'Définissez au moins un tarif (heure, jour, semaine, mois ou séance).';
+      if (
+        (f.pricing_modes ?? []).includes('session') &&
+        (!f.related_spotyou_ids || f.related_spotyou_ids.length === 0)
+      )
+        return 'Avec la tarification par séance, sélectionne au moins un SpotYou ci-dessous.';
       if (!f.available_quantity || parseInt(f.available_quantity, 10) < 1)
         return 'La quantité doit être au minimum 1.';
       break;
@@ -200,11 +205,7 @@ export function validateStep(step: number, f: ProductFormData): string | null {
         return 'Indiquez une localisation.';
       break;
     case 6:
-      if (
-        (f.pricing_modes ?? []).includes('session') &&
-        (!f.related_spotyou_ids || f.related_spotyou_ids.length === 0)
-      )
-        return 'Avec la tarification par séance, tu dois sélectionner au moins un SpotYou.';
+      // SpotYou validation moved to step 2 (same step as pricing)
       break;
     case 7:
       if (!f.category)           return 'Étape 1 — Choisissez une catégorie.';
@@ -222,7 +223,7 @@ export function validateStep(step: number, f: ProductFormData): string | null {
       if (f.deposit_required && (!f.deposit_amount || Number((f.deposit_amount || '').replace(',', '.')) <= 0))
                                  return 'Étape 4 — Indiquez le montant de la caution.';
       if ((f.pricing_modes ?? []).includes('session') && (!f.related_spotyou_ids || f.related_spotyou_ids.length === 0))
-                                 return 'Étape 6 — Sélectionne un SpotYou pour le mode séance.';
+                                 return 'Étape 2 — Sélectionne un SpotYou pour la tarification par séance.';
       break;
     default:
       break;

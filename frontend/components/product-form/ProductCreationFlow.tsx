@@ -25,20 +25,18 @@ import { Step2MainInfo }         from './steps/Step2MainInfo';
 import { Step3Photos }           from './steps/Step3Photos';
 import { Step4RentalConditions } from './steps/Step4RentalConditions';
 import { Step5Availability }     from './steps/Step5Availability';
-import { Step6SpotYouLink }      from './steps/Step6SpotYouLink';
 import { Step7Summary }          from './steps/Step7Summary';
 
 const BLUE      = '#3B82F6';
 const BLUE_DIM  = 'rgba(59,130,246,0.12)';
-const TOTAL_STEPS = 7;
+const TOTAL_STEPS = 6;
 
 const STEP_CONFIG = [
   { title: 'Type & Catégorie',    subtitle: 'Quel matériel louez-vous ?',     icon: 'pricetag-outline',          tip: 'Choisissez le type de produit et sa catégorie pour aider les locataires à vous trouver.' },
-  { title: 'Informations',        subtitle: 'Titre, description, prix',        icon: 'document-text-outline',    tip: 'Un titre clair et une bonne description augmentent les chances de location.' },
+  { title: 'Infos & Tarification', subtitle: 'Titre, prix & SpotYou',          icon: 'document-text-outline',    tip: 'Un titre clair et une tarification adaptée augmentent les locations. Active le mode séance pour proposer des créneaux via tes SpotYou.' },
   { title: 'Photos',              subtitle: 'Montrez votre matériel',          icon: 'camera-outline',            tip: 'Les annonces avec 3+ photos nettes génèrent 3x plus de réservations.' },
   { title: 'Conditions',          subtitle: 'Règles et mode de remise',        icon: 'shield-checkmark-outline',  tip: 'Des conditions claires évitent les malentendus et protègent tout le monde.' },
   { title: 'Disponibilité',       subtitle: 'Où et quand ?',                   icon: 'map-outline',               tip: 'La localisation aide les locataires proches à vous trouver facilement.' },
-  { title: 'SpotYou',             subtitle: 'Associer un contexte',            icon: 'pin-outline',               tip: 'Lier à un SpotYou permet aux membres de cette communauté de trouver votre produit.' },
   { title: 'Publication',         subtitle: 'Aperçu & validation',             icon: 'eye-outline',               tip: 'Vérifiez tout avant de soumettre. Un admin validera votre annonce sous 24h.' },
 ] as const;
 
@@ -48,7 +46,6 @@ const STEP_COMPONENTS = [
   Step3Photos,
   Step4RentalConditions,
   Step5Availability,
-  Step6SpotYouLink,
   Step7Summary,
 ];
 
@@ -245,7 +242,7 @@ export function ProductCreationFlow({ isEditMode = false }: { isEditMode?: boole
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {step === 6 ? (
+        {step === 5 ? (
           <Step7Summary
             onSaveDraft={() => submit('draft')}
             onPublish={() => submit('pending_review')}
