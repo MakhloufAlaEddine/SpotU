@@ -1,6 +1,6 @@
 /**
  * Step 5 — Disponibilité + localisation
- * Réutilise StepLocalisation (même composant que SpotYou + Services)
+ * La ville est extraite automatiquement depuis l'adresse sélectionnée.
  */
 import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet } from 'react-native';
@@ -18,6 +18,17 @@ const PRECISION_RADIUS: Record<LocationPrivacy, number> = {
   '1000m': 1.0,
 };
 
+/** Extrait la ville depuis une adresse Google Places formatée.
+ *  Ex: "15 Rue de la Paix, 75001 Paris, France" → "Paris"
+ *  Ex: "Stade de France, Saint-Denis, France" → "Saint-Denis"
+ */
+function extractCity(address: string): string {
+  const parts = address.split(',').map(p => p.trim()).filter(p => p && p !== 'France');
+  const last  = parts[parts.length - 1] ?? '';
+  // Retire le code postal si présent (5 chiffres en début)
+  return last.replace(/^\d{5}\s*/, '').trim();
+}
+
 export function Step5Availability() {
   const { form, set } = useProductForm();
   const { location }  = useLocation();
@@ -26,10 +37,12 @@ export function Step5Availability() {
   // Auto-fill si localisation vide au premier rendu
   React.useEffect(() => {
     if (!form.selectedLat && location?.lat) {
+      const city = location.address ? extractCity(location.address) : '';
       set({
         selectedLat:     location.lat,
         selectedLng:     location.lng,
         locationAddress: location.address || 'Votre position actuelle',
+        city,
       });
     }
   }, [location?.lat]);
@@ -59,34 +72,20 @@ export function Step5Availability() {
         showPrecision={true}
       />
 
-      {/* Ville */}
-      <View style={{ gap: 6 }}>
-        <Text style={v.label}>Ville</Text>
-        <TextInput
-          style={v.input}
-          value={form.city}
-          onChangeText={val => set({ city: val })}
-          placeholder="ex: Paris 11e, Lyon, Bordeaux…"
-          placeholderTextColor={Colors.muted}
-          testID="city-input"
-        />
-      </View>
-
       {/* Note de disponibilité */}
       <View style={{ gap: 6 }}>
-        <Text style={v.label}>Note de disponibilité</Text>
+        <Text style={v.label}>Note de disponibilité <Text style={v.optional}>(optionnel)</Text></Text>
         <TextInput
           style={[v.input, v.textarea]}
           value={form.availability_note}
           onChangeText={val => set({ availability_note: val })}
-          placeholder="ex: Disponible les weekends et mercredis après-midi. Contacter avant réservation."
+          placeholder="ex: Disponible les weekends et mercredis après-midi…"
           placeholderTextColor={Colors.muted}
           multiline
           numberOfLines={3}
           textAlignVertical="top"
           testID="availability-note-input"
         />
-        <Text style={v.hint}>Décris quand et comment ton matériel est disponible</Text>
       </View>
 
       {/* Sélecteur de localisation */}
@@ -94,7 +93,12 @@ export function Step5Availability() {
         visible={showLocationModal}
         onClose={() => setShowLocationModal(false)}
         onSelect={(lat, lng, address) => {
-          set({ selectedLat: lat, selectedLng: lng, locationAddress: address });
+          set({
+            selectedLat:     lat,
+            selectedLng:     lng,
+            locationAddress: address,
+            city:            extractCity(address),
+          });
           setShowLocationModal(false);
         }}
         initialLat={form.selectedLat || undefined}
@@ -106,11 +110,12 @@ export function Step5Availability() {
 }
 
 const v = StyleSheet.create({
-  wrap:     { gap: Spacing.lg },
+  wrap:     { gap: 14 },
   infoCard: { backgroundColor: BLUE + '0D', borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: BLUE + '30' },
   infoText: { fontSize: 13, color: Colors.foreground, lineHeight: 19 },
-  label:    { fontSize: 12, fontWeight: '700', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.6 },
+  label:    { fontSize: 11, fontWeight: '700', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 1 },
+  optional: { color: Colors.muted, fontWeight: '400', textTransform: 'none', letterSpacing: 0 },
   hint:     { fontSize: 11, color: Colors.muted, lineHeight: 15 },
-  input:    { backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, color: Colors.foreground, fontSize: 14, paddingHorizontal: 14, paddingVertical: 12 },
-  textarea: { minHeight: 80 },
+  input:    { backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, color: Colors.foreground, fontSize: 14, paddingHorizontal: 14, paddingVertical: 11 },
+  textarea: { minHeight: 72, paddingTop: 11 },
 });
