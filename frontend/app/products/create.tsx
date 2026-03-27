@@ -53,6 +53,7 @@ function apiToFormData(data: any): Partial<ProductFormData> {
     location_privacy:    data.location_privacy     || '100m',
     availability_note:   data.availability_note    || '',
     related_spotyou_ids: Array.isArray(data.related_spotyou_ids) ? data.related_spotyou_ids : [],
+    category_label:      data.category_label || '',
   };
 }
 

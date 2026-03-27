@@ -48,7 +48,7 @@ export function Step1TypeCategory() {
 
   const selectCategory = (cid: string) => {
     // Réinitialise les tags quand la catégorie change
-    set({ category: cid, tag_ids: [] });
+    set({ category: cid, tag_ids: [], category_label: categories.find(c => c.category_id === cid)?.label_fr ?? '' });
   };
 
   const domains = Array.from(new Set(categories.map(c => c.domain_id))).map(did => ({

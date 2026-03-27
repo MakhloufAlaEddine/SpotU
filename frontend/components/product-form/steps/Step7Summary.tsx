@@ -127,7 +127,7 @@ export function Step7Summary({ onSaveDraft, onPublish, isSubmitting }: Props) {
           <Text style={sm.productPrice}>{priceLabel}</Text>
 
           <View style={sm.rows}>
-            <SummaryRow icon="pricetag-outline"         label="Catégorie"   value={CAT_LABELS[form.category] || '—'} />
+            <SummaryRow icon="pricetag-outline"         label="Catégorie"   value={form.category_label || CAT_LABELS[form.category] || '—'} />
             <SummaryRow icon="shield-outline"           label="État"        value={COND_LABELS[form.condition_label] || '—'} />
             <SummaryRow icon="cube-outline"             label="Quantité"    value={`${form.available_quantity} unité(s)`} />
             <SummaryRow icon="location-outline"         label="Mode remise" value={PICKUP_LABELS[form.pickup_type] || '—'} />

@@ -226,7 +226,25 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 ```
 
 ## Recently Completed (Mar 2026)
-### Fusion Step Tarification + SpotYou (2026-03-27)
+### Redesign Stepper 9 étapes légères (2026-03-27)
+| Étape | Composant | Contenu |
+|-------|-----------|---------|
+| 1 | Step1TypeCategory | Type + Catégorie + Tags (info visibilité si tag sélectionné) |
+| 2 | Step2Essential (NEW) | Titre* + État* + Quantité* + Marque (opt) |
+| 3 | Step3Details (NEW) | Résumé + Description + Inclus (tous opt) |
+| 4 | Step3Photos | Photos (min 1*) |
+| 5 | Step5Pricing (NEW) | Pills tarification + inputs conditionnels + SpotYou (si séance) |
+| 6 | Step6Logistics (NEW) | Mode remise* + Durée max (cond) + Caution (cond) |
+| 7 | Step7Rules (NEW) | Consignes + Retour + Annulation (tous opt) |
+| 8 | Step5Availability | Localisation* |
+| 9 | Step7Summary | Score qualité + Récap + Brouillon/Publier |
+
+**Résultats tests (iteration_97): 10/10 passés**
+- Tous les steps naviguent correctement
+- Validations bloquantes toutes fonctionnelles
+- Fix bug catégorie '—' : `category_label` ajouté au form state
+
+
 | Composant | Changement |
 |-----------|-----------|
 | `Step2MainInfo.tsx` | Fusion Step 2 + Step 6 : section SpotYou intégrée dans l'étape tarification (conditionnelle si mode séance) |

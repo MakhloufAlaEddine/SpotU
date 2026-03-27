@@ -57,6 +57,7 @@ export interface ProductFormData {
 
   // Step 2 — SpotYou (intégré dans l'étape tarification)
   related_spotyou_ids: string[];
+  category_label: string;  // label affiché de la catégorie sélectionnée
 
   // Meta
   product_id?: string;
@@ -95,6 +96,7 @@ const DEFAULT: ProductFormData = {
   location_privacy:   '100m',
   availability_note:  '',
   related_spotyou_ids:[],
+  category_label:     '',
 };
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
