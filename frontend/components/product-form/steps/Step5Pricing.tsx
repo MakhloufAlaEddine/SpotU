@@ -188,43 +188,43 @@ export function Step5Pricing() {
 }
 
 const p = StyleSheet.create({
-  wrap:           { gap: Spacing.xl },
-  field:          { gap: 10 },
+  wrap:           { gap: 14 },
+  field:          { gap: 8 },
   label:          { fontSize: 11, fontWeight: '700', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 1 },
   sublabel:       { fontSize: 12, color: Colors.muted, lineHeight: 16, marginTop: -4 },
   req:            { color: '#EF4444' },
 
   pillsRow:       { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  pill:           { paddingHorizontal: 14, paddingVertical: 10, borderRadius: Radius.full, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.card, alignItems: 'center', gap: 2 },
+  pill:           { paddingHorizontal: 14, paddingVertical: 9, borderRadius: Radius.full, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.card, alignItems: 'center', gap: 1 },
   pillActive:     { borderColor: BLUE, backgroundColor: BLUE },
   pillLabel:      { fontSize: 13, fontWeight: '600', color: Colors.muted },
   pillLabelActive:{ color: '#fff' },
   pillShort:      { fontSize: 10, color: Colors.muted },
   pillShortActive:{ color: 'rgba(255,255,255,0.75)' },
 
-  priceRow:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.card, borderRadius: Radius.md, paddingHorizontal: 16, paddingVertical: 12, borderWidth: 1, borderColor: Colors.border },
+  priceRow:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.card, borderRadius: Radius.md, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: Colors.border },
   priceLabel:     { fontSize: 14, fontWeight: '600', color: Colors.foreground },
   priceInputWrap: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  priceInput:     { width: 80, textAlign: 'right', fontSize: 16, fontWeight: '700', color: Colors.foreground, backgroundColor: Colors.background, borderRadius: Radius.sm, borderWidth: 1, borderColor: BLUE + '50', paddingHorizontal: 10, paddingVertical: 8 },
+  priceInput:     { width: 80, textAlign: 'right', fontSize: 16, fontWeight: '700', color: Colors.foreground, backgroundColor: Colors.background, borderRadius: Radius.sm, borderWidth: 1, borderColor: BLUE + '50', paddingHorizontal: 10, paddingVertical: 7 },
   priceCurrency:  { fontSize: 16, fontWeight: '700', color: BLUE, width: 16 },
 
-  spotSection:    { gap: 12, borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: Spacing.lg },
+  spotSection:    { gap: 10, borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: 14 },
   spotHeader:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   reqBadge:       { backgroundColor: '#FEE2E2', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: '#FECACA' },
   reqBadgeText:   { fontSize: 11, fontWeight: '700', color: '#EF4444' },
 
-  warnRow:        { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: '#F59E0B12', borderRadius: Radius.md, padding: 12, borderWidth: 1, borderColor: '#F59E0B40' },
+  warnRow:        { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: '#F59E0B12', borderRadius: Radius.md, padding: 10, borderWidth: 1, borderColor: '#F59E0B40' },
   warnText:       { flex: 1, fontSize: 12, color: Colors.foreground, lineHeight: 17 },
 
-  emptySpots:     { alignItems: 'center', gap: 6, paddingVertical: 24, backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, borderStyle: 'dashed' },
+  emptySpots:     { alignItems: 'center', gap: 6, paddingVertical: 20, backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, borderStyle: 'dashed' },
   emptyText:      { fontSize: 14, fontWeight: '600', color: Colors.foreground },
   emptyHint:      { fontSize: 12, color: Colors.muted, textAlign: 'center' },
 
-  spotRow:        { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.card, borderRadius: Radius.md, padding: 12, borderWidth: 1, borderColor: Colors.border },
+  spotRow:        { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.card, borderRadius: Radius.md, padding: 10, borderWidth: 1, borderColor: Colors.border },
   spotRowActive:  { borderColor: BLUE, backgroundColor: BLUE + '08' },
-  spotImg:        { width: 44, height: 44, borderRadius: 8 },
+  spotImg:        { width: 40, height: 40, borderRadius: 8 },
   spotTitle:      { fontSize: 14, fontWeight: '700', color: Colors.foreground },
   spotSub:        { fontSize: 12, color: Colors.muted, marginTop: 1 },
-  check:          { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
+  check:          { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
   checkActive:    { backgroundColor: BLUE, borderColor: BLUE },
 });

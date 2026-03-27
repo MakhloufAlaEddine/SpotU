@@ -110,24 +110,24 @@ export function Step6Logistics() {
 }
 
 const l = StyleSheet.create({
-  wrap:          { gap: Spacing.xl },
-  field:         { gap: 10 },
+  wrap:          { gap: 14 },
+  field:         { gap: 8 },
   label:         { fontSize: 11, fontWeight: '700', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 1 },
   req:           { color: '#EF4444' },
-  input:         { backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, color: Colors.foreground, fontSize: 15, paddingHorizontal: 14, paddingVertical: 13 },
+  input:         { backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, color: Colors.foreground, fontSize: 15, paddingHorizontal: 14, paddingVertical: 12 },
   inlineRow:     { flexDirection: 'row', alignItems: 'center', gap: 12 },
   unit:          { fontSize: 13, color: Colors.muted, flex: 1 },
   currency:      { fontSize: 18, fontWeight: '700', color: BLUE },
 
   pickupRow:     { flexDirection: 'row', gap: 10 },
-  pickupCard:    { flex: 1, alignItems: 'center', gap: 6, padding: Spacing.md, backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.border, position: 'relative' },
+  pickupCard:    { flex: 1, alignItems: 'center', gap: 6, padding: 14, backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.border, position: 'relative' },
   pickupCardActive: { borderColor: BLUE, backgroundColor: BLUE + '08' },
-  pickupIcon:    { width: 48, height: 48, borderRadius: 24, backgroundColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
+  pickupIcon:    { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
   pickupLabel:   { fontSize: 13, fontWeight: '700', color: Colors.foreground, textAlign: 'center' },
   pickupDesc:    { fontSize: 11, color: Colors.muted, textAlign: 'center' },
   pickupCheck:   { position: 'absolute', top: 8, right: 8, width: 18, height: 18, borderRadius: 9, backgroundColor: BLUE, alignItems: 'center', justifyContent: 'center' },
 
-  switchCard:    { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.card, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border, gap: 12 },
+  switchCard:    { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.card, borderRadius: Radius.md, padding: 14, borderWidth: 1, borderColor: Colors.border, gap: 12 },
   switchLabel:   { fontSize: 14, fontWeight: '700', color: Colors.foreground },
   switchDesc:    { fontSize: 12, color: Colors.muted, marginTop: 2 },
 });

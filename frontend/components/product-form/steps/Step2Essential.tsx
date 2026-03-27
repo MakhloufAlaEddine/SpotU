@@ -124,20 +124,20 @@ export function Step2Essential() {
 }
 
 const s = StyleSheet.create({
-  wrap:      { gap: Spacing.xl },
-  field:     { gap: 8 },
+  wrap:      { gap: 14 },
+  field:     { gap: 6 },
   label:     { fontSize: 11, fontWeight: '700', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 1 },
   req:       { color: '#EF4444' },
   optional:  { color: Colors.muted, fontWeight: '400', textTransform: 'none', letterSpacing: 0 },
   hint:      { fontSize: 11, color: Colors.muted },
   counter:   { fontSize: 11, color: Colors.muted, textAlign: 'right' },
-  input:     { backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, color: Colors.foreground, fontSize: 15, paddingHorizontal: 14, paddingVertical: 13 },
+  input:     { backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, color: Colors.foreground, fontSize: 15, paddingHorizontal: 14, paddingVertical: 12 },
 
   condRow:   { flexDirection: 'row', marginBottom: 8 },
-  condChip:  { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 16, backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.border, marginHorizontal: 4 },
+  condChip:  { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 12, backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.border, marginHorizontal: 4 },
   condLabel: { fontSize: 13, fontWeight: '700', color: Colors.muted },
 
   qtyRow:    { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden', alignSelf: 'flex-start' },
-  qtyBtn:    { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
-  qtyInput:  { width: 64, height: 48, fontSize: 18, fontWeight: '800', color: Colors.foreground, borderLeftWidth: 1, borderRightWidth: 1, borderColor: Colors.border },
+  qtyBtn:    { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  qtyInput:  { width: 56, height: 44, fontSize: 18, fontWeight: '800', color: Colors.foreground, borderLeftWidth: 1, borderRightWidth: 1, borderColor: Colors.border },
 });

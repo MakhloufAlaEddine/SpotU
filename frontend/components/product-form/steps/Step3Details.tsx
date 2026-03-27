@@ -72,13 +72,13 @@ export function Step3Details() {
 }
 
 const d = StyleSheet.create({
-  wrap:           { gap: Spacing.lg },
+  wrap:           { gap: 14 },
   headerNote:     { backgroundColor: Colors.card, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border },
   headerNoteText: { fontSize: 13, color: Colors.muted, lineHeight: 19 },
-  field:          { gap: 7 },
+  field:          { gap: 6 },
   label:          { fontSize: 11, fontWeight: '700', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 1 },
   optional:       { color: Colors.muted, fontWeight: '400', textTransform: 'none', letterSpacing: 0 },
   counter:        { fontSize: 11, color: Colors.muted, textAlign: 'right' },
-  input:          { backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, color: Colors.foreground, fontSize: 14, paddingHorizontal: 14, paddingVertical: 12 },
-  textarea:       { minHeight: 96, paddingTop: 12 },
+  input:          { backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, color: Colors.foreground, fontSize: 14, paddingHorizontal: 14, paddingVertical: 11 },
+  textarea:       { minHeight: 90, paddingTop: 11 },
 });
