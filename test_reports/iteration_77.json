@@ -43,6 +43,6 @@
   "seed_data_creation": "Pas de création de données de test. Données existantes utilisées: 5 utilisateurs en DB.",
   "retest_needed": false,
   "should_main_agent_self_test": false,
-  "context_for_next_testing_agent": "Iteration 77: 100% PASS backend + frontend. Feature Suggestions d'abonnements complète et validée. Modal unifiée avec 3 onglets (followers/following/suggestions). user_coach001 a des intérêts (Musculation/HIIT/Cardio) → fallback populaire (count=3). user_demo001 a des intérêts → fallback populaire (count=1). user_admin001 sans intérêts → CTA + utilisateurs populaires (count=4). Load-more non testable (< 10 users en DB). APP_URL=https://tag-modal-rollout.preview.emergentagent.com",
+  "context_for_next_testing_agent": "Iteration 77: 100% PASS backend + frontend. Feature Suggestions d'abonnements complète et validée. Modal unifiée avec 3 onglets (followers/following/suggestions). user_coach001 a des intérêts (Musculation/HIIT/Cardio) → fallback populaire (count=3). user_demo001 a des intérêts → fallback populaire (count=1). user_admin001 sans intérêts → CTA + utilisateurs populaires (count=4). Load-more non testable (< 10 users en DB). APP_URL=https://heic-support.preview.emergentagent.com",
   "rca_of_the_issue": null
 }

@@ -137,7 +137,7 @@ def api_url():
     """URL de l'API backend (depuis env ou valeur par défaut)."""
     return os.environ.get(
         "BACKEND_URL",
-        "https://tag-modal-rollout.preview.emergentagent.com/api",
+        "https://heic-support.preview.emergentagent.com/api",
     )
 
 

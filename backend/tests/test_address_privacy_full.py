@@ -8,7 +8,7 @@ import httpx
 import asyncpg
 import asyncio
 
-API_URL = "https://tag-modal-rollout.preview.emergentagent.com"
+API_URL = "https://heic-support.preview.emergentagent.com"
 DB_URL = "postgresql://winek:winek2024@127.0.0.1/winek_db"
 
 # Users

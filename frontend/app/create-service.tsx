@@ -5,6 +5,8 @@ import {
   Modal, Dimensions, Image,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
+import * as FileSystem from 'expo-file-system';
 
 const { height: SH } = Dimensions.get('window');
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -202,9 +204,31 @@ export default function CreateServiceScreen() {
       quality: 0.9, selectionLimit: 5 - images.length,
     });
     if (result.canceled || !result.assets?.length) return;
-    // Stocker les URI locales — l'upload R2 se fera au clic "Sauvegarder"
-    const localUris = result.assets.map(a => a.uri);
-    setImages(prev => [...prev, ...localUris].slice(0, 5));
+    const MAX_BYTES = 5 * 1024 * 1024; // 5 Mo
+    const finalUris: string[] = [];
+    for (const asset of result.assets) {
+      let uri = asset.uri;
+      let info = await FileSystem.getInfoAsync(uri, { size: true }) as any;
+      if (info.size && info.size > MAX_BYTES) {
+        let quality = 0.7;
+        while (quality >= 0.3) {
+          const compressed = await ImageManipulator.manipulateAsync(
+            uri, [], { compress: quality, format: ImageManipulator.SaveFormat.JPEG }
+          );
+          info = await FileSystem.getInfoAsync(compressed.uri, { size: true }) as any;
+          if (!info.size || info.size <= MAX_BYTES) { uri = compressed.uri; break; }
+          quality -= 0.15;
+          uri = compressed.uri;
+        }
+        if (info.size && info.size > MAX_BYTES) {
+          Alert.alert('Image trop grande', 'Cette image ne peut pas être compressée sous 5 Mo.');
+          continue;
+        }
+      }
+      finalUris.push(uri);
+    }
+    if (!finalUris.length) return;
+    setImages(prev => [...prev, ...finalUris].slice(0, 5));
   };
 
   // Step 2 - Tags

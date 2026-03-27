@@ -8,6 +8,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
+import * as FileSystem from 'expo-file-system';
 import { StepLocalisation } from '../../components/StepLocalisation';
 import { MapViewComponent } from '../../components/MapViewComponent';
 import { MapPreview } from '../../components/MapPreview';
@@ -271,11 +273,36 @@ export default function CreateSpotYouScreen() {
     if (status !== 'granted') { Alert.alert('Permission requise', 'Accès à la galerie requis'); return; }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: 'images' as any, allowsMultipleSelection: true,
-      quality: 0.8, selectionLimit: 10 - images.length,
+      quality: 1, selectionLimit: 10 - images.length,
     });
     if (!result.canceled) {
-      const newImages = result.assets.map(a => a.uri);
-      setImages(p => [...p, ...newImages].slice(0, 10));
+      const MAX_BYTES = 5 * 1024 * 1024; // 5 Mo
+      const finalUris: string[] = [];
+      for (const asset of result.assets) {
+        let uri = asset.uri;
+        // Vérifier la taille réelle (JPEG converti depuis HEIC peut dépasser 5 Mo)
+        let info = await FileSystem.getInfoAsync(uri, { size: true }) as any;
+        if (info.size && info.size > MAX_BYTES) {
+          // Comprimer progressivement jusqu'à passer sous 5 Mo
+          let quality = 0.7;
+          while (quality >= 0.3) {
+            const compressed = await ImageManipulator.manipulateAsync(
+              uri, [], { compress: quality, format: ImageManipulator.SaveFormat.JPEG }
+            );
+            info = await FileSystem.getInfoAsync(compressed.uri, { size: true }) as any;
+            if (!info.size || info.size <= MAX_BYTES) { uri = compressed.uri; break; }
+            quality -= 0.15;
+            uri = compressed.uri;
+          }
+          // Vérification finale
+          if (info.size && info.size > MAX_BYTES) {
+            Alert.alert('Image trop grande', 'Cette image ne peut pas être compressée sous 5 Mo. Veuillez en choisir une autre.');
+            continue;
+          }
+        }
+        finalUris.push(uri);
+      }
+      setImages(p => [...p, ...finalUris].slice(0, 10));
     }
   };
 
