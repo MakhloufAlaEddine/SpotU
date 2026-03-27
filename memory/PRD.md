@@ -226,6 +226,21 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 ```
 
 ## Recently Completed (Mar 2026)
+### Fusion Step Tarification + SpotYou (2026-03-27)
+| Composant | Changement |
+|-----------|-----------|
+| `Step2MainInfo.tsx` | Fusion Step 2 + Step 6 : section SpotYou intégrée dans l'étape tarification (conditionnelle si mode séance) |
+| `ProductCreationFlow.tsx` | TOTAL_STEPS 7 → 6, suppression Step6SpotYouLink, mise à jour STEP_CONFIG et STEP_COMPONENTS |
+| `ProductFormContext.tsx` | validateStep case 2 : validation SpotYou si mode séance (bloque Suivant), case 6 = no-op |
+| `Step6SpotYouLink.tsx` | Conservé mais inutilisé (code mort — peut être supprimé) |
+
+**Logique métier corrigée :**
+- "Lier à un SpotYou permet aux membres de cette communauté de **louer** votre produit dans les créneaux proposés par le SpotYou"
+- "Ton produit apparaît automatiquement dans la **boutique des SpotYou dont les tags correspondent aux tiens** et dans la boutique globale"
+- Suppression de la phrase fausse sur la visibilité directe par rattachement
+- "En mode séance : au moment de la réservation, l'utilisateur choisira un créneau parmi ceux du SpotYou **rattaché au produit**"
+- Conseil ajouté : activer aussi une tarification par heure/jour pour ne pas bloquer la location si pas de créneau dispo
+
 - Admin Product Moderation Dashboard (onglet « Produits » en bleu #3B82F6)
 - Push notifications admin (nouveau produit pending)
 - Push notifications créateur (validation / refus avec deep link edit mode)

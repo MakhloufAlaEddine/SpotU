@@ -55,7 +55,7 @@ export interface ProductFormData {
   location_privacy: LocationPrivacy;
   availability_note: string;
 
-  // Step 6 — SpotYou
+  // Step 2 — SpotYou (intégré dans l'étape tarification)
   related_spotyou_ids: string[];
 
   // Meta
