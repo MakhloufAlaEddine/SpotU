@@ -280,11 +280,13 @@ export default function CreateSpotYouScreen() {
       const finalUris: string[] = [];
       for (const asset of result.assets) {
         let uri = asset.uri;
-        // Vérifier la taille réelle (JPEG converti depuis HEIC peut dépasser 5 Mo)
-        let info = await FileSystem.getInfoAsync(uri, { size: true }) as any;
-        if (info.size && info.size > MAX_BYTES) {
+        // Vérifier la taille du fichier ORIGINAL (asset.fileSize = taille HEIC avant conversion)
+        // FileSystem.getInfoAsync retourne la taille du JPEG converti par le système → faux positif pour les HEIC
+        const originalSize = asset.fileSize ?? 0;
+        if (originalSize > MAX_BYTES) {
           // Comprimer progressivement jusqu'à passer sous 5 Mo
           let quality = 0.7;
+          let info: any = {};
           while (quality >= 0.3) {
             const compressed = await ImageManipulator.manipulateAsync(
               uri, [], { compress: quality, format: ImageManipulator.SaveFormat.JPEG }
@@ -299,6 +301,12 @@ export default function CreateSpotYouScreen() {
             Alert.alert('Image trop grande', 'Cette image ne peut pas être compressée sous 5 Mo. Veuillez en choisir une autre.');
             continue;
           }
+        } else {
+          // Toutes les images acceptées (≤ 5 Mo) sont compressées à 0.8 qualité JPEG
+          const compressed = await ImageManipulator.manipulateAsync(
+            uri, [], { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+          );
+          uri = compressed.uri;
         }
         finalUris.push(uri);
       }

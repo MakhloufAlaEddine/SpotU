@@ -201,16 +201,19 @@ export default function CreateServiceScreen() {
     if (status !== 'granted') { Alert.alert('Permission refusée', 'Accès à la galerie nécessaire'); return; }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'], allowsMultipleSelection: true,
-      quality: 0.9, selectionLimit: 5 - images.length,
+      quality: 1, selectionLimit: 5 - images.length,
     });
     if (result.canceled || !result.assets?.length) return;
     const MAX_BYTES = 5 * 1024 * 1024; // 5 Mo
     const finalUris: string[] = [];
     for (const asset of result.assets) {
       let uri = asset.uri;
-      let info = await FileSystem.getInfoAsync(uri, { size: true }) as any;
-      if (info.size && info.size > MAX_BYTES) {
+      // Utiliser asset.fileSize (taille du fichier original, ex: HEIC) pour la vérification pré-compression
+      // FileSystem.getInfoAsync retourne la taille du JPEG converti par le système → faux positif pour les HEIC
+      const originalSize = asset.fileSize ?? 0;
+      if (originalSize > MAX_BYTES) {
         let quality = 0.7;
+        let info: any = {};
         while (quality >= 0.3) {
           const compressed = await ImageManipulator.manipulateAsync(
             uri, [], { compress: quality, format: ImageManipulator.SaveFormat.JPEG }
@@ -224,6 +227,12 @@ export default function CreateServiceScreen() {
           Alert.alert('Image trop grande', 'Cette image ne peut pas être compressée sous 5 Mo.');
           continue;
         }
+      } else {
+        // Toutes les images acceptées (≤ 5 Mo) sont compressées à 0.8 qualité JPEG
+        const compressed = await ImageManipulator.manipulateAsync(
+          uri, [], { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+        );
+        uri = compressed.uri;
       }
       finalUris.push(uri);
     }
