@@ -202,15 +202,8 @@ export default function CreateServiceScreen() {
       quality: 0.9, selectionLimit: 5 - images.length,
     });
     if (result.canceled || !result.assets?.length) return;
-    const MAX_SIZE = 5 * 1024 * 1024;
-    const oversized = result.assets.filter(a => a.fileSize && a.fileSize > MAX_SIZE);
-    if (oversized.length > 0) {
-      Alert.alert('Fichier trop volumineux', `${oversized.length} image(s) dépassent 5 Mo et ont été ignorées.`);
-    }
-    const valid = result.assets.filter(a => !a.fileSize || a.fileSize <= MAX_SIZE);
-    if (!valid.length) return;
     // Stocker les URI locales — l'upload R2 se fera au clic "Sauvegarder"
-    const localUris = valid.map(a => a.uri);
+    const localUris = result.assets.map(a => a.uri);
     setImages(prev => [...prev, ...localUris].slice(0, 5));
   };
 
