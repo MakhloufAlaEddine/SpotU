@@ -987,6 +987,22 @@ async def connect_to_db():
             ON CONFLICT (point_id, user_id) DO NOTHING;
         """)
 
+    # ── REPAIR IDEMPOTENT: tag_category_links + tag_entity_type_links ─────────
+    # Ce bloc tourne à chaque démarrage (ON CONFLICT DO NOTHING = safe)
+    # Il répare les liens manquants si le seed initial a crashé partiellement
+    from seed import _build_tag_category_links, _build_tag_entity_type_links
+    async with pool.acquire() as conn:
+        for lnk in _build_tag_category_links():
+            await conn.execute(
+                "INSERT INTO tag_category_links (tag_id, category_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+                lnk["tag_id"], lnk["category_id"]
+            )
+        for lnk in _build_tag_entity_type_links():
+            await conn.execute(
+                "INSERT INTO tag_entity_type_links (tag_id, entity_type) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+                lnk["tag_id"], lnk["entity_type"]
+            )
+
 
 async def close_db():
     global pool

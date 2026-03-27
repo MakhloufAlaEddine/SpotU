@@ -231,14 +231,6 @@ def _build_tag_category_links():
     for t in ["tag_remise_forme", "tag_recuperation", "tag_mobilite", "tag_endurance"]:
         add(t, "cat_syu_fit_coach", "cat_svc_fit_coach")
     add("tag_mental", "cat_syu_mental_coach", "cat_svc_mental_coach")
-    # niveau + contexte → toutes les catégories spotyou et service
-    all_syu_svc_cats = [c["category_id"] for c in CATEGORIES if c["entity_type"] in ("spotyou", "service")]
-    for t in ["tag_debutant", "tag_intermediaire", "tag_avance", "tag_tous_niveaux", "tag_loisir", "tag_competition"]:
-        for cid in all_syu_svc_cats:
-            links.append({"tag_id": t, "category_id": cid})
-    for t in ["tag_indoor", "tag_outdoor", "tag_matin", "tag_soir", "tag_weekend", "tag_quotidien"]:
-        for cid in all_syu_svc_cats:
-            links.append({"tag_id": t, "category_id": cid})
 
     # Deduplicate
     seen = set()

@@ -90,6 +90,7 @@ async def get_product_detail(request: Request, product_id: str):
                    pickup_type, pickup_notes, city, location_privacy, lat, lng,
                    return_rules, cancellation_rules, availability_note,
                    included_items, brand_model, size_dimensions,
+                   tag_ids,
                    related_spotyou_ids,
                    rejection_reason, admin_comment,
                    created_at, updated_at

@@ -12,10 +12,11 @@ export type LocationPrivacy = 'exact' | '100m' | '1000m';
 export type ProductStatus = 'draft' | 'pending_review';
 
 export interface ProductFormData {
-  // Step 1 — Type + Catégorie
+  // Step 1 — Type + Catégorie + Tags
   product_type: ProductType;
   category: string;
   subcategory: string;
+  tag_ids: string[];
 
   // Step 2 — Infos principales
   title: string;
@@ -60,6 +61,7 @@ const DEFAULT: ProductFormData = {
   product_type:       'rental',
   category:           '',
   subcategory:        '',
+  tag_ids:            [],
   title:              '',
   short_description:  '',
   description:        '',

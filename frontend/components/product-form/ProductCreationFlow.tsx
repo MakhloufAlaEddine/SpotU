@@ -152,6 +152,7 @@ export function ProductCreationFlow({ isEditMode = false }: { isEditMode?: boole
         radius_km:            form.location_privacy === 'exact' ? 0 : form.location_privacy === '100m' ? 0.1 : 1.0,
         availability_note:    form.availability_note.trim(),
         related_spotyou_ids:  form.related_spotyou_ids,
+        tag_ids:              form.tag_ids ?? [],
         delivery_modes:       form.pickup_type ? [form.pickup_type] : [],
         status,
         currency:             'EUR',
