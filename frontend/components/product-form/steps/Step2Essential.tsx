@@ -42,8 +42,8 @@ export function Step2Essential() {
       {/* ── État du matériel ──────────────────────────────────────────── */}
       <View style={s.field}>
         <Text style={s.label}>ÉTAT DU MATÉRIEL <Text style={s.req}>*</Text></Text>
-        <View style={s.condGrid}>
-          {CONDITIONS.map(c => {
+        <View style={s.condRow}>
+          {CONDITIONS.slice(0, 2).map(c => {
             const active = form.condition_label === c.key;
             return (
               <TouchableOpacity
@@ -53,9 +53,23 @@ export function Step2Essential() {
                 testID={`condition-${c.key}`}
                 activeOpacity={0.75}
               >
-                <Text style={[s.condLabel, active && { color: c.color }]}>
-                  {c.label}
-                </Text>
+                <Text style={[s.condLabel, active && { color: c.color }]}>{c.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        <View style={s.condRow}>
+          {CONDITIONS.slice(2).map(c => {
+            const active = form.condition_label === c.key;
+            return (
+              <TouchableOpacity
+                key={c.key}
+                style={[s.condChip, active && { borderColor: c.color, backgroundColor: c.color + '18' }]}
+                onPress={() => set({ condition_label: c.key })}
+                testID={`condition-${c.key}`}
+                activeOpacity={0.75}
+              >
+                <Text style={[s.condLabel, active && { color: c.color }]}>{c.label}</Text>
               </TouchableOpacity>
             );
           })}
@@ -119,8 +133,8 @@ const s = StyleSheet.create({
   counter:   { fontSize: 11, color: Colors.muted, textAlign: 'right' },
   input:     { backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, color: Colors.foreground, fontSize: 15, paddingHorizontal: 14, paddingVertical: 13 },
 
-  condGrid:  { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  condChip:  { flex: 1, minWidth: '45%', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.border },
+  condRow:   { flexDirection: 'row', marginBottom: 8 },
+  condChip:  { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 16, backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.border, marginHorizontal: 4 },
   condLabel: { fontSize: 13, fontWeight: '700', color: Colors.muted },
 
   qtyRow:    { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden', alignSelf: 'flex-start' },
