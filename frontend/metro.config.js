@@ -12,13 +12,16 @@
 
 // ── Monkey-patch fs.watch : exclure node_modules des watches inotify ──
 const fs = require('fs');
+const EventEmitter = require('events');
 const _origWatch = fs.watch;
 fs.watch = function patchedWatch(filepath, options, callback) {
   if (typeof filepath === 'string' && filepath.includes('/node_modules/')) {
-    // Retourner un faux watcher — node_modules n'a pas besoin de watches
-    // (jamais modifié en développement sans redémarrage serveur)
-    const noop = { close: () => {} };
-    if (typeof options === 'function') options.call?.(null, 'rename', null);
+    // Retourner un faux watcher EventEmitter — node_modules n'a pas besoin de watches
+    // FallbackWatcher appelle .on() sur le watcher, il faut un EventEmitter complet
+    const noop = new EventEmitter();
+    noop.close = () => {};
+    if (typeof options === 'function') options(null, null);
+    else if (typeof callback === 'function') callback(null, null);
     return noop;
   }
   return _origWatch.call(this, filepath, options, callback);
