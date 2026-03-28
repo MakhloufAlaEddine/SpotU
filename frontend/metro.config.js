@@ -1,22 +1,28 @@
 // metro.config.js — configuration propre pour environnement conteneurisé
 //
-// Pourquoi ces réglages ?
-// ─────────────────────────────────────────────────────────────────────
-// Le kernel du pod a une limite inotify de 12 288 watches/user.
-// node_modules contient ~8 000 répertoires, dont ~2 000 de code natif
-// (Java/C++) inutiles pour le bundler JS. Sans configuration adaptée,
-// FallbackWatcher (fs.watch) crée une watch par dossier → ENOSPC.
+// PROBLÈME ENVIRONNEMENT : Le pod Kubernetes partage la limite inotify du node host
+// (max_user_watches = 12 288). Le host et d'autres containers consomment déjà ~9 000+
+// watches, ne laissant que ~2 000-3 000 disponibles. node_modules seul nécessiterait
+// ~5 000 watches → ENOSPC.
 //
-// Solution :
-//   1. resolver.useWatchman = true  → Watchman (daemon) gère les watches
-//      de façon plus efficace qu'inotify brut via fs.watch.
-//   2. .watchmanconfig              → exclut les ~2 000 dirs natifs,
-//      ramenant le total à ~6 000 < 12 288 avec marge de sécurité.
-//   3. PAS de watchFolders          → chaque entrée créerait une instance
-//      de watcher supplémentaire sur le même arbre (N × 8000 watches).
-//   4. blockList résolveur          → exclut les dossiers natifs de la
-//      résolution de modules (cohérence avec .watchmanconfig).
+// SOLUTION : Monkey-patch fs.watch pour ignorer node_modules (jamais modifié pendant
+// le développement) — seuls les fichiers sources (~300 dirs) reçoivent des watches.
+// Metro continue à lire node_modules via le crawl initial (pas via watches).
 // ─────────────────────────────────────────────────────────────────────
+
+// ── Monkey-patch fs.watch : exclure node_modules des watches inotify ──
+const fs = require('fs');
+const _origWatch = fs.watch;
+fs.watch = function patchedWatch(filepath, options, callback) {
+  if (typeof filepath === 'string' && filepath.includes('/node_modules/')) {
+    // Retourner un faux watcher — node_modules n'a pas besoin de watches
+    // (jamais modifié en développement sans redémarrage serveur)
+    const noop = { close: () => {} };
+    if (typeof options === 'function') options.call?.(null, 'rename', null);
+    return noop;
+  }
+  return _origWatch.call(this, filepath, options, callback);
+};
 
 const { getDefaultConfig } = require('expo/metro-config');
 const path = require('path');

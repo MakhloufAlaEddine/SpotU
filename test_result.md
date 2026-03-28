@@ -325,7 +325,7 @@ agent_communication:
       - Coach: coach@winek.app / WinekCoach2024!
       - User: user@winek.app / WinekUser2024!
       
-      FRONTEND URL: https://heic-support.preview.emergentagent.com
-      BACKEND URL: https://heic-support.preview.emergentagent.com/api
+      FRONTEND URL: https://metro-stability.preview.emergentagent.com
+      BACKEND URL: https://metro-stability.preview.emergentagent.com/api
       
       Test all high priority features. Note: Stripe payment test not critical for MVP verification.
