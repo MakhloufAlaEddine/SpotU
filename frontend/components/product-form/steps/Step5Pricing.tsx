@@ -2,7 +2,7 @@
  * Step 5 — Tarification redesign
  * - Modes : grille 2 colonnes compacte, séance en pleine largeur
  * - Prix  : liste épurée label + input inline sans fond lourd
- * - SpotYou : carte compacte avec ville extraite de l'adresse
+ * - SpotYou : carte riche avec photo, membres, prochain créneau (adapté de SpotYouCard)
  */
 import React, { useEffect, useState } from 'react';
 import {
@@ -12,20 +12,107 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../../../constants/Colors';
 import { useProductForm, PricingMode } from '../ProductFormContext';
 import { api } from '../../../lib/api';
-import { TagImage } from '../../TagImage';
+import { TagImage, DOMAIN_ICONS } from '../../TagImage';
+import { formatNextDate, sc as SpotSc } from '../../SpotYouCard';
 
 const BLUE   = '#3B82F6';
 const ORANGE = '#F59E0B';
 
-// Modes standards (grille 2 colonnes)
 const GRID_MODES: { key: PricingMode; label: string; unit: string }[] = [
-  { key: 'hour',  label: 'À l\'heure',  unit: '€ / h'    },
+  { key: 'hour',  label: 'À l\'heure',   unit: '€ / h'    },
   { key: 'day',   label: 'À la journée', unit: '€ / jour' },
   { key: 'week',  label: 'À la semaine', unit: '€ / sem'  },
   { key: 'month', label: 'Au mois',      unit: '€ / mois' },
 ];
-// Mode séance : pleine largeur
 const SESSION_MODE = { key: 'session' as PricingMode, label: 'À la séance', unit: 'Créneaux SpotYou' };
+
+// ── Mini-carte SpotYou sélectionnable ──────────────────────────────────────
+function SpotSelectionCard({
+  spot, selected, onPress,
+}: { spot: any; selected: boolean; onPress: () => void }) {
+  const isRecurring = !!spot.event_schedule;
+  const nextLabel   = formatNextDate(spot.next_session_date, spot.event_date, spot.event_schedule);
+  const members     = spot.participants_count ?? 0;
+  const imgUri      = spot.images?.[0] || spot.image_url;
+
+  // Compter les créneaux hebdomadaires
+  const slotCount = (() => {
+    if (!spot.event_schedule?.schedule) return null;
+    const sched = spot.event_schedule.schedule;
+    const total = Object.values(sched as Record<string, any[]>)
+      .reduce((acc: number, slots: any[]) => acc + (slots?.length || 0), 0);
+    return total > 0 ? total : null;
+  })();
+
+  return (
+    <TouchableOpacity
+      style={[p.spotCard, selected && p.spotCardActive]}
+      onPress={onPress}
+      testID={`spot-${spot.point_id}`}
+      activeOpacity={0.82}
+    >
+      {/* Header: photo + infos */}
+      <View style={p.spotCardHeader}>
+        {/* Photo */}
+        {imgUri ? (
+          <TagImage uri={imgUri} domainId={spot.domain_id} style={p.spotThumb} iconSize={24} />
+        ) : (
+          <View style={[p.spotThumb, p.spotThumbEmpty]}>
+            <Ionicons name={DOMAIN_ICONS[spot.domain_id] || 'location-outline'} size={22} color={Colors.muted} />
+          </View>
+        )}
+
+        {/* Infos */}
+        <View style={{ flex: 1 }}>
+          {/* Titre + badge récurrent */}
+          <View style={p.spotTitleRow}>
+            <Text style={[p.spotTitle, selected && { color: BLUE }]} numberOfLines={1}>{spot.title}</Text>
+            {isRecurring && (
+              <View style={SpotSc.typeBadgeRecurring}>
+                <Ionicons name="repeat" size={9} color={Colors.primary} />
+                <Text style={[SpotSc.typeBadgeText, { color: Colors.primary }]}>Récurrent</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Membres + créneaux */}
+          <View style={p.spotMeta}>
+            <View style={SpotSc.membersChip}>
+              <Ionicons name="people-outline" size={10} color={Colors.primary} />
+              <Text style={SpotSc.membersChipText}>{Math.max(members, 1)} membre{Math.max(members, 1) > 1 ? 's' : ''}</Text>
+            </View>
+            {slotCount && (
+              <View style={p.slotChip}>
+                <Ionicons name="time-outline" size={10} color={Colors.muted} />
+                <Text style={p.slotChipText}>{slotCount} créneau{slotCount > 1 ? 'x' : ''} / sem</Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* Checkbox */}
+        <View style={[p.check, selected && p.checkActive]}>
+          {selected && <Ionicons name="checkmark" size={12} color="#fff" />}
+        </View>
+      </View>
+
+      {/* Prochain créneau */}
+      {nextLabel ? (
+        <View style={[SpotSc.eventSection, { paddingTop: 8, paddingBottom: 8 }]}>
+          <View style={SpotSc.eventDateRow}>
+            <View style={SpotSc.eventIconBox}>
+              <Ionicons name={isRecurring ? 'repeat' : 'calendar'} size={13} color={Colors.primary} />
+            </View>
+            <View>
+              <Text style={SpotSc.eventLabel}>Prochain créneau</Text>
+              <Text style={SpotSc.eventDate}>{nextLabel}</Text>
+            </View>
+          </View>
+        </View>
+      ) : null}
+    </TouchableOpacity>
+  );
+}
 
 export function Step5Pricing() {
   const { form, set } = useProductForm();
@@ -152,7 +239,7 @@ export function Step5Pricing() {
       {/* ── Saisie des prix ─────────────────────────────────────────────── */}
       {allPriceModes.length > 0 && (
         <View style={p.priceBlock}>
-          <Text style={p.sectionTitle}>TARIFS</Text>
+          <Text style={[p.sectionTitle, { paddingHorizontal: 16, paddingTop: 12 }]}>TARIFS</Text>
           {allPriceModes.map((m, idx) => (
             <View key={m.key} style={[p.priceRow, idx < allPriceModes.length - 1 && p.priceRowBorder]}>
               <View style={{ flex: 1 }}>
@@ -204,28 +291,14 @@ export function Step5Pricing() {
             </View>
           )}
 
-          {spots.map(s => {
-            const sel  = (form.related_spotyou_ids ?? []).includes(s.point_id);
-            const city = extractCity(s.address || '');
-            return (
-              <TouchableOpacity
-                key={s.point_id}
-                style={[p.spotRow, sel && p.spotRowActive]}
-                onPress={() => toggleSpot(s.point_id)}
-                testID={`spot-${s.point_id}`}
-                activeOpacity={0.75}
-              >
-                <TagImage uri={s.image_url} tagIds={s.tag_ids || []} style={p.spotImg} />
-                <View style={{ flex: 1 }}>
-                  <Text style={[p.spotTitle, sel && { color: BLUE }]} numberOfLines={1}>{s.title}</Text>
-                  {city ? <Text style={p.spotCity} numberOfLines={1}>{city}</Text> : null}
-                </View>
-                <View style={[p.check, sel && p.checkActive]}>
-                  {sel && <Ionicons name="checkmark" size={12} color="#fff" />}
-                </View>
-              </TouchableOpacity>
-            );
-          })}
+          {spots.map(s => (
+            <SpotSelectionCard
+              key={s.point_id}
+              spot={s}
+              selected={(form.related_spotyou_ids ?? []).includes(s.point_id)}
+              onPress={() => toggleSpot(s.point_id)}
+            />
+          ))}
         </View>
       )}
 
@@ -262,7 +335,7 @@ const p = StyleSheet.create({
   input:          { minWidth: 70, textAlign: 'right', fontSize: 18, fontWeight: '700', color: Colors.foreground, paddingVertical: 4, paddingHorizontal: 6 },
   euro:           { fontSize: 16, fontWeight: '700', color: BLUE },
 
-  // SpotYou
+  // SpotYou section header
   spotHeader:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   reqBadge:       { backgroundColor: '#FEE2E2', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: '#FECACA' },
   reqBadgeText:   { fontSize: 11, fontWeight: '700', color: '#EF4444' },
@@ -271,11 +344,17 @@ const p = StyleSheet.create({
   emptySpots:     { alignItems: 'center', gap: 5, paddingVertical: 18, backgroundColor: Colors.card, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, borderStyle: 'dashed' },
   emptyText:      { fontSize: 13, fontWeight: '600', color: Colors.foreground },
   emptyHint:      { fontSize: 11, color: Colors.muted, textAlign: 'center' },
-  spotRow:        { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.card, borderRadius: 12, padding: 10, borderWidth: 1, borderColor: Colors.border },
-  spotRowActive:  { borderColor: BLUE, backgroundColor: BLUE + '08' },
-  spotImg:        { width: 38, height: 38, borderRadius: 8 },
-  spotTitle:      { fontSize: 13, fontWeight: '700', color: Colors.foreground },
-  spotCity:       { fontSize: 11, color: Colors.muted, marginTop: 2 },
-  check:          { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
+  // SpotYou selection cards
+  spotCard:       { backgroundColor: Colors.card, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
+  spotCardActive: { borderColor: BLUE, backgroundColor: BLUE + '08' },
+  spotCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12 },
+  spotThumb:      { width: 60, height: 60, borderRadius: 10 },
+  spotThumbEmpty: { backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' },
+  spotTitleRow:   { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' },
+  spotTitle:      { fontSize: 13, fontWeight: '700', color: Colors.foreground, flex: 1 },
+  spotMeta:       { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
+  slotChip:       { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: Colors.background, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: Colors.border },
+  slotChipText:   { fontSize: 10, color: Colors.muted, fontWeight: '600' },
+  check:          { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center', marginLeft: 4 },
   checkActive:    { backgroundColor: BLUE, borderColor: BLUE },
 });
