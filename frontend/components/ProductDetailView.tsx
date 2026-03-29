@@ -29,10 +29,12 @@ const PICKUP_CFG: Record<string, { icon: string; label: string; color: string }>
 };
 
 const STATUS_CFG: Record<string, { label: string; color: string; bg: string; icon: string }> = {
+  active:         { label: 'Publié',             color: GREEN,  bg: GREEN  + '18', icon: 'checkmark-circle'    },
   approved:       { label: 'Publié',             color: GREEN,  bg: GREEN  + '18', icon: 'checkmark-circle'    },
   pending_review: { label: 'En attente',         color: ORANGE, bg: ORANGE + '18', icon: 'hourglass-outline'   },
   draft:          { label: 'Brouillon',          color: Colors.muted, bg: 'rgba(255,255,255,0.06)', icon: 'document-outline' },
-  rejected:       { label: 'Refusé',            color: DANGER, bg: DANGER + '18', icon: 'close-circle'        },
+  inactive:       { label: 'Inactif',            color: Colors.muted, bg: 'rgba(255,255,255,0.06)', icon: 'pause-circle-outline' },
+  rejected:       { label: 'Refusé',             color: DANGER, bg: DANGER + '18', icon: 'close-circle'        },
 };
 
 const MODE_LABELS: Record<string, { label: string; field: string }> = {
