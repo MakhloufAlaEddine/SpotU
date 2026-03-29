@@ -35,6 +35,19 @@ export function Step1TypeCategory() {
     }
   };
 
+  const handleTagsLoaded = (tags: { tag_id: string; label_fr: string; category_id: string; category_name?: string }[]) => {
+    const map = Object.fromEntries(tags.map(t => [t.tag_id, t]));
+    setAllTagsMap(map);
+    // Si des tags sont déjà sélectionnés (produit existant), déduire category_label immédiatement
+    const currentIds = form.tag_ids ?? [];
+    if (currentIds.length > 0 && map[currentIds[0]]) {
+      const tag = map[currentIds[0]];
+      if (tag.category_id && !form.category_label) {
+        set({ category: tag.category_id, category_label: tag.category_name || '' });
+      }
+    }
+  };
+
   return (
     <View style={s.wrap}>
 
@@ -76,9 +89,7 @@ export function Step1TypeCategory() {
           showDomains
           selectedTagIds={form.tag_ids ?? []}
           onChangeTagIds={handleTagsChange}
-          onTagsLoaded={(tags) =>
-            setAllTagsMap(Object.fromEntries(tags.map(t => [t.tag_id, t])))
-          }
+          onTagsLoaded={handleTagsLoaded}
           maxSelect={MAX_TAGS}
           accentColor={BLUE}
           label="Tags"

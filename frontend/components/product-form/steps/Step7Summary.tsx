@@ -2,22 +2,17 @@
  * Step 7 — Récapitulatif + Aperçu + Publication
  * Réutilise ProductDetailView en mode consultation (aperçu avant publication)
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../../../constants/Colors';
 import { useProductForm, calcProductQuality, getMinPrice } from '../ProductFormContext';
 import { ProductDetailView } from '../../ProductDetailView';
+import { api } from '../../../lib/api';
 
 const BLUE = '#3B82F6';
 
-const CAT_LABELS: Record<string, string> = {
-  velo: 'Vélo / Trottinette', raquette: 'Raquette / Padel',
-  fitness: 'Fitness / Musculation', yoga: 'Yoga / Tapis',
-  ballon: 'Ballon / Sports collectifs', natation: 'Natation',
-  glisse: 'Ski / Snowboard', running: 'Running / Trail',
-  accessoire: 'Accessoires sport', autre: 'Autre matériel',
-};
+// Supprimé : CAT_LABELS avec les anciens IDs incorrects — on résout depuis l'API
 
 const COND_LABELS: Record<string, string> = {
   new: 'Neuf', very_good: 'Très bon', good: 'Bon', acceptable: 'Acceptable',
@@ -38,6 +33,19 @@ export function Step7Summary({ onSaveDraft, onPublish, isSubmitting }: Props) {
   const { form } = useProductForm();
   const quality = calcProductQuality(form);
   const [showPreview, setShowPreview] = useState(false);
+  const [catMap, setCatMap]           = useState<Record<string, string>>({});
+
+  // Charger la map catégorie_id → label_fr si category_label manquant
+  useEffect(() => {
+    if (form.category_label || !form.category) return;
+    api.get('/tags/categories?entity_type=product')
+      .then((cats: any[]) => {
+        const map: Record<string, string> = {};
+        (cats || []).forEach(c => { map[c.category_id] = c.label_fr; });
+        setCatMap(map);
+      })
+      .catch(() => {});
+  }, [form.category, form.category_label]);
 
   const minPrice = getMinPrice(form);
   const activeModes = form.pricing_modes ?? ['day'];
@@ -127,7 +135,7 @@ export function Step7Summary({ onSaveDraft, onPublish, isSubmitting }: Props) {
           <Text style={sm.productPrice}>{priceLabel}</Text>
 
           <View style={sm.rows}>
-            <SummaryRow icon="pricetag-outline"         label="Catégorie"   value={form.category_label || CAT_LABELS[form.category] || '—'} />
+            <SummaryRow icon="pricetag-outline"         label="Catégorie"   value={form.category_label || catMap[form.category] || '—'} />
             <SummaryRow icon="shield-outline"           label="État"        value={COND_LABELS[form.condition_label] || '—'} />
             <SummaryRow icon="cube-outline"             label="Quantité"    value={`${form.available_quantity} unité(s)`} />
             <SummaryRow icon="location-outline"         label="Mode remise" value={PICKUP_LABELS[form.pickup_type] || '—'} />
