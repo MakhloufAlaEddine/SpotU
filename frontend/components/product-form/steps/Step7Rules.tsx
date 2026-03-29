@@ -1,10 +1,10 @@
-/**
- * Step 7 — Règles : Consignes de remise, retour, annulation (tous optionnels)
- */
 import React from 'react';
 import { View, Text, TextInput, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../../../constants/Colors';
 import { useProductForm } from '../ProductFormContext';
+
+const BLUE = '#3B82F6';
 
 export function Step7Rules() {
   const { form, set } = useProductForm();
@@ -13,6 +13,7 @@ export function Step7Rules() {
     <View style={r.wrap}>
 
       <View style={r.headerNote}>
+        <Ionicons name="information-circle-outline" size={15} color={BLUE} />
         <Text style={r.headerNoteText}>
           Ces champs sont optionnels. Des règles claires réduisent les malentendus et améliorent ton score.
         </Text>
@@ -72,8 +73,8 @@ export function Step7Rules() {
 
 const r = StyleSheet.create({
   wrap:           { gap: 14 },
-  headerNote:     { backgroundColor: Colors.card, borderRadius: Radius.md, padding: 12, borderWidth: 1, borderColor: Colors.border },
-  headerNoteText: { fontSize: 13, color: Colors.muted, lineHeight: 19 },
+  headerNote:     { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: 'rgba(59,130,246,0.10)', borderRadius: Radius.md, padding: 12, borderWidth: 1, borderColor: 'rgba(59,130,246,0.22)' },
+  headerNoteText: { flex: 1, fontSize: 13, color: Colors.foreground, lineHeight: 19 },
   field:          { gap: 6 },
   label:          { fontSize: 11, fontWeight: '700', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 1 },
   optional:       { color: Colors.muted, fontWeight: '400', textTransform: 'none', letterSpacing: 0 },

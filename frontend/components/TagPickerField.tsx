@@ -48,7 +48,7 @@ interface TagPickerFieldProps {
   hint?:            string;
   required?:        boolean;
   /** Callback appelé à chaque chargement : expose tous les tags (avec category_id) au parent */
-  onTagsLoaded?:    (tags: { tag_id: string; label_fr: string; label_en?: string; category_id: string }[]) => void;
+  onTagsLoaded?:    (tags: { tag_id: string; label_fr: string; label_en?: string; category_id: string; category_name?: string }[]) => void;
 }
 
 export function TagPickerField({
@@ -78,7 +78,7 @@ export function TagPickerField({
         setAllCategories(cats);
         onTagsLoaded?.(
           cats.flatMap(cat =>
-            (cat.tags || []).map(t => ({ ...t, category_id: cat.category_id }))
+            (cat.tags || []).map(t => ({ ...t, category_id: cat.category_id, category_name: cat.label_fr }))
           )
         );
       })

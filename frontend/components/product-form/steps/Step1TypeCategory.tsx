@@ -20,15 +20,18 @@ const PRODUCT_TYPES = [
 export function Step1TypeCategory() {
   const { form, set } = useProductForm();
   // Map des tags chargés par TagPickerField pour auto-déduire la catégorie
-  const [allTagsMap, setAllTagsMap] = useState<Record<string, { label_fr: string; category_id: string }>>({});
+  const [allTagsMap, setAllTagsMap] = useState<Record<string, { label_fr: string; category_id: string; category_name?: string }>>({});
 
   const handleTagsChange = (ids: string[]) => {
     set({ tag_ids: ids });
     // Auto-déduire la catégorie depuis le premier tag sélectionné
     if (ids.length > 0 && allTagsMap[ids[0]]?.category_id) {
-      set({ category: allTagsMap[ids[0]].category_id });
+      set({
+        category: allTagsMap[ids[0]].category_id,
+        category_label: allTagsMap[ids[0]].category_name || '',
+      });
     } else if (ids.length === 0) {
-      set({ category: '' });
+      set({ category: '', category_label: '' });
     }
   };
 
