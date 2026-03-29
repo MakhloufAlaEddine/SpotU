@@ -3,6 +3,7 @@
  * Utilisé par : create.tsx (SpotYou), products/create.tsx, etc.
  */
 import { Platform } from 'react-native';
+import { storage } from './storage';
 
 const MAX_UPLOAD_BYTES = 13 * 1024 * 1024; // 13 Mo (marge sous la limite backend de 15 Mo)
 
@@ -47,11 +48,13 @@ async function compressBlobWeb(blob: Blob, maxDim = 2000, quality = 0.75): Promi
 
 export async function uploadImage(
   uri: string,
-  token: string,
+  _tokenParam: string,  // conservé pour compatibilité mais ignoré — on lit toujours depuis storage
   category: 'spotyou' | 'products' | 'services' | 'profiles' | 'chats' = 'other',
 ): Promise<string | null> {
   try {
     const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+    // Lire le token depuis le storage pour éviter les problèmes de contexte React (token null)
+    const token = await storage.get('spotu_token') || _tokenParam || '';
     const ext = uri.split('.').pop()?.toLowerCase() || 'jpg';
     const mimeMap: Record<string, string> = {
       jpg: 'image/jpeg', jpeg: 'image/jpeg',
