@@ -241,9 +241,3 @@ const m = StyleSheet.create({
 
 
 
-  rejectionTitle:{ fontSize: 13, fontWeight: '700', color: '#EF4444' },
-  rejectionComment: { fontSize: 14, color: '#FCA5A5', lineHeight: 20 },
-  rejectionCTA:  { fontSize: 12, color: '#EF4444', opacity: 0.7, fontStyle: 'italic' },
-
-
-
