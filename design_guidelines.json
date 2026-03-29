@@ -1,106 +1,181 @@
 {
   "theme": "dark",
-  "archetype": "Swiss & High-Contrast",
+  "archetype": "Performance Pro / High Contrast Tech",
   "colors": {
     "background": "#0D1117",
     "card": "#161B22",
-    "border": "#21262D",
+    "border": "rgba(255,255,255,0.06)",
     "foreground": "#E6EDF3",
     "muted": "#8B949E",
-    "accent": "#3B82F6",
-    "success": "#22C55E",
-    "error": "#EF4444"
+    "primary": "#3B82F6",
+    "cobalt": "#3B82F6",
+    "orange": "#FF9500",
+    "green": "#22C55E",
+    "danger": "#EF4444",
+    "warning": "#F59E0B"
   },
   "typography": {
-    "h1": { "fontSize": 24, "fontWeight": "700", "lineHeight": 32, "color": "#E6EDF3" },
-    "h2": { "fontSize": 20, "fontWeight": "600", "lineHeight": 28, "color": "#E6EDF3" },
-    "body": { "fontSize": 16, "fontWeight": "400", "lineHeight": 24, "color": "#E6EDF3" },
-    "muted": { "fontSize": 14, "fontWeight": "400", "lineHeight": 20, "color": "#8B949E" },
-    "label": { "fontSize": 12, "fontWeight": "600", "textTransform": "uppercase", "letterSpacing": 1.2, "color": "#8B949E" }
+    "section_header": {
+      "fontSize": 11,
+      "fontWeight": "700",
+      "color": "#8B949E",
+      "textTransform": "uppercase",
+      "letterSpacing": 0.8,
+      "marginBottom": 12,
+      "marginTop": 24
+    },
+    "title": {
+      "fontSize": 24,
+      "fontWeight": "bold",
+      "color": "#E6EDF3",
+      "lineHeight": 32,
+      "marginBottom": 8
+    },
+    "body": {
+      "fontSize": 15,
+      "color": "#E6EDF3",
+      "lineHeight": 22
+    },
+    "small": {
+      "fontSize": 13,
+      "color": "#8B949E"
+    }
   },
-  "spacing": {
-    "xs": 4,
-    "sm": 8,
-    "md": 16,
-    "lg": 24,
-    "xl": 32,
-    "xxl": 48
+  "layout_rules": {
+    "cards": {
+      "backgroundColor": "#161B22",
+      "borderRadius": 14,
+      "borderWidth": 1,
+      "borderColor": "rgba(255,255,255,0.06)",
+      "padding": 16,
+      "marginBottom": 16,
+      "overflow": "hidden"
+    },
+    "primary_button": {
+      "borderRadius": 24,
+      "backgroundColor": "#3B82F6",
+      "paddingVertical": 14,
+      "paddingHorizontal": 24,
+      "alignItems": "center",
+      "justifyContent": "center",
+      "flexDirection": "row",
+      "gap": 8
+    },
+    "ghost_destructive_button": {
+      "borderRadius": 24,
+      "backgroundColor": "transparent",
+      "borderWidth": 1,
+      "borderColor": "#EF4444",
+      "paddingVertical": 14,
+      "paddingHorizontal": 24,
+      "alignItems": "center",
+      "justifyContent": "center"
+    },
+    "chip": {
+      "backgroundColor": "rgba(255,255,255,0.04)",
+      "borderRadius": 100,
+      "paddingVertical": 6,
+      "paddingHorizontal": 12,
+      "borderWidth": 1,
+      "borderColor": "rgba(255,255,255,0.06)",
+      "flexDirection": "row",
+      "alignItems": "center"
+    },
+    "bottom_bar": {
+      "backgroundColor": "#0D1117",
+      "borderTopWidth": 1,
+      "borderColor": "rgba(255,255,255,0.06)",
+      "paddingHorizontal": 16,
+      "paddingTop": 16,
+      "paddingBottom": 32
+    }
   },
-  "borderRadius": {
-    "sm": 8,
-    "md": 12,
-    "full": 999
-  },
-  "architecture": {
-    "total_steps": 9,
-    "steps": [
-      {
-        "id": 1,
-        "title": "Classification",
-        "fields": ["product_type", "category", "tags"],
-        "layout_strategy": "Use a segmented control or horizontal chips for product_type (rental/sale/digital). Category can be a chip grid or dropdown. Tags should be an input with horizontal scrollable chips below. Maximize vertical space by avoiding cards."
+  "component_instructions": {
+    "target_file": "/app/frontend/components/ProductDetailView.js",
+    "description": "A single robust React Native shared component replacing the buyer and owner views, removing the distinct minimal owner modal screen.",
+    "props": [
+      "item (Object)",
+      "allItems (Array, optional)",
+      "onBack (Function)",
+      "isOwner (Boolean, optional)",
+      "onEdit (Function, optional)",
+      "onDelete (Function, optional)",
+      "onCta (Function, optional)"
+    ],
+    "structure_requirements": [
+      "1. Root container should be flex: 1 with Colors.background.",
+      "2. Main content must be inside a ScrollView with paddingBottom to prevent overlap with the fixed bottom bar.",
+      "3. The bottom bar must be wrapped outside the ScrollView inside the main flex container, or absolutely positioned at the bottom."
+    ],
+    "sections": {
+      "HeroGallery": {
+        "description": "Full-width horizontal ScrollView with pagingEnabled. Map over item.image_urls or fallback to [item.image_url]. Height ~300. Use TagImage component.",
+        "testId": "product-hero-gallery"
       },
-      {
-        "id": 2,
-        "title": "L'essentiel",
-        "fields": ["title", "brand_model", "condition"],
-        "layout_strategy": "Title as a large, prominent TextInput. Brand/Model as standard TextInput. Condition as a 2x2 grid of touchable chips (neuf/très bon/bon/acceptable) to eliminate scroll."
+      "TitleRow": {
+        "description": "Row with item.title. If isOwner is true, display a prominent Status badge (e.g., pending_review, approved, draft, rejected). If rejected, show admin comment box below.",
+        "testId": "product-title-row"
       },
-      {
-        "id": 3,
-        "title": "Détails",
-        "fields": ["short_summary", "long_description", "included_items"],
-        "layout_strategy": "Three stacked inputs. Limit the height of 'long_description' to 3-4 lines initially (expandable if needed, but optimally stays within view) to prevent pushing content down."
+      "PricingChips": {
+        "description": "Horizontal ScrollView displaying active pricing modes (price_per_hour, price_per_day, price_per_week, price_per_month, price_per_session). Prominent text formatting.",
+        "testId": "product-pricing-chips"
       },
-      {
-        "id": 4,
-        "title": "Médias",
-        "fields": ["photos"],
-        "layout_strategy": "3x2 grid of square photo upload slots. The first slot must be distinct (e.g., border highlight or 'Principale' badge). Clean and evenly spaced."
+      "QuickInfoChips": {
+        "description": "FlexWrap row container displaying pill chips for category_label (fallback to raw category), condition_label, skill_level, brand_model.",
+        "testId": "product-quick-info"
       },
-      {
-        "id": 5,
-        "title": "Tarification",
-        "fields": ["pricing_formats", "pricing_inputs", "spotyou_section"],
-        "layout_strategy": "To avoid clutter, show 5 pill-toggles for the formats (heure/jour/semaine/mois/séance). When a format is activated, animate in its specific price input below. SpotYou section only appears if 'séance' is active."
+      "Distances": {
+        "description": "Render only if !isOwner. Show location text with Ionicons location-outline.",
+        "testId": "product-distances"
       },
-      {
-        "id": 6,
-        "title": "Logistique",
-        "fields": ["handover_mode", "max_duration", "deposit"],
-        "layout_strategy": "Row of 2 large touchable cards for handover mode. Inline inputs for duration and deposit that appear only conditionally to keep the initial view completely uncluttered."
+      "Description": {
+        "description": "Collapsible text field using default numberOfLines={3} and a 'Lire plus' touchable to expand text.",
+        "testId": "product-description"
       },
-      {
-        "id": 7,
-        "title": "Règles",
-        "fields": ["handover_instructions", "return_rules", "cancellation_conditions"],
-        "layout_strategy": "3 textareas. Keep borders minimalistic (#21262D) and use subtle background (#161B22) to avoid a heavy, boxed-in look. Label them clearly with '(Optionnel)'."
+      "InfosPratiques": {
+        "description": "A dark card block containing rows for pickup_type (car-outline), deposit_amount (shield-checkmark-outline), max_duration_days (time-outline), availability_note.",
+        "testId": "product-infos-pratiques"
       },
-      {
-        "id": 8,
-        "title": "Localisation",
-        "fields": ["location_map", "city", "availability_note"],
-        "layout_strategy": "Map component takes the top 35-40% of the screen. City input and availability note follow below. No scrolling required if proportions are managed."
+      "ContenuInclus": {
+        "description": "Display list of item.included_items if it exists. Use bullet points or small checkmark rows.",
+        "testId": "product-contenu-inclus"
       },
-      {
-        "id": 9,
-        "title": "Récapitulatif",
-        "fields": ["quality_score", "summary_list", "preview_button", "draft_button", "submit_button"],
-        "layout_strategy": "Large quality score circle/badge at the top. A dense but readable summary list. Fixed bottom container for primary action buttons."
+      "Conditions": {
+        "description": "CRITICAL: Inline display only. Only if !isOwner. Display item.return_rules and item.cancellation_rules inside the scroll content layout. DO NOT USE a 'Voir les conditions' button.",
+        "testId": "product-inline-conditions"
+      },
+      "SellerProfile": {
+        "description": "Only if !isOwner. Card block showing seller_picture_url, seller_name, stars/rating, and 'Voir le profil'.",
+        "testId": "product-seller-profile"
       }
-    ]
+    },
+    "bottom_bar_logic": {
+      "isOwner_true": {
+        "layout": "Row or stacked layout containing two buttons. 'Modifier l\\'annonce' (primary blue) and 'Supprimer' (ghost red / destructive style).",
+        "actions": ["onEdit", "onDelete"]
+      },
+      "isOwner_false": {
+        "layout": "Single prominent full-width 'Louer / Réserver' primary button.",
+        "actions": ["onCta"]
+      }
+    }
   },
-  "component_strategies": {
-    "TextInput": "Background #161B22, border #21262D (1px), placeholder #8B949E, text #E6EDF3, borderRadius 12. Focus state: border #3B82F6. Include data-testid.",
-    "Chip": "Background #161B22, text #8B949E, borderRadius 999. Active state: Background #3B82F6, text #FFFFFF. Include data-testid.",
-    "Card": "Background #161B22, borderRadius 12, border #21262D. Flat design, no elevation shadows. Include data-testid.",
-    "Header": "Compact layout. Left: Back button. Center: 'Étape X/9'. Right: Quality score mini-badge. Bottom border: #21262D.",
-    "Navigation": "Fixed bottom safe area view. Single 'Suivant' button (blue pill, full width, height 56px, bold text) to ensure consistent layout."
-  },
-  "ux_recommendations": {
-    "avoid_scroll": "Strictly limit each step to a maximum of 3-4 fields. Use progressive disclosure (conditional rendering) for fields like pricing inputs, duration, and deposits.",
-    "visual_hierarchy": "Required fields should have standard labels. Optional fields must have an inline '(Optionnel)' muted span. Remove heavy info cards; replace with inline 12px muted text hints directly below inputs.",
-    "interactions": "Use smooth opacity/layout animations when conditional fields appear to avoid jarring jumps."
-  },
-  "instructions_to_main_agent": "Redesign the ProductCreationFlow stepper in React Native (Expo) by expanding it from 6 to 9 steps to completely eliminate scrolling within steps. Implement the layout strategies detailed in the 'architecture' section. Use React Native primitive components (View, Text, TextInput, TouchableOpacity, ScrollView, Switch) and apply the exact hex colors from the 'colors' object via StyleSheet. Pay special attention to 'Step 5: Tarification'—do not display all 5 price inputs at once; use toggles to reveal them. Ensure every interactive element has a clear 'data-testid' for testing."
+  "data_testids": [
+    "product-detail-view",
+    "btn-back",
+    "product-hero-gallery",
+    "product-title-row",
+    "product-status-badge",
+    "product-pricing-chips",
+    "product-quick-info",
+    "product-distances",
+    "product-description",
+    "product-infos-pratiques",
+    "product-contenu-inclus",
+    "product-inline-conditions",
+    "product-seller-profile",
+    "btn-owner-edit",
+    "btn-owner-delete",
+    "btn-buyer-rent"
+  ]
 }
