@@ -149,6 +149,7 @@ export default function CreateSpotYouScreen() {
 
   // Tags — map peuplé par onTagsLoaded du TagPickerField
   const [allTagsMap, setAllTagsMap] = useState<Record<string, { label_fr: string; label_en?: string; category_id: string }>>({});
+  const [selectedDomainId, setSelectedDomainId] = useState<string>('dom_sport'); // défaut dom_sport (pré-sélectionné par TagPickerField)
   const selectedTags = selectedTagIds.map(id => allTagsMap[id]).filter(Boolean);
 
   const precisionRadius = precision === 'exact' ? 0 : precision === '100m' ? 100 : 1000;
@@ -424,6 +425,7 @@ export default function CreateSpotYouScreen() {
         tag_ids: selectedTagIds,
         images: uploadedUrls,
         address: locationAddress || null,
+        domain_id: selectedDomainId,
         // Always send date fields explicitly so backend can clear them when switching types
         event_date: (scheduleType === 'once' && eventDateTime) ? eventDateTime.toISOString() : null,
         event_end_date: (scheduleType === 'once' && eventEndDateTime) ? eventEndDateTime.toISOString() : null,
@@ -474,6 +476,7 @@ export default function CreateSpotYouScreen() {
           description={description} setDescription={setDescription}
           selectedTagIds={selectedTagIds} onChangeTagIds={setSelectedTagIds}
           onTagsLoaded={(tags: any[]) => setAllTagsMap(prev => ({ ...prev, ...Object.fromEntries(tags.map((t: any) => [t.tag_id, t])) }))}
+          onDomainChange={setSelectedDomainId}
           lang={lang}
         />
       );
@@ -1006,7 +1009,7 @@ function StepEssentiel({ images, title, setTitle, onPickImages, onRemoveImage, m
 }
 
 // ─── Step 2: Le contenu ─────────────────────────────────────────────────────────
-function StepContenu({ description, setDescription, selectedTagIds, onChangeTagIds, onTagsLoaded, lang }: any) {
+function StepContenu({ description, setDescription, selectedTagIds, onChangeTagIds, onTagsLoaded, onDomainChange, lang }: any) {
   return (
     <View style={{ gap: Spacing.lg }}>
       {/* Description */}
@@ -1034,6 +1037,7 @@ function StepContenu({ description, setDescription, selectedTagIds, onChangeTagI
         selectedTagIds={selectedTagIds}
         onChangeTagIds={onChangeTagIds}
         onTagsLoaded={onTagsLoaded}
+        onDomainChange={onDomainChange}
         accentColor={Colors.primary}
         label="Tags"
         hint="Les tags permettent à votre SpotYou d'apparaître dans les recherches filtrées"

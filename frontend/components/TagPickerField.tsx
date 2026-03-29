@@ -49,13 +49,15 @@ interface TagPickerFieldProps {
   required?:        boolean;
   /** Callback appelé à chaque chargement : expose tous les tags (avec category_id) au parent */
   onTagsLoaded?:    (tags: { tag_id: string; label_fr: string; label_en?: string; category_id: string; category_name?: string }[]) => void;
+  /** Callback appelé quand le domaine sélectionné change (showDomains uniquement) */
+  onDomainChange?:  (domainId: string) => void;
 }
 
 export function TagPickerField({
   entityType = '', selectedTagIds, onChangeTagIds,
   filterCategoryId, showDomains = false,
   maxSelect, accentColor = '#3B82F6',
-  label, hint, required, onTagsLoaded,
+  label, hint, required, onTagsLoaded, onDomainChange,
 }: TagPickerFieldProps) {
   const [allCategories, setAllCategories] = useState<CategoryItem[]>([]);
   const [domains,       setDomains]       = useState<DomainItem[]>([]);
@@ -95,7 +97,10 @@ export function TagPickerField({
           a.domain_id === 'dom_sport' ? -1 : b.domain_id === 'dom_sport' ? 1 : 0
         );
         setDomains(sorted);
-        if (!domainId && sorted.length > 0) setDomainId(sorted[0].domain_id);
+        if (!domainId && sorted.length > 0) {
+          setDomainId(sorted[0].domain_id);
+          onDomainChange?.(sorted[0].domain_id);
+        }
       })
       .catch(() => {});
   }, [showDomains]);
@@ -171,7 +176,11 @@ export function TagPickerField({
                 <TouchableOpacity
                   key={d.domain_id}
                   style={[t.domainPill, sel && { backgroundColor: col + '22', borderColor: col }]}
-                  onPress={() => setDomainId(sel ? null : d.domain_id)}
+                  onPress={() => {
+                    const next = sel ? null : d.domain_id;
+                    setDomainId(next);
+                    if (next) onDomainChange?.(next);
+                  }}
                   testID={`domain-${d.domain_id}`}
                 >
                   <Text style={[t.domainPillText, sel && { color: col, fontWeight: '700' }]}>
