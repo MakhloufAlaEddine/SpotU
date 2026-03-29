@@ -5,13 +5,14 @@ import React, { useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, FlatList,
   StyleSheet, ActivityIndicator, Image,
-  RefreshControl, Modal, ScrollView, Alert,
+  RefreshControl, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { api } from '../../lib/api';
+import { ProductDetailView } from '../../components/ProductDetailView';
 
 const BLUE     = '#3B82F6';
 const BLUE_DIM = 'rgba(59,130,246,0.12)';
@@ -20,6 +21,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; 
   draft:          { label: 'Brouillon',     color: '#94A3B8', bg: '#94A3B822', icon: 'document-outline'        },
   pending_review: { label: 'En validation', color: '#F59E0B', bg: '#F59E0B22', icon: 'time-outline'             },
   active:         { label: 'Publié',        color: '#22C55E', bg: '#22C55E22', icon: 'checkmark-circle-outline' },
+  approved:       { label: 'Publié',        color: '#22C55E', bg: '#22C55E22', icon: 'checkmark-circle-outline' },
   inactive:       { label: 'Inactif',       color: Colors.muted, bg: Colors.muted + '22', icon: 'pause-circle-outline' },
   rejected:       { label: 'Refusé',        color: '#EF4444', bg: '#EF444422', icon: 'close-circle-outline'    },
 };
@@ -28,110 +30,6 @@ const PRICING_LABELS: Record<string, string> = {
   day: 'jour', hour: 'heure', week: 'semaine', month: 'mois', unit: 'unité',
 };
 
-/* ── Modal de détail produit ─────────────────────────────────────────────── */
-function ProductDetailModal({ product, onClose, onEdit, onDelete }: {
-  product: any;
-  onClose: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
-}) {
-  const st = STATUS_CONFIG[product.status] ?? STATUS_CONFIG.draft;
-  const isRejected = product.status === 'rejected';
-  const adminComment = product.admin_comment || product.rejection_reason;
-  const price = product.price != null
-    ? `${Number(product.price).toFixed(2)} € / ${PRICING_LABELS[product.pricing_type] ?? product.pricing_type ?? 'jour'}`
-    : '—';
-  const images: string[] = product.image_urls?.length
-    ? product.image_urls
-    : product.cover_image_url ? [product.cover_image_url] : [];
-  const [imgIdx, setImgIdx] = useState(0);
-
-  return (
-    <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }} edges={['top', 'bottom']}>
-        {/* Header */}
-        <View style={d.header}>
-          <TouchableOpacity onPress={onClose} style={d.closeBtn} testID="detail-close-btn">
-            <Ionicons name="close" size={22} color={Colors.foreground} />
-          </TouchableOpacity>
-          <Text style={d.headerTitle} numberOfLines={1}>{product.title}</Text>
-          <View style={{ width: 36 }} />
-        </View>
-
-        <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
-          {/* Photo */}
-          {images.length > 0 ? (
-            <View>
-              <Image source={{ uri: images[imgIdx] }} style={d.mainImg} resizeMode="cover" />
-              {images.length > 1 && (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={d.thumbRow}>
-                  {images.map((u, i) => (
-                    <TouchableOpacity key={i} onPress={() => setImgIdx(i)}>
-                      <Image source={{ uri: u }} style={[d.thumb, i === imgIdx && d.thumbActive]} resizeMode="cover" />
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              )}
-            </View>
-          ) : (
-            <View style={d.noImg}>
-              <Ionicons name="image-outline" size={48} color={Colors.muted} />
-              <Text style={{ color: Colors.muted, fontSize: 13, marginTop: 4 }}>Aucune photo</Text>
-            </View>
-          )}
-
-          <View style={d.body}>
-            {/* Status */}
-            <View style={[d.statusBadge, { backgroundColor: st.bg }]}>
-              <Ionicons name={st.icon as any} size={14} color={st.color} />
-              <Text style={[d.statusText, { color: st.color }]}>{st.label}</Text>
-            </View>
-
-            {/* Commentaire admin si refusé */}
-            {isRejected && (
-              <View style={d.rejectionBox} testID="rejection-comment-box">
-                <View style={d.rejectionHeader}>
-                  <Ionicons name="alert-circle" size={16} color="#EF4444" />
-                  <Text style={d.rejectionTitle}>Motif du refus</Text>
-                </View>
-                {adminComment ? (
-                  <Text style={d.rejectionComment}>{adminComment}</Text>
-                ) : (
-                  <Text style={[d.rejectionComment, { fontStyle: 'italic', opacity: 0.6 }]}>Aucun motif fourni</Text>
-                )}
-                <Text style={d.rejectionCTA}>Corrigez votre annonce et soumettez-la à nouveau.</Text>
-              </View>
-            )}
-
-            {/* Infos */}
-            <Text style={d.infoPrice}>{price}</Text>
-            {product.category && (
-              <Text style={d.infoCategory}>{product.category}{product.subcategory ? ` › ${product.subcategory}` : ''}</Text>
-            )}
-            {product.short_description ? (
-              <Text style={d.desc}>{product.short_description}</Text>
-            ) : product.description ? (
-              <Text style={d.desc} numberOfLines={4}>{product.description}</Text>
-            ) : null}
-          </View>
-        </ScrollView>
-
-        {/* Barre d'actions */}
-        <View style={d.actionBar}>
-          <TouchableOpacity style={d.deleteBtn} onPress={onDelete} testID="detail-delete-btn">
-            <Ionicons name="trash-outline" size={18} color="#EF4444" />
-          </TouchableOpacity>
-          <TouchableOpacity style={d.editBtn} onPress={onEdit} testID="detail-edit-btn">
-            <Ionicons name="create-outline" size={18} color="#fff" />
-            <Text style={d.editBtnText}>
-              {isRejected ? 'Corriger et resoumettre' : 'Modifier l\'annonce'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    </Modal>
-  );
-}
 
 /* ── Écran principal ─────────────────────────────────────────────────────── */
 export default function MyProductsScreen() {
@@ -291,12 +189,16 @@ export default function MyProductsScreen() {
       )}
 
       {selected && (
-        <ProductDetailModal
-          product={selected}
-          onClose={() => setSelected(null)}
-          onEdit={() => handleEdit(selected)}
-          onDelete={() => handleDelete(selected)}
-        />
+        <View style={StyleSheet.absoluteFillObject}>
+          <ProductDetailView
+            item={selected}
+            allItems={products}
+            isOwner
+            onBack={() => setSelected(null)}
+            onEdit={() => handleEdit(selected)}
+            onDelete={() => handleDelete(selected)}
+          />
+        </View>
       )}
     </SafeAreaView>
   );
@@ -337,32 +239,11 @@ const m = StyleSheet.create({
   cardChevron: { position: 'absolute', right: 12, bottom: 12 },
 });
 
-const d = StyleSheet.create({
-  header:        { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.border, gap: 8 },
-  closeBtn:      { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  headerTitle:   { flex: 1, fontSize: 16, fontWeight: '700', color: Colors.foreground },
-  mainImg:       { width: '100%', height: 240 },
-  thumbRow:      { backgroundColor: Colors.background, paddingVertical: 8, paddingHorizontal: 12 },
-  thumb:         { width: 56, height: 56, borderRadius: 8, marginRight: 8, opacity: 0.6 },
-  thumbActive:   { opacity: 1, borderWidth: 2, borderColor: BLUE },
-  noImg:         { height: 140, backgroundColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
-  body:          { padding: 16, gap: 12 },
-  statusBadge:   { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12 },
-  statusText:    { fontSize: 12, fontWeight: '700' },
-  infoPrice:     { fontSize: 20, fontWeight: '800', color: BLUE },
-  infoCategory:  { fontSize: 13, color: Colors.muted },
-  desc:          { fontSize: 14, color: Colors.foreground, lineHeight: 20 },
 
-  // Boîte refus admin
-  rejectionBox:  { backgroundColor: '#1C0A0A', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#EF444444', gap: 8 },
-  rejectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+
   rejectionTitle:{ fontSize: 13, fontWeight: '700', color: '#EF4444' },
   rejectionComment: { fontSize: 14, color: '#FCA5A5', lineHeight: 20 },
   rejectionCTA:  { fontSize: 12, color: '#EF4444', opacity: 0.7, fontStyle: 'italic' },
 
-  // Barre d'actions
-  actionBar:     { position: 'absolute', bottom: 0, left: 0, right: 0, flexDirection: 'row', gap: 10, padding: 16, backgroundColor: Colors.background, borderTopWidth: 1, borderTopColor: Colors.border },
-  deleteBtn:     { width: 48, height: 48, borderRadius: 12, backgroundColor: '#EF444422', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#EF444455' },
-  editBtn:       { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: BLUE, borderRadius: 14, paddingVertical: 14 },
-  editBtnText:   { fontSize: 15, fontWeight: '700', color: '#fff' },
-});
+
+

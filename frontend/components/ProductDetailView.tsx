@@ -1,507 +1,488 @@
 /**
- * ProductDetailView — Vue détail produit.
- * Utilisé dans : écran /marketplace/product-detail (navigation par stack).
- *
- * @param item       Produit ou service sélectionné
- * @param allItems   Tous les items chargés (pour calculer les autres contenus du vendeur)
- * @param onBack     Callback retour (router.back())
- * @param onCta      Callback CTA (placeholder pour usage futur)
+ * ProductDetailView — composant partagé enrichi
+ *   - Non-owner : galerie, prix, infos, conditions inline, vendeur, CTA "Louer"
+ *   - Owner     : même contenu + badge statut + CTA "Modifier / Supprimer"
  */
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  Image,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet,
+  NativeScrollEvent, NativeSyntheticEvent, Dimensions, FlatList, Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing } from '../constants/Colors';
+import { Colors, Spacing, Radius } from '../constants/Colors';
 import { TagImage } from './TagImage';
 
-/* ─── Constantes couleurs ───────────────────────────────────────────────── */
-const COBALT     = '#3B82F6';
-const COBALT_DIM = 'rgba(59,130,246,0.10)';
-const COBALT_BDR = 'rgba(59,130,246,0.30)';
-const ORANGE     = '#FF9500';
-const GREEN      = '#22C55E';
-const IMG_H      = 230;
+const { width: SW } = Dimensions.get('window');
 
-/* ─── Config modes de remise ────────────────────────────────────────────── */
-const DELIVERY_CFG: Record<string, { icon: string; label: string; color: string; bg: string }> = {
-  local_pickup:    { icon: 'location-outline',  label: 'Sur place',       color: '#F59E0B', bg: 'rgba(245,158,11,0.12)'  },
-  creator_handoff: { icon: 'person-outline',     label: 'Par le créateur', color: '#8B5CF6', bg: 'rgba(139,92,246,0.12)'  },
-  digital:         { icon: 'globe-outline',      label: 'En ligne',        color: GREEN,      bg: 'rgba(34,197,94,0.12)'   },
-  external:        { icon: 'open-outline',       label: 'Site partenaire', color: '#64748B', bg: 'rgba(100,116,139,0.12)' },
+const COBALT      = '#3B82F6';
+const COBALT_DIM  = 'rgba(59,130,246,0.10)';
+const ORANGE      = '#FF9500';
+const GREEN       = '#22C55E';
+const DANGER      = '#EF4444';
+const IMG_H       = 300;
+
+/* ─── Helpers ────────────────────────────────────────────────────────────── */
+const PICKUP_CFG: Record<string, { icon: string; label: string; color: string }> = {
+  local_pickup:    { icon: 'location-outline',  label: 'Sur place',       color: ORANGE  },
+  creator_handoff: { icon: 'person-outline',     label: 'Par le créateur', color: '#8B5CF6' },
+  digital:         { icon: 'globe-outline',      label: 'En ligne',        color: GREEN   },
+};
+
+const STATUS_CFG: Record<string, { label: string; color: string; bg: string; icon: string }> = {
+  approved:       { label: 'Publié',             color: GREEN,  bg: GREEN  + '18', icon: 'checkmark-circle'    },
+  pending_review: { label: 'En attente',         color: ORANGE, bg: ORANGE + '18', icon: 'hourglass-outline'   },
+  draft:          { label: 'Brouillon',          color: Colors.muted, bg: 'rgba(255,255,255,0.06)', icon: 'document-outline' },
+  rejected:       { label: 'Refusé',            color: DANGER, bg: DANGER + '18', icon: 'close-circle'        },
+};
+
+const MODE_LABELS: Record<string, { label: string; field: string }> = {
+  hour:    { label: '/h',     field: 'price_per_hour'    },
+  day:     { label: '/jour',  field: 'price_per_day'     },
+  week:    { label: '/sem',   field: 'price_per_week'    },
+  month:   { label: '/mois',  field: 'price_per_month'   },
+  session: { label: '/séance',field: 'price_per_session' },
 };
 
 const LEVEL_LABELS: Record<string, string> = {
-  debutant:     'Débutant',
-  intermediaire:'Intermédiaire',
-  avance:       'Avancé',
-  tous:         'Tous niveaux',
+  debutant: 'Débutant', intermediaire: 'Intermédiaire', avance: 'Avancé', tous: 'Tous niveaux',
 };
 
-const LEVEL_COLORS: Record<string, string> = {
-  debutant:     '#34D399',
-  intermediaire:'#FBBF24',
-  avance:       '#F87171',
-  tous:         Colors.muted,
-};
-
-/* ─── Types ─────────────────────────────────────────────────────────────── */
-export interface ProductDetailViewProps {
-  item: any;
-  allItems: any[];
-  onBack: () => void;
-  onCta?: (item: any) => void;
+function cleanCategory(raw: string): string {
+  if (!raw) return '';
+  return raw.replace(/^cat_prd_/, '').replace(/_/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase());
 }
 
-/* ─── Stars ─────────────────────────────────────────────────────────────── */
 function Stars({ value }: { value: number }) {
   return (
     <View style={{ flexDirection: 'row', gap: 2 }}>
-      {[1, 2, 3, 4, 5].map(i => (
-        <Ionicons
-          key={i}
-          name={i <= Math.round(value) ? 'star' : 'star-outline'}
-          size={13}
-          color="#FBBF24"
-        />
+      {[1,2,3,4,5].map(i => (
+        <Ionicons key={i} name={i <= Math.round(value) ? 'star' : 'star-outline'} size={12} color="#FBBF24" />
       ))}
     </View>
   );
 }
 
-/* ─── Section wrapper ───────────────────────────────────────────────────── */
-function Section({
-  title,
-  children,
-  noBorder,
-}: { title?: string; children: React.ReactNode; noBorder?: boolean }) {
-  return (
-    <View style={[d.section, noBorder && { borderBottomWidth: 0 }]}>
-      {title && <Text style={d.sectionTitle}>{title}</Text>}
-      {children}
-    </View>
-  );
+/* ─── Props ──────────────────────────────────────────────────────────────── */
+export interface ProductDetailViewProps {
+  item: any;
+  allItems?: any[];
+  onBack: () => void;
+  isOwner?: boolean;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  onCta?: (item: any) => void;
 }
 
-/* ─── Composant principal ───────────────────────────────────────────────── */
-export function ProductDetailView({ item, allItems, onBack, onCta }: ProductDetailViewProps) {
-  const [descExpanded, setDescExpanded]   = useState(false);
-  const [ownerExpanded, setOwnerExpanded] = useState(false);
+/* ─── Composant principal ────────────────────────────────────────────────── */
+export function ProductDetailView({
+  item, allItems = [], onBack,
+  isOwner = false, onEdit, onDelete, onCta,
+}: ProductDetailViewProps) {
+  const [descExpanded, setDescExpanded] = useState(false);
+  const [condOpen,     setCondOpen]     = useState(false);
+  const [galleryIdx,   setGalleryIdx]   = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
 
-  const isService  = item.item_type === 'service';
-  const isRental   = item.product_type === 'rental';
-  const isFree     = item.price === 0;
-  const outOfStock = item.in_stock === false;
+  /* Images */
+  const images: string[] = (() => {
+    const urls = item.image_urls ?? [];
+    if (urls.length > 0) return urls;
+    if (item.image_url) return [item.image_url];
+    return [];
+  })();
 
-  /* Infos vendeur */
-  const sellerName    = item.seller_name    || item.coach_name    || 'SpotU';
-  const sellerPicture = item.seller_picture || item.coach_picture || null;
-  const sellerId      = item.seller_id      || item.coach_id      || null;
+  /* Pricing chips */
+  const pricingChips = (item.pricing_modes ?? []).map((mode: string) => {
+    const cfg   = MODE_LABELS[mode];
+    const price = cfg ? item[cfg.field] : null;
+    return cfg && price ? { mode, label: cfg.label, price } : null;
+  }).filter(Boolean);
+
+  /* Info vendeur */
+  const sellerName    = item.seller_name    || 'SpotU';
+  const sellerPicture = item.seller_picture_url || item.seller_picture || null;
+  const sellerId      = item.seller_id      || null;
+  const sellerStats   = item.seller_stats   || {};
   const sellerInitial = sellerName.charAt(0).toUpperCase();
-  const sellerStats   = item.seller_stats || {};
 
-  /* Rôle */
-  const roleLabel = (() => {
-    if (item.badge_type === 'owner') return 'Créateur du SpotYou';
-    if (isService)                   return 'Coach';
-    if (item.seller_type === 'admin') return 'SpotU';
-    return 'Utilisateur';
-  })();
+  /* Status */
+  const statusCfg = STATUS_CFG[item.status] || STATUS_CFG.draft;
 
-  /* Libellé prix */
-  const priceLabel = (() => {
-    if (isFree) return 'Gratuit';
-    const base = `${Number(item.price).toFixed(2)} €`;
-    if (!isRental) return base;
-    const unit = item.rental_duration_unit;
-    const qty  = item.rental_duration_qty ?? 1;
-    if (!unit) return `${base}/séance`;
-    const map: Record<string, [string, string]> = {
-      heure:   ['h',        'h'],
-      jour:    ['jour',     'jours'],
-      semaine: ['semaine',  'semaines'],
-      mois:    ['mois',     'mois'],
-    };
-    const [s, p] = map[unit] ?? [unit, unit];
-    return qty > 1 ? `${base}/${qty} ${p}` : `${base}/${s}`;
-  })();
-
-  /* Libellé CTA */
-  const ctaLabel = isRental ? "Voir les conditions" : "Voir l'offre";
-
-  /* Autres items du même vendeur (depuis la liste déjà chargée) */
+  /* Autres produits du même vendeur */
   const otherProducts = sellerId
-    ? allItems.filter(
-        i =>
-          (i.seller_id || i.coach_id) === sellerId &&
-          (i.product_id || i.service_id) !== (item.product_id || item.service_id) &&
-          i.item_type === 'product',
-      )
-    : [];
-  const otherServices = sellerId
-    ? allItems.filter(
-        i =>
-          (i.seller_id || i.coach_id) === sellerId &&
-          (i.product_id || i.service_id) !== (item.product_id || item.service_id) &&
-          i.item_type === 'service',
-      )
+    ? allItems.filter(i =>
+        (i.seller_id === sellerId) &&
+        (i.product_id !== item.product_id) &&
+        i.item_type === 'product')
     : [];
 
-  const spotYouCount   = sellerStats.spotyou_count  ?? 0;
-  const hasOtherContent =
-    otherProducts.length > 0 || otherServices.length > 0 || spotYouCount > 0;
+  /* Category label */
+  const catLabel = item.category_label || cleanCategory(item.category || '');
 
-  /* Description longue ? */
-  const longDesc = (item.description || '').length > 180;
+  /* Return/cancel rules */
+  const hasReturnRules = !!(item.return_rules?.trim());
+  const hasCancelRules = !!(item.cancellation_rules?.trim());
+  const hasConditions  = hasReturnRules || hasCancelRules;
 
-  /* URL image */
-  const imgUri = isService
-    ? Array.isArray(item.images) ? item.images[0] : null
-    : item.image_url;
+  const longDesc = (item.description || '').length > 200;
+
+  /* Gallery scroll handler */
+  const onGalleryScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const idx = Math.round(e.nativeEvent.contentOffset.x / SW);
+    setGalleryIdx(idx);
+  };
 
   return (
     <View style={d.root} testID="product-detail-view">
-
-      {/* ── Header ── */}
+      {/* ── Header back ── */}
       <View style={d.header}>
-        <TouchableOpacity
-          onPress={onBack}
-          style={d.backBtn}
-          testID="product-detail-back-btn"
-        >
+        <TouchableOpacity onPress={onBack} style={d.backBtn} testID="btn-back">
           <Ionicons name="arrow-back" size={20} color={Colors.foreground} />
         </TouchableOpacity>
-        <Text style={d.headerTitle} numberOfLines={1}>Détail produit</Text>
-        <View style={d.headerSpacer} />
+        <Text style={d.headerTitle} numberOfLines={1}>{item.title}</Text>
+        <View style={{ width: 36 }} />
       </View>
 
-      {/* ── Contenu scrollable ── */}
+      {/* ── Scroll ── */}
       <ScrollView
+        ref={scrollRef}
         style={d.scroll}
-        contentContainerStyle={d.scrollContent}
+        contentContainerStyle={{ paddingBottom: isOwner ? 96 : 80 }}
         showsVerticalScrollIndicator={false}
-        bounces
       >
-        {/* ── Image principale ── */}
-        <View style={d.imageWrap}>
-          <TagImage uri={imgUri || ''} style={d.image} />
+        {/* ── Galerie ── */}
+        <View style={d.galleryWrap} testID="product-hero-gallery">
+          <ScrollView
+            horizontal pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onScroll={onGalleryScroll}
+            scrollEventThrottle={16}
+          >
+            {images.length > 0 ? images.map((uri, i) => (
+              <TagImage
+                key={i} uri={uri}
+                style={{ width: SW, height: IMG_H }}
+                tagIds={item.tag_ids || []}
+              />
+            )) : (
+              <TagImage uri="" style={{ width: SW, height: IMG_H }} tagIds={item.tag_ids || []} />
+            )}
+          </ScrollView>
 
-          {/* Overlay bas semi-transparent */}
-          <View style={d.imgBottomOverlay} />
-
-          {/* Badge type (bas droite) */}
-          <View style={[
-            d.imgBadge,
-            { position: 'absolute', bottom: 12, right: 12 },
-            isService ? d.badgeOrange :
-            isRental  ? d.badgeBlue   : d.badgeDark,
-          ]}>
-            <Text style={d.imgBadgeText}>
-              {isService ? 'SERVICE' : isRental ? 'LOCATION' : 'VENTE'}
-            </Text>
-          </View>
-
-          {/* Badge source (haut gauche) */}
-          {item.badge_type === 'owner' ? (
-            <View style={[d.imgBadge, d.badgeGreen, { position: 'absolute', top: 12, left: 12 }]}>
-              <Ionicons name="star" size={10} color="#fff" />
-              <Text style={d.imgBadgeText}>Créateur</Text>
-            </View>
-          ) : (
-            <View style={[d.imgBadge, d.badgeMuted, { position: 'absolute', top: 12, left: 12 }]}>
-              <Ionicons name="person-outline" size={10} color="#fff" />
-              <Text style={d.imgBadgeText} numberOfLines={1}>
-                {item.badge_label || 'Autre'}
-              </Text>
+          {/* Dots */}
+          {images.length > 1 && (
+            <View style={d.dots}>
+              {images.map((_, i) => (
+                <View key={i} style={[d.dot, i === galleryIdx && d.dotActive]} />
+              ))}
             </View>
           )}
 
-          {/* Indisponible */}
-          {outOfStock && (
-            <View style={d.outOverlay}>
-              <Text style={d.outText}>INDISPONIBLE</Text>
+          {/* Status badge (owner) */}
+          {isOwner && (
+            <View style={[d.statusBadge, { backgroundColor: statusCfg.bg }]} testID="product-status-badge">
+              <Ionicons name={statusCfg.icon as any} size={13} color={statusCfg.color} />
+              <Text style={[d.statusText, { color: statusCfg.color }]}>{statusCfg.label}</Text>
             </View>
           )}
+
+          {/* Overlay gradient bas */}
+          <View style={d.galleryGrad} />
         </View>
 
-        {/* ── Identité produit ── */}
-        <Section>
-          <Text style={d.productTitle}>{item.title}</Text>
+        <View style={d.content}>
+          {/* ── Titre + pricing ── */}
+          <View testID="product-title-row">
+            <Text style={d.title}>{item.title}</Text>
 
-          {/* Prix + niveau */}
-          <View style={d.priceRow}>
-            <Text style={[d.price, isFree && { color: GREEN }]}>{priceLabel}</Text>
-            {item.skill_level && item.skill_level !== 'tous' && (
-              <View style={[
-                d.levelPill,
-                {
-                  backgroundColor: (LEVEL_COLORS[item.skill_level] ?? Colors.muted) + '22',
-                  borderColor:     (LEVEL_COLORS[item.skill_level] ?? Colors.muted) + '55',
-                },
-              ]}>
-                <Text style={[d.levelText, { color: LEVEL_COLORS[item.skill_level] ?? Colors.muted }]}>
-                  {LEVEL_LABELS[item.skill_level] ?? item.skill_level}
-                </Text>
+            {/* Rejected admin comment */}
+            {isOwner && item.status === 'rejected' && item.admin_comment && (
+              <View style={d.rejectBox}>
+                <Ionicons name="alert-circle-outline" size={14} color={DANGER} />
+                <Text style={d.rejectText}>{item.admin_comment}</Text>
               </View>
             )}
           </View>
 
-          {/* Distances */}
-          {item.is_physical && (item.dist_from_spotyou_fmt || item.dist_from_user_fmt) && (
-            <View style={d.chipRow}>
-              {item.dist_from_spotyou_fmt && (
-                <View style={[d.chip, d.chipBlue]}>
-                  <Ionicons name="location" size={11} color={COBALT} />
-                  <Text style={[d.chipText, { color: COBALT }]}>
-                    {item.dist_from_spotyou_fmt} du SpotYou
-                  </Text>
+          {/* Pricing chips */}
+          {pricingChips.length > 0 && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}
+              contentContainerStyle={d.priceRow} testID="product-pricing-chips">
+              {pricingChips.map((c: any) => (
+                <View key={c.mode} style={d.priceChip}>
+                  <Text style={d.priceAmount}>{Number(c.price).toFixed(0)}€</Text>
+                  <Text style={d.priceUnit}>{c.label}</Text>
+                </View>
+              ))}
+              {/* Legacy single price fallback */}
+              {pricingChips.length === 0 && item.price > 0 && (
+                <View style={d.priceChip}>
+                  <Text style={d.priceAmount}>{Number(item.price).toFixed(2)}€</Text>
+                  <Text style={d.priceUnit}>/séance</Text>
                 </View>
               )}
-              {item.dist_from_user_fmt && (
-                <View style={[d.chip, d.chipGreen]}>
-                  <Ionicons name="navigate" size={11} color={GREEN} />
-                  <Text style={[d.chipText, { color: GREEN }]}>
-                    {item.dist_from_user_fmt} de vous
-                  </Text>
+            </ScrollView>
+          )}
+
+          {/* ── Distances (non-owner) ── */}
+          {!isOwner && (item.distance_km != null || item.spotyou_distance_km != null) && (
+            <View style={d.chipRow} testID="product-distances">
+              {item.spotyou_distance_km != null && (
+                <View style={d.chip}>
+                  <Ionicons name="location" size={12} color={COBALT} />
+                  <Text style={d.chipText}>{Number(item.spotyou_distance_km).toFixed(1)} km du SpotYou</Text>
+                </View>
+              )}
+              {item.distance_km != null && (
+                <View style={d.chip}>
+                  <Ionicons name="navigate-outline" size={12} color={Colors.muted} />
+                  <Text style={d.chipText}>{Number(item.distance_km).toFixed(1)} km de vous</Text>
                 </View>
               )}
             </View>
           )}
-        </Section>
 
-        {/* ── Infos pratiques ── */}
-        {(
-          (item.delivery_modes?.length > 0) ||
-          item.duration_min ||
-          (isRental && item.rental_duration_unit)
-        ) && (
-          <Section title="Infos pratiques">
-            <View style={d.chipRow}>
-              {(item.delivery_modes || []).map((m: string) => {
-                const cfg = DELIVERY_CFG[m];
-                if (!cfg) return null;
+          {/* ── Quick info chips ── */}
+          <View style={d.chipRow} testID="product-quick-info">
+            {catLabel ? (
+              <View style={[d.chip, { backgroundColor: COBALT_DIM, borderColor: COBALT + '30' }]}>
+                <Ionicons name="pricetag-outline" size={11} color={COBALT} />
+                <Text style={[d.chipText, { color: COBALT }]}>{catLabel}</Text>
+              </View>
+            ) : null}
+            {item.condition_label ? (
+              <View style={d.chip}>
+                <Ionicons name="shield-checkmark-outline" size={11} color={Colors.muted} />
+                <Text style={d.chipText}>{item.condition_label}</Text>
+              </View>
+            ) : null}
+            {item.skill_level ? (
+              <View style={d.chip}>
+                <Ionicons name="bar-chart-outline" size={11} color={Colors.muted} />
+                <Text style={d.chipText}>{LEVEL_LABELS[item.skill_level] || item.skill_level}</Text>
+              </View>
+            ) : null}
+            {item.brand_model ? (
+              <View style={d.chip}>
+                <Ionicons name="cube-outline" size={11} color={Colors.muted} />
+                <Text style={d.chipText}>{item.brand_model}</Text>
+              </View>
+            ) : null}
+          </View>
+
+          {/* ── Description ── */}
+          {item.description ? (
+            <View style={d.card} testID="product-description">
+              <Text style={d.sectionTitle}>DESCRIPTION</Text>
+              <Text
+                style={d.bodyText}
+                numberOfLines={descExpanded ? undefined : 3}
+              >
+                {item.description}
+              </Text>
+              {longDesc && (
+                <TouchableOpacity onPress={() => setDescExpanded(v => !v)} style={{ marginTop: 6 }}>
+                  <Text style={d.readMore}>
+                    {descExpanded ? 'Réduire' : 'Lire plus'}
+                    <Ionicons name={descExpanded ? 'chevron-up' : 'chevron-down'} size={12} color={COBALT} />
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : null}
+
+          {/* ── Infos pratiques ── */}
+          {(item.pickup_type || item.deposit_required || item.max_duration_days || item.availability_note || item.available_quantity) && (
+            <View style={d.card} testID="product-infos-pratiques">
+              <Text style={d.sectionTitle}>INFOS PRATIQUES</Text>
+              {item.pickup_type && PICKUP_CFG[item.pickup_type] && (() => {
+                const cfg = PICKUP_CFG[item.pickup_type];
                 return (
-                  <View
-                    key={m}
-                    style={[d.chip, { backgroundColor: cfg.bg, borderColor: cfg.color + '55' }]}
-                  >
-                    <Ionicons name={cfg.icon as any} size={11} color={cfg.color} />
-                    <Text style={[d.chipText, { color: cfg.color }]}>{cfg.label}</Text>
+                  <View style={d.infoRow}>
+                    <View style={[d.infoIcon, { backgroundColor: cfg.color + '18' }]}>
+                      <Ionicons name={cfg.icon as any} size={14} color={cfg.color} />
+                    </View>
+                    <Text style={d.infoLabel}>{cfg.label}</Text>
+                    {item.pickup_notes ? <Text style={d.infoSub} numberOfLines={1}>{item.pickup_notes}</Text> : null}
                   </View>
                 );
-              })}
-
-              {item.duration_min && (
-                <View style={[d.chip, { backgroundColor: 'rgba(255,149,0,0.10)', borderColor: 'rgba(255,149,0,0.30)' }]}>
-                  <Ionicons name="time-outline" size={11} color={ORANGE} />
-                  <Text style={[d.chipText, { color: ORANGE }]}>{item.duration_min} min</Text>
+              })()}
+              {item.deposit_required && item.deposit_amount && (
+                <View style={d.infoRow}>
+                  <View style={[d.infoIcon, { backgroundColor: ORANGE + '18' }]}>
+                    <Ionicons name="wallet-outline" size={14} color={ORANGE} />
+                  </View>
+                  <Text style={d.infoLabel}>Caution : {Number(item.deposit_amount).toFixed(0)} €</Text>
                 </View>
               )}
-
-              {isRental && item.rental_duration_unit && (
-                <View style={[d.chip, d.chipBlue]}>
-                  <Ionicons name="calendar-outline" size={11} color={COBALT} />
-                  <Text style={[d.chipText, { color: COBALT }]}>
-                    {item.rental_duration_qty ?? 1} {item.rental_duration_unit}
-                  </Text>
+              {item.max_duration_days && (
+                <View style={d.infoRow}>
+                  <View style={[d.infoIcon, { backgroundColor: COBALT_DIM }]}>
+                    <Ionicons name="time-outline" size={14} color={COBALT} />
+                  </View>
+                  <Text style={d.infoLabel}>Max {item.max_duration_days} jour{item.max_duration_days > 1 ? 's' : ''}</Text>
                 </View>
               )}
+              {item.available_quantity != null && item.available_quantity > 0 && (
+                <View style={d.infoRow}>
+                  <View style={[d.infoIcon, { backgroundColor: GREEN + '18' }]}>
+                    <Ionicons name="layers-outline" size={14} color={GREEN} />
+                  </View>
+                  <Text style={d.infoLabel}>{item.available_quantity} disponible{item.available_quantity > 1 ? 's' : ''}</Text>
+                </View>
+              )}
+              {item.availability_note ? (
+                <View style={d.infoRow}>
+                  <View style={[d.infoIcon, { backgroundColor: 'rgba(255,255,255,0.04)' }]}>
+                    <Ionicons name="information-circle-outline" size={14} color={Colors.muted} />
+                  </View>
+                  <Text style={d.infoSub}>{item.availability_note}</Text>
+                </View>
+              ) : null}
             </View>
-          </Section>
-        )}
+          )}
 
-        {/* ── Description ── */}
-        {!!item.description && (
-          <Section title="Description">
-            <Text
-              style={d.descText}
-              numberOfLines={descExpanded ? undefined : 4}
-            >
-              {item.description}
-            </Text>
-            {longDesc && (
+          {/* ── Contenu inclus ── */}
+          {item.included_items ? (
+            <View style={d.card} testID="product-contenu-inclus">
+              <Text style={d.sectionTitle}>CONTENU INCLUS</Text>
+              {item.included_items.split(/\n|•|;/).filter((l: string) => l.trim()).map((line: string, i: number) => (
+                <View key={i} style={d.infoRow}>
+                  <Ionicons name="checkmark-circle" size={14} color={GREEN} />
+                  <Text style={d.bodyText}>{line.trim()}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+
+          {/* ── Conditions inline (non-owner seulement) ── */}
+          {!isOwner && hasConditions && (
+            <View style={d.card} testID="product-inline-conditions">
               <TouchableOpacity
-                onPress={() => setDescExpanded(v => !v)}
-                style={d.expandBtn}
-                testID="product-detail-expand-desc"
+                style={d.condHeader}
+                onPress={() => setCondOpen(v => !v)}
+                activeOpacity={0.7}
               >
-                <Text style={d.expandBtnText}>
-                  {descExpanded ? 'Voir moins' : 'Voir plus'}
-                </Text>
-                <Ionicons
-                  name={descExpanded ? 'chevron-up' : 'chevron-down'}
-                  size={14}
-                  color={COBALT}
-                />
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Ionicons name="document-text-outline" size={14} color={COBALT} />
+                  <Text style={d.sectionTitle}>CONDITIONS DE LOCATION</Text>
+                </View>
+                <Ionicons name={condOpen ? 'chevron-up' : 'chevron-down'} size={16} color={Colors.muted} />
               </TouchableOpacity>
-            )}
-          </Section>
-        )}
-
-        {/* ── Proposé par ── */}
-        <Section title="Proposé par">
-          <TouchableOpacity
-            style={d.ownerCard}
-            onPress={() => setOwnerExpanded(v => !v)}
-            activeOpacity={0.82}
-            testID="product-detail-owner-toggle"
-          >
-            {/* Avatar */}
-            <View style={d.ownerAvatarWrap}>
-              {sellerPicture ? (
-                <Image source={{ uri: sellerPicture }} style={d.ownerAvatarImg} />
-              ) : (
-                <Text style={d.ownerAvatarTxt}>{sellerInitial}</Text>
-              )}
-              {item.badge_type === 'owner' && (
-                <View style={d.ownerDot}>
-                  <Ionicons name="star" size={7} color="#fff" />
+              {condOpen && (
+                <View style={{ gap: 12, marginTop: 12 }}>
+                  {hasReturnRules && (
+                    <View style={d.condBlock}>
+                      <Text style={d.condLabel}>
+                        <Ionicons name="refresh-circle-outline" size={12} color={COBALT} /> Retour
+                      </Text>
+                      <Text style={d.condText}>{item.return_rules}</Text>
+                    </View>
+                  )}
+                  {hasCancelRules && (
+                    <View style={d.condBlock}>
+                      <Text style={d.condLabel}>
+                        <Ionicons name="close-circle-outline" size={12} color={ORANGE} /> Annulation
+                      </Text>
+                      <Text style={d.condText}>{item.cancellation_rules}</Text>
+                    </View>
+                  )}
                 </View>
               )}
             </View>
+          )}
 
-            {/* Infos */}
-            <View style={d.ownerInfo}>
-              <Text style={d.ownerName}>{sellerName}</Text>
-              <Text style={d.ownerRole}>{roleLabel}</Text>
-
-              {/* Rating */}
-              {sellerStats.rating_avg != null && Number(sellerStats.rating_avg) > 0 ? (
-                <View style={d.ratingRow}>
-                  <Stars value={Number(sellerStats.rating_avg)} />
-                  <Text style={d.ratingTxt}>
-                    {Number(sellerStats.rating_avg).toFixed(1)}
-                    {sellerStats.rating_count > 0
-                      ? ` · ${sellerStats.rating_count} avis`
-                      : ''}
-                  </Text>
-                </View>
-              ) : (
-                <Text style={d.noRatingTxt}>Pas encore d'avis</Text>
-              )}
-            </View>
-
-            <Ionicons
-              name={ownerExpanded ? 'chevron-up' : 'chevron-down'}
-              size={16}
-              color={Colors.muted}
-            />
-          </TouchableOpacity>
-
-          {/* ── Bloc show/hide propriétaire ── */}
-          {ownerExpanded && (
-            <View style={d.ownerDetails} testID="product-detail-owner-details">
-
-              {/* Stats */}
-              {(
-                (sellerStats.products_count > 0) ||
-                (sellerStats.services_count > 0) ||
-                (sellerStats.spotyou_count  > 0)
-              ) && (
-                <View style={d.ownerStatsRow}>
-                  {sellerStats.products_count > 0 && (
-                    <View style={d.ownerStat}>
-                      <Text style={d.ownerStatVal}>{sellerStats.products_count}</Text>
-                      <Text style={d.ownerStatLbl}>
-                        produit{sellerStats.products_count > 1 ? 's' : ''}
-                      </Text>
-                    </View>
-                  )}
-                  {sellerStats.services_count > 0 && (
-                    <View style={d.ownerStat}>
-                      <Text style={d.ownerStatVal}>{sellerStats.services_count}</Text>
-                      <Text style={d.ownerStatLbl}>
-                        service{sellerStats.services_count > 1 ? 's' : ''}
-                      </Text>
-                    </View>
-                  )}
-                  {sellerStats.spotyou_count > 0 && (
-                    <View style={d.ownerStat}>
-                      <Text style={d.ownerStatVal}>{sellerStats.spotyou_count}</Text>
-                      <Text style={d.ownerStatLbl}>SpotYou</Text>
-                    </View>
-                  )}
-                </View>
-              )}
-
-              {/* Badge créateur */}
-              {item.badge_type === 'owner' && (
-                <View style={d.creatorBadge}>
-                  <Ionicons name="star" size={11} color={GREEN} />
-                  <Text style={d.creatorBadgeText}>Créateur de ce SpotYou</Text>
-                </View>
-              )}
-
-              <Text style={d.reassuranceTxt}>
-                Toutes les offres sont vérifiées par SpotU.
+          {/* ── SpotYou liés ── */}
+          {(item.related_spotyou_ids?.length > 0 || item.related_spotyou_count > 0) && (
+            <View style={d.spotYouRow}>
+              <Ionicons name="location" size={14} color={COBALT} />
+              <Text style={d.spotYouText}>
+                Disponible sur {item.related_spotyou_ids?.length ?? item.related_spotyou_count} SpotYou
               </Text>
             </View>
           )}
-        </Section>
 
-        {/* ── Autres propositions du propriétaire ── */}
-        {hasOtherContent && (
-          <Section
-            title={`Autres propositions de ${sellerName.split(' ')[0]}`}
-            noBorder
-          >
-            <View style={d.otherRow}>
-              {otherProducts.length > 0 && (
-                <View style={d.otherChip}>
-                  <Ionicons name="cube-outline" size={13} color={COBALT} />
-                  <Text style={[d.otherChipTxt, { color: COBALT }]}>
-                    {otherProducts.length} produit{otherProducts.length > 1 ? 's' : ''}
-                  </Text>
+          {/* ── Proposé par (non-owner) ── */}
+          {!isOwner && (
+            <View style={d.card} testID="product-seller-profile">
+              <Text style={d.sectionTitle}>PROPOSÉ PAR</Text>
+              <View style={d.sellerRow}>
+                {sellerPicture ? (
+                  <TagImage uri={sellerPicture} style={d.sellerAvatar} />
+                ) : (
+                  <View style={[d.sellerAvatar, d.sellerAvatarFallback]}>
+                    <Text style={d.sellerInitial}>{sellerInitial}</Text>
+                  </View>
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={d.sellerName}>{sellerName}</Text>
+                  {sellerStats.avg_rating > 0 && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 }}>
+                      <Stars value={sellerStats.avg_rating} />
+                      <Text style={d.sellerRating}>
+                        {Number(sellerStats.avg_rating).toFixed(1)} ({sellerStats.review_count ?? 0} avis)
+                      </Text>
+                    </View>
+                  )}
                 </View>
-              )}
-              {otherServices.length > 0 && (
-                <View style={d.otherChip}>
-                  <Ionicons name="calendar-outline" size={13} color={ORANGE} />
-                  <Text style={[d.otherChipTxt, { color: ORANGE }]}>
-                    {otherServices.length} service{otherServices.length > 1 ? 's' : ''}
-                  </Text>
-                </View>
-              )}
-              {spotYouCount > 0 && (
-                <View style={d.otherChip}>
-                  <Ionicons name="location-outline" size={13} color={GREEN} />
-                  <Text style={[d.otherChipTxt, { color: GREEN }]}>
-                    {spotYouCount} SpotYou
-                  </Text>
-                </View>
-              )}
+              </View>
             </View>
-          </Section>
-        )}
+          )}
 
+          {/* ── Autres produits du vendeur ── */}
+          {!isOwner && otherProducts.length > 0 && (
+            <View>
+              <Text style={[d.sectionTitle, { marginBottom: 10 }]}>AUTRES ANNONCES</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+                {otherProducts.slice(0, 5).map((p: any) => (
+                  <View key={p.product_id} style={d.miniCard}>
+                    <TagImage uri={p.image_url || ''} style={d.miniImage} tagIds={p.tag_ids || []} />
+                    <Text style={d.miniTitle} numberOfLines={2}>{p.title}</Text>
+                    <Text style={d.miniPrice}>{Number(p.price).toFixed(0)} €</Text>
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+        </View>
       </ScrollView>
 
-      {/* ── Footer sticky CTA ── */}
-      <View style={d.footer} testID="product-detail-footer">
-        <View>
-          <Text style={d.footerPriceLabel}>Prix</Text>
-          <Text style={[d.footerPrice, isFree && { color: GREEN }]}>
-            {priceLabel}
-          </Text>
-        </View>
-        <TouchableOpacity
-          style={[d.ctaBtn, outOfStock && d.ctaBtnDisabled]}
-          onPress={() => onCta?.(item)}
-          disabled={outOfStock}
-          activeOpacity={0.85}
-          testID="product-detail-cta-btn"
-        >
-          <Text style={d.ctaBtnTxt}>
-            {outOfStock ? 'Indisponible' : ctaLabel}
-          </Text>
-        </TouchableOpacity>
+      {/* ── Bottom bar ── */}
+      <View style={d.bottomBar}>
+        {isOwner ? (
+          <View style={d.ownerBtns}>
+            <TouchableOpacity
+              style={d.deleteBtn}
+              onPress={onDelete}
+              testID="btn-owner-delete"
+              activeOpacity={0.8}
+            >
+              <Ionicons name="trash-outline" size={16} color={DANGER} />
+              <Text style={d.deleteBtnText}>Supprimer</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={d.editBtn}
+              onPress={onEdit}
+              testID="btn-owner-edit"
+              activeOpacity={0.8}
+            >
+              <Ionicons name="create-outline" size={16} color="#fff" />
+              <Text style={d.editBtnText}>Modifier l'annonce</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={d.rentBtn}
+            onPress={() => onCta?.(item)}
+            testID="btn-buyer-rent"
+            activeOpacity={0.85}
+          >
+            <Ionicons name="calendar-outline" size={18} color="#fff" />
+            <Text style={d.rentBtnText}>Louer / Réserver</Text>
+          </TouchableOpacity>
+        )}
       </View>
-
     </View>
   );
 }
@@ -509,87 +490,81 @@ export function ProductDetailView({ item, allItems, onBack, onCta }: ProductDeta
 /* ─── Styles ─────────────────────────────────────────────────────────────── */
 const d = StyleSheet.create({
   root:          { flex: 1, backgroundColor: Colors.background },
+  header:        { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
+  backBtn:       { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
+  headerTitle:   { flex: 1, fontSize: 15, fontWeight: '700', color: Colors.foreground },
 
-  /* Header */
-  header:        { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: Spacing.md, paddingTop: 20, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  backBtn:       { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center' },
-  headerTitle:   { flex: 1, fontSize: 17, fontWeight: '700', color: Colors.foreground, textAlign: 'center' },
-  headerSpacer:  { width: 36 },
-
-  /* ScrollView */
   scroll:        { flex: 1 },
-  scrollContent: { paddingBottom: 110 },
+  content:       { padding: 16, gap: 12 },
 
-  /* Image */
-  imageWrap:     { width: '100%', height: IMG_H, backgroundColor: Colors.card },
-  image:         { width: '100%', height: IMG_H },
-  imgBottomOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 90, backgroundColor: 'rgba(0,0,0,0.42)' },
-  imgBadge:      { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
-  imgBadgeText:  { fontSize: 10, fontWeight: '700', color: '#fff' },
-  badgeBlue:     { backgroundColor: 'rgba(59,130,246,0.85)' },
-  badgeOrange:   { backgroundColor: 'rgba(255,149,0,0.90)' },
-  badgeDark:     { backgroundColor: 'rgba(0,0,0,0.62)' },
-  badgeGreen:    { backgroundColor: '#22C55E' },
-  badgeMuted:    { backgroundColor: Colors.muted },
-  outOverlay:    { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center' },
-  outText:       { fontSize: 15, fontWeight: '800', color: '#fff', letterSpacing: 1 },
+  // Gallery
+  galleryWrap:   { width: SW, height: IMG_H, position: 'relative' },
+  galleryGrad:   { position: 'absolute', bottom: 0, left: 0, right: 0, height: 60, backgroundColor: 'rgba(13,17,23,0.5)' },
+  dots:          { position: 'absolute', bottom: 12, alignSelf: 'center', flexDirection: 'row', gap: 5 },
+  dot:           { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.35)' },
+  dotActive:     { backgroundColor: '#fff', width: 14 },
+  statusBadge:   { position: 'absolute', top: 12, right: 12, flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 },
+  statusText:    { fontSize: 12, fontWeight: '700' },
 
-  /* Section */
-  section:       { paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  sectionTitle:  { fontSize: 11, fontWeight: '700', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.9, marginBottom: 10 },
+  // Title
+  title:         { fontSize: 22, fontWeight: '800', color: Colors.foreground, lineHeight: 30 },
+  rejectBox:     { flexDirection: 'row', gap: 8, backgroundColor: DANGER + '12', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: DANGER + '30', marginTop: 8 },
+  rejectText:    { flex: 1, fontSize: 12, color: DANGER, lineHeight: 17 },
 
-  /* Identité */
-  productTitle:  { fontSize: 21, fontWeight: '800', color: Colors.foreground, lineHeight: 27, marginBottom: 8 },
-  priceRow:      { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
-  price:         { fontSize: 24, fontWeight: '900', color: COBALT },
-  levelPill:     { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, borderWidth: 1 },
-  levelText:     { fontSize: 11, fontWeight: '600' },
+  // Pricing chips
+  priceRow:      { gap: 8, paddingBottom: 4 },
+  priceChip:     { flexDirection: 'row', alignItems: 'baseline', gap: 3, backgroundColor: COBALT_DIM, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: COBALT + '30' },
+  priceAmount:   { fontSize: 22, fontWeight: '800', color: COBALT },
+  priceUnit:     { fontSize: 12, color: COBALT + 'BB', fontWeight: '600' },
 
-  /* Chips */
-  chipRow:       { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
-  chip:          { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 8, borderWidth: 1 },
-  chipText:      { fontSize: 12, fontWeight: '600' },
-  chipBlue:      { backgroundColor: COBALT_DIM, borderColor: COBALT_BDR },
-  chipGreen:     { backgroundColor: 'rgba(34,197,94,0.10)', borderColor: 'rgba(34,197,94,0.30)' },
+  // Chips
+  chipRow:       { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  chip:          { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: Colors.border },
+  chipText:      { fontSize: 12, color: Colors.muted, fontWeight: '600' },
 
-  /* Description */
-  descText:      { fontSize: 14, color: Colors.foreground, lineHeight: 22 },
-  expandBtn:     { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 10, paddingVertical: 2, alignSelf: 'flex-start' },
-  expandBtnText: { fontSize: 13, fontWeight: '600', color: COBALT },
+  // Card sections
+  card:          { backgroundColor: Colors.card, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, padding: 14, gap: 2 },
+  sectionTitle:  { fontSize: 11, fontWeight: '700', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 },
+  bodyText:      { fontSize: 14, color: Colors.foreground, lineHeight: 21 },
+  readMore:      { fontSize: 13, color: COBALT, fontWeight: '600' },
 
-  /* Propriétaire */
-  ownerCard:       { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 13, backgroundColor: Colors.card, borderRadius: 13, borderWidth: 1, borderColor: Colors.border },
-  ownerAvatarWrap: { width: 46, height: 46, borderRadius: 23, backgroundColor: COBALT, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
-  ownerAvatarImg:  { width: 46, height: 46, borderRadius: 23 },
-  ownerAvatarTxt:  { fontSize: 19, fontWeight: '800', color: '#fff' },
-  ownerDot:        { position: 'absolute', bottom: 0, right: 0, width: 16, height: 16, borderRadius: 8, backgroundColor: GREEN, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: Colors.card },
-  ownerInfo:       { flex: 1, gap: 2 },
-  ownerName:       { fontSize: 15, fontWeight: '700', color: Colors.foreground },
-  ownerRole:       { fontSize: 12, color: Colors.muted },
-  ratingRow:       { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
-  ratingTxt:       { fontSize: 12, color: Colors.muted, fontWeight: '600' },
-  noRatingTxt:     { fontSize: 11, color: Colors.muted, marginTop: 2, fontStyle: 'italic' },
+  // Info rows
+  infoRow:       { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
+  infoIcon:      { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  infoLabel:     { flex: 1, fontSize: 13, color: Colors.foreground, fontWeight: '600' },
+  infoSub:       { flex: 1, fontSize: 12, color: Colors.muted, lineHeight: 17 },
 
-  /* Bloc show/hide propriétaire */
-  ownerDetails:    { marginTop: 10, padding: 13, backgroundColor: Colors.background, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, gap: 10 },
-  ownerStatsRow:   { flexDirection: 'row', gap: 20 },
-  ownerStat:       { alignItems: 'center', gap: 2 },
-  ownerStatVal:    { fontSize: 20, fontWeight: '800', color: Colors.foreground },
-  ownerStatLbl:    { fontSize: 10, color: Colors.muted, fontWeight: '500' },
-  creatorBadge:    { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, backgroundColor: 'rgba(34,197,94,0.10)', borderRadius: 8, borderWidth: 1, borderColor: 'rgba(34,197,94,0.30)', alignSelf: 'flex-start' },
-  creatorBadgeText:{ fontSize: 12, fontWeight: '600', color: GREEN },
-  reassuranceTxt:  { fontSize: 11, color: Colors.muted, fontStyle: 'italic', lineHeight: 16 },
+  // Conditions
+  condHeader:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  condBlock:     { backgroundColor: Colors.background, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: Colors.border, gap: 5 },
+  condLabel:     { fontSize: 12, fontWeight: '700', color: Colors.foreground, marginBottom: 4 },
+  condText:      { fontSize: 13, color: Colors.muted, lineHeight: 19 },
 
-  /* Autres contenus */
-  otherRow:        { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  otherChip:       { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 11, paddingVertical: 7, backgroundColor: Colors.card, borderRadius: 9, borderWidth: 1, borderColor: Colors.border },
-  otherChipTxt:    { fontSize: 13, fontWeight: '600' },
+  // SpotYou
+  spotYouRow:    { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: COBALT_DIM, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: COBALT + '25' },
+  spotYouText:   { fontSize: 13, color: COBALT, fontWeight: '600' },
 
-  /* Footer */
-  footer:          { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, paddingVertical: 14, borderTopWidth: 1, borderTopColor: Colors.border, backgroundColor: Colors.background, gap: 16 },
-  footerPriceLabel:{ fontSize: 11, color: Colors.muted, fontWeight: '500' },
-  footerPrice:     { fontSize: 21, fontWeight: '900', color: COBALT },
-  ctaBtn:          { flex: 1, backgroundColor: COBALT, borderRadius: 12, paddingVertical: 14, alignItems: 'center', justifyContent: 'center' },
-  ctaBtnDisabled:  { backgroundColor: Colors.muted, opacity: 0.5 },
-  ctaBtnTxt:       { fontSize: 16, fontWeight: '700', color: '#fff' },
+  // Seller
+  sellerRow:     { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 },
+  sellerAvatar:  { width: 44, height: 44, borderRadius: 22 },
+  sellerAvatarFallback: { backgroundColor: COBALT_DIM, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: COBALT + '30' },
+  sellerInitial: { fontSize: 18, fontWeight: '800', color: COBALT },
+  sellerName:    { fontSize: 15, fontWeight: '700', color: Colors.foreground },
+  sellerRating:  { fontSize: 12, color: Colors.muted },
+
+  // Mini cards (other products)
+  miniCard:      { width: 130, backgroundColor: Colors.card, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
+  miniImage:     { width: 130, height: 80 },
+  miniTitle:     { fontSize: 12, fontWeight: '600', color: Colors.foreground, padding: 8, paddingBottom: 4 },
+  miniPrice:     { fontSize: 13, fontWeight: '800', color: COBALT, paddingHorizontal: 8, paddingBottom: 8 },
+
+  // Bottom bar
+  bottomBar:     { backgroundColor: Colors.background, borderTopWidth: 1, borderTopColor: Colors.border, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 28 },
+  rentBtn:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: COBALT, borderRadius: 24, paddingVertical: 14 },
+  rentBtnText:   { fontSize: 16, fontWeight: '800', color: '#fff' },
+  ownerBtns:     { flexDirection: 'row', gap: 10 },
+  deleteBtn:     { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderRadius: 24, borderWidth: 1.5, borderColor: DANGER, paddingVertical: 13 },
+  deleteBtnText: { fontSize: 14, fontWeight: '700', color: DANGER },
+  editBtn:       { flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, backgroundColor: COBALT, borderRadius: 24, paddingVertical: 13 },
+  editBtnText:   { fontSize: 14, fontWeight: '700', color: '#fff' },
 });
