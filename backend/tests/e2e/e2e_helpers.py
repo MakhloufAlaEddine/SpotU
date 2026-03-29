@@ -25,7 +25,7 @@ def _load_env():
 
 _load_env()
 
-API_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://metro-stability.preview.emergentagent.com")
+API_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://seller-dashboard-80.preview.emergentagent.com")
 
 CREDENTIALS = {
     "admin":  {"email": "admin@winek.app",  "password": "WinekAdmin2024!"},

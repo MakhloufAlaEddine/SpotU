@@ -14,8 +14,7 @@ import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { api } from '../../lib/api';
 import { ProductDetailView } from '../../components/ProductDetailView';
 
-const BLUE     = '#3B82F6';
-const BLUE_DIM = 'rgba(59,130,246,0.12)';
+const BLUE = '#3B82F6';
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: string }> = {
   draft:          { label: 'Brouillon',     color: '#94A3B8', bg: '#94A3B822', icon: 'document-outline'        },
@@ -189,7 +188,10 @@ export default function MyProductsScreen() {
       )}
 
       {selected && (
-        <View style={StyleSheet.absoluteFillObject}>
+        <SafeAreaView
+          style={[StyleSheet.absoluteFillObject, { backgroundColor: Colors.background }]}
+          edges={['top', 'bottom']}
+        >
           <ProductDetailView
             item={selected}
             allItems={products}
@@ -198,7 +200,7 @@ export default function MyProductsScreen() {
             onEdit={() => handleEdit(selected)}
             onDelete={() => handleDelete(selected)}
           />
-        </View>
+        </SafeAreaView>
       )}
     </SafeAreaView>
   );

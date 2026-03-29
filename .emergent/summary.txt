@@ -1,148 +1,125 @@
 <analysis>**original_problem_statement**: 
-The user requested a massive refactor of the app's taxonomy (Domains, Categories, Tags) across all features (SpotYou, Services, Products, Admin). The goal was to wipe old data, introduce an  (spotyou, service, product) constraint to categories, and restructure the creation flows. Subsequently, the user requested the removal of generic tags (e.g., beginner, indoor, outdoor) to improve matching quality. Currently, the user is blocked because the backend fails to start due to a database seeding error (Login ne marche pas).
-
-PRODUCT REQUIREMENTS:
-- **Taxonomy Refactor**: Reset domains, categories, and tags. Link categories to an . Update Admin UI to filter by . Update Create flows to fetch specific categories.
-- **Tag Cleanup**: Permanently delete generic tags (beginner, intermediate, advanced, leisure, daily, indoor, outdoor, weekend, etc.) and replace them with stronger contextual tags in seeds/DB.
-- **UI Tweaks**: Finalize the migration of old Violet colors to Blue across profile icons and product forms.
+The app suffered from infrastructure crashes (Expo ENOSPC / ngrok timeouts). Once resolved, the user requested several UI/UX improvements and bug fixes: truncating long text labels on map cards, fixing the styling of informational notes in the product creation stepper, resolving a 401 Unauthorized error during image uploads, fixing a missing category display in the product summary, resolving a 422 Field required (domain_id) error when creating a SpotYou, redesigning the pricing mode UI (Step 5), and completely redesigning the  to serve as a shared full-screen component (replacing a modal in My Products). PRODUCT REQUIREMENTS: Provide a robust creation flow for products and SpotYous, ensure high-quality UI/UX (dark theme) for product details, and maintain a stable Expo environment.
 
 **User's preferred language**: French (FR). (You MUST automatically detect the user's primary language from their messages inside the <trajectory> tag and INSTRUCT next agent to respond in **French** only).
 
 **what currently exists?** 
-A React Native + FastAPI full-stack app. The taxonomy refactor has been implemented successfully in both the frontend (Admin, Create flows) and backend (Models, Routes). The generic tags have been purged. However, the backend is currently in a **BROKEN STATE** because the initialization script () is executing dummy data insertions before the tables are fully migrated and the base seed () has run, resulting in  and missing column crashes on startup.
+A React Native (Expo) + FastAPI + MongoDB full-stack app. The Expo Metro bundler environment has been fully stabilized with a corrected  monkey-patch and increased ngrok timeout. Image uploads correctly fetch JWTs directly from local storage to prevent race conditions. The product creation flow (Categories, Pricing, Details, Rules) has been polished. The  has been entirely rewritten using the Design Agent (Dark Theme, Performance Pro archetype) and integrated into the  screen, supporting owner-specific actions (edit/delete).
 
 **Last working item**: 
-    - Last item agent was working: Fixing the backend startup crash. The agent was attempting to restructure  so that all  and  commands execute *before* , and secondary dummy data insertions (like  and ) execute *after* the seed.
-    - Status: IN PROGRESS (BLOCKED)
-    - Agent Testing Done: N
-    - Which testing method agent to use? Backend manual testing (check DETAIL:  Key (follower_id)=(user_demo001) is not present in table "users".
-
-ERROR:    Application startup failed. Exiting.
-INFO:     Will watch for changes in these directories: ['/app/backend']
-INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
-INFO:     Started reloader process [121] using WatchFiles
-INFO:     Started server process [166]
-INFO:     Waiting for application startup.
-2026-03-26 23:01:17,600 database WARNING DB not ready (attempt 1/15), retrying in 1s… ([Errno 111] Connect call failed ('127.0.0.1', 5432))
-2026-03-26 23:01:18,601 database WARNING DB not ready (attempt 2/15), retrying in 2s… ([Errno 111] Connect call failed ('127.0.0.1', 5432)) after backend: ERROR (not running)
-backend: ERROR (abnormal termination)) followed by Frontend screenshot tool (verify login works).
+    - Last item agent was working: Cleaning up dead code in  and adding a back arrow + Safe Area handling to the newly redesigned .
+    - Status: USER VERIFICATION PENDING
+    - Agent Testing Done: Y (Checked bash logs for syntax/bundling success).
+    - Which testing method agent to use? screenshot tool (Take a screenshot of the My Products detail view to verify the back button and safe area display correctly).
     - User Testing Done: N
 
 **All Pending/In progress Issue list**: 
-  Issue 1: Backend Crash on Startup (P0)
-     - Attempted fixes: Agent tried moving blocks of SQL inside  but left the file in a state where  is called prematurely or tables are altered too late.
+  Issue 1: 🟢 [P0] Verify Product Detail UI (Owner View)
+     - Attempted fixes: Added SafeAreaView boundaries and an absolute positioned back button to . Removed dead styles from .
      - Next debug checklist: 
-        1. Open .
-        2. Ensure the  function follows this strict order:
-           a. Execute ALL  statements.
-           b. Execute ALL  statements (specifically adding , , ,  to ).
-           c. Call .
-           d. Execute secondary dummy test data insertions (, , updating lat/lng of seeded products).
-        3. Run backend: ERROR (not running)
-backend: ERROR (abnormal termination) and check logs to ensure Application startup complete.
-     - Why fix this issue and what will be achieved with the fix? The backend is completely down; resolving this restores the app's functionality and fixes the Login ne marche pas issue.
-     - Status: IN PROGRESS
-     - Is recurring issue? Y (Database seeding sequences have broken multiple times).
-     - Should Test frontend/backend/both after fix? Both
+        1. Use  to view the product detail screen.
+        2. Ensure the back button is visible and not hidden behind the iOS status bar.
+     - Why fix this issue and what will be achieved with the fix? Ensures the user can navigate out of the full-screen product detail view.
+     - Status: TESTING PENDING
+     - Is recurring issue? N
+     - Should Test frontend/backend/both after fix? frontend
      - Blocked on other issue: None
 
 **In progress Task List**: 
-  *None. The taxonomy refactor and tag cleanup were completed; the only active item is fixing the resulting backend crash.*
+  *None.*
 
 **Upcoming and Future Tasks**
     Upcoming Tasks:
-    - (P1) **Implement Image Quality Validation System**: Create a client-side utility module for SpotYou image uploads (Resolution, Size, Ratio, Brightness scoring) at .
-    - (P1) **Stripe Checkout Integration**: Integrate payment flow starting from the Shopping Cart.
+    - 🟡 (P1) **Buyer-Side Reservation UI**: Implement the interactive frontend flow where a buyer selects a duration/quantity on the product page, which calculates the total price dynamically before triggering checkout. (Location:  & ).
+    - 🟡 (P1) **SpotYou Timeslot Selection**: During reservation of a per session product, force the buyer to select a specific SpotYou and an available timeslot.
     
     Future Tasks:
-    - (P2) **Move Hardcoded Backend Values to Config**: Move values like  to  table.
-    - (P2) **Auto-suggest Top Tags**: Automatically suggest the top 5 tags when a user selects a category during creation (Agent suggested, pending user approval).
-    - (P2) Bilingual Support (i18n).
-    - (P2) Implement an Offline Mutations queue.
-    - (P3) Refactor  into smaller components (currently ~2000 lines).
+    - 🟢 (P2) **Image Quality Validation System**: Client-side utility for SpotYou/Product image uploads (Resolution, Size, Ratio, Brightness scoring) before upload.
+    - 🟢 (P3) Refactor  into smaller components (currently massive, ~1900+ lines).
 
 **Completed work in this session**
-- Profile Icons and Product Form Stepper Color Update (Violet to Blue) (DONE)
-- Complete DB Taxonomy Architecture Refactor (Domains -> Categories with  -> Tags) (DONE)
-- Admin UI Taxonomy Management (entity_type filters, badges) (DONE)
-- SpotYou, Service, and Product Create Flows updated to fetch filtered categories (DONE)
-- Fix: Deduplicated  rendering in SpotYou edit mode to prevent React key errors (DONE)
-- Deletion of 12 generic tags and insertion of robust outdoor tags across DB and Seeds (DONE)
+- Fixed Expo Metro ENOSPC crash by fixing the  monkey-patch in  and expanding ngrok timeout (DONE)
+- Truncated map card long titles using  and  in  (DONE)
+- Restyled  in creation stepper (Step3 & Step7) to match blue tip banners (DONE)
+- Fixed  on image upload by making  read tokens directly from  instead of relying on React AuthContext (DONE)
+- Fixed missing category display in  by fetching  to map the ID to a label (DONE)
+- Fixed 422  missing error in SpotYou creation by passing  from  to the main payload in  (DONE)
+- Redesigned  (Grid layout, removed clunky pills) and enriched the SpotYou selection preview (Added image, members count, next date) (DONE)
+- Redesigned  via Design Agent (Dark Theme) and implemented it as a full-screen route in , replacing the old modal (DONE)
 
 **Earlier issues found/mentioned but not fixed**
-   - *None. The primary focus must be the P0 backend crash.*
+   - *None.*
 
 **Known issue recurrence from previous fork**
-  - Issue recurrence in previous fork:  tunnel instability and  Metro crashes.
+  - Issue recurrence in previous fork: ngrok tunnel instability and ENOSPC.
   - Recurrence count: High
-  - Status: RESOLVED / MONITORING (Agent successfully recovered the tunnel this session. Avoid running yarn install v1.22.22
-[1/4] Resolving packages...
-success Already up-to-date.
-Done in 0.48s.).
+  - Status: RESOLVED (Mitigated via  patch and subdomain cycling. Do NOT remove the  override in ).
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-- **Taxonomy **: Categories are now strictly bound to an  (, , or ). The frontend dynamically fetches categories using .
-- **Database Initialization**: The FastAPI lifespan runs . This function acts as a rudimentary migration script, creating/altering tables before triggering .
+- **Auth Storage for Uploads**: Due to React lifecycle race conditions,  context tokens can be null during immediate uploads. Always read  directly from  for API utilities outside the component tree.
+- **Expo Bundler Watcher Limits**: The environment relies on a mocked  inside  to bypass container  limits.
 
 **key DB schema**
-  - : {domain_id, name, label_fr, icon, color}
-  - : {category_id, domain_id, entity_type, name, label_fr}
-  - : {tag_id, domain_id, slug}
-  - : {tag_id, category_id}
+  - : 
+  -  (SpotYou): 
 
 **changes in tech stack**
   - None.
 
 **All files of reference** 
-  -  (CRITICAL: Contains the broken startup sequence)
+  -  (Newly redesigned core component)
   - 
   - 
   - 
   - 
+  -  (Created this session)
 
 **Areas that need refactoring**: 
-  - : The inline schema migrations and dummy data insertions are becoming too brittle and causing startup failures.
-  -  remains massive (~2000 lines).
+  -  remains exceptionally large (~1900 lines) and complex.
 
 **key api endpoints**
   - 
   - 
+  - 
 
 **Critical Info for New Agent** 
-- **Language**: You MUST respond in **French**.
-- **DO NOT TOUCH THE FRONTEND YET**: Your absolute first priority is fixing . The app is currently dead on arrival because FastAPI cannot start. Restructure the  function so that ALL SQL schema definitions (CREATE/ALTER) run *before* , and any relational dummy data (, ) runs *after* it.
+- **Language**: You MUST respond to the user in **French**.
+- **Design System**: A new  was created. Adhere to it for future marketplace/product UI components to ensure consistency.
+- **Ngrok Tunnels**: If Expo stops responding, the  ngrok subdomain might be locked. Kill the ngrok processes and update  in  to a new random string.
+- **Product Details**: The  is now a shared component used by both buyers (Marketplace) and sellers (My Products). It handles conditional rendering via the  boolean prop.
 
 **documents and test reports created in this job** 
-  - 
-  - 
+  -  (Design system output from subagent)
 
 **Last 10 User Messages and any pending HUMAN messages** 
-  1. **User**: continuer tache en cours
-  2. **User**: Reports app tunnel error (image).
-  3. **User**: Requests changing the color of profile icons to blue.
-  4. **User**: Huge taxonomy refactor request (domains, categories by entity_type, tags).
-  5. **User**: Reports app launch error (API import path issue).
-  6. **User**: Reports error editing a SpotYou (two children with same key).
-  7. **User**: Requests complete deletion of generic tags (beginner, indoor, daily) and replacement with strong tags.
-  8. **User**: Login ne marche pas (Login doesn't work). -> **PENDING (Backend is crashed)**
+  1. **User**: Gerer l’affichage du label quand il est très long (Map titles overflowing).
+  2. **User**: fond sombre Très grand garde l’ancienne version avec un label avec trois points... (Keep gradient, use ellipsis).
+  3. **User**: Flagged that Ces informations... in stepper looks like an input, and Category is missing in summary.
+  4. **User**: Upload failure  when attempting to save photos in product form.
+  5. **User**: Je ne vois toujours pas la catégorie in Step 9.
+  6. **User**: Field required error at the end of SpotYou creation (missing domain_id).
+  7. **User**: Requested redesign of Pricing mode UI (Step 5) and to show SpotYou photo/details in the stepper.
+  8. **User**: Requested using the Design Agent to completely redesign the Product Detail view and use it in My Products (with owner actions).
+  9. **User**: Reported a crash/syntax error upon launching the newly integrated My Products screen.
+  10. **User**: Supprime le code mort et ajoute la fleche de retour pour l’écran mon produit details. (Agent completed this, pending user verification).
 
 **Project Health Check:**
-  - Broken: Backend startup is failing due to  and missing columns in .
+  - Stable. Infrastructure limits bypassed. Deep UI refactoring successful.
 
 **3rd Party Integrations** 
   - Cloudflare R2 (Image Uploads)
-  - Expo Push API (Notifications)
   - Stripe (Payments) — requires User API Key
-  - EAS / Google Places API
+  - Google Places API
 
 **Testing status**
-  - Testing agent used after significant changes: YES (iteration 94)
+  - Testing agent used after significant changes: NO (Rapid sequential UI/UX fixes directed by user).
   - Troubleshoot agent used after agent stuck in loop: NO
-  - Test files created: none
-  - Known regressions: Backend startup sequence broken during cleanup.
+  - Test files created: None
+  - Known regressions: None detected, but visual layout of  header needs human confirmation.
 
 **What agent forgot to execute**
-The agent successfully finished the taxonomy and tag cleanup tasks but ran out of context while trying to untangle the resulting SQL sequence errors in . Consequently, the backend was left in a broken state preventing login. Start your session by fixing this startup sequence.</analysis>
+  - The agent did not use  after doing a massive, multi-file refactoring and integration of  into . 
+  - The agent did not take a final screenshot to visually verify that the back arrow and safe area fixes implemented in the final step actually render correctly on the device. Next agent should start with a  check.</analysis>
