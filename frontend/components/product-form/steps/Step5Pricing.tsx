@@ -1,6 +1,8 @@
 /**
- * Step 5 — Tarification : Pills de mode + inputs conditionnels + SpotYou (si séance)
- * Design épuré : les inputs de prix s'affichent uniquement pour les modes actifs.
+ * Step 5 — Tarification redesign
+ * - Modes : grille 2 colonnes compacte, séance en pleine largeur
+ * - Prix  : liste épurée label + input inline sans fond lourd
+ * - SpotYou : carte compacte avec ville extraite de l'adresse
  */
 import React, { useEffect, useState } from 'react';
 import {
@@ -15,18 +17,19 @@ import { TagImage } from '../../TagImage';
 const BLUE   = '#3B82F6';
 const ORANGE = '#F59E0B';
 
-const MODES: { key: PricingMode; label: string; short: string }[] = [
-  { key: 'hour',    label: 'Par heure',    short: '€/h'    },
-  { key: 'day',     label: 'Par jour',     short: '€/j'    },
-  { key: 'week',    label: 'Par semaine',  short: '€/sem'  },
-  { key: 'month',   label: 'Par mois',     short: '€/mois' },
-  { key: 'session', label: 'Par séance',   short: 'créneaux' },
+// Modes standards (grille 2 colonnes)
+const GRID_MODES: { key: PricingMode; label: string; unit: string }[] = [
+  { key: 'hour',  label: 'À l\'heure',  unit: '€ / h'    },
+  { key: 'day',   label: 'À la journée', unit: '€ / jour' },
+  { key: 'week',  label: 'À la semaine', unit: '€ / sem'  },
+  { key: 'month', label: 'Au mois',      unit: '€ / mois' },
 ];
+// Mode séance : pleine largeur
+const SESSION_MODE = { key: 'session' as PricingMode, label: 'À la séance', unit: 'Créneaux SpotYou' };
 
 export function Step5Pricing() {
   const { form, set } = useProductForm();
-
-  const [spots, setSpots]   = useState<any[]>([]);
+  const [spots, setSpots]     = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   const activeModes    = form.pricing_modes ?? ['day'];
@@ -45,31 +48,28 @@ export function Step5Pricing() {
   const toggleMode = (mode: PricingMode) => {
     if (activeModes.includes(mode)) {
       if (activeModes.length === 1) return;
-      const next = activeModes.filter(m => m !== mode);
-      set({ pricing_modes: next, ...(mode === 'session' ? { related_spotyou_ids: [] } : {}) });
+      set({ pricing_modes: activeModes.filter(m => m !== mode), ...(mode === 'session' ? { related_spotyou_ids: [] } : {}) });
     } else {
       set({ pricing_modes: [...activeModes, mode] });
     }
   };
 
   const getPriceField = (mode: PricingMode): string => {
-    switch (mode) {
-      case 'hour':  return form.price_per_hour || '';
-      case 'day':   return form.price_per_day  || '';
-      case 'week':  return form.price_per_week || '';
-      case 'month': return form.price_per_month || '';
-      default:      return '';
-    }
+    if (mode === 'hour')  return form.price_per_hour    || '';
+    if (mode === 'day')   return form.price_per_day     || '';
+    if (mode === 'week')  return form.price_per_week    || '';
+    if (mode === 'month') return form.price_per_month   || '';
+    if (mode === 'session') return form.price_per_session || '';
+    return '';
   };
 
   const setPriceField = (mode: PricingMode, val: string) => {
     const clean = val.replace(/[^0-9.,]/g, '');
-    switch (mode) {
-      case 'hour':  set({ price_per_hour: clean }); break;
-      case 'day':   set({ price_per_day: clean }); break;
-      case 'week':  set({ price_per_week: clean }); break;
-      case 'month': set({ price_per_month: clean }); break;
-    }
+    if (mode === 'hour')    set({ price_per_hour: clean });
+    if (mode === 'day')     set({ price_per_day: clean });
+    if (mode === 'week')    set({ price_per_week: clean });
+    if (mode === 'month')   set({ price_per_month: clean });
+    if (mode === 'session') set({ price_per_session: clean });
   };
 
   const toggleSpot = (id: string) => {
@@ -77,90 +77,136 @@ export function Step5Pricing() {
     set({ related_spotyou_ids: cur.includes(id) ? cur.filter(i => i !== id) : [...cur, id] });
   };
 
+  // Extraire la ville depuis l'adresse (ex: "Forêt de Rambouillet, 78120 Rambouillet" → "Rambouillet")
+  const extractCity = (address: string): string => {
+    if (!address) return '';
+    const parts = address.split(',');
+    // Chercher la partie qui contient un code postal 5 chiffres
+    for (const p of parts) {
+      const match = p.trim().match(/^\d{5}\s+(.+)$/);
+      if (match) return match[1].trim();
+    }
+    // Fallback: dernière partie non vide
+    return parts[parts.length - 1]?.trim() || address;
+  };
+
+  const activeGridModes = GRID_MODES.filter(m => activeModes.includes(m.key));
+  const allPriceModes   = [...activeGridModes, ...(sessionEnabled ? [SESSION_MODE] : [])];
+
   return (
     <View style={p.wrap}>
 
-      {/* ── Sélection des modes ─────────────────────────────────────────── */}
-      <View style={p.field}>
-        <Text style={p.label}>MODES DE TARIFICATION <Text style={p.req}>*</Text></Text>
-        <Text style={p.sublabel}>Active les modes que tu proposes — au moins un obligatoire</Text>
-        <View style={p.pillsRow}>
-          {MODES.map(m => {
+      {/* ── Modes de tarification ───────────────────────────────────────── */}
+      <View style={p.section}>
+        <Text style={p.sectionTitle}>MODES DE TARIFICATION <Text style={p.req}>*</Text></Text>
+        <Text style={p.sectionHint}>Active les modes que tu proposes — au moins un obligatoire</Text>
+
+        {/* Grille 2 colonnes pour les 4 modes standards */}
+        <View style={p.modeGrid}>
+          {GRID_MODES.map(m => {
             const active = activeModes.includes(m.key);
             return (
               <TouchableOpacity
                 key={m.key}
-                style={[p.pill, active && p.pillActive]}
+                style={[p.modeCell, active && p.modeCellActive]}
                 onPress={() => toggleMode(m.key)}
                 testID={`toggle-mode-${m.key}`}
                 activeOpacity={0.75}
               >
-                <Text style={[p.pillLabel, active && p.pillLabelActive]}>{m.label}</Text>
-                <Text style={[p.pillShort, active && p.pillShortActive]}>{m.short}</Text>
+                {active && (
+                  <View style={p.modeCheck}>
+                    <Ionicons name="checkmark" size={10} color="#fff" />
+                  </View>
+                )}
+                <Text style={[p.modeName, active && p.modeNameActive]}>{m.label}</Text>
+                <Text style={[p.modeUnit, active && p.modeUnitActive]}>{m.unit}</Text>
               </TouchableOpacity>
             );
           })}
         </View>
+
+        {/* Mode séance — pleine largeur */}
+        {(() => {
+          const active = activeModes.includes('session');
+          return (
+            <TouchableOpacity
+              style={[p.sessionCell, active && p.sessionCellActive]}
+              onPress={() => toggleMode('session')}
+              testID="toggle-mode-session"
+              activeOpacity={0.75}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={[p.modeName, active && p.modeNameActive]}>{SESSION_MODE.label}</Text>
+                <Text style={[p.modeUnit, active && p.modeUnitActive]}>{SESSION_MODE.unit}</Text>
+              </View>
+              {active && (
+                <View style={p.modeCheck}>
+                  <Ionicons name="checkmark" size={10} color="#fff" />
+                </View>
+              )}
+            </TouchableOpacity>
+          );
+        })()}
       </View>
 
-      {/* ── Inputs de prix (un par mode actif, sauf séance) ─────────────── */}
-      {activeModes.filter(m => m !== 'session').map(mode => {
-        const info = MODES.find(m => m.key === mode)!;
-        return (
-          <View key={mode} style={p.priceRow}>
-            <Text style={p.priceLabel}>{info.label}</Text>
-            <View style={p.priceInputWrap}>
-              <TextInput
-                style={p.priceInput}
-                value={getPriceField(mode)}
-                onChangeText={v => setPriceField(mode, v)}
-                placeholder="0.00"
-                placeholderTextColor={Colors.muted}
-                keyboardType="decimal-pad"
-                testID={`price-input-${mode}`}
-              />
-              <Text style={p.priceCurrency}>€</Text>
+      {/* ── Saisie des prix ─────────────────────────────────────────────── */}
+      {allPriceModes.length > 0 && (
+        <View style={p.priceBlock}>
+          <Text style={p.sectionTitle}>TARIFS</Text>
+          {allPriceModes.map((m, idx) => (
+            <View key={m.key} style={[p.priceRow, idx < allPriceModes.length - 1 && p.priceRowBorder]}>
+              <View style={{ flex: 1 }}>
+                <Text style={p.priceLabel}>{m.label}</Text>
+                <Text style={p.priceUnit}>{m.unit}</Text>
+              </View>
+              <View style={p.inputWrap}>
+                <TextInput
+                  style={p.input}
+                  value={getPriceField(m.key)}
+                  onChangeText={v => setPriceField(m.key, v)}
+                  placeholder="0"
+                  placeholderTextColor={Colors.muted}
+                  keyboardType="decimal-pad"
+                  testID={`price-input-${m.key}`}
+                />
+                <Text style={p.euro}>€</Text>
+              </View>
             </View>
-          </View>
-        );
-      })}
+          ))}
+        </View>
+      )}
 
       {/* ── Section SpotYou (si séance activé) ──────────────────────────── */}
       {sessionEnabled && (
-        <View style={p.spotSection}>
-
-          {/* Avertissement séance uniquement */}
+        <View style={p.section}>
           {sessionOnly && (
             <View style={p.warnRow}>
-              <Ionicons name="warning-outline" size={15} color={ORANGE} />
+              <Ionicons name="warning-outline" size={14} color={ORANGE} />
               <Text style={p.warnText}>
-                Sans autre mode de tarification, la location sera bloquée si aucun créneau n'est disponible dans le SpotYou.
+                Sans autre mode, la location sera bloquée si aucun créneau n'est disponible.
               </Text>
             </View>
           )}
 
           <View style={p.spotHeader}>
-            <Text style={p.label}>RATTACHER UN SPOTYOU</Text>
-            <View style={p.reqBadge}>
-              <Text style={p.reqBadgeText}>Obligatoire</Text>
-            </View>
+            <Text style={p.sectionTitle}>RATTACHER UN SPOTYOU</Text>
+            <View style={p.reqBadge}><Text style={p.reqBadgeText}>Obligatoire</Text></View>
           </View>
-          <Text style={p.sublabel}>
-            Les membres du SpotYou pourront louer ce produit sur ses créneaux
-          </Text>
+          <Text style={p.sectionHint}>Les membres du SpotYou pourront louer sur ses créneaux</Text>
 
           {loading && <ActivityIndicator color={BLUE} style={{ marginVertical: 16 }} />}
 
           {!loading && spots.length === 0 && (
             <View style={p.emptySpots}>
-              <Ionicons name="map-outline" size={24} color={Colors.muted} />
-              <Text style={p.emptyText}>Aucun SpotYou créé</Text>
+              <Ionicons name="map-outline" size={22} color={Colors.muted} />
+              <Text style={p.emptyText}>Aucun SpotYou</Text>
               <Text style={p.emptyHint}>Crée un SpotYou d'abord, ou désactive le mode séance.</Text>
             </View>
           )}
 
           {spots.map(s => {
-            const sel = (form.related_spotyou_ids ?? []).includes(s.point_id);
+            const sel  = (form.related_spotyou_ids ?? []).includes(s.point_id);
+            const city = extractCity(s.address || '');
             return (
               <TouchableOpacity
                 key={s.point_id}
@@ -172,10 +218,10 @@ export function Step5Pricing() {
                 <TagImage uri={s.image_url} tagIds={s.tag_ids || []} style={p.spotImg} />
                 <View style={{ flex: 1 }}>
                   <Text style={[p.spotTitle, sel && { color: BLUE }]} numberOfLines={1}>{s.title}</Text>
-                  <Text style={p.spotSub} numberOfLines={1}>{s.address || s.city || ''}</Text>
+                  {city ? <Text style={p.spotCity} numberOfLines={1}>{city}</Text> : null}
                 </View>
                 <View style={[p.check, sel && p.checkActive]}>
-                  {sel && <Ionicons name="checkmark" size={13} color="#fff" />}
+                  {sel && <Ionicons name="checkmark" size={12} color="#fff" />}
                 </View>
               </TouchableOpacity>
             );
@@ -188,43 +234,48 @@ export function Step5Pricing() {
 }
 
 const p = StyleSheet.create({
-  wrap:           { gap: 14 },
-  field:          { gap: 8 },
-  label:          { fontSize: 11, fontWeight: '700', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 1 },
-  sublabel:       { fontSize: 12, color: Colors.muted, lineHeight: 16, marginTop: -4 },
+  wrap:           { gap: 16 },
+  section:        { gap: 10 },
+  sectionTitle:   { fontSize: 11, fontWeight: '700', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.8 },
+  sectionHint:    { fontSize: 12, color: Colors.muted, lineHeight: 17, marginTop: -4 },
   req:            { color: '#EF4444' },
 
-  pillsRow:       { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  pill:           { paddingHorizontal: 14, paddingVertical: 9, borderRadius: Radius.full, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.card, alignItems: 'center', gap: 1 },
-  pillActive:     { borderColor: BLUE, backgroundColor: BLUE },
-  pillLabel:      { fontSize: 13, fontWeight: '600', color: Colors.muted },
-  pillLabelActive:{ color: '#fff' },
-  pillShort:      { fontSize: 10, color: Colors.muted },
-  pillShortActive:{ color: 'rgba(255,255,255,0.75)' },
+  // Grille modes
+  modeGrid:       { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  modeCell:       { width: '47.5%', paddingVertical: 12, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.card, gap: 2, position: 'relative' },
+  modeCellActive: { borderColor: BLUE, backgroundColor: BLUE + '14' },
+  sessionCell:    { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.card, gap: 10 },
+  sessionCellActive:{ borderColor: BLUE, backgroundColor: BLUE + '14' },
+  modeCheck:      { position: 'absolute', top: 8, right: 8, width: 18, height: 18, borderRadius: 9, backgroundColor: BLUE, alignItems: 'center', justifyContent: 'center' },
+  modeName:       { fontSize: 13, fontWeight: '700', color: Colors.foreground },
+  modeNameActive: { color: BLUE },
+  modeUnit:       { fontSize: 11, color: Colors.muted, marginTop: 1 },
+  modeUnitActive: { color: BLUE + 'BB' },
 
-  priceRow:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.card, borderRadius: Radius.md, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: Colors.border },
-  priceLabel:     { fontSize: 14, fontWeight: '600', color: Colors.foreground },
-  priceInputWrap: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  priceInput:     { width: 80, textAlign: 'right', fontSize: 16, fontWeight: '700', color: Colors.foreground, backgroundColor: Colors.background, borderRadius: Radius.sm, borderWidth: 1, borderColor: BLUE + '50', paddingHorizontal: 10, paddingVertical: 7 },
-  priceCurrency:  { fontSize: 16, fontWeight: '700', color: BLUE, width: 16 },
+  // Prix
+  priceBlock:     { backgroundColor: Colors.card, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
+  priceRow:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 },
+  priceRowBorder: { borderBottomWidth: 1, borderBottomColor: Colors.border },
+  priceLabel:     { fontSize: 13, fontWeight: '600', color: Colors.foreground },
+  priceUnit:      { fontSize: 11, color: Colors.muted, marginTop: 1 },
+  inputWrap:      { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  input:          { minWidth: 70, textAlign: 'right', fontSize: 18, fontWeight: '700', color: Colors.foreground, paddingVertical: 4, paddingHorizontal: 6 },
+  euro:           { fontSize: 16, fontWeight: '700', color: BLUE },
 
-  spotSection:    { gap: 10, borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: 14 },
+  // SpotYou
   spotHeader:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   reqBadge:       { backgroundColor: '#FEE2E2', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: '#FECACA' },
   reqBadgeText:   { fontSize: 11, fontWeight: '700', color: '#EF4444' },
-
-  warnRow:        { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: '#F59E0B12', borderRadius: Radius.md, padding: 10, borderWidth: 1, borderColor: '#F59E0B40' },
+  warnRow:        { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: '#F59E0B12', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: '#F59E0B40' },
   warnText:       { flex: 1, fontSize: 12, color: Colors.foreground, lineHeight: 17 },
-
-  emptySpots:     { alignItems: 'center', gap: 6, paddingVertical: 20, backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, borderStyle: 'dashed' },
-  emptyText:      { fontSize: 14, fontWeight: '600', color: Colors.foreground },
-  emptyHint:      { fontSize: 12, color: Colors.muted, textAlign: 'center' },
-
-  spotRow:        { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.card, borderRadius: Radius.md, padding: 10, borderWidth: 1, borderColor: Colors.border },
+  emptySpots:     { alignItems: 'center', gap: 5, paddingVertical: 18, backgroundColor: Colors.card, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, borderStyle: 'dashed' },
+  emptyText:      { fontSize: 13, fontWeight: '600', color: Colors.foreground },
+  emptyHint:      { fontSize: 11, color: Colors.muted, textAlign: 'center' },
+  spotRow:        { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.card, borderRadius: 12, padding: 10, borderWidth: 1, borderColor: Colors.border },
   spotRowActive:  { borderColor: BLUE, backgroundColor: BLUE + '08' },
-  spotImg:        { width: 40, height: 40, borderRadius: 8 },
-  spotTitle:      { fontSize: 14, fontWeight: '700', color: Colors.foreground },
-  spotSub:        { fontSize: 12, color: Colors.muted, marginTop: 1 },
-  check:          { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
+  spotImg:        { width: 38, height: 38, borderRadius: 8 },
+  spotTitle:      { fontSize: 13, fontWeight: '700', color: Colors.foreground },
+  spotCity:       { fontSize: 11, color: Colors.muted, marginTop: 2 },
+  check:          { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
   checkActive:    { backgroundColor: BLUE, borderColor: BLUE },
 });
