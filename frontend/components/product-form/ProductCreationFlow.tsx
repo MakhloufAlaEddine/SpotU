@@ -289,19 +289,30 @@ export function ProductCreationFlow({ isEditMode = false }: { isEditMode?: boole
         {/* ── Navigation bottom (sauf récap) ───────────────────────────── */}
         {!isLast && (
           <View style={c.navBar}>
-          <TouchableOpacity
-            style={c.nextBtn}
-            onPress={goNext}
-            disabled={isSubmitting}
-            testID="next-step-btn"
-          >
-            <Text style={c.nextBtnText}>
-              {step === TOTAL_STEPS - 2 ? 'Voir le récapitulatif' : 'Suivant'}
-            </Text>
-            <Ionicons name="arrow-forward" size={18} color="#fff" />
-          </TouchableOpacity>
-        </View>
-      )}
+            {/* Bouton Précédent */}
+            <TouchableOpacity
+              style={c.prevBtn}
+              onPress={goBack}
+              testID="prev-step-btn"
+            >
+              <Ionicons name="arrow-back" size={18} color={Colors.foreground} />
+              <Text style={c.prevBtnText}>{step === 0 ? 'Quitter' : 'Précédent'}</Text>
+            </TouchableOpacity>
+
+            {/* Bouton Suivant */}
+            <TouchableOpacity
+              style={c.nextBtn}
+              onPress={goNext}
+              disabled={isSubmitting}
+              testID="next-step-btn"
+            >
+              <Text style={c.nextBtnText}>
+                {step === TOTAL_STEPS - 2 ? 'Récapitulatif' : 'Suivant'}
+              </Text>
+              <Ionicons name="arrow-forward" size={18} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        )}
 
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -335,7 +346,9 @@ const c = StyleSheet.create({
 
   content:      { paddingHorizontal: Spacing.md, paddingTop: 4, paddingBottom: 100 },
 
-  navBar:       { paddingHorizontal: Spacing.md, paddingVertical: 12, borderTopWidth: 1, borderTopColor: Colors.border },
-  nextBtn:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 15, borderRadius: Radius.full, backgroundColor: BLUE },
+  navBar:       { flexDirection: 'row', gap: 10, paddingHorizontal: Spacing.md, paddingVertical: 12, borderTopWidth: 1, borderTopColor: Colors.border },
+  prevBtn:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 15, paddingHorizontal: 18, borderRadius: Radius.full, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border },
+  prevBtnText:  { fontSize: 14, fontWeight: '600', color: Colors.foreground },
+  nextBtn:      { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 15, borderRadius: Radius.full, backgroundColor: BLUE },
   nextBtnText:  { fontSize: 15, fontWeight: '700', color: '#fff' },
 });
