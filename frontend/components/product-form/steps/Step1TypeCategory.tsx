@@ -19,6 +19,12 @@ const PRODUCT_TYPES = [
 
 export function Step1TypeCategory() {
   const { form, set } = useProductForm();
+
+  // Forcer 'rental' si un type non disponible est chargé (ex: édition d'ancien produit)
+  React.useEffect(() => {
+    const available = PRODUCT_TYPES.find(t => t.key === form.product_type)?.available;
+    if (!available) set({ product_type: 'rental' });
+  }, []);
   // Map des tags chargés par TagPickerField pour auto-déduire la catégorie
   const [allTagsMap, setAllTagsMap] = useState<Record<string, { label_fr: string; category_id: string; category_name?: string }>>({});
 
@@ -60,14 +66,14 @@ export function Step1TypeCategory() {
             <TouchableOpacity
               key={t.key}
               style={[s.typeRow, active && s.typeRowActive, !t.available && s.typeRowDisabled]}
-              onPress={() => t.available && set({ product_type: t.key })}
-              disabled={!t.available}
+              onPress={() => t.available ? set({ product_type: t.key }) : null}
+              activeOpacity={t.available ? 0.7 : 1}
               testID={`product-type-${t.key}`}
             >
-              <View style={[s.typeIcon, active && { backgroundColor: BLUE + '22' }]}>
+              <View style={[s.typeIcon, active && { backgroundColor: BLUE + '22' }, !t.available && { opacity: 0.4 }]}>
                 <Ionicons name={t.icon as any} size={22} color={active ? BLUE : Colors.muted} />
               </View>
-              <View style={{ flex: 1 }}>
+              <View style={{ flex: 1, opacity: t.available ? 1 : 0.45 }}>
                 <View style={s.typeLabelRow}>
                   <Text style={[s.typeLabel, active && { color: BLUE }]}>{t.label}</Text>
                   {!t.available && (
@@ -76,7 +82,7 @@ export function Step1TypeCategory() {
                 </View>
                 <Text style={s.typeDesc} numberOfLines={1}>{t.desc}</Text>
               </View>
-              {active && <Ionicons name="checkmark-circle" size={22} color={BLUE} />}
+              {active && t.available && <Ionicons name="checkmark-circle" size={22} color={BLUE} />}
             </TouchableOpacity>
           );
         })}

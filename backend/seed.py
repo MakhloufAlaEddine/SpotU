@@ -357,13 +357,13 @@ def _products_data():
          ["tag_cycling", "tag_outdoor"],
          "https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=400&h=400&fit=crop"),
 
-        ("mp_demo002", "Tapis de yoga premium éco", "Tapis antidérapant en caoutchouc naturel, 183x68cm, 5mm.",
-         49.90, "sale", "cat_prd_yoga_mat", "user_coach001",
+        ("mp_demo002", "Location tapis de yoga premium éco", "Tapis antidérapant en caoutchouc naturel, 183x68cm, 5mm. Parfait pour le yoga et la méditation en intérieur ou extérieur.",
+         12.0, "rental", "cat_prd_yoga_mat", "user_coach001",
          ["tag_yoga", "tag_meditation"],
          "https://images.unsplash.com/photo-1592432678016-e910b452f9a2?w=400&h=400&fit=crop"),
 
-        ("mp_demo003", "Kit matériel HIIT complet", "Bandes de résistance (x5) + corde à sauter + carnet d'entraînement.",
-         39.90, "sale", "cat_prd_fitness_eq", "user_demo001",
+        ("mp_demo003", "Location kit matériel HIIT complet", "Bandes de résistance (x5) + corde à sauter + carnet d'entraînement. Idéal pour les séances HIIT et CrossFit.",
+         15.0, "rental", "cat_prd_fitness_eq", "user_demo001",
          ["tag_hiit", "tag_crossfit", "tag_cardio"],
          "https://images.unsplash.com/photo-1598632640487-6ea4a4e8b963?w=400&h=400&fit=crop"),
 

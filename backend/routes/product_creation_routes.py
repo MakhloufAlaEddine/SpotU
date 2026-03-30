@@ -62,6 +62,7 @@ async def get_my_products(request: Request):
             FROM marketplace_products
             WHERE seller_id = $1
               AND status != 'deleted'
+              AND product_type = 'rental'
             ORDER BY created_at DESC
             """,
             user_id,
@@ -134,7 +135,13 @@ async def create_product(request: Request):
     if not title:
         return JSONResponse({"error": "Le titre est obligatoire."}, status_code=400)
 
-    # Validation description minimale
+    # Vérifier le type de produit — seul 'rental' est supporté
+    product_type = body.get("product_type", "rental")
+    if product_type not in ("rental",):
+        return JSONResponse(
+            {"error": "Seul le type 'rental' (Location) est disponible pour l'instant."},
+            status_code=400,
+        )
     description_val = (body.get("description") or "").strip()
     if len(description_val) < 30:
         return JSONResponse(
