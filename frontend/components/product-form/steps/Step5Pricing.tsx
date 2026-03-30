@@ -19,6 +19,7 @@ const BLUE   = '#3B82F6';
 const ORANGE = '#F59E0B';
 const GREEN  = '#22C55E';
 const MAX_KM = 20;
+const DEFAULT_VISIBLE = 3;
 
 /** Calcul de distance Haversine en km */
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -37,6 +38,29 @@ function formatDist(km: number): string {
   return `${km.toFixed(1)} km`;
 }
 
+/** Durée de la première séance trouvée dans l'event_schedule */
+function getSessionDurationLabel(spot: any): string | null {
+  const sched = spot.event_schedule?.schedule;
+  if (!sched) return null;
+  for (const day of Object.values(sched as Record<string, any[]>)) {
+    if (Array.isArray(day) && day.length > 0) {
+      const slot = day[0];
+      if (slot?.start && slot?.end) {
+        const [sh, sm] = slot.start.split(':').map(Number);
+        const [eh, em] = slot.end.split(':').map(Number);
+        const mins = (eh * 60 + em) - (sh * 60 + sm);
+        if (mins > 0) {
+          if (mins < 60) return `${mins} min`;
+          const h = Math.floor(mins / 60);
+          const m = mins % 60;
+          return m > 0 ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`;
+        }
+      }
+    }
+  }
+  return null;
+}
+
 const GRID_MODES: { key: PricingMode; label: string; unit: string }[] = [
   { key: 'hour',  label: 'À l\'heure',   unit: '€ / h'    },
   { key: 'day',   label: 'À la journée', unit: '€ / jour' },
@@ -53,6 +77,7 @@ function SpotSelectionCard({
   const nextLabel   = formatNextDate(spot.next_session_date, spot.event_date, spot.event_schedule);
   const members     = spot.participants_count ?? 0;
   const imgUri      = spot.images?.[0] || spot.image_url;
+  const duration    = getSessionDurationLabel(spot);
 
   const slotCount = (() => {
     if (!spot.event_schedule?.schedule) return null;
@@ -91,7 +116,7 @@ function SpotSelectionCard({
             )}
           </View>
 
-          {/* Membres + créneaux + distance */}
+          {/* Badges : Mon SpotYou / membres / créneaux / durée / distance */}
           <View style={p.spotMeta}>
             {spot.isOwn && (
               <View style={p.ownChip}>
@@ -107,6 +132,12 @@ function SpotSelectionCard({
               <View style={p.slotChip}>
                 <Ionicons name="time-outline" size={10} color={Colors.muted} />
                 <Text style={p.slotChipText}>{slotCount} créneau{slotCount > 1 ? 'x' : ''} / sem</Text>
+              </View>
+            )}
+            {duration && (
+              <View style={p.durationChip}>
+                <Ionicons name="hourglass-outline" size={10} color={ORANGE} />
+                <Text style={p.durationChipText}>{duration} / séance</Text>
               </View>
             )}
             {spot.distKm != null && (
@@ -144,8 +175,9 @@ function SpotSelectionCard({
 
 export function Step5Pricing() {
   const { form, set } = useProductForm();
-  const [spots, setSpots]     = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [spots, setSpots]       = useState<any[]>([]);
+  const [loading, setLoading]   = useState(false);
+  const [showAll, setShowAll]   = useState(false);
 
   const activeModes    = form.pricing_modes ?? ['day'];
   const sessionEnabled = activeModes.includes('session');
@@ -157,8 +189,9 @@ export function Step5Pricing() {
   const tagIdsKey   = (form.tag_ids ?? []).join(',');
 
   useEffect(() => {
-    if (!sessionEnabled) return;
+    if (!sessionEnabled) { setSpots([]); return; }
     setLoading(true);
+    setShowAll(false);
 
     // Appel 1 : mes propres SpotYou
     const p1 = api.get('/tag-points/mine')
@@ -343,6 +376,16 @@ export function Step5Pricing() {
             </View>
           )}
 
+          {/* Bannière contextuelle : nb de SpotYou trouvés */}
+          {!loading && spots.length > 0 && (
+            <View style={p.foundBanner}>
+              <Ionicons name="location" size={14} color={BLUE} />
+              <Text style={p.foundBannerText}>
+                {spots.length} SpotYou trouvé{spots.length > 1 ? 's' : ''} à moins de {MAX_KM} km
+              </Text>
+            </View>
+          )}
+
           <View style={p.spotHeader}>
             <Text style={p.sectionTitle}>RATTACHER UN SPOTYOU</Text>
             <View style={p.reqBadge}><Text style={p.reqBadgeText}>Obligatoire</Text></View>
@@ -363,14 +406,52 @@ export function Step5Pricing() {
             </View>
           )}
 
-          {spots.map(s => (
-            <SpotSelectionCard
-              key={s.point_id}
-              spot={s}
-              selected={(form.related_spotyou_ids ?? []).includes(s.point_id)}
-              onPress={() => toggleSpot(s.point_id)}
-            />
-          ))}
+          {/* Liste paginée : 3 par défaut + "Voir X de plus" */}
+          {(() => {
+            const selectedIds = form.related_spotyou_ids ?? [];
+            // Les sélectionnés sont toujours affichés même si hors des 3 premiers
+            const visible = showAll
+              ? spots
+              : spots.filter((s, i) => i < DEFAULT_VISIBLE || selectedIds.includes(s.point_id));
+            const hiddenCount = spots.length - visible.length;
+
+            return (
+              <>
+                {visible.map(s => (
+                  <SpotSelectionCard
+                    key={s.point_id}
+                    spot={s}
+                    selected={selectedIds.includes(s.point_id)}
+                    onPress={() => toggleSpot(s.point_id)}
+                  />
+                ))}
+                {hiddenCount > 0 && (
+                  <TouchableOpacity
+                    style={p.showMoreBtn}
+                    onPress={() => setShowAll(true)}
+                    testID="show-more-spots"
+                    activeOpacity={0.75}
+                  >
+                    <Ionicons name="chevron-down" size={16} color={BLUE} />
+                    <Text style={p.showMoreText}>
+                      Voir {hiddenCount} autre{hiddenCount > 1 ? 's' : ''} SpotYou
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                {showAll && spots.length > DEFAULT_VISIBLE && (
+                  <TouchableOpacity
+                    style={p.showMoreBtn}
+                    onPress={() => setShowAll(false)}
+                    testID="show-less-spots"
+                    activeOpacity={0.75}
+                  >
+                    <Ionicons name="chevron-up" size={16} color={Colors.muted} />
+                    <Text style={[p.showMoreText, { color: Colors.muted }]}>Réduire la liste</Text>
+                  </TouchableOpacity>
+                )}
+              </>
+            );
+          })()}
         </View>
       )}
 
@@ -415,7 +496,13 @@ const p = StyleSheet.create({
   warnText:       { flex: 1, fontSize: 12, color: Colors.foreground, lineHeight: 17 },
   emptySpots:     { alignItems: 'center', gap: 5, paddingVertical: 18, backgroundColor: Colors.card, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, borderStyle: 'dashed' },
   emptyText:      { fontSize: 13, fontWeight: '600', color: Colors.foreground },
-  emptyHint:      { fontSize: 11, color: Colors.muted, textAlign: 'center' },
+  emptyHint:      { fontSize: 11, color: Colors.muted, textAlign: 'center', paddingHorizontal: 12 },
+  // Bannière nombre de SpotYou
+  foundBanner:    { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: BLUE + '10', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: BLUE + '30' },
+  foundBannerText:{ flex: 1, fontSize: 12, color: BLUE, fontWeight: '700' },
+  // Voir plus / moins
+  showMoreBtn:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.card },
+  showMoreText:   { fontSize: 13, fontWeight: '600', color: BLUE },
   // SpotYou selection cards
   spotCard:       { backgroundColor: Colors.card, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
   spotCardActive: { borderColor: BLUE, backgroundColor: BLUE + '08' },
@@ -424,9 +511,11 @@ const p = StyleSheet.create({
   spotThumbEmpty: { backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' },
   spotTitleRow:   { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' },
   spotTitle:      { fontSize: 13, fontWeight: '700', color: Colors.foreground, flex: 1 },
-  spotMeta:       { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
+  spotMeta:       { flexDirection: 'row', gap: 5, flexWrap: 'wrap' },
   slotChip:       { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: Colors.background, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: Colors.border },
   slotChipText:   { fontSize: 10, color: Colors.muted, fontWeight: '600' },
+  durationChip:   { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: ORANGE + '15', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: ORANGE + '40' },
+  durationChipText:{ fontSize: 10, color: ORANGE, fontWeight: '700' },
   ownChip:        { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: GREEN + '18', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: GREEN + '40' },
   ownChipText:    { fontSize: 10, color: GREEN, fontWeight: '700' },
   distChip:       { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: BLUE + '12', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: BLUE + '30' },
