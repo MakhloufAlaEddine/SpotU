@@ -2,10 +2,11 @@
  * ProductCreationFlow — orchestrateur du flow de création produit.
  * Stepper bleu (couleur produit), 9 étapes légères (sans scroll par étape).
  */
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
   Animated, Alert, ActivityIndicator, KeyboardAvoidingView, Platform,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -64,6 +65,19 @@ export function ProductCreationFlow({ isEditMode = false }: { isEditMode?: boole
   const [error, setError]             = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+  const stepRef   = useRef(step);
+  stepRef.current = step;
+
+  // Scroll vers le bas quand le clavier s'ouvre à l'étape 2 (description en bas du form)
+  useEffect(() => {
+    const event = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const sub = Keyboard.addListener(event, () => {
+      if (stepRef.current === 1) {
+        setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   const quality = calcProductQuality(form);
   const cfg     = STEP_CONFIG[step];

@@ -3,7 +3,7 @@
  * Champs obligatoires uniquement + 1 champ optionnel — pas de scroll.
  */
 import React from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, findNodeHandle, UIManager } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../../../constants/Colors';
 import { useProductForm, ConditionLabel } from '../ProductFormContext';
@@ -34,7 +34,6 @@ export function Step2Essential() {
           placeholderTextColor={Colors.muted}
           maxLength={80}
           testID="product-title-input"
-          autoFocus
         />
         <Text style={s.counter}>{form.title.length}/80</Text>
       </View>

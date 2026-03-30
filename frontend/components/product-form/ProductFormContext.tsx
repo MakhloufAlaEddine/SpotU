@@ -238,14 +238,15 @@ export function validateStep(step: number, f: ProductFormData): string | null {
 
 /* ── Context ────────────────────────────────────────────────────────────── */
 interface ProductFormContextValue {
-  form:   ProductFormData;
-  set:    (partial: Partial<ProductFormData>) => void;
-  reset:  () => void;
+  form:       ProductFormData;
+  set:        (partial: Partial<ProductFormData>) => void;
+  reset:      () => void;
+  scrollRef?: React.RefObject<ScrollView>;
 }
 
 const Ctx = createContext<ProductFormContextValue | null>(null);
 
-export function ProductFormProvider({ children, initialData }: { children: React.ReactNode; initialData?: Partial<ProductFormData> }) {
+export function ProductFormProvider({ children, initialData, scrollRef }: { children: React.ReactNode; initialData?: Partial<ProductFormData>; scrollRef?: React.RefObject<ScrollView> }) {
   const [form, setForm] = useState<ProductFormData>(() => ({ ...DEFAULT, ...(initialData ?? {}) }));
 
   const set = useCallback((partial: Partial<ProductFormData>) => {
@@ -254,7 +255,7 @@ export function ProductFormProvider({ children, initialData }: { children: React
 
   const reset = useCallback(() => setForm(DEFAULT), []);
 
-  return <Ctx.Provider value={{ form, set, reset }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ form, set, reset, scrollRef }}>{children}</Ctx.Provider>;
 }
 
 export function useProductForm() {
