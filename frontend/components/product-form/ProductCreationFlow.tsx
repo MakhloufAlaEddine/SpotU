@@ -22,40 +22,37 @@ import {
 } from './ProductFormContext';
 import { Step1TypeCategory }  from './steps/Step1TypeCategory';
 import { Step2Essential }     from './steps/Step2Essential';
-import { Step3Details }       from './steps/Step3Details';
 import { Step3Photos }        from './steps/Step3Photos';
 import { Step5Pricing }       from './steps/Step5Pricing';
 import { Step6Logistics }     from './steps/Step6Logistics';
-import { Step7Rules }         from './steps/Step7Rules';
 import { Step5Availability }  from './steps/Step5Availability';
+import { StepDetailsRules }   from './steps/StepDetailsRules';
 import { Step7Summary }       from './steps/Step7Summary';
 
 const BLUE      = '#3B82F6';
 const BLUE_DIM  = 'rgba(59,130,246,0.12)';
-const TOTAL_STEPS = 9;
+const TOTAL_STEPS = 8;
 
 const STEP_CONFIG = [
   { title: 'Classification',   subtitle: 'Type, catégorie & tags',         icon: 'pricetag-outline',         tip: 'Les tags définissent où votre produit apparaît — choisissez-les avec soin.' },
   { title: 'L\'essentiel',     subtitle: 'Titre, état & quantité',          icon: 'create-outline',           tip: 'Un titre précis attire plus de locataires. Soyez descriptif.' },
-  { title: 'Détails',          subtitle: 'Description & contenu inclus',   icon: 'document-text-outline',    tip: 'Optionnel mais recommandé — les détails augmentent la confiance.' },
   { title: 'Photos',           subtitle: 'Photos du matériel',             icon: 'camera-outline',           tip: 'Les annonces avec 3+ photos génèrent 3× plus de réservations.' },
   { title: 'Tarification',     subtitle: 'Prix & modes de location',       icon: 'cash-outline',             tip: 'Proposez plusieurs modes pour maximiser vos chances de réservation.' },
   { title: 'Logistique',       subtitle: 'Remise, durée & caution',        icon: 'cube-outline',             tip: 'Des conditions claires évitent les malentendus.' },
-  { title: 'Règles',           subtitle: 'Consignes & annulation',         icon: 'shield-checkmark-outline', tip: 'Optionnel — renseignez-les pour rassurer les locataires.' },
   { title: 'Localisation',     subtitle: 'Où est disponible le produit ?', icon: 'map-outline',              tip: 'La localisation aide les locataires proches à vous trouver.' },
+  { title: 'Détails & Règles', subtitle: 'Infos complémentaires',          icon: 'document-text-outline',    tip: 'Optionnel — chaque détail renforce la confiance des locataires.' },
   { title: 'Publication',      subtitle: 'Vérification & soumission',      icon: 'eye-outline',              tip: 'Vérifiez tout avant de soumettre. Un admin validera sous 24h.' },
 ] as const;
 
 const STEP_COMPONENTS = [
-  Step1TypeCategory,  // 0
-  Step2Essential,     // 1
-  Step3Details,       // 2
-  Step3Photos,        // 3
-  Step5Pricing,       // 4
-  Step6Logistics,     // 5
-  Step7Rules,         // 6
-  Step5Availability,  // 7
-  Step7Summary,       // 8 — rendu spécial avec props
+  Step1TypeCategory,  // 0 — Classification
+  Step2Essential,     // 1 — L'essentiel
+  Step3Photos,        // 2 — Photos
+  Step5Pricing,       // 3 — Tarification
+  Step6Logistics,     // 4 — Logistique
+  Step5Availability,  // 5 — Localisation
+  StepDetailsRules,   // 6 — Détails & Règles (fusionné, avant-dernière)
+  Step7Summary,       // 7 — Publication (rendu spécial)
 ];
 
 export function ProductCreationFlow({ isEditMode = false }: { isEditMode?: boolean }) {
