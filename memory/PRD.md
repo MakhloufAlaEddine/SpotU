@@ -276,5 +276,28 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 - Validation stricte champs obligatoires avant soumission (front + back)
 - **[2026-03-26] Remplacement complet couleur VIOLET (#8B5CF6) → BLEU (#3B82F6)** dans tous les composants product-form (Step1…Step7, ProductCreationFlow, ProductFormContext)
 
+## Recently Completed (2026-03-30)
+
+### Fix Scroll Clavier Description Step 2 + Nettoyage (2026-03-30)
+| Fichier | Changement |
+|---------|-----------|
+| `Step2Essential.tsx` | Import `useRef` + `useFlowScroll` ; `descRef` sur le wrapper View Description ; `onFocus={scrollToDesc}` → scroll localisé identique à StepDetailsRules ; suppression imports inutiles `findNodeHandle, UIManager` |
+| `Step3Details.tsx` | **SUPPRIMÉ** (code mort après fusion) |
+| `Step7Rules.tsx` | **SUPPRIMÉ** (code mort après fusion) |
+
+**Comportement corrigé :**
+- Champ Titre → aucun scroll automatique (comportement neutre souhaité)
+- Champ Description → scroll doux vers le champ (-120px) dès le focus, clavier ne cache plus le textarea
+- Même pattern que StepDetailsRules.tsx (pickupRef/returnRef/cancelRef)
+
+### Changements précédents (2026-03-29)
+- Description déplacée en Step 2 avec minimum 30 caractères (frontend + backend)
+- Marque/Modèle supprimé (UI + backend + ALTER TABLE DROP COLUMN)
+- Types Vente/Digital désactivés dans Step1TypeCategory + seed.py
+- Steps Details + Rules fusionnés en StepDetailsRules (8 étapes total)
+- Bouton "Retour/Précédent" ajouté dans la barre de navigation bas
+- FlowScrollContext créé + appliqué sur Step5Availability et StepDetailsRules
+- Correction status `active` dans ProductDetailView (n'affichait plus "Brouillon" à tort)
+
 ## Known Issues
 - ngrok tunnel instability (infrastructure, not code)

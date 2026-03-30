@@ -2,11 +2,12 @@
  * Step 2 — L'essentiel : Titre, État, Quantité, Marque (optionnel)
  * Champs obligatoires uniquement + 1 champ optionnel — pas de scroll.
  */
-import React from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, findNodeHandle, UIManager } from 'react-native';
+import React, { useRef } from 'react';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../../../constants/Colors';
 import { useProductForm, ConditionLabel } from '../ProductFormContext';
+import { useFlowScroll } from '../FlowScrollContext';
 
 const BLUE = '#3B82F6';
 
@@ -19,6 +20,15 @@ const CONDITIONS: { key: ConditionLabel; label: string; emoji: string; color: st
 
 export function Step2Essential() {
   const { form, set } = useProductForm();
+  const scrollRef     = useFlowScroll();
+  const descRef       = useRef<View>(null);
+
+  const scrollToDesc = () => {
+    if (!scrollRef?.current || !descRef.current) return;
+    descRef.current.measure((_x, _y, _w, _h, _px, pageY) => {
+      scrollRef.current?.scrollTo({ y: Math.max(0, pageY - 120), animated: true });
+    });
+  };
 
   return (
     <View style={s.wrap}>
@@ -106,7 +116,7 @@ export function Step2Essential() {
       </View>
 
       {/* ── Description — obligatoire min 30 car. ────────────────────── */}
-      <View style={s.field}>
+      <View ref={descRef} style={s.field}>
         <Text style={s.label}>DESCRIPTION <Text style={s.req}>*</Text></Text>
         {(() => {
           const len = (form.description || '').trim().length;
@@ -117,6 +127,7 @@ export function Step2Essential() {
                 style={[s.input, s.textarea, !ok && len > 0 && s.inputError]}
                 value={form.description}
                 onChangeText={v => set({ description: v })}
+                onFocus={scrollToDesc}
                 placeholder="État détaillé, usage recommandé, accessoires inclus, dimensions…"
                 placeholderTextColor={Colors.muted}
                 multiline
