@@ -1,17 +1,33 @@
 /**
  * StepDetailsRules — Étape fusionnée (anciens Step3Details + Step7Rules).
- * Tous les champs sont optionnels. Placée en avant-dernière position.
+ * Tous les champs sont optionnels. Auto-scroll vers le champ focalisé.
  */
-import React from 'react';
+import React, { useRef } from 'react';
 import { View, Text, TextInput, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Radius } from '../../../constants/Colors';
 import { useProductForm } from '../ProductFormContext';
+import { useFlowScroll } from '../ProductCreationFlow';
 
 const BLUE = '#3B82F6';
 
 export function StepDetailsRules() {
   const { form, set } = useProductForm();
+  const scrollRef    = useFlowScroll();
+
+  // Refs sur chaque wrapper View pour mesurer la position
+  const pickupRef = useRef<View>(null);
+  const returnRef = useRef<View>(null);
+  const cancelRef = useRef<View>(null);
+
+  const scrollToField = (fieldRef: React.RefObject<View>) => {
+    if (!scrollRef?.current || !fieldRef.current) return;
+    fieldRef.current.measure((_x, _y, _w, _h, _px, pageY) => {
+      // pageY = position absolue depuis le haut de l'écran
+      // On scroll pour montrer le champ avec 120px de marge en haut
+      scrollRef.current?.scrollTo({ y: Math.max(0, pageY - 120), animated: true });
+    });
+  };
 
   return (
     <View style={s.wrap}>
@@ -58,12 +74,13 @@ export function StepDetailsRules() {
       <View style={s.section}>
         <Text style={s.sectionTitle}>RÈGLES & CONSIGNES</Text>
 
-        <View style={s.field}>
+        <View ref={pickupRef} style={s.field}>
           <Text style={s.label}>CONSIGNES DE REMISE <Text style={s.opt}>(optionnel)</Text></Text>
           <TextInput
             style={[s.input, s.textarea]}
             value={form.pickup_notes}
             onChangeText={v => set({ pickup_notes: v })}
+            onFocus={() => scrollToField(pickupRef)}
             placeholder="ex: RDV devant le club de padel, sonnez au 2e…"
             placeholderTextColor={Colors.muted}
             multiline
@@ -73,12 +90,13 @@ export function StepDetailsRules() {
           />
         </View>
 
-        <View style={s.field}>
+        <View ref={returnRef} style={s.field}>
           <Text style={s.label}>RÈGLES DE RETOUR <Text style={s.opt}>(optionnel)</Text></Text>
           <TextInput
             style={[s.input, s.textarea]}
             value={form.return_rules}
             onChangeText={v => set({ return_rules: v })}
+            onFocus={() => scrollToField(returnRef)}
             placeholder="ex: Matériel à rendre propre et en bon état avant 20h le dernier jour…"
             placeholderTextColor={Colors.muted}
             multiline
@@ -88,12 +106,13 @@ export function StepDetailsRules() {
           />
         </View>
 
-        <View style={s.field}>
+        <View ref={cancelRef} style={s.field}>
           <Text style={s.label}>CONDITIONS D'ANNULATION <Text style={s.opt}>(optionnel)</Text></Text>
           <TextInput
             style={[s.input, s.textarea]}
             value={form.cancellation_rules}
             onChangeText={v => set({ cancellation_rules: v })}
+            onFocus={() => scrollToField(cancelRef)}
             placeholder="ex: Annulation gratuite jusqu'à 48h avant la date de début…"
             placeholderTextColor={Colors.muted}
             multiline

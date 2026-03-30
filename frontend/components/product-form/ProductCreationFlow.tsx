@@ -2,7 +2,11 @@
  * ProductCreationFlow — orchestrateur du flow de création produit.
  * Stepper bleu (couleur produit), 9 étapes légères (sans scroll par étape).
  */
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, createContext, useContext } from 'react';
+
+// Contexte léger pour partager le scrollRef avec les step components
+export const FlowScrollCtx = createContext<React.RefObject<ScrollView> | null>(null);
+export const useFlowScroll = () => useContext(FlowScrollCtx);
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
   Animated, Alert, ActivityIndicator, KeyboardAvoidingView, Platform,
@@ -268,52 +272,53 @@ export function ProductCreationFlow({ isEditMode = false }: { isEditMode?: boole
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={0}
       >
-        <ScrollView
-          ref={scrollRef}
-          style={{ flex: 1 }}
-          contentContainerStyle={c.content}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          {step === TOTAL_STEPS - 1 ? (
-            <Step7Summary
-              onSaveDraft={() => submit('draft')}
-              onPublish={() => submit('pending_review')}
-              isSubmitting={isSubmitting}
-            />
-          ) : (
-            <StepComponent />
+        <FlowScrollCtx.Provider value={scrollRef}>
+
+          <ScrollView
+            ref={scrollRef}
+            style={{ flex: 1 }}
+            contentContainerStyle={c.content}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {step === TOTAL_STEPS - 1 ? (
+              <Step7Summary
+                onSaveDraft={() => submit('draft')}
+                onPublish={() => submit('pending_review')}
+                isSubmitting={isSubmitting}
+              />
+            ) : (
+              <StepComponent />
+            )}
+          </ScrollView>
+
+          {/* ── Navigation bottom (sauf récap) ───────────────────────────── */}
+          {!isLast && (
+            <View style={c.navBar}>
+              <TouchableOpacity
+                style={c.prevBtn}
+                onPress={goBack}
+                testID="prev-step-btn"
+              >
+                <Ionicons name="arrow-back" size={18} color={Colors.foreground} />
+                <Text style={c.prevBtnText}>{step === 0 ? 'Quitter' : 'Précédent'}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={c.nextBtn}
+                onPress={goNext}
+                disabled={isSubmitting}
+                testID="next-step-btn"
+              >
+                <Text style={c.nextBtnText}>
+                  {step === TOTAL_STEPS - 2 ? 'Récapitulatif' : 'Suivant'}
+                </Text>
+                <Ionicons name="arrow-forward" size={18} color="#fff" />
+              </TouchableOpacity>
+            </View>
           )}
-        </ScrollView>
 
-        {/* ── Navigation bottom (sauf récap) ───────────────────────────── */}
-        {!isLast && (
-          <View style={c.navBar}>
-            {/* Bouton Précédent */}
-            <TouchableOpacity
-              style={c.prevBtn}
-              onPress={goBack}
-              testID="prev-step-btn"
-            >
-              <Ionicons name="arrow-back" size={18} color={Colors.foreground} />
-              <Text style={c.prevBtnText}>{step === 0 ? 'Quitter' : 'Précédent'}</Text>
-            </TouchableOpacity>
-
-            {/* Bouton Suivant */}
-            <TouchableOpacity
-              style={c.nextBtn}
-              onPress={goNext}
-              disabled={isSubmitting}
-              testID="next-step-btn"
-            >
-              <Text style={c.nextBtnText}>
-                {step === TOTAL_STEPS - 2 ? 'Récapitulatif' : 'Suivant'}
-              </Text>
-              <Ionicons name="arrow-forward" size={18} color="#fff" />
-            </TouchableOpacity>
-          </View>
-        )}
-
+        </FlowScrollCtx.Provider>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
