@@ -259,18 +259,6 @@ export function ProductDetailView({
                 <Text style={d.chipText}>{item.condition_label}</Text>
               </View>
             ) : null}
-            {item.skill_level ? (
-              <View style={d.chip}>
-                <Ionicons name="bar-chart-outline" size={11} color={Colors.muted} />
-                <Text style={d.chipText}>{LEVEL_LABELS[item.skill_level] || item.skill_level}</Text>
-              </View>
-            ) : null}
-            {item.brand_model ? (
-              <View style={d.chip}>
-                <Ionicons name="cube-outline" size={11} color={Colors.muted} />
-                <Text style={d.chipText}>{item.brand_model}</Text>
-              </View>
-            ) : null}
           </View>
 
           {/* ── Description ── */}

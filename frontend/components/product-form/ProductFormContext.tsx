@@ -24,7 +24,6 @@ export interface ProductFormData {
   description: string;
   condition_label: ConditionLabel;
   included_items: string;
-  brand_model: string;
   size_dimensions: string;
 
   // Tarification multi-unité
@@ -74,7 +73,6 @@ const DEFAULT: ProductFormData = {
   description:        '',
   condition_label:    'good',
   included_items:     '',
-  brand_model:        '',
   size_dimensions:    '',
   pricing_modes:      ['day'],
   price_per_hour:     '',
@@ -181,6 +179,8 @@ export function validateStep(step: number, f: ProductFormData): string | null {
         return "Précisez l'état du matériel.";
       if (!f.available_quantity || parseInt(f.available_quantity, 10) < 1)
         return 'La quantité doit être au minimum 1.';
+      if (!f.description.trim() || f.description.trim().length < 30)
+        return 'La description est obligatoire (minimum 30 caractères).';
       break;
     case 3: // Détails — tout optionnel
       break;
@@ -220,6 +220,8 @@ export function validateStep(step: number, f: ProductFormData): string | null {
                                  return 'Étape 1 — Sélectionne au moins un tag.';
       if (!f.title.trim())       return 'Étape 2 — Le titre est obligatoire.';
       if (!f.condition_label)    return "Étape 2 — Précisez l'état du matériel.";
+      if (!f.description.trim() || f.description.trim().length < 30)
+                                 return 'Étape 2 — La description doit faire au moins 30 caractères.';
       if (f.images.length === 0) return 'Étape 4 — Ajoutez au moins une photo.';
       if (!hasValidPricing(f))   return 'Étape 5 — Définissez au moins un tarif.';
       if ((f.pricing_modes ?? []).includes('session') && (!f.related_spotyou_ids || f.related_spotyou_ids.length === 0))

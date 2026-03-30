@@ -145,7 +145,6 @@ export function ProductCreationFlow({ isEditMode = false }: { isEditMode?: boole
         description:          (form.description ?? '').trim(),
         condition_label:      form.condition_label,
         included_items:       (form.included_items ?? '').trim(),
-        brand_model:          (form.brand_model ?? '').trim(),
         size_dimensions:      (form.size_dimensions ?? '').trim(),
         price:                getMinPrice(form),
         pricing_type:         (form.pricing_modes ?? ['day'])[0],

@@ -90,7 +90,7 @@ async def get_product_detail(request: Request, product_id: str):
                    deposit_required, deposit_amount, max_duration_days,
                    pickup_type, pickup_notes, city, location_privacy, lat, lng,
                    return_rules, cancellation_rules, availability_note,
-                   included_items, brand_model, size_dimensions,
+                   included_items, size_dimensions,
                    tag_ids,
                    pricing_modes, price_per_hour, price_per_day, price_per_week, price_per_month, price_per_session,
                    related_spotyou_ids,
@@ -133,6 +133,14 @@ async def create_product(request: Request):
     title = (body.get("title") or "").strip()
     if not title:
         return JSONResponse({"error": "Le titre est obligatoire."}, status_code=400)
+
+    # Validation description minimale
+    description_val = (body.get("description") or "").strip()
+    if len(description_val) < 30:
+        return JSONResponse(
+            {"error": "La description est obligatoire (minimum 30 caractères)."},
+            status_code=400,
+        )
 
     price_raw = body.get("price")
     try:
@@ -184,6 +192,8 @@ async def create_product(request: Request):
             errors.append("Sélectionne au moins un tag pour publier le produit.")
         if not cond_label:
             errors.append("L'état du matériel est obligatoire.")
+        if len((body.get("description") or "").strip()) < 30:
+            errors.append("La description doit faire au moins 30 caractères.")
         if not price or price <= 0:
             errors.append("Le prix doit être supérieur à 0.")
         if not image_urls:
@@ -220,18 +230,18 @@ async def create_product(request: Request):
                     price_per_week = $11, price_per_month = $12,
                     category = $13, subcategory = $14,
                     cover_image_url = $15, image_url = $16, image_urls = $17,
-                    condition_label = $18, included_items = $19, brand_model = $20,
-                    size_dimensions = $21, available_quantity = $22, in_stock = $23,
-                    deposit_required = $24, deposit_amount = $25, max_duration_days = $26,
-                    pickup_type = $27, pickup_notes = $28, availability_note = $29,
-                    return_rules = $30, cancellation_rules = $31,
-                    city = $32, lat = $33, lng = $34,
-                    location_privacy = $35, radius_km = $36,
-                    related_spotyou_ids = $37,
-                    tag_ids = $38,
-                    delivery_modes = $39,
-                    status = $40, updated_at = $41
-                WHERE product_id = $42 AND seller_id = $43
+                    condition_label = $18, included_items = $19,
+                    size_dimensions = $20, available_quantity = $21, in_stock = $22,
+                    deposit_required = $23, deposit_amount = $24, max_duration_days = $25,
+                    pickup_type = $26, pickup_notes = $27, availability_note = $28,
+                    return_rules = $29, cancellation_rules = $30,
+                    city = $31, lat = $32, lng = $33,
+                    location_privacy = $34, radius_km = $35,
+                    related_spotyou_ids = $36,
+                    tag_ids = $37,
+                    delivery_modes = $38,
+                    status = $39, updated_at = $40
+                WHERE product_id = $41 AND seller_id = $42
                 """,
                 title,
                 body.get("short_description"),
@@ -252,7 +262,6 @@ async def create_product(request: Request):
                 image_urls,
                 body.get("condition_label", "good"),
                 body.get("included_items"),
-                body.get("brand_model"),
                 body.get("size_dimensions"),
                 available_quantity,
                 available_quantity > 0,
@@ -292,7 +301,7 @@ async def create_product(request: Request):
                     category, subcategory,
                     cover_image_url, image_url, image_urls,
                     condition_label, included_items,
-                    brand_model, size_dimensions,
+                    size_dimensions,
                     available_quantity, in_stock,
                     deposit_required, deposit_amount, max_duration_days,
                     pickup_type, pickup_notes, availability_note,
@@ -303,7 +312,7 @@ async def create_product(request: Request):
                 ) VALUES (
                     $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,
                     $18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,
-                    $33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46,$47,$48
+                    $33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46,$47
                 )
                 """,
                 product_id,
@@ -330,7 +339,6 @@ async def create_product(request: Request):
                 image_urls,
                 body.get("condition_label", "good"),
                 body.get("included_items"),
-                body.get("brand_model"),
                 body.get("size_dimensions"),
                 available_quantity,
                 available_quantity > 0,

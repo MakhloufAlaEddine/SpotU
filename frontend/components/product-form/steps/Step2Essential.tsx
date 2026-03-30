@@ -106,17 +106,37 @@ export function Step2Essential() {
         <Text style={s.hint}>Nombre d'exemplaires disponibles simultanément</Text>
       </View>
 
-      {/* ── Marque / Modèle — optionnel ───────────────────────────────── */}
+      {/* ── Description — obligatoire min 30 car. ────────────────────── */}
       <View style={s.field}>
-        <Text style={s.label}>MARQUE / MODÈLE <Text style={s.optional}>(optionnel)</Text></Text>
-        <TextInput
-          style={s.input}
-          value={form.brand_model}
-          onChangeText={v => set({ brand_model: v })}
-          placeholder="ex: Decathlon Riverside 500, HEAD Graphene 360"
-          placeholderTextColor={Colors.muted}
-          testID="product-brand-input"
-        />
+        <Text style={s.label}>DESCRIPTION <Text style={s.req}>*</Text></Text>
+        {(() => {
+          const len = (form.description || '').trim().length;
+          const ok  = len >= 30;
+          return (
+            <>
+              <TextInput
+                style={[s.input, s.textarea, !ok && len > 0 && s.inputError]}
+                value={form.description}
+                onChangeText={v => set({ description: v })}
+                placeholder="État détaillé, usage recommandé, accessoires inclus, dimensions…"
+                placeholderTextColor={Colors.muted}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+                maxLength={1000}
+                testID="product-desc-input"
+              />
+              <View style={s.counterRow}>
+                {len < 30 ? (
+                  <Text style={s.counterWarn}>{len}/30 caractères minimum</Text>
+                ) : (
+                  <Text style={s.counterOk}>✓ {len} caractères</Text>
+                )}
+              </View>
+            </>
+          );
+        })()}
+        <Text style={s.hint}>Soyez précis : état, taille, usage, équipements fournis…</Text>
       </View>
 
     </View>
@@ -124,20 +144,25 @@ export function Step2Essential() {
 }
 
 const s = StyleSheet.create({
-  wrap:      { gap: 14 },
-  field:     { gap: 6 },
-  label:     { fontSize: 11, fontWeight: '700', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 1 },
-  req:       { color: '#EF4444' },
-  optional:  { color: Colors.muted, fontWeight: '400', textTransform: 'none', letterSpacing: 0 },
-  hint:      { fontSize: 11, color: Colors.muted },
-  counter:   { fontSize: 11, color: Colors.muted, textAlign: 'right' },
-  input:     { backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, color: Colors.foreground, fontSize: 15, paddingHorizontal: 14, paddingVertical: 12 },
+  wrap:        { gap: 14 },
+  field:       { gap: 6 },
+  label:       { fontSize: 11, fontWeight: '700', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 1 },
+  req:         { color: '#EF4444' },
+  optional:    { color: Colors.muted, fontWeight: '400', textTransform: 'none', letterSpacing: 0 },
+  hint:        { fontSize: 11, color: Colors.muted },
+  counter:     { fontSize: 11, color: Colors.muted, textAlign: 'right' },
+  counterRow:  { flexDirection: 'row', justifyContent: 'flex-end' },
+  counterWarn: { fontSize: 11, color: '#EF4444', fontWeight: '600' },
+  counterOk:   { fontSize: 11, color: '#22C55E', fontWeight: '600' },
+  input:       { backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, color: Colors.foreground, fontSize: 15, paddingHorizontal: 14, paddingVertical: 12 },
+  inputError:  { borderColor: '#EF444466' },
+  textarea:    { minHeight: 90, paddingTop: 12, fontSize: 14 },
 
-  condRow:   { flexDirection: 'row', marginBottom: 8 },
-  condChip:  { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 12, backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.border, marginHorizontal: 4 },
-  condLabel: { fontSize: 13, fontWeight: '700', color: Colors.muted },
+  condRow:     { flexDirection: 'row', marginBottom: 8 },
+  condChip:    { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 12, backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.border, marginHorizontal: 4 },
+  condLabel:   { fontSize: 13, fontWeight: '700', color: Colors.muted },
 
-  qtyRow:    { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden', alignSelf: 'flex-start' },
-  qtyBtn:    { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  qtyInput:  { width: 56, height: 44, fontSize: 18, fontWeight: '800', color: Colors.foreground, borderLeftWidth: 1, borderRightWidth: 1, borderColor: Colors.border },
+  qtyRow:      { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden', alignSelf: 'flex-start' },
+  qtyBtn:      { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  qtyInput:    { width: 56, height: 44, fontSize: 18, fontWeight: '800', color: Colors.foreground, borderLeftWidth: 1, borderRightWidth: 1, borderColor: Colors.border },
 });

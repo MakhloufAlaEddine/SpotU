@@ -25,7 +25,6 @@ function apiToFormData(data: any): Partial<ProductFormData> {
     description:         data.description         || '',
     condition_label:     data.condition_label      || 'good',
     included_items:      data.included_items       || '',
-    brand_model:         data.brand_model          || '',
     size_dimensions:     data.size_dimensions      || '',
     // Tarification multi-unité
     pricing_modes:       Array.isArray(data.pricing_modes) && data.pricing_modes.length > 0

@@ -1,6 +1,6 @@
 /**
- * Step 3 — Détails : Description, résumé, contenu inclus (tous optionnels)
- * Étape légère — aucun champ obligatoire.
+ * Step 3 — Détails : Résumé rapide, contenu inclus (optionnels)
+ * La description est désormais dans Step 2 (Essentiel).
  */
 import React from 'react';
 import { View, Text, TextInput, StyleSheet } from 'react-native';
@@ -36,24 +36,6 @@ export function Step3Details() {
           testID="product-short-desc-input"
         />
         <Text style={d.counter}>{(form.short_description || '').length}/120</Text>
-      </View>
-
-      {/* ── Description complète ──────────────────────────────────────── */}
-      <View style={d.field}>
-        <Text style={d.label}>DESCRIPTION COMPLÈTE <Text style={d.optional}>(optionnel)</Text></Text>
-        <TextInput
-          style={[d.input, d.textarea]}
-          value={form.description}
-          onChangeText={v => set({ description: v })}
-          placeholder="Modèle, taille, état détaillé, usage recommandé…"
-          placeholderTextColor={Colors.muted}
-          multiline
-          numberOfLines={4}
-          textAlignVertical="top"
-          maxLength={1000}
-          testID="product-desc-input"
-        />
-        <Text style={d.counter}>{(form.description || '').length}/1000</Text>
       </View>
 
       {/* ── Ce qui est inclus ─────────────────────────────────────────── */}
