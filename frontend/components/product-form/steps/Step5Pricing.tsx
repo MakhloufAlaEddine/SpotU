@@ -2,7 +2,7 @@
  * Step 5 — Tarification redesign
  * - Modes : grille 2 colonnes compacte, séance en pleine largeur
  * - Prix  : liste épurée label + input inline sans fond lourd
- * - SpotYou : carte riche avec photo, membres, prochain créneau (adapté de SpotYouCard)
+ * - SpotYou : filtre 20km, distance affichée, propriétaire en premier
  */
 import React, { useEffect, useState } from 'react';
 import {
@@ -17,6 +17,25 @@ import { formatNextDate, sc as SpotSc } from '../../SpotYouCard';
 
 const BLUE   = '#3B82F6';
 const ORANGE = '#F59E0B';
+const GREEN  = '#22C55E';
+const MAX_KM = 20;
+
+/** Calcul de distance Haversine en km */
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function formatDist(km: number): string {
+  if (km < 1) return `${Math.round(km * 1000)} m`;
+  return `${km.toFixed(1)} km`;
+}
 
 const GRID_MODES: { key: PricingMode; label: string; unit: string }[] = [
   { key: 'hour',  label: 'À l\'heure',   unit: '€ / h'    },
@@ -35,7 +54,6 @@ function SpotSelectionCard({
   const members     = spot.participants_count ?? 0;
   const imgUri      = spot.images?.[0] || spot.image_url;
 
-  // Compter les créneaux hebdomadaires
   const slotCount = (() => {
     if (!spot.event_schedule?.schedule) return null;
     const sched = spot.event_schedule.schedule;
@@ -53,7 +71,6 @@ function SpotSelectionCard({
     >
       {/* Header: photo + infos */}
       <View style={p.spotCardHeader}>
-        {/* Photo */}
         {imgUri ? (
           <TagImage uri={imgUri} domainId={spot.domain_id} style={p.spotThumb} iconSize={24} />
         ) : (
@@ -62,9 +79,8 @@ function SpotSelectionCard({
           </View>
         )}
 
-        {/* Infos */}
         <View style={{ flex: 1 }}>
-          {/* Titre + badge récurrent */}
+          {/* Titre + badge */}
           <View style={p.spotTitleRow}>
             <Text style={[p.spotTitle, selected && { color: BLUE }]} numberOfLines={1}>{spot.title}</Text>
             {isRecurring && (
@@ -75,8 +91,14 @@ function SpotSelectionCard({
             )}
           </View>
 
-          {/* Membres + créneaux */}
+          {/* Membres + créneaux + distance */}
           <View style={p.spotMeta}>
+            {spot.isOwn && (
+              <View style={p.ownChip}>
+                <Ionicons name="person-outline" size={10} color={GREEN} />
+                <Text style={p.ownChipText}>Mon SpotYou</Text>
+              </View>
+            )}
             <View style={SpotSc.membersChip}>
               <Ionicons name="people-outline" size={10} color={Colors.primary} />
               <Text style={SpotSc.membersChipText}>{Math.max(members, 1)} membre{Math.max(members, 1) > 1 ? 's' : ''}</Text>
@@ -85,6 +107,12 @@ function SpotSelectionCard({
               <View style={p.slotChip}>
                 <Ionicons name="time-outline" size={10} color={Colors.muted} />
                 <Text style={p.slotChipText}>{slotCount} créneau{slotCount > 1 ? 'x' : ''} / sem</Text>
+              </View>
+            )}
+            {spot.distKm != null && (
+              <View style={p.distChip}>
+                <Ionicons name="navigate-outline" size={10} color={BLUE} />
+                <Text style={p.distChipText}>{formatDist(spot.distKm)}</Text>
               </View>
             )}
           </View>
@@ -123,14 +151,54 @@ export function Step5Pricing() {
   const sessionEnabled = activeModes.includes('session');
   const sessionOnly    = sessionEnabled && activeModes.length === 1;
 
+  const productLat = form.selectedLat;
+  const productLng = form.selectedLng;
+  const hasLocation = !!(productLat && productLng);
+  const tagIdsKey   = (form.tag_ids ?? []).join(',');
+
   useEffect(() => {
     if (!sessionEnabled) return;
     setLoading(true);
-    api.get('/tag-points/mine')
-      .then((d: any) => setSpots(Array.isArray(d) ? d : (d.points || [])))
-      .catch(() => setSpots([]))
-      .finally(() => setLoading(false));
-  }, [sessionEnabled]);
+
+    // Appel 1 : mes propres SpotYou
+    const p1 = api.get('/tag-points/mine')
+      .then((d: any) => Array.isArray(d) ? d : (d.points ?? []))
+      .catch(() => [] as any[]);
+
+    // Appel 2 : SpotYou des autres créateurs, filtrés par position + tags
+    let p2: Promise<any[]> = Promise.resolve([]);
+    if (hasLocation) {
+      const tagParam = form.tag_ids.length > 0 ? `&tag_ids=${encodeURIComponent(tagIdsKey)}` : '';
+      p2 = api.get(`/tag-points?lat=${productLat}&lng=${productLng}&radius=${MAX_KM * 1000}${tagParam}`)
+        .then((d: any) => Array.isArray(d) ? d : (d.points ?? []))
+        .catch(() => [] as any[]);
+    }
+
+    Promise.all([p1, p2]).then(([mine, others]) => {
+      // Mes SpotYou : calculer distance + filtrer 20km si localisation connue
+      const mySpots = (mine as any[])
+        .map(s => ({
+          ...s,
+          distKm: hasLocation ? haversineKm(productLat, productLng, s.latitude ?? 0, s.longitude ?? 0) : null,
+          isOwn: true,
+        }))
+        .filter(s => !hasLocation || (s.distKm ?? 0) <= MAX_KM)
+        .sort((a, b) => (a.distKm ?? 0) - (b.distKm ?? 0));
+
+      // SpotYou des autres : distance depuis l'API (metres → km) ou Haversine
+      const otherSpots = (others as any[])
+        .map(s => ({
+          ...s,
+          distKm: s.distance != null
+            ? s.distance / 1000
+            : (hasLocation ? haversineKm(productLat, productLng, s.latitude ?? 0, s.longitude ?? 0) : null),
+          isOwn: false,
+        }))
+        .sort((a, b) => (a.distKm ?? 0) - (b.distKm ?? 0));
+
+      setSpots([...mySpots, ...otherSpots]);
+    }).finally(() => setLoading(false));
+  }, [sessionEnabled, tagIdsKey, productLat, productLng]);
 
   const toggleMode = (mode: PricingMode) => {
     if (activeModes.includes(mode)) {
@@ -286,8 +354,12 @@ export function Step5Pricing() {
           {!loading && spots.length === 0 && (
             <View style={p.emptySpots}>
               <Ionicons name="map-outline" size={22} color={Colors.muted} />
-              <Text style={p.emptyText}>Aucun SpotYou</Text>
-              <Text style={p.emptyHint}>Crée un SpotYou d'abord, ou désactive le mode séance.</Text>
+              <Text style={p.emptyText}>Aucun SpotYou à proximité</Text>
+              <Text style={p.emptyHint}>
+                {hasLocation
+                  ? `Aucun SpotYou avec ces tags dans un rayon de ${MAX_KM} km.`
+                  : 'Renseignez la localisation du produit (étape précédente) pour voir les SpotYou proches.'}
+              </Text>
             </View>
           )}
 
@@ -355,6 +427,10 @@ const p = StyleSheet.create({
   spotMeta:       { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
   slotChip:       { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: Colors.background, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: Colors.border },
   slotChipText:   { fontSize: 10, color: Colors.muted, fontWeight: '600' },
+  ownChip:        { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: GREEN + '18', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: GREEN + '40' },
+  ownChipText:    { fontSize: 10, color: GREEN, fontWeight: '700' },
+  distChip:       { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: BLUE + '12', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: BLUE + '30' },
+  distChipText:   { fontSize: 10, color: BLUE, fontWeight: '700' },
   check:          { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center', marginLeft: 4 },
   checkActive:    { backgroundColor: BLUE, borderColor: BLUE },
 });

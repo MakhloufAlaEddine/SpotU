@@ -40,9 +40,9 @@ const STEP_CONFIG = [
   { title: 'Classification',   subtitle: 'Type, catégorie & tags',         icon: 'pricetag-outline',         tip: 'Les tags définissent où votre produit apparaît — choisissez-les avec soin.' },
   { title: 'L\'essentiel',     subtitle: 'Titre, état & quantité',          icon: 'create-outline',           tip: 'Un titre précis attire plus de locataires. Soyez descriptif.' },
   { title: 'Photos',           subtitle: 'Photos du matériel',             icon: 'camera-outline',           tip: 'Les annonces avec 3+ photos génèrent 3× plus de réservations.' },
+  { title: 'Localisation',     subtitle: 'Où est disponible le produit ?', icon: 'map-outline',              tip: 'La localisation permet de filtrer les SpotYou proches à l\'étape suivante.' },
   { title: 'Tarification',     subtitle: 'Prix & modes de location',       icon: 'cash-outline',             tip: 'Proposez plusieurs modes pour maximiser vos chances de réservation.' },
   { title: 'Logistique',       subtitle: 'Remise, durée & caution',        icon: 'cube-outline',             tip: 'Des conditions claires évitent les malentendus.' },
-  { title: 'Localisation',     subtitle: 'Où est disponible le produit ?', icon: 'map-outline',              tip: 'La localisation aide les locataires proches à vous trouver.' },
   { title: 'Détails & Règles', subtitle: 'Infos complémentaires',          icon: 'document-text-outline',    tip: 'Optionnel — chaque détail renforce la confiance des locataires.' },
   { title: 'Publication',      subtitle: 'Vérification & soumission',      icon: 'eye-outline',              tip: 'Vérifiez tout avant de soumettre. Un admin validera sous 24h.' },
 ] as const;
@@ -51,9 +51,9 @@ const STEP_COMPONENTS = [
   Step1TypeCategory,  // 0 — Classification
   Step2Essential,     // 1 — L'essentiel
   Step3Photos,        // 2 — Photos
-  Step5Pricing,       // 3 — Tarification
-  Step6Logistics,     // 4 — Logistique
-  Step5Availability,  // 5 — Localisation
+  Step5Availability,  // 3 — Localisation (avant tarification pour exposer lat/lng aux SpotYou)
+  Step5Pricing,       // 4 — Tarification
+  Step6Logistics,     // 5 — Logistique
   StepDetailsRules,   // 6 — Détails & Règles (fusionné, avant-dernière)
   Step7Summary,       // 7 — Publication (rendu spécial)
 ];

@@ -278,7 +278,20 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 
 ## Recently Completed (2026-03-30)
 
-### Fix Scroll Clavier Description Step 2 + Nettoyage (2026-03-30)
+### Réorganisation Steps + SpotYou 20km + Distance (2026-03-30)
+| Fichier | Changement |
+|---------|-----------|
+| `ProductCreationFlow.tsx` | Step 6 (Localisation) déplacé avant Step 4 (Tarification) → nouvel ordre: Classification > Essentiel > Photos > **Localisation** > Tarification > Logistique > Détails/Règles > Publication |
+| `ProductFormContext.tsx` | validateStep mis à jour : case 4=Localisation, case 5=Tarification, case 6=Logistique ; messages finaux Étape 5/6 corrigés |
+| `Step5Pricing.tsx` | Double fetch : `/tag-points/mine` (propriétaire, filtre Haversine 20km) + `/tag-points?lat&lng&radius=20000&tag_ids` (autres créateurs) ; badge "Mon SpotYou" vert ; badge distance bleu ; tri : propriétaire en premier puis autres par distance ; message vide adaptatif (sans localisation / aucun résultat) |
+
+**Comportement :**
+- Localisation saisie avant tarification → les lat/lng sont disponibles dans `form` quand la section SpotYou se charge
+- SpotYou du créateur : Haversine client-side, filtrés à 20km, badgés "Mon SpotYou" et affichés en premier
+- SpotYou des autres : filtrés par l'API (20km + tags matching), triés par distance ascendante
+- Si pas de localisation renseignée : message explicite invite à remplir l'étape précédente
+
+
 | Fichier | Changement |
 |---------|-----------|
 | `Step2Essential.tsx` | Import `useRef` + `useFlowScroll` ; `descRef` sur le wrapper View Description ; `onFocus={scrollToDesc}` → scroll localisé identique à StepDetailsRules ; suppression imports inutiles `findNodeHandle, UIManager` |
