@@ -7,7 +7,7 @@ import { View, Text, TextInput, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Radius } from '../../../constants/Colors';
 import { useProductForm } from '../ProductFormContext';
-import { useFlowScroll } from '../ProductCreationFlow';
+import { useFlowScroll } from '../FlowScrollContext';
 
 const BLUE = '#3B82F6';
 

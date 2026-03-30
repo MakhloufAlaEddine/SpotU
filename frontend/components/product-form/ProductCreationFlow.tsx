@@ -4,9 +4,7 @@
  */
 import React, { useState, useRef, useEffect, createContext, useContext } from 'react';
 
-// Contexte léger pour partager le scrollRef avec les step components
-export const FlowScrollCtx = createContext<React.RefObject<ScrollView> | null>(null);
-export const useFlowScroll = () => useContext(FlowScrollCtx);
+import { FlowScrollCtx } from './FlowScrollContext';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
   Animated, Alert, ActivityIndicator, KeyboardAvoidingView, Platform,

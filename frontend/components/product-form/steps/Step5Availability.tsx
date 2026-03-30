@@ -2,13 +2,14 @@
  * Step 5 — Disponibilité + localisation
  * La ville est extraite automatiquement depuis l'adresse sélectionnée.
  */
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, Text, TextInput, StyleSheet } from 'react-native';
 import { Colors, Spacing, Radius } from '../../../constants/Colors';
 import { useProductForm, LocationPrivacy } from '../ProductFormContext';
 import { StepLocalisation } from '../../StepLocalisation';
 import { LocationPicker }   from '../../LocationPicker';
 import { useLocation }      from '../../../context/LocationContext';
+import { useFlowScroll }    from '../FlowScrollContext';
 
 const BLUE = '#3B82F6';
 
@@ -30,9 +31,18 @@ function extractCity(address: string): string {
 }
 
 export function Step5Availability() {
-  const { form, set } = useProductForm();
-  const { location }  = useLocation();
+  const { form, set }         = useProductForm();
+  const { location }          = useLocation();
   const [showLocationModal, setShowLocationModal] = useState(false);
+  const scrollRef             = useFlowScroll();
+  const noteRef               = useRef<View>(null);
+
+  const scrollToNote = () => {
+    if (!scrollRef?.current || !noteRef.current) return;
+    noteRef.current.measure((_x, _y, _w, _h, _px, pageY) => {
+      scrollRef.current?.scrollTo({ y: Math.max(0, pageY - 120), animated: true });
+    });
+  };
 
   // Auto-fill si localisation vide au premier rendu
   React.useEffect(() => {
@@ -73,12 +83,13 @@ export function Step5Availability() {
       />
 
       {/* Note de disponibilité */}
-      <View style={{ gap: 6 }}>
+      <View ref={noteRef} style={{ gap: 6 }}>
         <Text style={v.label}>Note de disponibilité <Text style={v.optional}>(optionnel)</Text></Text>
         <TextInput
           style={[v.input, v.textarea]}
           value={form.availability_note}
           onChangeText={val => set({ availability_note: val })}
+          onFocus={scrollToNote}
           placeholder="ex: Disponible les weekends et mercredis après-midi…"
           placeholderTextColor={Colors.muted}
           multiline
