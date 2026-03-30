@@ -4,22 +4,21 @@
  * - Prix  : liste épurée label + input inline sans fond lourd
  * - SpotYou : filtre 20km, distance affichée, propriétaire en premier
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator,
+  Modal, FlatList, SafeAreaView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, Radius } from '../../../constants/Colors';
+import { Colors } from '../../../constants/Colors';
 import { useProductForm, PricingMode } from '../ProductFormContext';
 import { api } from '../../../lib/api';
 import { TagImage, DOMAIN_ICONS } from '../../TagImage';
-import { formatNextDate, sc as SpotSc } from '../../SpotYouCard';
 
 const BLUE   = '#3B82F6';
 const ORANGE = '#F59E0B';
 const GREEN  = '#22C55E';
 const MAX_KM = 20;
-const DEFAULT_VISIBLE = 3;
 
 /** Calcul de distance Haversine en km */
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -69,136 +68,101 @@ const GRID_MODES: { key: PricingMode; label: string; unit: string }[] = [
 ];
 const SESSION_MODE = { key: 'session' as PricingMode, label: 'À la séance', unit: 'Créneaux SpotYou' };
 
-// ── Mini-carte SpotYou sélectionnable ──────────────────────────────────────
-function SpotSelectionCard({
+// ── Ligne compacte dans la modal ──────────────────────────────────────────
+function SpotRow({
   spot, selected, onPress,
 }: { spot: any; selected: boolean; onPress: () => void }) {
-  const isRecurring = !!spot.event_schedule;
-  const nextLabel   = formatNextDate(spot.next_session_date, spot.event_date, spot.event_schedule);
-  const members     = spot.participants_count ?? 0;
-  const imgUri      = spot.images?.[0] || spot.image_url;
-  const duration    = getSessionDurationLabel(spot);
-
-  const slotCount = (() => {
-    if (!spot.event_schedule?.schedule) return null;
-    const sched = spot.event_schedule.schedule;
-    const total = Object.values(sched as Record<string, any[]>)
-      .reduce((acc: number, slots: any[]) => acc + (slots?.length || 0), 0);
-    return total > 0 ? total : null;
-  })();
+  const imgUri   = spot.images?.[0] || spot.image_url;
+  const duration = getSessionDurationLabel(spot);
+  const members  = spot.participants_count ?? 0;
 
   return (
     <TouchableOpacity
-      style={[p.spotCard, selected && p.spotCardActive]}
+      style={[p.spotRow, selected && p.spotRowActive]}
       onPress={onPress}
-      testID={`spot-${spot.point_id}`}
-      activeOpacity={0.82}
+      testID={`spot-row-${spot.point_id}`}
+      activeOpacity={0.8}
     >
-      {/* Header: photo + infos */}
-      <View style={p.spotCardHeader}>
-        {imgUri ? (
-          <TagImage uri={imgUri} domainId={spot.domain_id} style={p.spotThumb} iconSize={24} />
-        ) : (
-          <View style={[p.spotThumb, p.spotThumbEmpty]}>
-            <Ionicons name={DOMAIN_ICONS[spot.domain_id] || 'location-outline'} size={22} color={Colors.muted} />
-          </View>
-        )}
-
-        <View style={{ flex: 1 }}>
-          {/* Titre + badge */}
-          <View style={p.spotTitleRow}>
-            <Text style={[p.spotTitle, selected && { color: BLUE }]} numberOfLines={1}>{spot.title}</Text>
-            {isRecurring && (
-              <View style={SpotSc.typeBadgeRecurring}>
-                <Ionicons name="repeat" size={9} color={Colors.primary} />
-                <Text style={[SpotSc.typeBadgeText, { color: Colors.primary }]}>Récurrent</Text>
-              </View>
-            )}
-          </View>
-
-          {/* Badges : Mon SpotYou / membres / créneaux / durée / distance */}
-          <View style={p.spotMeta}>
-            {spot.isOwn && (
-              <View style={p.ownChip}>
-                <Ionicons name="person-outline" size={10} color={GREEN} />
-                <Text style={p.ownChipText}>Mon SpotYou</Text>
-              </View>
-            )}
-            <View style={SpotSc.membersChip}>
-              <Ionicons name="people-outline" size={10} color={Colors.primary} />
-              <Text style={SpotSc.membersChipText}>{Math.max(members, 1)} membre{Math.max(members, 1) > 1 ? 's' : ''}</Text>
-            </View>
-            {slotCount && (
-              <View style={p.slotChip}>
-                <Ionicons name="time-outline" size={10} color={Colors.muted} />
-                <Text style={p.slotChipText}>{slotCount} créneau{slotCount > 1 ? 'x' : ''} / sem</Text>
-              </View>
-            )}
-            {duration && (
-              <View style={p.durationChip}>
-                <Ionicons name="hourglass-outline" size={10} color={ORANGE} />
-                <Text style={p.durationChipText}>{duration} / séance</Text>
-              </View>
-            )}
-            {spot.distKm != null && (
-              <View style={p.distChip}>
-                <Ionicons name="navigate-outline" size={10} color={BLUE} />
-                <Text style={p.distChipText}>{formatDist(spot.distKm)}</Text>
-              </View>
-            )}
-          </View>
+      {/* Miniature */}
+      {imgUri ? (
+        <TagImage uri={imgUri} domainId={spot.domain_id} style={p.rowThumb} iconSize={18} />
+      ) : (
+        <View style={[p.rowThumb, p.rowThumbEmpty]}>
+          <Ionicons name={DOMAIN_ICONS[spot.domain_id] || 'location-outline'} size={16} color={Colors.muted} />
         </View>
+      )}
 
-        {/* Checkbox */}
-        <View style={[p.check, selected && p.checkActive]}>
-          {selected && <Ionicons name="checkmark" size={12} color="#fff" />}
+      {/* Contenu */}
+      <View style={{ flex: 1 }}>
+        <Text style={[p.rowTitle, selected && { color: BLUE }]} numberOfLines={1}>{spot.title}</Text>
+        <View style={p.rowMeta}>
+          {spot.isOwn && (
+            <View style={p.ownChip}>
+              <Text style={p.ownChipText}>Mon SpotYou</Text>
+            </View>
+          )}
+          <View style={p.rowChip}>
+            <Ionicons name="people-outline" size={9} color={Colors.muted} />
+            <Text style={p.rowChipText}>{Math.max(members, 1)}</Text>
+          </View>
+          {duration && (
+            <View style={[p.rowChip, { borderColor: ORANGE + '40', backgroundColor: ORANGE + '12' }]}>
+              <Ionicons name="hourglass-outline" size={9} color={ORANGE} />
+              <Text style={[p.rowChipText, { color: ORANGE }]}>{duration}</Text>
+            </View>
+          )}
+          {spot.distKm != null && (
+            <View style={[p.rowChip, { borderColor: BLUE + '30', backgroundColor: BLUE + '10' }]}>
+              <Ionicons name="navigate-outline" size={9} color={BLUE} />
+              <Text style={[p.rowChipText, { color: BLUE }]}>{formatDist(spot.distKm)}</Text>
+            </View>
+          )}
         </View>
       </View>
 
-      {/* Prochain créneau */}
-      {nextLabel ? (
-        <View style={[SpotSc.eventSection, { paddingTop: 8, paddingBottom: 8 }]}>
-          <View style={SpotSc.eventDateRow}>
-            <View style={SpotSc.eventIconBox}>
-              <Ionicons name={isRecurring ? 'repeat' : 'calendar'} size={13} color={Colors.primary} />
-            </View>
-            <View>
-              <Text style={SpotSc.eventLabel}>Prochain créneau</Text>
-              <Text style={SpotSc.eventDate}>{nextLabel}</Text>
-            </View>
-          </View>
-        </View>
-      ) : null}
+      {/* Checkbox */}
+      <View style={[p.check, selected && p.checkActive]}>
+        {selected && <Ionicons name="checkmark" size={12} color="#fff" />}
+      </View>
     </TouchableOpacity>
+  );
+}
+
+// ── Chip de sélection (dans le step) ──────────────────────────────────────
+function SelectedChip({ spot, onRemove }: { spot: any; onRemove: () => void }) {
+  return (
+    <View style={p.chip}>
+      <Text style={p.chipText} numberOfLines={1}>{spot.title}</Text>
+      <TouchableOpacity onPress={onRemove} hitSlop={{ top: 6, right: 6, bottom: 6, left: 6 }}>
+        <Ionicons name="close-circle" size={15} color={Colors.muted} />
+      </TouchableOpacity>
+    </View>
   );
 }
 
 export function Step5Pricing() {
   const { form, set } = useProductForm();
-  const [spots, setSpots]       = useState<any[]>([]);
-  const [loading, setLoading]   = useState(false);
-  const [showAll, setShowAll]   = useState(false);
+  const [spots, setSpots]           = useState<any[]>([]);
+  const [loading, setLoading]       = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [search, setSearch]         = useState('');
 
   const activeModes    = form.pricing_modes ?? ['day'];
   const sessionEnabled = activeModes.includes('session');
   const sessionOnly    = sessionEnabled && activeModes.length === 1;
-
-  const productLat = form.selectedLat;
-  const productLng = form.selectedLng;
-  const hasLocation = !!(productLat && productLng);
-  const tagIdsKey   = (form.tag_ids ?? []).join(',');
+  const productLat     = form.selectedLat;
+  const productLng     = form.selectedLng;
+  const hasLocation    = !!(productLat && productLng);
+  const tagIdsKey      = (form.tag_ids ?? []).join(',');
 
   useEffect(() => {
     if (!sessionEnabled) { setSpots([]); return; }
     setLoading(true);
-    setShowAll(false);
 
-    // Appel 1 : mes propres SpotYou
     const p1 = api.get('/tag-points/mine')
       .then((d: any) => Array.isArray(d) ? d : (d.points ?? []))
       .catch(() => [] as any[]);
 
-    // Appel 2 : SpotYou des autres créateurs, filtrés par position + tags
     let p2: Promise<any[]> = Promise.resolve([]);
     if (hasLocation) {
       const tagParam = form.tag_ids.length > 0 ? `&tag_ids=${encodeURIComponent(tagIdsKey)}` : '';
@@ -208,7 +172,6 @@ export function Step5Pricing() {
     }
 
     Promise.all([p1, p2]).then(([mine, others]) => {
-      // Mes SpotYou : calculer distance + filtrer 20km si localisation connue
       const mySpots = (mine as any[])
         .map(s => ({
           ...s,
@@ -218,7 +181,6 @@ export function Step5Pricing() {
         .filter(s => !hasLocation || (s.distKm ?? 0) <= MAX_KM)
         .sort((a, b) => (a.distKm ?? 0) - (b.distKm ?? 0));
 
-      // SpotYou des autres : distance depuis l'API (metres → km) ou Haversine
       const otherSpots = (others as any[])
         .map(s => ({
           ...s,
@@ -243,10 +205,10 @@ export function Step5Pricing() {
   };
 
   const getPriceField = (mode: PricingMode): string => {
-    if (mode === 'hour')  return form.price_per_hour    || '';
-    if (mode === 'day')   return form.price_per_day     || '';
-    if (mode === 'week')  return form.price_per_week    || '';
-    if (mode === 'month') return form.price_per_month   || '';
+    if (mode === 'hour')    return form.price_per_hour    || '';
+    if (mode === 'day')     return form.price_per_day     || '';
+    if (mode === 'week')    return form.price_per_week    || '';
+    if (mode === 'month')   return form.price_per_month   || '';
     if (mode === 'session') return form.price_per_session || '';
     return '';
   };
@@ -260,23 +222,16 @@ export function Step5Pricing() {
     if (mode === 'session') set({ price_per_session: clean });
   };
 
-  const toggleSpot = (id: string) => {
+  const toggleSpot = useCallback((id: string) => {
     const cur = form.related_spotyou_ids ?? [];
     set({ related_spotyou_ids: cur.includes(id) ? cur.filter(i => i !== id) : [...cur, id] });
-  };
+  }, [form.related_spotyou_ids, set]);
 
-  // Extraire la ville depuis l'adresse (ex: "Forêt de Rambouillet, 78120 Rambouillet" → "Rambouillet")
-  const extractCity = (address: string): string => {
-    if (!address) return '';
-    const parts = address.split(',');
-    // Chercher la partie qui contient un code postal 5 chiffres
-    for (const p of parts) {
-      const match = p.trim().match(/^\d{5}\s+(.+)$/);
-      if (match) return match[1].trim();
-    }
-    // Fallback: dernière partie non vide
-    return parts[parts.length - 1]?.trim() || address;
-  };
+  const selectedIds   = form.related_spotyou_ids ?? [];
+  const selectedSpots = spots.filter(s => selectedIds.includes(s.point_id));
+  const filteredSpots = search.trim()
+    ? spots.filter(s => s.title.toLowerCase().includes(search.toLowerCase()))
+    : spots;
 
   const activeGridModes = GRID_MODES.filter(m => activeModes.includes(m.key));
   const allPriceModes   = [...activeGridModes, ...(sessionEnabled ? [SESSION_MODE] : [])];
@@ -289,7 +244,6 @@ export function Step5Pricing() {
         <Text style={p.sectionTitle}>MODES DE TARIFICATION <Text style={p.req}>*</Text></Text>
         <Text style={p.sectionHint}>Active les modes que tu proposes — au moins un obligatoire</Text>
 
-        {/* Grille 2 colonnes pour les 4 modes standards */}
         <View style={p.modeGrid}>
           {GRID_MODES.map(m => {
             const active = activeModes.includes(m.key);
@@ -301,11 +255,7 @@ export function Step5Pricing() {
                 testID={`toggle-mode-${m.key}`}
                 activeOpacity={0.75}
               >
-                {active && (
-                  <View style={p.modeCheck}>
-                    <Ionicons name="checkmark" size={10} color="#fff" />
-                  </View>
-                )}
+                {active && <View style={p.modeCheck}><Ionicons name="checkmark" size={10} color="#fff" /></View>}
                 <Text style={[p.modeName, active && p.modeNameActive]}>{m.label}</Text>
                 <Text style={[p.modeUnit, active && p.modeUnitActive]}>{m.unit}</Text>
               </TouchableOpacity>
@@ -313,7 +263,6 @@ export function Step5Pricing() {
           })}
         </View>
 
-        {/* Mode séance — pleine largeur */}
         {(() => {
           const active = activeModes.includes('session');
           return (
@@ -327,11 +276,7 @@ export function Step5Pricing() {
                 <Text style={[p.modeName, active && p.modeNameActive]}>{SESSION_MODE.label}</Text>
                 <Text style={[p.modeUnit, active && p.modeUnitActive]}>{SESSION_MODE.unit}</Text>
               </View>
-              {active && (
-                <View style={p.modeCheck}>
-                  <Ionicons name="checkmark" size={10} color="#fff" />
-                </View>
-              )}
+              {active && <View style={p.modeCheck}><Ionicons name="checkmark" size={10} color="#fff" /></View>}
             </TouchableOpacity>
           );
         })()}
@@ -364,25 +309,13 @@ export function Step5Pricing() {
         </View>
       )}
 
-      {/* ── Section SpotYou (si séance activé) ──────────────────────────── */}
+      {/* ── Section SpotYou ─────────────────────────────────────────────── */}
       {sessionEnabled && (
         <View style={p.section}>
           {sessionOnly && (
             <View style={p.warnRow}>
               <Ionicons name="warning-outline" size={14} color={ORANGE} />
-              <Text style={p.warnText}>
-                Sans autre mode, la location sera bloquée si aucun créneau n'est disponible.
-              </Text>
-            </View>
-          )}
-
-          {/* Bannière contextuelle : nb de SpotYou trouvés */}
-          {!loading && spots.length > 0 && (
-            <View style={p.foundBanner}>
-              <Ionicons name="location" size={14} color={BLUE} />
-              <Text style={p.foundBannerText}>
-                {spots.length} SpotYou trouvé{spots.length > 1 ? 's' : ''} à moins de {MAX_KM} km
-              </Text>
+              <Text style={p.warnText}>Sans autre mode, la location sera bloquée si aucun créneau n'est disponible.</Text>
             </View>
           )}
 
@@ -392,8 +325,52 @@ export function Step5Pricing() {
           </View>
           <Text style={p.sectionHint}>Les membres du SpotYou pourront louer sur ses créneaux</Text>
 
-          {loading && <ActivityIndicator color={BLUE} style={{ marginVertical: 16 }} />}
+          {/* Bannière */}
+          {!loading && spots.length > 0 && (
+            <View style={p.foundBanner}>
+              <Ionicons name="location" size={14} color={BLUE} />
+              <Text style={p.foundBannerText}>
+                {spots.length} SpotYou trouvé{spots.length > 1 ? 's' : ''} à moins de {MAX_KM} km
+              </Text>
+            </View>
+          )}
 
+          {/* Bouton ouvrir modal */}
+          <TouchableOpacity
+            style={[p.pickerBtn, selectedIds.length > 0 && p.pickerBtnActive]}
+            onPress={() => setPickerOpen(true)}
+            testID="open-spot-picker"
+            disabled={loading}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name={loading ? 'hourglass-outline' : 'add-circle-outline'}
+              size={18}
+              color={loading ? Colors.muted : (selectedIds.length > 0 ? BLUE : Colors.foreground)}
+            />
+            <Text style={[p.pickerBtnText, selectedIds.length > 0 && { color: BLUE }]}>
+              {loading
+                ? 'Chargement…'
+                : selectedIds.length === 0
+                  ? 'Choisir des SpotYou'
+                  : `${selectedIds.length} SpotYou sélectionné${selectedIds.length > 1 ? 's' : ''}`}
+            </Text>
+            {spots.length > 0 && !loading && (
+              <View style={p.countBadge}><Text style={p.countBadgeText}>{spots.length}</Text></View>
+            )}
+            <Ionicons name="chevron-forward" size={16} color={Colors.muted} />
+          </TouchableOpacity>
+
+          {/* Chips sélectionnés */}
+          {selectedSpots.length > 0 && (
+            <View style={p.chipRow}>
+              {selectedSpots.map(s => (
+                <SelectedChip key={s.point_id} spot={s} onRemove={() => toggleSpot(s.point_id)} />
+              ))}
+            </View>
+          )}
+
+          {/* État vide */}
           {!loading && spots.length === 0 && (
             <View style={p.emptySpots}>
               <Ionicons name="map-outline" size={22} color={Colors.muted} />
@@ -401,59 +378,94 @@ export function Step5Pricing() {
               <Text style={p.emptyHint}>
                 {hasLocation
                   ? `Aucun SpotYou avec ces tags dans un rayon de ${MAX_KM} km.`
-                  : 'Renseignez la localisation du produit (étape précédente) pour voir les SpotYou proches.'}
+                  : 'Renseignez la localisation (étape précédente) pour voir les SpotYou proches.'}
               </Text>
             </View>
           )}
-
-          {/* Liste paginée : 3 par défaut + "Voir X de plus" */}
-          {(() => {
-            const selectedIds = form.related_spotyou_ids ?? [];
-            // Les sélectionnés sont toujours affichés même si hors des 3 premiers
-            const visible = showAll
-              ? spots
-              : spots.filter((s, i) => i < DEFAULT_VISIBLE || selectedIds.includes(s.point_id));
-            const hiddenCount = spots.length - visible.length;
-
-            return (
-              <>
-                {visible.map(s => (
-                  <SpotSelectionCard
-                    key={s.point_id}
-                    spot={s}
-                    selected={selectedIds.includes(s.point_id)}
-                    onPress={() => toggleSpot(s.point_id)}
-                  />
-                ))}
-                {hiddenCount > 0 && (
-                  <TouchableOpacity
-                    style={p.showMoreBtn}
-                    onPress={() => setShowAll(true)}
-                    testID="show-more-spots"
-                    activeOpacity={0.75}
-                  >
-                    <Ionicons name="chevron-down" size={16} color={BLUE} />
-                    <Text style={p.showMoreText}>
-                      Voir {hiddenCount} autre{hiddenCount > 1 ? 's' : ''} SpotYou
-                    </Text>
-                  </TouchableOpacity>
-                )}
-                {showAll && spots.length > DEFAULT_VISIBLE && (
-                  <TouchableOpacity
-                    style={p.showMoreBtn}
-                    onPress={() => setShowAll(false)}
-                    testID="show-less-spots"
-                    activeOpacity={0.75}
-                  >
-                    <Ionicons name="chevron-up" size={16} color={Colors.muted} />
-                    <Text style={[p.showMoreText, { color: Colors.muted }]}>Réduire la liste</Text>
-                  </TouchableOpacity>
-                )}
-              </>
-            );
-          })()}
         </View>
       )}
+
+      {/* ══ Modal sélecteur SpotYou ══════════════════════════════════════ */}
+      <Modal
+        visible={pickerOpen}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setPickerOpen(false)}
+      >
+        <SafeAreaView style={p.modal}>
+          {/* Header */}
+          <View style={p.modalHeader}>
+            <View>
+              <Text style={p.modalTitle}>Choisir des SpotYou</Text>
+              <Text style={p.modalSub}>
+                {spots.length} disponible{spots.length > 1 ? 's' : ''} · rayon {MAX_KM} km
+              </Text>
+            </View>
+            <TouchableOpacity onPress={() => setPickerOpen(false)} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+              <Ionicons name="close" size={22} color={Colors.foreground} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Barre de recherche */}
+          <View style={p.searchBar}>
+            <Ionicons name="search-outline" size={16} color={Colors.muted} />
+            <TextInput
+              style={p.searchInput}
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Rechercher un SpotYou…"
+              placeholderTextColor={Colors.muted}
+              clearButtonMode="while-editing"
+              testID="spot-search-input"
+            />
+            {search.length > 0 && (
+              <TouchableOpacity onPress={() => setSearch('')}>
+                <Ionicons name="close-circle" size={16} color={Colors.muted} />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Liste virtualisée */}
+          <FlatList
+            data={filteredSpots}
+            keyExtractor={item => item.point_id}
+            renderItem={({ item }) => (
+              <SpotRow
+                spot={item}
+                selected={selectedIds.includes(item.point_id)}
+                onPress={() => toggleSpot(item.point_id)}
+              />
+            )}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120, gap: 8, paddingTop: 8 }}
+            ListEmptyComponent={
+              <View style={p.emptySpots}>
+                <Ionicons name="search-outline" size={22} color={Colors.muted} />
+                <Text style={p.emptyText}>Aucun résultat</Text>
+              </View>
+            }
+            initialNumToRender={15}
+            maxToRenderPerBatch={20}
+            windowSize={5}
+            showsVerticalScrollIndicator={false}
+          />
+
+          {/* Footer confirmer */}
+          <View style={p.modalFooter}>
+            <TouchableOpacity
+              style={[p.confirmBtn, selectedIds.length === 0 && p.confirmBtnDisabled]}
+              onPress={() => setPickerOpen(false)}
+              testID="confirm-spot-selection"
+              activeOpacity={0.85}
+            >
+              <Text style={[p.confirmBtnText, selectedIds.length === 0 && { color: Colors.muted }]}>
+                {selectedIds.length === 0
+                  ? 'Sélectionner au moins 1'
+                  : `Confirmer (${selectedIds.length} sélectionné${selectedIds.length > 1 ? 's' : ''})`}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </Modal>
 
     </View>
   );
@@ -467,59 +479,80 @@ const p = StyleSheet.create({
   req:            { color: '#EF4444' },
 
   // Grille modes
-  modeGrid:       { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  modeCell:       { width: '47.5%', paddingVertical: 12, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.card, gap: 2, position: 'relative' },
-  modeCellActive: { borderColor: BLUE, backgroundColor: BLUE + '14' },
-  sessionCell:    { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.card, gap: 10 },
+  modeGrid:         { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  modeCell:         { width: '47.5%', paddingVertical: 12, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.card, gap: 2, position: 'relative' },
+  modeCellActive:   { borderColor: BLUE, backgroundColor: BLUE + '14' },
+  sessionCell:      { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.card, gap: 10 },
   sessionCellActive:{ borderColor: BLUE, backgroundColor: BLUE + '14' },
-  modeCheck:      { position: 'absolute', top: 8, right: 8, width: 18, height: 18, borderRadius: 9, backgroundColor: BLUE, alignItems: 'center', justifyContent: 'center' },
-  modeName:       { fontSize: 13, fontWeight: '700', color: Colors.foreground },
-  modeNameActive: { color: BLUE },
-  modeUnit:       { fontSize: 11, color: Colors.muted, marginTop: 1 },
-  modeUnitActive: { color: BLUE + 'BB' },
+  modeCheck:        { position: 'absolute', top: 8, right: 8, width: 18, height: 18, borderRadius: 9, backgroundColor: BLUE, alignItems: 'center', justifyContent: 'center' },
+  modeName:         { fontSize: 13, fontWeight: '700', color: Colors.foreground },
+  modeNameActive:   { color: BLUE },
+  modeUnit:         { fontSize: 11, color: Colors.muted, marginTop: 1 },
+  modeUnitActive:   { color: BLUE + 'BB' },
 
   // Prix
-  priceBlock:     { backgroundColor: Colors.card, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
-  priceRow:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 },
-  priceRowBorder: { borderBottomWidth: 1, borderBottomColor: Colors.border },
-  priceLabel:     { fontSize: 13, fontWeight: '600', color: Colors.foreground },
-  priceUnit:      { fontSize: 11, color: Colors.muted, marginTop: 1 },
-  inputWrap:      { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  input:          { minWidth: 70, textAlign: 'right', fontSize: 18, fontWeight: '700', color: Colors.foreground, paddingVertical: 4, paddingHorizontal: 6 },
-  euro:           { fontSize: 16, fontWeight: '700', color: BLUE },
+  priceBlock:       { backgroundColor: Colors.card, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
+  priceRow:         { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 },
+  priceRowBorder:   { borderBottomWidth: 1, borderBottomColor: Colors.border },
+  priceLabel:       { fontSize: 13, fontWeight: '600', color: Colors.foreground },
+  priceUnit:        { fontSize: 11, color: Colors.muted, marginTop: 1 },
+  inputWrap:        { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  input:            { minWidth: 70, textAlign: 'right', fontSize: 18, fontWeight: '700', color: Colors.foreground, paddingVertical: 4, paddingHorizontal: 6 },
+  euro:             { fontSize: 16, fontWeight: '700', color: BLUE },
 
   // SpotYou section header
-  spotHeader:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  reqBadge:       { backgroundColor: '#FEE2E2', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: '#FECACA' },
-  reqBadgeText:   { fontSize: 11, fontWeight: '700', color: '#EF4444' },
-  warnRow:        { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: '#F59E0B12', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: '#F59E0B40' },
-  warnText:       { flex: 1, fontSize: 12, color: Colors.foreground, lineHeight: 17 },
-  emptySpots:     { alignItems: 'center', gap: 5, paddingVertical: 18, backgroundColor: Colors.card, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, borderStyle: 'dashed' },
-  emptyText:      { fontSize: 13, fontWeight: '600', color: Colors.foreground },
-  emptyHint:      { fontSize: 11, color: Colors.muted, textAlign: 'center', paddingHorizontal: 12 },
-  // Bannière nombre de SpotYou
-  foundBanner:    { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: BLUE + '10', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: BLUE + '30' },
-  foundBannerText:{ flex: 1, fontSize: 12, color: BLUE, fontWeight: '700' },
-  // Voir plus / moins
-  showMoreBtn:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.card },
-  showMoreText:   { fontSize: 13, fontWeight: '600', color: BLUE },
-  // SpotYou selection cards
-  spotCard:       { backgroundColor: Colors.card, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
-  spotCardActive: { borderColor: BLUE, backgroundColor: BLUE + '08' },
-  spotCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12 },
-  spotThumb:      { width: 60, height: 60, borderRadius: 10 },
-  spotThumbEmpty: { backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' },
-  spotTitleRow:   { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' },
-  spotTitle:      { fontSize: 13, fontWeight: '700', color: Colors.foreground, flex: 1 },
-  spotMeta:       { flexDirection: 'row', gap: 5, flexWrap: 'wrap' },
-  slotChip:       { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: Colors.background, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: Colors.border },
-  slotChipText:   { fontSize: 10, color: Colors.muted, fontWeight: '600' },
-  durationChip:   { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: ORANGE + '15', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: ORANGE + '40' },
-  durationChipText:{ fontSize: 10, color: ORANGE, fontWeight: '700' },
-  ownChip:        { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: GREEN + '18', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: GREEN + '40' },
-  ownChipText:    { fontSize: 10, color: GREEN, fontWeight: '700' },
-  distChip:       { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: BLUE + '12', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: BLUE + '30' },
-  distChipText:   { fontSize: 10, color: BLUE, fontWeight: '700' },
-  check:          { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center', marginLeft: 4 },
-  checkActive:    { backgroundColor: BLUE, borderColor: BLUE },
+  spotHeader:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  reqBadge:         { backgroundColor: '#FEE2E2', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: '#FECACA' },
+  reqBadgeText:     { fontSize: 11, fontWeight: '700', color: '#EF4444' },
+  warnRow:          { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: '#F59E0B12', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: '#F59E0B40' },
+  warnText:         { flex: 1, fontSize: 12, color: Colors.foreground, lineHeight: 17 },
+  foundBanner:      { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: BLUE + '10', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: BLUE + '30' },
+  foundBannerText:  { flex: 1, fontSize: 12, color: BLUE, fontWeight: '700' },
+
+  // Bouton ouvrir modal
+  pickerBtn:        { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.card, borderRadius: 12, borderWidth: 1.5, borderColor: Colors.border, padding: 14 },
+  pickerBtnActive:  { borderColor: BLUE, backgroundColor: BLUE + '08' },
+  pickerBtnText:    { flex: 1, fontSize: 14, fontWeight: '600', color: Colors.foreground },
+  countBadge:       { backgroundColor: Colors.background, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2, borderWidth: 1, borderColor: Colors.border },
+  countBadgeText:   { fontSize: 11, fontWeight: '700', color: Colors.muted },
+
+  // Chips sélectionnés
+  chipRow:          { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip:             { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: BLUE + '12', borderRadius: 20, paddingVertical: 6, paddingHorizontal: 10, borderWidth: 1, borderColor: BLUE + '30', maxWidth: 200 },
+  chipText:         { fontSize: 12, fontWeight: '600', color: BLUE, flex: 1 },
+
+  // État vide
+  emptySpots:       { alignItems: 'center', gap: 5, paddingVertical: 18, backgroundColor: Colors.card, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, borderStyle: 'dashed' },
+  emptyText:        { fontSize: 13, fontWeight: '600', color: Colors.foreground },
+  emptyHint:        { fontSize: 11, color: Colors.muted, textAlign: 'center', paddingHorizontal: 12 },
+
+  // Modal
+  modal:            { flex: 1, backgroundColor: Colors.background },
+  modalHeader:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  modalTitle:       { fontSize: 17, fontWeight: '700', color: Colors.foreground },
+  modalSub:         { fontSize: 12, color: Colors.muted, marginTop: 2 },
+
+  // Recherche
+  searchBar:        { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 16, marginVertical: 10, backgroundColor: Colors.card, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 12, paddingVertical: 8 },
+  searchInput:      { flex: 1, fontSize: 14, color: Colors.foreground, paddingVertical: 0 },
+
+  // Lignes compactes (modal)
+  spotRow:          { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.card, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, padding: 10 },
+  spotRowActive:    { borderColor: BLUE, backgroundColor: BLUE + '08' },
+  rowThumb:         { width: 44, height: 44, borderRadius: 8 },
+  rowThumbEmpty:    { backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' },
+  rowTitle:         { fontSize: 13, fontWeight: '700', color: Colors.foreground, marginBottom: 3 },
+  rowMeta:          { flexDirection: 'row', gap: 5, flexWrap: 'wrap' },
+  rowChip:          { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: Colors.background, borderRadius: 6, paddingHorizontal: 5, paddingVertical: 2, borderWidth: 1, borderColor: Colors.border },
+  rowChipText:      { fontSize: 10, color: Colors.muted, fontWeight: '600' },
+  ownChip:          { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: GREEN + '18', borderRadius: 6, paddingHorizontal: 5, paddingVertical: 2, borderWidth: 1, borderColor: GREEN + '40' },
+  ownChipText:      { fontSize: 10, color: GREEN, fontWeight: '700' },
+  check:            { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
+  checkActive:      { backgroundColor: BLUE, borderColor: BLUE },
+
+  // Footer modal
+  modalFooter:      { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 20, backgroundColor: Colors.background, borderTopWidth: 1, borderTopColor: Colors.border },
+  confirmBtn:       { backgroundColor: BLUE, borderRadius: 14, padding: 16, alignItems: 'center' },
+  confirmBtnDisabled:{ backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border },
+  confirmBtnText:   { fontSize: 15, fontWeight: '700', color: '#fff' },
 });
