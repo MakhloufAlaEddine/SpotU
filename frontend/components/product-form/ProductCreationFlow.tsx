@@ -123,7 +123,7 @@ export function ProductCreationFlow({ isEditMode = false }: { isEditMode?: boole
 
   /* ── Soumission ─────────────────────────────────────────────────────── */
   const submit = async (status: 'draft' | 'pending_review') => {
-    const err = validateStep(9, form);
+    const err = validateStep(TOTAL_STEPS, form);
     if (err && status === 'pending_review') { setError(err); return; }
     setError(null);
     setIsSubmitting(true);
@@ -261,7 +261,7 @@ export function ProductCreationFlow({ isEditMode = false }: { isEditMode?: boole
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {step === 8 ? (
+          {step === TOTAL_STEPS - 1 ? (
             <Step7Summary
               onSaveDraft={() => submit('draft')}
               onPublish={() => submit('pending_review')}
