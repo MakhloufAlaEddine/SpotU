@@ -67,19 +67,6 @@ export function ProductCreationFlow({ isEditMode = false }: { isEditMode?: boole
   const [error, setError]             = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
-  const stepRef   = useRef(step);
-  stepRef.current = step;
-
-  // Scroll vers le bas quand le clavier s'ouvre à l'étape 2 (description en bas du form)
-  useEffect(() => {
-    const event = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const sub = Keyboard.addListener(event, () => {
-      if (stepRef.current === 1) {
-        setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
-      }
-    });
-    return () => sub.remove();
-  }, []);
 
   const quality = calcProductQuality(form);
   const cfg     = STEP_CONFIG[step];
