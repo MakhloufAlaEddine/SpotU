@@ -108,12 +108,13 @@ export function getMinPrice(f: ProductFormData): number {
 }
 
 export function hasValidPricing(f: ProductFormData): boolean {
-  if (f.pricing_modes.includes('session')) return true;
-  return f.pricing_modes.some(mode => {
-    const val = mode === 'hour'  ? f.price_per_hour
-              : mode === 'day'   ? f.price_per_day
-              : mode === 'week'  ? f.price_per_week
-              : mode === 'month' ? f.price_per_month : '';
+  if (f.pricing_modes.length === 0) return false;
+  return f.pricing_modes.every(mode => {
+    const val = mode === 'hour'    ? f.price_per_hour
+              : mode === 'day'     ? f.price_per_day
+              : mode === 'week'    ? f.price_per_week
+              : mode === 'month'   ? f.price_per_month
+              : mode === 'session' ? f.price_per_session : '';
     return parseFloat(val?.replace(',', '.') || '0') > 0;
   });
 }
@@ -191,10 +192,26 @@ export function validateStep(step: number, f: ProductFormData): string | null {
         return 'Indiquez une localisation.';
       break;
     case 5: // Tarification + SpotYou
-      if (!hasValidPricing(f))
-        return 'Activez au moins un mode de tarification et saisissez un prix.';
+      if (f.pricing_modes.length === 0)
+        return 'Activez au moins un mode de tarification.';
+      // Vérifier que chaque mode actif a un prix > 0
+      for (const mode of f.pricing_modes) {
+        const val = mode === 'hour'    ? f.price_per_hour
+                  : mode === 'day'     ? f.price_per_day
+                  : mode === 'week'    ? f.price_per_week
+                  : mode === 'month'   ? f.price_per_month
+                  : mode === 'session' ? f.price_per_session : '';
+        if (parseFloat(val?.replace(',', '.') || '0') <= 0) {
+          const label = mode === 'hour'    ? "l'heure"
+                      : mode === 'day'     ? "la journée"
+                      : mode === 'week'    ? "la semaine"
+                      : mode === 'month'   ? "le mois"
+                      : "la séance";
+          return `Saisissez le prix pour le mode "À ${label}".`;
+        }
+      }
       if (
-        (f.pricing_modes ?? []).includes('session') &&
+        f.pricing_modes.includes('session') &&
         (!f.related_spotyou_ids || f.related_spotyou_ids.length === 0)
       )
         return 'Avec la tarification par séance, sélectionne au moins un SpotYou.';
