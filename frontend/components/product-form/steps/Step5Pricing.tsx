@@ -7,8 +7,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator,
-  Modal, FlatList, SafeAreaView,
+  Modal, FlatList,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../../constants/Colors';
 import { useProductForm, PricingMode } from '../ProductFormContext';
@@ -519,7 +520,7 @@ const p = StyleSheet.create({
   // Chips sélectionnés
   chipRow:          { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip:             { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: BLUE + '12', borderRadius: 20, paddingVertical: 6, paddingHorizontal: 10, borderWidth: 1, borderColor: BLUE + '30', maxWidth: 200 },
-  chipText:         { fontSize: 12, fontWeight: '600', color: BLUE, flex: 1 },
+  chipText:         { fontSize: 12, fontWeight: '600', color: BLUE, flexShrink: 1 },
 
   // État vide
   emptySpots:       { alignItems: 'center', gap: 5, paddingVertical: 18, backgroundColor: Colors.card, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, borderStyle: 'dashed' },
