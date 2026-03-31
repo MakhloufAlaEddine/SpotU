@@ -716,6 +716,15 @@ async def connect_to_db():
             ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS price_per_month NUMERIC(10,2);
             ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS price_per_session NUMERIC(10,2);
         """)
+
+        # [SALE-V1] Champs pour les produits à la vente
+        await conn.execute("""
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS brand text;
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS model text;
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS weight text;
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS stripe_product_id text;
+            ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS stripe_price_id text;
+        """)
         # [MARKETPLACE-CLEANUP] Supprimer les produits qui sont en réalité des services coach
         # (séances, cours, bilans) — déjà gérés via la table services
         await conn.execute("""

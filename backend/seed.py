@@ -350,32 +350,50 @@ def _services_data():
 
 
 def _products_data():
+    # Tuple : (product_id, title, description, price, product_type, category,
+    #          seller_id, tag_ids, image_url,
+    #          condition_label, available_quantity, pickup_type,
+    #          pricing_modes, price_per_day, city, lat, lng)
     return [
-        # (product_id, title, description, price, product_type, category, seller_id, tag_ids, image_url, status)
-        ("mp_demo001", "Location vélo de route", "Vélo carbone taille M/L, dérailleur Shimano 105. Casque et cadenas inclus.",
+        ("mp_demo001",
+         "Location vélo de route",
+         "Vélo carbone taille M/L, dérailleur Shimano 105. Casque et cadenas inclus.",
          35.0, "rental", "cat_prd_bike", "user_coach001",
          ["tag_cycling", "tag_outdoor"],
-         "https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=400&h=400&fit=crop"),
+         "https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=400&h=400&fit=crop",
+         "very_good", 1, "local_pickup", ["day"], 35.0, "Paris", 48.8530, 2.3499),
 
-        ("mp_demo002", "Location tapis de yoga premium éco", "Tapis antidérapant en caoutchouc naturel, 183x68cm, 5mm. Parfait pour le yoga et la méditation en intérieur ou extérieur.",
+        ("mp_demo002",
+         "Location tapis de yoga premium éco",
+         "Tapis antidérapant en caoutchouc naturel, 183x68cm, 5mm. Parfait pour le yoga et la méditation en intérieur ou extérieur.",
          12.0, "rental", "cat_prd_yoga_mat", "user_coach001",
          ["tag_yoga", "tag_meditation"],
-         "https://images.unsplash.com/photo-1592432678016-e910b452f9a2?w=400&h=400&fit=crop"),
+         "https://images.unsplash.com/photo-1592432678016-e910b452f9a2?w=400&h=400&fit=crop",
+         "new", 2, "creator_handoff", ["day"], 12.0, "Paris", 48.8600, 2.3400),
 
-        ("mp_demo003", "Location kit matériel HIIT complet", "Bandes de résistance (x5) + corde à sauter + carnet d'entraînement. Idéal pour les séances HIIT et CrossFit.",
+        ("mp_demo003",
+         "Location kit matériel HIIT complet",
+         "Bandes de résistance (x5) + corde à sauter + carnet d'entraînement. Idéal pour les séances HIIT et CrossFit.",
          15.0, "rental", "cat_prd_fitness_eq", "user_demo001",
          ["tag_hiit", "tag_crossfit", "tag_cardio"],
-         "https://images.unsplash.com/photo-1598632640487-6ea4a4e8b963?w=400&h=400&fit=crop"),
+         "https://images.unsplash.com/photo-1598632640487-6ea4a4e8b963?w=400&h=400&fit=crop",
+         "good", 3, "local_pickup", ["day", "week"], 15.0, "Lyon", 45.7640, 4.8357),
 
-        ("mp_demo004", "Tente camping 2 personnes", "Tente igloo légère 2 kg, montage 5 min. Imperméable 3000 mm.",
+        ("mp_demo004",
+         "Tente camping 2 personnes",
+         "Tente igloo légère 2 kg, montage 5 min. Imperméable 3000 mm.",
          25.0, "rental", "cat_prd_camping_gear", "user_demo002",
          ["tag_camping", "tag_bivouac", "tag_nature"],
-         "https://images.unsplash.com/photo-1523987355523-c7b5b0dd90a7?w=400&h=400&fit=crop"),
+         "https://images.unsplash.com/photo-1523987355523-c7b5b0dd90a7?w=400&h=400&fit=crop",
+         "good", 1, "creator_handoff", ["day", "week"], 25.0, "Marseille", 43.2965, 5.3698),
 
-        ("mp_demo005", "Sac à dos trekking 40L", "Sac trekking ergonomique avec ceinture lombaire. Housse pluie incluse.",
+        ("mp_demo005",
+         "Sac à dos trekking 40L",
+         "Sac trekking ergonomique avec ceinture lombaire. Housse pluie incluse.",
          18.0, "rental", "cat_prd_outdoor_eq", "user_demo003",
          ["tag_trekking", "tag_hiking", "tag_montagne"],
-         "https://images.unsplash.com/photo-1553361371-9b22f78e8b1d?w=400&h=400&fit=crop"),
+         "https://images.unsplash.com/photo-1553361371-9b22f78e8b1d?w=400&h=400&fit=crop",
+         "very_good", 1, "local_pickup", ["day"], 18.0, "Bordeaux", 44.8378, -0.5792),
     ]
 
 
@@ -599,19 +617,38 @@ async def seed_initial_data():
         count = await conn.fetchval("SELECT COUNT(*) FROM marketplace_products")
         if count == 0:
             for p in _products_data():
-                # p = (product_id, title, desc, price, product_type, category, seller_id, tag_ids, image_url)
+                # p = (product_id, title, desc, price, product_type, category,
+                #      seller_id, tag_ids, image_url,
+                #      condition_label, available_quantity, pickup_type,
+                #      pricing_modes, price_per_day, city, lat, lng)
                 await conn.execute("""
                     INSERT INTO marketplace_products
                         (product_id, title, description, price, product_type,
                          seller_type, seller_id, tag_ids, image_url, in_stock,
-                         status, category)
-                    VALUES ($1,$2,$3,$4,$5,'creator',$6,$7,$8,TRUE,'active',$9)
+                         status, category,
+                         condition_label, available_quantity, pickup_type,
+                         pricing_modes, price_per_day, city, lat, lng)
+                    VALUES ($1,$2,$3,$4,$5,'creator',$6,$7,$8,TRUE,'active',$9,
+                            $10,$11,$12,$13,$14,$15,$16,$17)
                     ON CONFLICT (product_id) DO UPDATE SET
-                        title=EXCLUDED.title, description=EXCLUDED.description,
-                        price=EXCLUDED.price, product_type=EXCLUDED.product_type,
-                        seller_id=EXCLUDED.seller_id, tag_ids=EXCLUDED.tag_ids,
-                        image_url=EXCLUDED.image_url, category=EXCLUDED.category
-                """, p[0], p[1], p[2], p[3], p[4], p[6], p[7], p[8], p[5])
+                        title=EXCLUDED.title,
+                        description=EXCLUDED.description,
+                        price=EXCLUDED.price,
+                        product_type=EXCLUDED.product_type,
+                        seller_id=EXCLUDED.seller_id,
+                        tag_ids=EXCLUDED.tag_ids,
+                        image_url=EXCLUDED.image_url,
+                        category=EXCLUDED.category,
+                        condition_label=EXCLUDED.condition_label,
+                        available_quantity=EXCLUDED.available_quantity,
+                        pickup_type=EXCLUDED.pickup_type,
+                        pricing_modes=EXCLUDED.pricing_modes,
+                        price_per_day=EXCLUDED.price_per_day,
+                        city=EXCLUDED.city,
+                        lat=EXCLUDED.lat,
+                        lng=EXCLUDED.lng
+                """, p[0], p[1], p[2], p[3], p[4], p[6], p[7], p[8], p[5],
+                     p[9], int(p[10]), p[11], p[12], p[13], p[14], p[15], p[16])
 
             logger.info("Seeded 5 demo marketplace products")
 
