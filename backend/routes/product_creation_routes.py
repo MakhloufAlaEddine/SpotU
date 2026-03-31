@@ -5,7 +5,7 @@ Admin: auto-publication directe (pas de validation)
 """
 import uuid
 from datetime import datetime, timezone
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import JSONResponse
 
 from database import get_pool
@@ -222,6 +222,17 @@ async def create_product(request: Request):
         )
 
         if existing:
+            # 🔒 Garde backend : interdit de repasser en brouillon après soumission/validation
+            current_row = await conn.fetchrow(
+                "SELECT status FROM marketplace_products WHERE product_id = $1 AND seller_id = $2",
+                product_id, user_id,
+            )
+            if current_row and current_row["status"] not in ("draft", None) and status == "draft":
+                raise HTTPException(
+                    status_code=403,
+                    detail="Impossible de repasser en brouillon : ce produit a déjà été soumis ou validé."
+                )
+
             # UPDATE
             await conn.execute(
                 """

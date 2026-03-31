@@ -126,6 +126,16 @@ export function ProductCreationFlow({ isEditMode = false }: { isEditMode?: boole
 
   /* ── Soumission ─────────────────────────────────────────────────────── */
   const submit = async (status: 'draft' | 'pending_review') => {
+    // 🔒 Garde frontend : brouillon interdit si déjà soumis/validé
+    if (status === 'draft' && form.product_id && form.status !== 'draft') {
+      Alert.alert(
+        'Action non autorisée',
+        'Ce produit a déjà été soumis à validation et ne peut plus être remis en brouillon.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     const err = validateStep(TOTAL_STEPS, form);
     if (err && status === 'pending_review') { setError(err); return; }
     setError(null);
