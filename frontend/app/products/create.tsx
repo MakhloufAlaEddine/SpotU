@@ -14,6 +14,7 @@ import { Colors } from '../../constants/Colors';
 function apiToFormData(data: any): Partial<ProductFormData> {
   return {
     product_id:          data.product_id,
+    status:              data.status || 'draft',
     product_type:        data.product_type        || 'rental',
     // category_id est maintenant un DB ID direct (ex: 'cat_prd_bike')
     category:            data.category            || '',

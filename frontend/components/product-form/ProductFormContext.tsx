@@ -61,6 +61,7 @@ export interface ProductFormData {
 
   // Meta
   product_id?: string;
+  status: string;
 }
 
 const DEFAULT: ProductFormData = {
@@ -84,7 +85,7 @@ const DEFAULT: ProductFormData = {
   images:             [],
   deposit_required:   false,
   deposit_amount:     '',
-  max_duration_days:  '',
+  status:             'draft',
   pickup_type:        '',
   pickup_notes:       '',
   return_rules:       '',

@@ -33,6 +33,9 @@ export function Step7Summary({ onSaveDraft, onPublish, isSubmitting }: Props) {
   const { form } = useProductForm();
   const quality = calcProductQuality(form);
   const [showPreview, setShowPreview] = useState(false);
+
+  // Brouillon accessible uniquement avant la 1ère validation admin
+  const canSaveDraft = !form.product_id || form.status === 'draft';
   const [catMap, setCatMap]           = useState<Record<string, string>>({});
 
   // Charger la map catégorie_id → label_fr si category_label manquant
@@ -187,18 +190,20 @@ export function Step7Summary({ onSaveDraft, onPublish, isSubmitting }: Props) {
 
       {/* CTAs */}
       <View style={sm.ctaRow}>
-        <TouchableOpacity
-          style={sm.draftBtn}
-          onPress={onSaveDraft}
-          disabled={isSubmitting}
-          testID="save-draft-btn"
-        >
-          {isSubmitting ? <ActivityIndicator size="small" color={BLUE} /> : <Ionicons name="save-outline" size={18} color={BLUE} />}
-          <Text style={sm.draftBtnText}>Brouillon</Text>
-        </TouchableOpacity>
+        {canSaveDraft && (
+          <TouchableOpacity
+            style={sm.draftBtn}
+            onPress={onSaveDraft}
+            disabled={isSubmitting}
+            testID="save-draft-btn"
+          >
+            {isSubmitting ? <ActivityIndicator size="small" color={BLUE} /> : <Ionicons name="save-outline" size={18} color={BLUE} />}
+            <Text style={sm.draftBtnText}>Brouillon</Text>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity
-          style={[sm.publishBtn, isSubmitting && { opacity: 0.6 }]}
+          style={[sm.publishBtn, !canSaveDraft && { flex: 3 }, isSubmitting && { opacity: 0.6 }]}
           onPress={onPublish}
           disabled={isSubmitting}
           testID="publish-btn"
