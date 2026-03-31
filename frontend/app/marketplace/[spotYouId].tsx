@@ -255,13 +255,13 @@ function ProductCard({ item }: { item: any }) {
             {item.dist_from_spotyou_fmt && (
               <View style={[s.distChip, s.distChipSpot]}>
                 <Ionicons name="location" size={9} color={COBALT} />
-                <Text style={[s.distTxt, { color: COBALT }]}>SpotYou · {item.dist_from_spotyou_fmt}</Text>
+                <Text style={[s.distTxt, { color: COBALT }]}>SpY · {item.dist_from_spotyou_fmt}</Text>
               </View>
             )}
             {item.dist_from_user_fmt && (
               <View style={[s.distChip, s.distChipUser]}>
                 <Ionicons name="navigate" size={9} color="#22C55E" />
-                <Text style={[s.distTxt, { color: '#22C55E' }]}>De moi · {item.dist_from_user_fmt}</Text>
+                <Text style={[s.distTxt, { color: '#22C55E' }]}>Moi · {item.dist_from_user_fmt}</Text>
               </View>
             )}
           </View>
@@ -549,7 +549,7 @@ const s = StyleSheet.create({
   lvlText:          { fontSize: 9, fontWeight: '600' },
   sellerRow:        { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
   sellerName:       { fontSize: 10, color: Colors.muted },
-  distRow:          { flexDirection: 'row', gap: 4, marginTop: 4, flexWrap: 'wrap' },
+  distRow:          { flexDirection: 'row', gap: 4, marginTop: 4 },
   distChip:         { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 8, borderWidth: 1 },
   distChipSpot:     { backgroundColor: 'rgba(59,130,246,0.08)', borderColor: 'rgba(59,130,246,0.25)' },
   distChipUser:     { backgroundColor: 'rgba(34,197,94,0.08)',  borderColor: 'rgba(34,197,94,0.25)'  },
