@@ -88,7 +88,7 @@ async def get_product_detail(request: Request, product_id: str):
                    status, category, subcategory,
                    cover_image_url, image_url, image_urls,
                    condition_label, available_quantity,
-                   deposit_required, deposit_amount, max_duration_days,
+                   deposit_required, deposit_amount,
                    pickup_type, pickup_notes, city, location_privacy, lat, lng,
                    return_rules, cancellation_rules, availability_note,
                    included_items, size_dimensions,
@@ -161,7 +161,7 @@ async def create_product(request: Request):
     except (ValueError, TypeError):
         deposit_amount = None
 
-    max_days_raw = None  # max_duration_days supprimé
+    # max_duration_days supprimé
 
     qty_raw = body.get("available_quantity")
     try:
@@ -203,8 +203,7 @@ async def create_product(request: Request):
             errors.append("Au moins une photo est requise.")
         if not pickup_type:
             errors.append("Le mode de remise du matériel est obligatoire.")
-        if any(m in ["day", "week", "month"] for m in p_modes) and not max_duration_days:
-            pass  # max_duration_days supprimé
+        # max_duration_days supprimé (plus obligatoire)
         if "session" in p_modes and not spotyou_ids:
             errors.append("La tarification par séance nécessite de sélectionner au moins un SpotYou.")
         if deposit_req and (not deposit_amount or deposit_amount <= 0):
