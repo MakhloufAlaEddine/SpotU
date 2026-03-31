@@ -51,23 +51,27 @@ export function Step7Summary({ onSaveDraft, onPublish, isSubmitting }: Props) {
   }, [form.category, form.category_label]);
 
   const minPrice = getMinPrice(form);
+  const isSale = form.product_type === 'sale';
   const activeModes = form.pricing_modes ?? ['day'];
-  const priceLabel = minPrice > 0
-    ? activeModes.map(m => {
-        const val = m === 'hour' ? form.price_per_hour : m === 'day' ? form.price_per_day : m === 'week' ? form.price_per_week : m === 'month' ? form.price_per_month : '';
-        const n = parseFloat((val ?? '').replace(',', '.'));
-        return n > 0 ? `${n.toFixed(2)} €${m === 'hour' ? '/h' : m === 'day' ? '/j' : m === 'week' ? '/sem' : m === 'month' ? '/mois' : '/séance'}` : null;
-      }).filter(Boolean).join(' · ')
-    : '—';
+  const salePrice = parseFloat((form.sale_price || '').replace(',', '.')) || 0;
+  const priceLabel = isSale
+    ? (salePrice > 0 ? `${salePrice.toFixed(2)} €` : '—')
+    : (minPrice > 0
+        ? activeModes.map(m => {
+            const val = m === 'hour' ? form.price_per_hour : m === 'day' ? form.price_per_day : m === 'week' ? form.price_per_week : m === 'month' ? form.price_per_month : '';
+            const n = parseFloat((val ?? '').replace(',', '.'));
+            return n > 0 ? `${n.toFixed(2)} €${m === 'hour' ? '/h' : m === 'day' ? '/j' : m === 'week' ? '/sem' : m === 'month' ? '/mois' : '/séance'}` : null;
+          }).filter(Boolean).join(' · ')
+        : '—');
 
   // Fake product object pour réutiliser ProductDetailView
   const fakeItem = {
     product_id:           'preview',
     item_type:            'product',
-    product_type:         'rental',
+    product_type:         form.product_type,
     title:                form.title || 'Titre non défini',
     description:          form.description || form.short_description || '',
-    price:                minPrice,
+    price:                isSale ? salePrice : minPrice,
     image_url:            form.images[0] || null,
     image_urls:           form.images,
     condition_label:      form.condition_label,
@@ -75,14 +79,14 @@ export function Step7Summary({ onSaveDraft, onPublish, isSubmitting }: Props) {
     pickup_type:          form.pickup_type,
     pickup_notes:         form.pickup_notes,
     return_rules:         form.return_rules,
-    deposit_required:     form.deposit_required,
-    deposit_amount:       form.deposit_amount,
+    deposit_required:     isSale ? false : form.deposit_required,
+    deposit_amount:       isSale ? null : form.deposit_amount,
     available_quantity:   parseInt(form.available_quantity || '1', 10),
     in_stock:             true,
     city:                 form.city,
-    pricing_type:         activeModes[0] ?? 'day',
-    pricing_modes:        activeModes,
-    rental_duration_unit: activeModes[0] === 'hour' ? 'heure' : activeModes[0] === 'week' ? 'semaine' : 'jour',
+    pricing_type:         isSale ? 'sale' : (activeModes[0] ?? 'day'),
+    pricing_modes:        isSale ? [] : activeModes,
+    rental_duration_unit: isSale ? null : (activeModes[0] === 'hour' ? 'heure' : activeModes[0] === 'week' ? 'semaine' : 'jour'),
     rental_duration_qty:  1,
     seller_name:          'Moi',
     badge_type:           'owner',
@@ -143,11 +147,14 @@ export function Step7Summary({ onSaveDraft, onPublish, isSubmitting }: Props) {
             <SummaryRow icon="cube-outline"             label="Quantité"    value={`${form.available_quantity} unité(s)`} />
             <SummaryRow icon="location-outline"         label="Mode remise" value={PICKUP_LABELS[form.pickup_type] || '—'} />
             <SummaryRow icon="map-outline"              label="Ville"       value={form.city || form.locationAddress || '—'} />
-            {form.deposit_required && (
+            {!isSale && form.deposit_required && (
               <SummaryRow icon="cash-outline" label="Caution" value={`${form.deposit_amount} €`} />
             )}
-            {form.related_spotyou_ids.length > 0 && (
+            {!isSale && form.related_spotyou_ids.length > 0 && (
               <SummaryRow icon="pin-outline" label="SpotYou liés" value={`${form.related_spotyou_ids.length} SpotYou`} />
+            )}
+            {isSale && (form.brand || form.model) && (
+              <SummaryRow icon="cube-outline" label="Marque/Modèle" value={[form.brand, form.model].filter(Boolean).join(' – ')} />
             )}
             <SummaryRow icon="camera-outline" label="Photos" value={`${form.images.length} photo(s)`} color={form.images.length === 0 ? '#EF4444' : undefined} />
           </View>
@@ -167,12 +174,17 @@ export function Step7Summary({ onSaveDraft, onPublish, isSubmitting }: Props) {
       {/* Conseils avant publication */}
       <View style={sm.adviceCard}>
         <Text style={sm.adviceTitle}>Avant de publier</Text>
-        {[
+        {(isSale ? [
+          'Vérifie que les photos sont nettes et lumineuses',
+          'Le prix de vente est raisonnable et compétitif',
+          'La description du produit est complète et précise',
+          'Ta localisation est correcte',
+        ] : [
           'Vérifie que les photos sont nettes et lumineuses',
           'Le prix et la caution sont clairement indiqués',
           'Les conditions de retour sont expliquées',
           'Ta localisation est correcte',
-        ].map(a => (
+        ]).map(a => (
           <View key={a} style={sm.adviceRow}>
             <Ionicons name="checkmark-circle-outline" size={14} color={BLUE} />
             <Text style={sm.adviceText}>{a}</Text>

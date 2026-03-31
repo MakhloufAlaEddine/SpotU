@@ -26,7 +26,7 @@ export interface ProductFormData {
   included_items: string;
   size_dimensions: string;
 
-  // Tarification multi-unité
+  // Tarification multi-unité (location)
   pricing_modes: PricingMode[];  // ex: ['hour','day'] = location à l'heure ET à la journée
   price_per_hour: string;
   price_per_day: string;
@@ -34,6 +34,14 @@ export interface ProductFormData {
   price_per_month: string;
   price_per_session: string;
   available_quantity: string;
+
+  // Tarification vente (flat price)
+  sale_price: string;
+
+  // Champs vente (optionnels)
+  brand: string;
+  model: string;
+  weight: string;
 
   // Step 3 — Photos
   images: string[];         // URIs locaux ou URLs R2 après upload
@@ -82,6 +90,10 @@ const DEFAULT: ProductFormData = {
   price_per_month:    '',
   price_per_session:  '',
   available_quantity: '1',
+  sale_price:         '',
+  brand:              '',
+  model:              '',
+  weight:             '',
   images:             [],
   deposit_required:   false,
   deposit_amount:     '',
@@ -98,6 +110,7 @@ const DEFAULT: ProductFormData = {
   availability_note:  '',
   related_spotyou_ids:[],
   category_label:     '',
+  max_duration_days:  '',
 };
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
@@ -122,6 +135,15 @@ export function hasValidPricing(f: ProductFormData): boolean {
 
 /* ── Qualité ────────────────────────────────────────────────────────────── */
 export function calcProductQuality(f: ProductFormData): {
+  score: number; label: string; color: string; checklist: string[];
+} {
+  if (f.product_type === 'sale') {
+    return _calcSaleQuality(f);
+  }
+  return _calcRentalQuality(f);
+}
+
+function _calcRentalQuality(f: ProductFormData): {
   score: number; label: string; color: string; checklist: string[];
 } {
   let s = 0;
@@ -163,8 +185,94 @@ export function calcProductQuality(f: ProductFormData): {
   return { score: s, label, color, checklist: todo };
 }
 
+function _calcSaleQuality(f: ProductFormData): {
+  score: number; label: string; color: string; checklist: string[];
+} {
+  let s = 0;
+  const todo: string[] = [];
+
+  if (f.images.length >= 1) s += 20; else todo.push('Photo principale');
+  if (f.images.length >= 3) s += 10;
+
+  if (f.title.trim().length >= 10) s += 15; else todo.push('Titre (min. 10 car.)');
+  if (f.title.trim().length >= 25) s += 5;
+
+  if (f.description.trim().length >= 50) s += 10; else todo.push('Description (min. 50 car.)');
+  if (f.description.trim().length >= 150) s += 10;
+
+  const saleP = parseFloat((f.sale_price || '').replace(',', '.'));
+  if (saleP > 0) s += 15; else todo.push('Prix de vente');
+
+  if (f.pickup_type) s += 10; else todo.push('Mode de remise');
+  if (f.selectedLat && f.selectedLng) s += 10; else todo.push('Localisation');
+  if (f.brand?.trim()) s += 5;
+
+  s = Math.min(s, 100);
+
+  let label = 'Basique';
+  let color = '#94A3B8';
+  if (s >= 85) { label = 'Excellent !'; color = '#22C55E'; }
+  else if (s >= 65) { label = 'Très bien'; color = '#3B82F6'; }
+  else if (s >= 40) { label = 'Bien'; color = '#F59E0B'; }
+
+  return { score: s, label, color, checklist: todo };
+}
+
 /* ── Validation par étape ──────────────────────────────────────────────── */
 export function validateStep(step: number, f: ProductFormData): string | null {
+  // ── Validation VENTE (5 étapes) ────────────────────────────────────────
+  if (f.product_type === 'sale') {
+    switch (step) {
+      case 1: // Classification
+        if (!f.product_type)
+          return 'Sélectionnez un type de produit.';
+        if (!f.category)
+          return 'Choisissez une catégorie.';
+        if (!f.tag_ids || f.tag_ids.length === 0)
+          return 'Sélectionne au moins un tag pour continuer.';
+        break;
+      case 2: // Infos produit
+        if (!f.title.trim() || f.title.trim().length < 3)
+          return 'Le titre doit faire au moins 3 caractères.';
+        if (!f.condition_label)
+          return "Précisez l'état du matériel.";
+        if (!f.available_quantity || parseInt(f.available_quantity, 10) < 1)
+          return 'La quantité doit être au minimum 1.';
+        if (!f.description.trim() || f.description.trim().length < 30)
+          return 'La description est obligatoire (minimum 30 caractères).';
+        break;
+      case 3: // Photos
+        if (f.images.length === 0)
+          return 'Ajoutez au moins une photo principale.';
+        break;
+      case 4: // Prix & Remise + Localisation
+        if (!f.sale_price || parseFloat((f.sale_price || '').replace(',', '.')) <= 0)
+          return 'Indiquez le prix de vente.';
+        if (!f.pickup_type)
+          return 'Précisez le mode de remise.';
+        if (!f.locationAddress.trim() && !f.selectedLat)
+          return 'Indiquez une localisation.';
+        break;
+      case 5: // Publication — validation finale
+        if (!f.category)           return 'Étape 1 — Choisissez une catégorie.';
+        if (!f.tag_ids || f.tag_ids.length === 0)
+                                   return 'Étape 1 — Sélectionne au moins un tag.';
+        if (!f.title.trim())       return 'Étape 2 — Le titre est obligatoire.';
+        if (!f.condition_label)    return "Étape 2 — Précisez l'état du matériel.";
+        if (!f.description.trim() || f.description.trim().length < 30)
+                                   return 'Étape 2 — La description doit faire au moins 30 caractères.';
+        if (f.images.length === 0) return 'Étape 3 — Ajoutez au moins une photo.';
+        if (!f.sale_price || parseFloat((f.sale_price || '').replace(',', '.')) <= 0)
+                                   return 'Étape 4 — Indiquez le prix de vente.';
+        if (!f.pickup_type)        return 'Étape 4 — Précisez le mode de remise.';
+        break;
+      default:
+        break;
+    }
+    return null;
+  }
+
+  // ── Validation LOCATION (8 étapes) ────────────────────────────────────
   switch (step) {
     case 1: // Classification
       if (!f.product_type)
@@ -238,8 +346,6 @@ export function validateStep(step: number, f: ProductFormData): string | null {
       if ((f.pricing_modes ?? []).includes('session') && (!f.related_spotyou_ids || f.related_spotyou_ids.length === 0))
                                  return 'Étape 5 — Sélectionne un SpotYou pour la tarification par séance.';
       if (!f.pickup_type)        return 'Étape 6 — Précisez le mode de remise.';
-      if ((f.pricing_modes ?? []).some(m => ['day', 'week', 'month'].includes(m)) && !f.max_duration_days)
-                                 return '';
       if (f.deposit_required && (!f.deposit_amount || Number((f.deposit_amount || '').replace(',', '.')) <= 0))
                                  return 'Étape 6 — Indiquez le montant de la caution.';
       break;

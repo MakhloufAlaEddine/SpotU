@@ -1,14 +1,15 @@
 /**
  * ProductCreationFlow — orchestrateur du flow de création produit.
- * Stepper bleu (couleur produit), 9 étapes légères (sans scroll par étape).
+ * Stepper bleu dynamique selon product_type :
+ *   LOCATION : 8 étapes (Classification → Essentiel → Photos → Localisation → Tarification → Logistique → Détails → Publication)
+ *   VENTE    : 5 étapes (Classification → Infos → Photos → Prix & Remise → Publication)
  */
-import React, { useState, useRef, useEffect, createContext, useContext } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 import { FlowScrollCtx } from './FlowScrollContext';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
-  Animated, Alert, ActivityIndicator, KeyboardAvoidingView, Platform,
-  Keyboard,
+  Alert, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,20 +24,21 @@ import {
   validateStep,
   getMinPrice,
 } from './ProductFormContext';
-import { Step1TypeCategory }  from './steps/Step1TypeCategory';
-import { Step2Essential }     from './steps/Step2Essential';
-import { Step3Photos }        from './steps/Step3Photos';
-import { Step5Pricing }       from './steps/Step5Pricing';
-import { Step6Logistics }     from './steps/Step6Logistics';
-import { Step5Availability }  from './steps/Step5Availability';
-import { StepDetailsRules }   from './steps/StepDetailsRules';
-import { Step7Summary }       from './steps/Step7Summary';
+import { Step1TypeCategory }          from './steps/Step1TypeCategory';
+import { Step2Essential }             from './steps/Step2Essential';
+import { Step3Photos }                from './steps/Step3Photos';
+import { Step5Pricing }               from './steps/Step5Pricing';
+import { Step6Logistics }             from './steps/Step6Logistics';
+import { Step5Availability }          from './steps/Step5Availability';
+import { StepDetailsRules }           from './steps/StepDetailsRules';
+import { Step7Summary }               from './steps/Step7Summary';
+import { StepSalePricingLocation }    from './steps/StepSalePricingLocation';
 
 const BLUE      = '#3B82F6';
 const BLUE_DIM  = 'rgba(59,130,246,0.12)';
-const TOTAL_STEPS = 8;
 
-const STEP_CONFIG = [
+// ─── Config LOCATION (8 étapes) ───────────────────────────────────────────────
+const RENTAL_STEP_CONFIG = [
   { title: 'Classification',   subtitle: 'Type, catégorie & tags',         icon: 'pricetag-outline',         tip: 'Les tags définissent où votre produit apparaît — choisissez-les avec soin.' },
   { title: 'L\'essentiel',     subtitle: 'Titre, état & quantité',          icon: 'create-outline',           tip: 'Un titre précis attire plus de locataires. Soyez descriptif.' },
   { title: 'Photos',           subtitle: 'Photos du matériel',             icon: 'camera-outline',           tip: 'Les annonces avec 3+ photos génèrent 3× plus de réservations.' },
@@ -45,17 +47,34 @@ const STEP_CONFIG = [
   { title: 'Logistique',       subtitle: 'Remise, durée & caution',        icon: 'cube-outline',             tip: 'Des conditions claires évitent les malentendus.' },
   { title: 'Détails & Règles', subtitle: 'Infos complémentaires',          icon: 'document-text-outline',    tip: 'Optionnel — chaque détail renforce la confiance des locataires.' },
   { title: 'Publication',      subtitle: 'Vérification & soumission',      icon: 'eye-outline',              tip: 'Vérifiez tout avant de soumettre. Un admin validera sous 24h.' },
-] as const;
+];
 
-const STEP_COMPONENTS = [
-  Step1TypeCategory,  // 0 — Classification
-  Step2Essential,     // 1 — L'essentiel
-  Step3Photos,        // 2 — Photos
-  Step5Availability,  // 3 — Localisation (avant tarification pour exposer lat/lng aux SpotYou)
-  Step5Pricing,       // 4 — Tarification
-  Step6Logistics,     // 5 — Logistique
-  StepDetailsRules,   // 6 — Détails & Règles (fusionné, avant-dernière)
-  Step7Summary,       // 7 — Publication (rendu spécial)
+const RENTAL_COMPONENTS = [
+  Step1TypeCategory,  // 0
+  Step2Essential,     // 1
+  Step3Photos,        // 2
+  Step5Availability,  // 3
+  Step5Pricing,       // 4
+  Step6Logistics,     // 5
+  StepDetailsRules,   // 6
+  Step7Summary,       // 7
+];
+
+// ─── Config VENTE (5 étapes) ──────────────────────────────────────────────────
+const SALE_STEP_CONFIG = [
+  { title: 'Classification', subtitle: 'Type, catégorie & tags',     icon: 'pricetag-outline', tip: 'Les tags définissent où votre produit apparaît.' },
+  { title: 'Infos produit',  subtitle: 'Titre, état & quantité',     icon: 'create-outline',   tip: 'Un titre clair et une bonne description font vendre plus vite.' },
+  { title: 'Photos',         subtitle: 'Photos du matériel',         icon: 'camera-outline',   tip: 'Les annonces avec 3+ photos inspirent confiance aux acheteurs.' },
+  { title: 'Prix & Remise',  subtitle: 'Prix, remise & localisation', icon: 'cash-outline',     tip: 'Un prix juste avec une bonne localisation attire les acheteurs proches.' },
+  { title: 'Publication',    subtitle: 'Vérification & soumission',  icon: 'eye-outline',      tip: 'Vérifiez tout avant de soumettre. Un admin validera sous 24h.' },
+];
+
+const SALE_COMPONENTS = [
+  Step1TypeCategory,          // 0
+  Step2Essential,             // 1
+  Step3Photos,                // 2
+  StepSalePricingLocation,    // 3
+  Step7Summary,               // 4
 ];
 
 export function ProductCreationFlow({ isEditMode = false }: { isEditMode?: boolean }) {
@@ -63,23 +82,38 @@ export function ProductCreationFlow({ isEditMode = false }: { isEditMode?: boole
   const { token } = useAuth();
   const { form, reset } = useProductForm();
 
-  const [step, setStep]               = useState(0); // 0-indexed
+  const isSale           = form.product_type === 'sale';
+  const activeStepConfig = isSale ? SALE_STEP_CONFIG : RENTAL_STEP_CONFIG;
+  const activeComponents = isSale ? SALE_COMPONENTS  : RENTAL_COMPONENTS;
+  const totalSteps       = activeStepConfig.length;
+
+  const [step, setStep]               = useState(0);
   const [error, setError]             = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
+  // Réinitialiser l'étape si le type de produit change (ex: location → vente en step 0)
+  const prevTypeRef = useRef(form.product_type);
+  useEffect(() => {
+    if (prevTypeRef.current !== form.product_type) {
+      prevTypeRef.current = form.product_type;
+      setStep(0);
+      setError(null);
+    }
+  }, [form.product_type]);
+
   const quality = calcProductQuality(form);
-  const cfg     = STEP_CONFIG[step];
-  const isLast  = step === TOTAL_STEPS - 1;
+  const cfg     = activeStepConfig[step];
+  const isLast  = step === totalSteps - 1;
 
   const scrollTop = () => scrollRef.current?.scrollTo({ y: 0, animated: true });
 
   /* ── Navigation ──────────────────────────────────────────────────────── */
   const goNext = () => {
-    const err = validateStep(step + 1, form); // steps are 1-indexed in validator
+    const err = validateStep(step + 1, form); // 1-indexed
     if (err) { setError(err); return; }
     setError(null);
-    setStep(s => Math.min(s + 1, TOTAL_STEPS - 1));
+    setStep(s => Math.min(s + 1, totalSteps - 1));
     scrollTop();
   };
 
@@ -108,7 +142,7 @@ export function ProductCreationFlow({ isEditMode = false }: { isEditMode?: boole
     let failedCount = 0;
     for (const uri of form.images) {
       if (uri.startsWith('http')) {
-        uploaded.push(uri); // Déjà uploadé
+        uploaded.push(uri);
       } else {
         const url = await uploadImage(uri, token || '', 'products');
         if (url) {
@@ -136,7 +170,7 @@ export function ProductCreationFlow({ isEditMode = false }: { isEditMode?: boole
       return;
     }
 
-    const err = validateStep(TOTAL_STEPS, form);
+    const err = validateStep(totalSteps, form);
     if (err && status === 'pending_review') { setError(err); return; }
     setError(null);
     setIsSubmitting(true);
@@ -144,6 +178,11 @@ export function ProductCreationFlow({ isEditMode = false }: { isEditMode?: boole
     try {
       const imageUrls   = await uploadAllImages();
       const coverImg    = imageUrls[0] || null;
+
+      const isSaleProduct = form.product_type === 'sale';
+      const salePrice     = isSaleProduct
+        ? (parseFloat((form.sale_price || '').replace(',', '.')) || 0)
+        : 0;
 
       const payload = {
         product_id:           form.product_id,
@@ -156,20 +195,20 @@ export function ProductCreationFlow({ isEditMode = false }: { isEditMode?: boole
         condition_label:      form.condition_label,
         included_items:       (form.included_items ?? '').trim(),
         size_dimensions:      (form.size_dimensions ?? '').trim(),
-        price:                getMinPrice(form),
-        pricing_type:         (form.pricing_modes ?? ['day'])[0],
-        pricing_modes:        form.pricing_modes ?? ['day'],
-        price_per_hour:       form.price_per_hour ? Number(String(form.price_per_hour).replace(',', '.')) : null,
-        price_per_day:        form.price_per_day  ? Number(String(form.price_per_day).replace(',', '.'))  : null,
-        price_per_week:       form.price_per_week ? Number(String(form.price_per_week).replace(',', '.')) : null,
-        price_per_month:      form.price_per_month ? Number(String(form.price_per_month).replace(',', '.')) : null,
-        price_per_session:    form.price_per_session ? Number(String(form.price_per_session).replace(',', '.')) : null,
+        price:                isSaleProduct ? salePrice : getMinPrice(form),
+        pricing_type:         isSaleProduct ? 'sale' : (form.pricing_modes ?? ['day'])[0],
+        pricing_modes:        isSaleProduct ? [] : (form.pricing_modes ?? ['day']),
+        price_per_hour:       isSaleProduct ? null : (form.price_per_hour  ? Number(String(form.price_per_hour).replace(',', '.'))  : null),
+        price_per_day:        isSaleProduct ? null : (form.price_per_day   ? Number(String(form.price_per_day).replace(',', '.'))   : null),
+        price_per_week:       isSaleProduct ? null : (form.price_per_week  ? Number(String(form.price_per_week).replace(',', '.'))  : null),
+        price_per_month:      isSaleProduct ? null : (form.price_per_month ? Number(String(form.price_per_month).replace(',', '.')) : null),
+        price_per_session:    isSaleProduct ? null : (form.price_per_session ? Number(String(form.price_per_session).replace(',', '.')) : null),
         available_quantity:   parseInt(form.available_quantity || '1', 10),
         cover_image_url:      coverImg,
         image_url:            coverImg,
         image_urls:           imageUrls,
-        deposit_required:     form.deposit_required,
-        deposit_amount:       form.deposit_amount ? Number(String(form.deposit_amount).replace(',', '.')) : null,
+        deposit_required:     isSaleProduct ? false : form.deposit_required,
+        deposit_amount:       isSaleProduct ? null : (form.deposit_amount ? Number(String(form.deposit_amount).replace(',', '.')) : null),
         max_duration_days:    null,
         pickup_type:          form.pickup_type,
         pickup_notes:         (form.pickup_notes ?? '').trim(),
@@ -181,11 +220,15 @@ export function ProductCreationFlow({ isEditMode = false }: { isEditMode?: boole
         location_privacy:     form.location_privacy,
         radius_km:            form.location_privacy === 'exact' ? 0 : form.location_privacy === '100m' ? 0.1 : 1.0,
         availability_note:    (form.availability_note ?? '').trim(),
-        related_spotyou_ids:  form.related_spotyou_ids ?? [],
+        related_spotyou_ids:  isSaleProduct ? [] : (form.related_spotyou_ids ?? []),
         tag_ids:              form.tag_ids ?? [],
         delivery_modes:       form.pickup_type ? [form.pickup_type] : [],
         status,
         currency:             'EUR',
+        // Champs vente
+        brand:                isSaleProduct ? ((form.brand ?? '').trim() || null) : null,
+        model:                isSaleProduct ? ((form.model ?? '').trim() || null) : null,
+        weight:               isSaleProduct ? ((form.weight ?? '').trim() || null) : null,
       };
 
       const res = await api.post('/products', payload) as { product_id: string };
@@ -205,7 +248,7 @@ export function ProductCreationFlow({ isEditMode = false }: { isEditMode?: boole
   };
 
   /* ── Rendu ──────────────────────────────────────────────────────────── */
-  const StepComponent = STEP_COMPONENTS[step] as any;
+  const StepComponent = activeComponents[step] as any;
 
   return (
     <SafeAreaView style={c.root} edges={['top', 'bottom']}>
@@ -217,9 +260,9 @@ export function ProductCreationFlow({ isEditMode = false }: { isEditMode?: boole
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={c.stepTitle} numberOfLines={1}>{cfg.title}</Text>
-          <Text style={c.stepCount}>Étape {step + 1} sur {TOTAL_STEPS}</Text>
+          <Text style={c.stepCount}>Étape {step + 1} sur {totalSteps}</Text>
         </View>
-        {/* Score qualité — compact */}
+        {/* Score qualité */}
         <View style={[c.qualityBadge, { borderColor: quality.color + '40', backgroundColor: quality.color + '12' }]}>
           <Text style={[c.qualityScore, { color: quality.color }]}>{quality.score}</Text>
           <Text style={c.qualityMax}>/100</Text>
@@ -228,12 +271,12 @@ export function ProductCreationFlow({ isEditMode = false }: { isEditMode?: boole
 
       {/* ── Barre de progression ─────────────────────────────────────────── */}
       <View style={c.progressBar}>
-        <View style={[c.progressFill, { width: `${((step + 1) / TOTAL_STEPS) * 100}%` as any }]} />
+        <View style={[c.progressFill, { width: `${((step + 1) / totalSteps) * 100}%` as any }]} />
       </View>
 
       {/* ── Dots d'étapes ────────────────────────────────────────────────── */}
       <View style={c.dotsRow}>
-        {STEP_CONFIG.map((_, i) => (
+        {activeStepConfig.map((_, i) => (
           <TouchableOpacity
             key={i}
             style={[c.dot, i < step && c.dotDone, i === step && c.dotCurrent]}
@@ -253,7 +296,7 @@ export function ProductCreationFlow({ isEditMode = false }: { isEditMode?: boole
         <Text style={c.tipText} numberOfLines={2}>{cfg.tip}</Text>
       </View>
 
-      {/* ── Erreur de validation (fixe, au-dessus du contenu) ────────────── */}
+      {/* ── Erreur de validation ─────────────────────────────────────────── */}
       {error ? (
         <View style={c.errorBanner} testID="step-error-banner">
           <Ionicons name="alert-circle" size={16} color="#EF4444" />
@@ -261,7 +304,7 @@ export function ProductCreationFlow({ isEditMode = false }: { isEditMode?: boole
         </View>
       ) : null}
 
-      {/* ── Contenu étape + navigation (KeyboardAvoidingView) ──────────── */}
+      {/* ── Contenu étape + navigation ────────────────────────────────────── */}
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -276,7 +319,7 @@ export function ProductCreationFlow({ isEditMode = false }: { isEditMode?: boole
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {step === TOTAL_STEPS - 1 ? (
+            {step === totalSteps - 1 ? (
               <Step7Summary
                 onSaveDraft={() => submit('draft')}
                 onPublish={() => submit('pending_review')}
@@ -306,7 +349,7 @@ export function ProductCreationFlow({ isEditMode = false }: { isEditMode?: boole
                 testID="next-step-btn"
               >
                 <Text style={c.nextBtnText}>
-                  {step === TOTAL_STEPS - 2 ? 'Récapitulatif' : 'Suivant'}
+                  {step === totalSteps - 2 ? 'Récapitulatif' : 'Suivant'}
                 </Text>
                 <Ionicons name="arrow-forward" size={18} color="#fff" />
               </TouchableOpacity>

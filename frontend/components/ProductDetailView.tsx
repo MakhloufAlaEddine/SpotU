@@ -207,8 +207,8 @@ export function ProductDetailView({
             )}
           </View>
 
-          {/* Pricing chips */}
-          {pricingChips.length > 0 && (
+          {/* Pricing chips — Location */}
+          {item.product_type !== 'sale' && pricingChips.length > 0 && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false}
               contentContainerStyle={d.priceRow} testID="product-pricing-chips">
               {pricingChips.map((c: any) => (
@@ -217,7 +217,6 @@ export function ProductDetailView({
                   <Text style={d.priceUnit}>{c.label}</Text>
                 </View>
               ))}
-              {/* Legacy single price fallback */}
               {pricingChips.length === 0 && item.price > 0 && (
                 <View style={d.priceChip}>
                   <Text style={d.priceAmount}>{Number(item.price).toFixed(2)}€</Text>
@@ -225,6 +224,16 @@ export function ProductDetailView({
                 </View>
               )}
             </ScrollView>
+          )}
+
+          {/* Prix unique — Vente */}
+          {item.product_type === 'sale' && item.price > 0 && (
+            <View style={d.priceRow} testID="product-sale-price">
+              <View style={[d.priceChip, d.priceChipSale]}>
+                <Text style={[d.priceAmount, d.priceAmountSale]}>{Number(item.price).toFixed(2)}€</Text>
+                <Text style={[d.priceUnit, d.priceUnitSale]}>à vendre</Text>
+              </View>
+            </View>
           )}
 
           {/* ── Distances (non-owner) ── */}
@@ -463,13 +472,19 @@ export function ProductDetailView({
           </View>
         ) : (
           <TouchableOpacity
-            style={d.rentBtn}
+            style={[d.rentBtn, item.product_type === 'sale' && d.buyBtn]}
             onPress={() => onCta?.(item)}
             testID="btn-buyer-rent"
             activeOpacity={0.85}
           >
-            <Ionicons name="calendar-outline" size={18} color="#fff" />
-            <Text style={d.rentBtnText}>Louer / Réserver</Text>
+            <Ionicons
+              name={item.product_type === 'sale' ? 'cart-outline' : 'calendar-outline'}
+              size={18}
+              color="#fff"
+            />
+            <Text style={d.rentBtnText}>
+              {item.product_type === 'sale' ? 'Acheter' : 'Louer / Réserver'}
+            </Text>
           </TouchableOpacity>
         )}
       </View>
@@ -504,8 +519,11 @@ const d = StyleSheet.create({
   // Pricing chips
   priceRow:      { gap: 8, paddingBottom: 4 },
   priceChip:     { flexDirection: 'row', alignItems: 'baseline', gap: 3, backgroundColor: COBALT_DIM, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: COBALT + '30' },
+  priceChipSale: { backgroundColor: GREEN + '12', borderColor: GREEN + '40' },
   priceAmount:   { fontSize: 22, fontWeight: '800', color: COBALT },
+  priceAmountSale: { color: GREEN },
   priceUnit:     { fontSize: 12, color: COBALT + 'BB', fontWeight: '600' },
+  priceUnitSale: { color: GREEN + 'AA' },
 
   // Chips
   chipRow:       { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
@@ -551,6 +569,7 @@ const d = StyleSheet.create({
   // Bottom bar
   bottomBar:     { backgroundColor: Colors.background, borderTopWidth: 1, borderTopColor: Colors.border, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 28 },
   rentBtn:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: COBALT, borderRadius: 24, paddingVertical: 14 },
+  buyBtn:        { backgroundColor: GREEN },
   rentBtnText:   { fontSize: 16, fontWeight: '800', color: '#fff' },
   ownerBtns:     { flexDirection: 'row', gap: 10 },
   deleteBtn:     { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderRadius: 24, borderWidth: 1.5, borderColor: DANGER, paddingVertical: 13 },

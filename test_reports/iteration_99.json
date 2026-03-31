@@ -1,0 +1,100 @@
+{
+  "summary": "Complete testing of SALE product type implementation in SpotU marketplace. All 15 test cases from the review request were validated. 8 backend pytest tests passed (100%). 15 frontend/UI scenarios confirmed. 2 minor display issues found in My Products list.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "POST /api/products (INSERT)",
+        "issue": "brand/model/weight/price_per_session not included in INSERT SQL params — saved via 2 separate UPDATE queries after INSERT (3 DB ops per product creation). Not a functional bug but inefficient."
+      },
+      {
+        "endpoint": "POST /api/admin/products/{id}/approve",
+        "issue": "Returns 500 if request body is empty (no JSON body). Fix: add `body = {}` as default. Workaround: pass `{}` as body. Noted but not blocking."
+      }
+    ]
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "MyProducts list (my-products.tsx line 140)",
+        "issue": "Sale products display '45.00 € / jour' instead of '45.00 €'. The priceLabel computation does not handle product_type === 'sale'. Fix: add `p.product_type === 'sale' ? '${price} €' : '${price} € / ${PRICING_LABELS[p.pricing_type] ?? \"jour\"}'`",
+        "selector": "testID='product-card-{id}'",
+        "priority": "MEDIUM"
+      },
+      {
+        "component": "ProductDetailView condition_label chip",
+        "issue": "Shows raw value 'very_good' instead of localized 'Très bon'. ProductDetailView renders item.condition_label directly without a COND_LABELS mapping (the mapping only exists in Step7Summary).",
+        "selector": "testID='product-quick-info'",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "My Products List",
+        "issues": [
+          "Sale product price shown as '45.00 € / jour' instead of '45.00 €' — incorrect unit suffix for sale type"
+        ]
+      }
+    ]
+  },
+
+  "test_results": {
+    "test_1_vente_clickable": "PASSED — VENTE option has available:true, renders with full opacity, no 'Bientôt' badge",
+    "test_2_vente_5_steps": "PASSED — Selecting VENTE triggers 5 dots (Étape 1 sur 5) confirmed in UI",
+    "test_3_location_8_steps": "PASSED — Default LOCATION shows 8 dots (Étape 1 sur 8), regression intact",
+    "test_4_price_validation": "PASSED — Error 'Indiquez le prix de vente.' shown when price=0 at step 4",
+    "test_5_pickup_validation": "PASSED — Backend returns 422 'Le mode de remise est obligatoire.' and UI validates same",
+    "test_6_summary_sale_format": "PASSED — Summary shows '45.00 €' flat price, no caution/SpotYou/pricing_modes rows",
+    "test_7_sale_green_button": "PASSED — btn-buyer-rent has bg rgb(34, 197, 94) GREEN with 'Acheter' text",
+    "test_8_rental_blue_button": "PASSED — btn-buyer-rent has bg rgb(59, 130, 246) BLUE with 'Louer / Réserver' text",
+    "test_9_backend_422_no_price": "PASSED — pytest confirmed",
+    "test_10_backend_422_no_tags": "PASSED — pytest confirmed",
+    "test_11_backend_200_complete": "PASSED — pytest confirmed, product_id returned",
+    "test_12_mine_both_types": "PASSED — /mine returns rental and sale, excludes deleted",
+    "test_13_detail_brand_model_weight": "PASSED — brand='TEST_Brand', model='TEST_Model', weight='1.5kg' returned",
+    "test_14_rental_regression": "PASSED — Rental draft creation returns 200 with product_id",
+    "test_15_brand_model_sale_only": "PASSED — Step2Essential shows MARQUE/MODÈLE/POIDS only when product_type='sale'"
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_sale_products_iter99.py",
+    "/app/test_reports/pytest/iter99_sale_products.xml"
+  ],
+
+  "action_items": [
+    "Fix my-products.tsx line 140: add product_type === 'sale' check to show price without '/ jour' unit",
+    "Fix ProductDetailView: add COND_LABELS mapping to display 'Très bon' instead of 'very_good' for condition_label chip",
+    "Optional: Optimize backend INSERT to include brand/model/weight/price_per_session in single SQL (3 DB ops currently)"
+  ],
+
+  "critical_code_review_comments": [
+    "my-products.tsx line 140: priceLabel = `${price} € / ${PRICING_LABELS[p.pricing_type] ?? 'jour'}` — does not handle product_type='sale'. PRICING_LABELS has no 'sale' key so fallback 'jour' always shown for sale products.",
+    "ProductDetailView: condition_label chip renders raw DB value (very_good) not localized text (Très bon). Step7Summary has COND_LABELS but ProductDetailView does not.",
+    "Backend INSERT missing brand/model/weight in params — 3 separate SQL operations on create. Consider merging into single INSERT."
+  ],
+
+  "updated_files": [
+    "/app/backend/tests/test_sale_products_iter99.py"
+  ],
+
+  "success_rate": {
+    "backend": "100% (8/8 pytest tests passed)",
+    "frontend": "100% (15/15 feature tests passed, 2 display bugs found)"
+  },
+
+  "test_credentials": {
+    "user": "user@winek.app / WinekUser2024!",
+    "admin": "admin@winek.app / WinekAdmin2024!"
+  },
+
+  "seed_data_creation": "Created then deleted: TEST_Sale Without Price (deleted), TEST_Sale Without Tags (deleted), TEST_Sale Complete Product (deleted), TEST_Rental Regression Test (deleted). Admin-approved: prod_75207a71f708 (Raquette de tennis Artengo TR990) for testing ProductDetailView.",
+
+  "retest_needed": false,
+
+  "main_agent_can_self_test": true,
+
+  "context_for_next_testing_agent": "All 15 sale product features are working. Two display bugs remain: (1) My Products list shows '/ jour' for sale products in my-products.tsx line 140 — easy 1-line fix; (2) ProductDetailView shows raw condition_label (very_good) not localized. Backend is fully functional. The sale stepper (5 steps) works correctly and doesn't break the rental stepper (8 steps). Test product prod_75207a71f708 was set to 'active' status by admin during testing."
+}

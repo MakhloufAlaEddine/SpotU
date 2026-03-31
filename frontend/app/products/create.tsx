@@ -37,6 +37,11 @@ function apiToFormData(data: any): Partial<ProductFormData> {
     price_per_month:     data.price_per_month   != null ? String(data.price_per_month)   : '',
     price_per_session:   data.price_per_session != null ? String(data.price_per_session) : '',
     available_quantity:  data.available_quantity != null ? String(data.available_quantity) : '1',
+    // Champs vente
+    sale_price:          data.price != null && data.product_type === 'sale' ? String(data.price) : '',
+    brand:               data.brand   || '',
+    model:               data.model   || '',
+    weight:              data.weight  || '',
     images:              Array.isArray(data.image_urls) && data.image_urls.length > 0
                            ? data.image_urls
                            : (data.cover_image_url ? [data.cover_image_url] : []),

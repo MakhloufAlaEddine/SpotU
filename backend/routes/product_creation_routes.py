@@ -58,11 +58,12 @@ async def get_my_products(request: Request):
                 deposit_required, deposit_amount,
                 pickup_type, city, location_privacy,
                 related_spotyou_ids, created_at, updated_at,
-                rejection_reason, admin_comment
+                rejection_reason, admin_comment,
+                brand, model, weight
             FROM marketplace_products
             WHERE seller_id = $1
               AND status != 'deleted'
-              AND product_type = 'rental'
+              AND product_type IN ('rental', 'sale')
             ORDER BY created_at DESC
             """,
             user_id,
@@ -96,6 +97,7 @@ async def get_product_detail(request: Request, product_id: str):
                    pricing_modes, price_per_hour, price_per_day, price_per_week, price_per_month, price_per_session,
                    related_spotyou_ids,
                    rejection_reason, admin_comment,
+                   brand, model, weight,
                    created_at, updated_at
             FROM marketplace_products
             WHERE product_id = $1 AND seller_id = $2 AND status != 'deleted'
@@ -135,11 +137,11 @@ async def create_product(request: Request):
     if not title:
         return JSONResponse({"error": "Le titre est obligatoire."}, status_code=400)
 
-    # Vérifier le type de produit — seul 'rental' est supporté
+    # Vérifier le type de produit — rental et sale supportés
     product_type = body.get("product_type", "rental")
-    if product_type not in ("rental",):
+    if product_type not in ("rental", "sale"):
         return JSONResponse(
-            {"error": "Seul le type 'rental' (Location) est disponible pour l'instant."},
+            {"error": "Type de produit invalide. Types supportés : rental, sale."},
             status_code=400,
         )
     description_val = (body.get("description") or "").strip()
@@ -183,10 +185,7 @@ async def create_product(request: Request):
         category      = (body.get("category")       or "").strip()
         cond_label    = (body.get("condition_label") or "").strip()
         pickup_type   = (body.get("pickup_type")     or "").strip()
-        p_modes       = body.get("pricing_modes")    or [body.get("pricing_type") or "day"]
-        deposit_req   = body.get("deposit_required", False)
         tag_ids_check = body.get("tag_ids")          or []
-        spotyou_ids   = body.get("related_spotyou_ids") or []
 
         errors = []
         if not category:
@@ -197,17 +196,32 @@ async def create_product(request: Request):
             errors.append("L'état du matériel est obligatoire.")
         if len((body.get("description") or "").strip()) < 30:
             errors.append("La description doit faire au moins 30 caractères.")
-        if not price or price <= 0:
-            errors.append("Le prix doit être supérieur à 0.")
         if not image_urls:
             errors.append("Au moins une photo est requise.")
-        if not pickup_type:
-            errors.append("Le mode de remise du matériel est obligatoire.")
-        # max_duration_days supprimé (plus obligatoire)
-        if "session" in p_modes and not spotyou_ids:
-            errors.append("La tarification par séance nécessite de sélectionner au moins un SpotYou.")
-        if deposit_req and (not deposit_amount or deposit_amount <= 0):
-            errors.append("Le montant de la caution est obligatoire si une caution est requise.")
+
+        if product_type == "sale":
+            # ── Validation spécifique VENTE ──────────────────────────────
+            if not price or price <= 0:
+                errors.append("Le prix de vente doit être supérieur à 0.")
+            if available_quantity < 1:
+                errors.append("La quantité disponible doit être au minimum 1.")
+            if not pickup_type:
+                errors.append("Le mode de remise est obligatoire.")
+        else:
+            # ── Validation spécifique LOCATION ───────────────────────────
+            p_modes     = body.get("pricing_modes") or [body.get("pricing_type") or "day"]
+            deposit_req = body.get("deposit_required", False)
+            spotyou_ids = body.get("related_spotyou_ids") or []
+
+            if not price or price <= 0:
+                errors.append("Le prix doit être supérieur à 0.")
+            if not pickup_type:
+                errors.append("Le mode de remise du matériel est obligatoire.")
+            if "session" in p_modes and not spotyou_ids:
+                errors.append("La tarification par séance nécessite de sélectionner au moins un SpotYou.")
+            if deposit_req and (not deposit_amount or deposit_amount <= 0):
+                errors.append("Le montant de la caution est obligatoire si une caution est requise.")
+
         if errors:
             return JSONResponse(
                 {"error": errors[0], "details": errors},
@@ -385,6 +399,21 @@ async def create_product(request: Request):
         await conn.execute(
             "UPDATE marketplace_products SET price_per_session = $1 WHERE product_id = $2",
             ps_val, product_id,
+        )
+
+    # Sauvegarder brand/model/weight/stripe (champs vente)
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """UPDATE marketplace_products
+               SET brand=$1, model=$2, weight=$3,
+                   stripe_product_id=$4, stripe_price_id=$5
+               WHERE product_id=$6""",
+            body.get("brand") or None,
+            body.get("model") or None,
+            body.get("weight") or None,
+            body.get("stripe_product_id") or None,
+            body.get("stripe_price_id") or None,
+            product_id,
         )
 
     # Notification admins si soumission en validation par un non-admin

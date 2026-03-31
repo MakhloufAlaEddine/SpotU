@@ -13,7 +13,7 @@ const MAX_TAGS = 5;
 
 const PRODUCT_TYPES = [
   { key: 'rental'  as const, label: 'Location', desc: 'Louez votre matériel à la journée ou à la session', icon: 'key-outline',   available: true },
-  { key: 'sale'    as const, label: 'Vente',    desc: "Vendez votre matériel d'occasion",                  icon: 'cart-outline',  available: false },
+  { key: 'sale'    as const, label: 'Vente',    desc: "Vendez votre matériel, neuf ou d'occasion",          icon: 'cart-outline',  available: true },
   { key: 'digital' as const, label: 'Digital',  desc: 'PDF, programme, vidéo…',                            icon: 'cloud-outline', available: false },
 ] as const;
 

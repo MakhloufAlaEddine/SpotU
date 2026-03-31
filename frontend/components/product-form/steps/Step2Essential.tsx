@@ -149,6 +149,45 @@ export function Step2Essential() {
         <Text style={s.hint}>Soyez précis : état, taille, usage, équipements fournis…</Text>
       </View>
 
+      {/* ── Marque / Modèle / Poids (Vente uniquement — optionnel) ─────── */}
+      {form.product_type === 'sale' && (
+        <>
+          <View style={s.field}>
+            <Text style={s.label}>MARQUE <Text style={s.optional}>(optionnel)</Text></Text>
+            <TextInput
+              style={s.input}
+              value={form.brand || ''}
+              onChangeText={v => set({ brand: v })}
+              placeholder="Ex : Decathlon, Adidas…"
+              placeholderTextColor={Colors.muted}
+              testID="brand-input"
+            />
+          </View>
+          <View style={s.field}>
+            <Text style={s.label}>MODÈLE <Text style={s.optional}>(optionnel)</Text></Text>
+            <TextInput
+              style={s.input}
+              value={form.model || ''}
+              onChangeText={v => set({ model: v })}
+              placeholder="Ex : Artengo TR 990, React Infinity…"
+              placeholderTextColor={Colors.muted}
+              testID="model-input"
+            />
+          </View>
+          <View style={s.field}>
+            <Text style={s.label}>POIDS / DIMENSIONS <Text style={s.optional}>(optionnel)</Text></Text>
+            <TextInput
+              style={s.input}
+              value={form.weight || ''}
+              onChangeText={v => set({ weight: v })}
+              placeholder="Ex : 1.2 kg, 50×30×20 cm…"
+              placeholderTextColor={Colors.muted}
+              testID="weight-input"
+            />
+          </View>
+        </>
+      )}
+
     </View>
   );
 }
