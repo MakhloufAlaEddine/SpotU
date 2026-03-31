@@ -266,8 +266,6 @@ function ProductCard({ item }: { item: any }) {
             )}
           </View>
         )}
-          </View>
-        )}
         {!outOfStock && <CartAddButton item={item} />}
       </View>
     </View>
