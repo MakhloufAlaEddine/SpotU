@@ -257,6 +257,6 @@ const sm = StyleSheet.create({
   ctaRow:         { flexDirection: 'row', gap: 10, marginTop: 4 },
   draftBtn:       { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.card, borderRadius: Radius.full, paddingVertical: 14, borderWidth: 1.5, borderColor: BLUE },
   draftBtnText:   { fontSize: 14, fontWeight: '700', color: BLUE },
-  publishBtn:     { flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: BLUE, borderRadius: Radius.pill, paddingVertical: 14 },
+  publishBtn:     { flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: BLUE, borderRadius: Radius.full, paddingVertical: 14 },
   publishBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
 });
