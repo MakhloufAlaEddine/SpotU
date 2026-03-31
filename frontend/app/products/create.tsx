@@ -30,10 +30,11 @@ function apiToFormData(data: any): Partial<ProductFormData> {
     pricing_modes:       Array.isArray(data.pricing_modes) && data.pricing_modes.length > 0
                            ? data.pricing_modes
                            : (data.pricing_type ? [data.pricing_type] : ['day']),
-    price_per_hour:      data.price_per_hour  != null ? String(data.price_per_hour)  : '',
-    price_per_day:       data.price_per_day   != null ? String(data.price_per_day)   : '',
-    price_per_week:      data.price_per_week  != null ? String(data.price_per_week)  : '',
-    price_per_month:     data.price_per_month != null ? String(data.price_per_month) : '',
+    price_per_hour:      data.price_per_hour    != null ? String(data.price_per_hour)    : '',
+    price_per_day:       data.price_per_day     != null ? String(data.price_per_day)     : '',
+    price_per_week:      data.price_per_week    != null ? String(data.price_per_week)    : '',
+    price_per_month:     data.price_per_month   != null ? String(data.price_per_month)   : '',
+    price_per_session:   data.price_per_session != null ? String(data.price_per_session) : '',
     available_quantity:  data.available_quantity != null ? String(data.available_quantity) : '1',
     images:              Array.isArray(data.image_urls) && data.image_urls.length > 0
                            ? data.image_urls
