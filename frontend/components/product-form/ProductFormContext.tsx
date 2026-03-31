@@ -41,7 +41,7 @@ export interface ProductFormData {
   // Step 4 — Conditions de location
   deposit_required: boolean;
   deposit_amount: string;
-  max_duration_days: string;
+  max_duration_days: string; // conservé pour compatibilité mais non affiché
   pickup_type: PickupType | '';
   pickup_notes: string;
   return_rules: string;
@@ -219,11 +219,6 @@ export function validateStep(step: number, f: ProductFormData): string | null {
     case 6: // Logistique
       if (!f.pickup_type)
         return 'Précisez le mode de remise du matériel.';
-      if (
-        (f.pricing_modes ?? []).some(m => ['day', 'week', 'month'].includes(m)) &&
-        !f.max_duration_days
-      )
-        return 'Précisez la durée maximale de location (en jours).';
       if (f.deposit_required && (!f.deposit_amount || Number((f.deposit_amount || '').replace(',', '.')) <= 0))
         return 'Indiquez le montant de la caution.';
       break;
@@ -243,7 +238,7 @@ export function validateStep(step: number, f: ProductFormData): string | null {
                                  return 'Étape 5 — Sélectionne un SpotYou pour la tarification par séance.';
       if (!f.pickup_type)        return 'Étape 6 — Précisez le mode de remise.';
       if ((f.pricing_modes ?? []).some(m => ['day', 'week', 'month'].includes(m)) && !f.max_duration_days)
-                                 return 'Étape 6 — Précisez la durée maximale de location.';
+                                 return '';
       if (f.deposit_required && (!f.deposit_amount || Number((f.deposit_amount || '').replace(',', '.')) <= 0))
                                  return 'Étape 6 — Indiquez le montant de la caution.';
       break;

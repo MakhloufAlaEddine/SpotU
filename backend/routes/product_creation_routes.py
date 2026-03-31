@@ -161,11 +161,7 @@ async def create_product(request: Request):
     except (ValueError, TypeError):
         deposit_amount = None
 
-    max_days_raw = body.get("max_duration_days")
-    try:
-        max_duration_days = int(max_days_raw) if max_days_raw else None
-    except (ValueError, TypeError):
-        max_duration_days = None
+    max_days_raw = None  # max_duration_days supprimé
 
     qty_raw = body.get("available_quantity")
     try:
@@ -208,7 +204,7 @@ async def create_product(request: Request):
         if not pickup_type:
             errors.append("Le mode de remise du matériel est obligatoire.")
         if any(m in ["day", "week", "month"] for m in p_modes) and not max_duration_days:
-            errors.append("La durée maximale de location est obligatoire.")
+            pass  # max_duration_days supprimé
         if "session" in p_modes and not spotyou_ids:
             errors.append("La tarification par séance nécessite de sélectionner au moins un SpotYou.")
         if deposit_req and (not deposit_amount or deposit_amount <= 0):
@@ -239,16 +235,16 @@ async def create_product(request: Request):
                     cover_image_url = $15, image_url = $16, image_urls = $17,
                     condition_label = $18, included_items = $19,
                     size_dimensions = $20, available_quantity = $21, in_stock = $22,
-                    deposit_required = $23, deposit_amount = $24, max_duration_days = $25,
-                    pickup_type = $26, pickup_notes = $27, availability_note = $28,
-                    return_rules = $29, cancellation_rules = $30,
-                    city = $31, lat = $32, lng = $33,
-                    location_privacy = $34, radius_km = $35,
-                    related_spotyou_ids = $36,
-                    tag_ids = $37,
-                    delivery_modes = $38,
-                    status = $39, updated_at = $40
-                WHERE product_id = $41 AND seller_id = $42
+                    deposit_required = $23, deposit_amount = $24,
+                    pickup_type = $25, pickup_notes = $26, availability_note = $27,
+                    return_rules = $28, cancellation_rules = $29,
+                    city = $30, lat = $31, lng = $32,
+                    location_privacy = $33, radius_km = $34,
+                    related_spotyou_ids = $35,
+                    tag_ids = $36,
+                    delivery_modes = $37,
+                    status = $38, updated_at = $39
+                WHERE product_id = $40 AND seller_id = $41
                 """,
                 title,
                 body.get("short_description"),
@@ -274,7 +270,6 @@ async def create_product(request: Request):
                 available_quantity > 0,
                 body.get("deposit_required", False),
                 deposit_amount,
-                max_duration_days,
                 body.get("pickup_type"),
                 body.get("pickup_notes"),
                 body.get("availability_note"),
@@ -310,7 +305,7 @@ async def create_product(request: Request):
                     condition_label, included_items,
                     size_dimensions,
                     available_quantity, in_stock,
-                    deposit_required, deposit_amount, max_duration_days,
+                    deposit_required, deposit_amount,
                     pickup_type, pickup_notes, availability_note,
                     return_rules, cancellation_rules,
                     city, lat, lng, location_privacy, radius_km,
@@ -318,8 +313,8 @@ async def create_product(request: Request):
                     status, skill_level, created_at, updated_at
                 ) VALUES (
                     $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,
-                    $18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,
-                    $33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46,$47
+                    $18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,
+                    $32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46
                 )
                 """,
                 product_id,
@@ -351,7 +346,6 @@ async def create_product(request: Request):
                 available_quantity > 0,
                 body.get("deposit_required", False),
                 deposit_amount,
-                max_duration_days,
                 body.get("pickup_type"),
                 body.get("pickup_notes"),
                 body.get("availability_note"),

@@ -160,7 +160,7 @@ export function ProductCreationFlow({ isEditMode = false }: { isEditMode?: boole
         image_urls:           imageUrls,
         deposit_required:     form.deposit_required,
         deposit_amount:       form.deposit_amount ? Number(String(form.deposit_amount).replace(',', '.')) : null,
-        max_duration_days:    form.max_duration_days ? parseInt(form.max_duration_days, 10) : null,
+        max_duration_days:    null,
         pickup_type:          form.pickup_type,
         pickup_notes:         (form.pickup_notes ?? '').trim(),
         return_rules:         (form.return_rules ?? '').trim(),

@@ -1,6 +1,5 @@
 /**
- * Step 6 — Logistique : Mode de remise + Durée max (cond.) + Caution (cond.)
- * Champs conditionnels pour garder l'écran léger.
+ * Step 6 — Logistique : Mode de remise + Caution (cond.)
  */
 import React from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, Switch } from 'react-native';
@@ -17,8 +16,6 @@ const PICKUP_OPTS: { key: PickupType; label: string; desc: string; icon: string 
 
 export function Step6Logistics() {
   const { form, set } = useProductForm();
-
-  const needsDuration = (form.pricing_modes ?? []).some(m => ['day', 'week', 'month'].includes(m));
 
   return (
     <View style={l.wrap}>
@@ -53,24 +50,7 @@ export function Step6Logistics() {
         </View>
       </View>
 
-      {/* ── Durée maximale (conditionnel: si mode jour/semaine/mois) ──── */}
-      {needsDuration && (
-        <View style={l.field}>
-          <Text style={l.label}>DURÉE MAXIMALE DE LOCATION <Text style={l.req}>*</Text></Text>
-          <View style={l.inlineRow}>
-            <TextInput
-              style={[l.input, { width: 90 }]}
-              value={form.max_duration_days}
-              onChangeText={v => set({ max_duration_days: v.replace(/[^0-9]/g, '') })}
-              placeholder="7"
-              placeholderTextColor={Colors.muted}
-              keyboardType="number-pad"
-              testID="max-days-input"
-            />
-            <Text style={l.unit}>jours consécutifs maximum</Text>
-          </View>
-        </View>
-      )}
+      {/* ── Durée maximale — supprimée ─────────────────────────────────── */}
 
       {/* ── Caution ───────────────────────────────────────────────────── */}
       <View style={l.switchCard}>
