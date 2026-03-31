@@ -137,7 +137,9 @@ export default function MyProductsScreen() {
           renderItem={({ item: p }) => {
             const st = STATUS_CONFIG[p.status] ?? STATUS_CONFIG.draft;
             const priceLabel = p.price != null
-              ? `${Number(p.price).toFixed(2)} € / ${PRICING_LABELS[p.pricing_type] ?? 'jour'}`
+              ? p.product_type === 'sale'
+                ? `${Number(p.price).toFixed(2)} €`
+                : `${Number(p.price).toFixed(2)} € / ${PRICING_LABELS[p.pricing_type] ?? 'jour'}`
               : '—';
             const isRejected = p.status === 'rejected';
             return (

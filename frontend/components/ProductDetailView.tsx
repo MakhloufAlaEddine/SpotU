@@ -49,6 +49,10 @@ const LEVEL_LABELS: Record<string, string> = {
   debutant: 'Débutant', intermediaire: 'Intermédiaire', avance: 'Avancé', tous: 'Tous niveaux',
 };
 
+const COND_LABELS: Record<string, string> = {
+  new: 'Neuf', very_good: 'Très bon', good: 'Bon', acceptable: 'Acceptable',
+};
+
 function cleanCategory(raw: string): string {
   if (!raw) return '';
   return raw.replace(/^cat_prd_/, '').replace(/_/g, ' ')
@@ -265,7 +269,7 @@ export function ProductDetailView({
             {item.condition_label ? (
               <View style={d.chip}>
                 <Ionicons name="shield-checkmark-outline" size={11} color={Colors.muted} />
-                <Text style={d.chipText}>{item.condition_label}</Text>
+                <Text style={d.chipText}>{COND_LABELS[item.condition_label] || item.condition_label}</Text>
               </View>
             ) : null}
           </View>

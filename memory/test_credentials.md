@@ -1,15 +1,18 @@
-# Test Credentials — SpotU
+# Credentials de test — SpotU
 
-## Comptes de test
+## Utilisateur standard (coach / vendeur)
+- Email: user@winek.app
+- Mot de passe: WinekUser2024!
+- Rôle: coach / utilisateur standard
 
-| Rôle  | Email                | Mot de passe       |
-|-------|----------------------|--------------------|
-| Admin | admin@winek.app      | WinekAdmin2024!    |
-| Coach | coach@winek.app      | WinekCoach2024!    |
-| User  | user@winek.app       | WinekUser2024!     |
+## Administrateur
+- Email: admin@winek.app
+- Mot de passe: WinekAdmin2024!
+- Rôle: admin (validation des produits)
+
+## URL de prévisualisation
+https://stepper-vente.preview.emergentagent.com
 
 ## Données de test
-
-- SpotYou démo : `tp_demo001`, `tp_demo002`, `tp_demo003`
-- Produits démo : `mp_demo001`..`mp_demo005`
-- Services démo : `svc_demo001`..`svc_demo003`
+- Produit location actif: prod_demo (Location kit matériel HIIT - status active)
+- Produit vente pending_review: prod_75207a71f708 (Raquette de tennis Artengo TR990)

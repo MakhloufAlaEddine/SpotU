@@ -314,3 +314,21 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 
 ## Known Issues
 - ngrok tunnel instability (infrastructure, not code)
+
+
+## Implémentation VENTE (sale) — 31 mars 2026
+- DB: `brand`, `model`, `weight`, `stripe_product_id`, `stripe_price_id` ajoutées à `marketplace_products`
+- Backend `product_creation_routes.py`: `product_type IN ('rental','sale')`, validation séparée par type, brand/model/weight sauvegardés via UPDATE
+- `ProductFormContext.tsx`: `sale_price`, `brand`, `model`, `weight` ajoutés; `validateStep()` branché sur `product_type`; `calcProductQuality()` adapté vente
+- `Step1TypeCategory.tsx`: option Vente activée (`available: true`)
+- `Step2Essential.tsx`: champs brand/model/weight optionnels visibles pour vente uniquement
+- `StepSalePricingLocation.tsx` (NOUVEAU): step 4 vente — prix plat + mode remise + localisation
+- `ProductCreationFlow.tsx`: stepper dynamique — LOCATION = 8 steps / VENTE = 5 steps (SALE_STEP_CONFIG + SALE_COMPONENTS)
+- `Step7Summary.tsx`: récap adapté vente (prix plat, sans caution/SpotYou; conseils vente)
+- `ProductDetailView.tsx`: bouton "Acheter" vert, prix plat vert, `COND_LABELS` localisé
+- `my-products.tsx`: prix vente affiché sans "/ jour"
+- Tests: 15/15 scénarios frontend OK, 8/8 tests backend pytest OK, aucune régression location
+
+## Priorités suivantes (P1)
+- UI acheteur: sélection quantité (vente) / durée (location) + calcul total dynamique
+- Checkout Stripe: flow d'achat complet (vente) + réservation (location)
