@@ -255,15 +255,17 @@ function ProductCard({ item }: { item: any }) {
             {item.dist_from_spotyou_fmt && (
               <View style={[s.distChip, s.distChipSpot]}>
                 <Ionicons name="location" size={9} color={COBALT} />
-                <Text style={[s.distTxt, { color: COBALT }]}>{item.dist_from_spotyou_fmt}</Text>
+                <Text style={[s.distTxt, { color: COBALT }]}>SpotYou · {item.dist_from_spotyou_fmt}</Text>
               </View>
             )}
             {item.dist_from_user_fmt && (
               <View style={[s.distChip, s.distChipUser]}>
                 <Ionicons name="navigate" size={9} color="#22C55E" />
-                <Text style={[s.distTxt, { color: '#22C55E' }]}>{item.dist_from_user_fmt}</Text>
+                <Text style={[s.distTxt, { color: '#22C55E' }]}>De moi · {item.dist_from_user_fmt}</Text>
               </View>
             )}
+          </View>
+        )}
           </View>
         )}
         {!outOfStock && <CartAddButton item={item} />}
