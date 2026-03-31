@@ -1,28 +1,34 @@
-<analysis>**original_problem_statement**: 
-The app suffered from infrastructure crashes (Expo ENOSPC / ngrok timeouts). Once resolved, the user requested several UI/UX improvements and bug fixes: truncating long text labels on map cards, fixing the styling of informational notes in the product creation stepper, resolving a 401 Unauthorized error during image uploads, fixing a missing category display in the product summary, resolving a 422 Field required (domain_id) error when creating a SpotYou, redesigning the pricing mode UI (Step 5), and completely redesigning the  to serve as a shared full-screen component (replacing a modal in My Products). PRODUCT REQUIREMENTS: Provide a robust creation flow for products and SpotYous, ensure high-quality UI/UX (dark theme) for product details, and maintain a stable Expo environment.
+<analysis>Here is the handover summary based on the latest LLM message history:
+
+original_problem_statement: The user requested a series of UI/UX bug fixes, workflow optimizations (SpotYou modal selection, validation hardening, deletion of legacy columns like ), and most recently, a massive architectural update: integrating Vente (Sale) products into the existing product creation stepper and database without breaking the highly-validated Rental (Location) logic.
+PRODUCT REQUIREMENTS: Deliver a robust product creation flow supporting both Rental and Sale models using a shared architecture. Implement strict backend and frontend validation per product type. Maintain a stable Expo environment.
 
 **User's preferred language**: French (FR). (You MUST automatically detect the user's primary language from their messages inside the <trajectory> tag and INSTRUCT next agent to respond in **French** only).
 
 **what currently exists?** 
-A React Native (Expo) + FastAPI + MongoDB full-stack app. The Expo Metro bundler environment has been fully stabilized with a corrected  monkey-patch and increased ngrok timeout. Image uploads correctly fetch JWTs directly from local storage to prevent race conditions. The product creation flow (Categories, Pricing, Details, Rules) has been polished. The  has been entirely rewritten using the Design Agent (Dark Theme, Performance Pro archetype) and integrated into the  screen, supporting owner-specific actions (edit/delete).
+A React Native (Expo Web) + FastAPI + PostgreSQL full-stack app. The product creation flow has been heavily refined: it uses a dynamic stepper, implements a custom Modal for selecting nearby SpotYous (using Haversine distance), strictly enforces pricing validations, completely blocks saving to draft after a product is submitted, and maintains a clean 52-column PostgreSQL table () after dropping legacy columns. 
 
 **Last working item**: 
-    - Last item agent was working: Cleaning up dead code in  and adding a back arrow + Safe Area handling to the newly redesigned .
-    - Status: USER VERIFICATION PENDING
-    - Agent Testing Done: Y (Checked bash logs for syntax/bundling success).
-    - Which testing method agent to use? screenshot tool (Take a screenshot of the My Products detail view to verify the back button and safe area display correctly).
+    - Last item agent was working: Preparing to implement the Vente (Sale) product type. The agent received the comprehensive requirements from the user (Message 321), formulated a step-by-step plan, and viewed the necessary files (, , etc.), but ran out of context before writing any code or modifying the database.
+    - Status: NOT STARTED (Planning phase completed, execution pending).
+    - Agent Testing Done: N
+    - Which testing method agent to use? both (Frontend for dynamic stepper rendering & conditional validation; Backend for API sale creation and DB integrity).
     - User Testing Done: N
 
 **All Pending/In progress Issue list**: 
-  Issue 1: 🟢 [P0] Verify Product Detail UI (Owner View)
-     - Attempted fixes: Added SafeAreaView boundaries and an absolute positioned back button to . Removed dead styles from .
+  Issue 1: 🔴 [P0] Implement Sale (Vente) Product Type Architecture
+     - Attempted fixes: N/A - Planning just finished. No code changes made yet.
      - Next debug checklist: 
-        1. Use  to view the product detail screen.
-        2. Ensure the back button is visible and not hidden behind the iOS status bar.
-     - Why fix this issue and what will be achieved with the fix? Ensures the user can navigate out of the full-screen product detail view.
-     - Status: TESTING PENDING
+        1. **Database**: Run 
+        2. **Backend Validation** (): Add conditional validation for  (requires , , , and ). Ignore  and SpotYou validations for sales. Ensure the new columns are included in the / queries.
+        3. **Frontend Context** (): Update  to branch logic based on . Include the new sale-specific fields.
+        4. **Frontend Step 1** (): Enable the Vente option.
+        5. **Dynamic Stepper** (): Conditionally render the steps. For sales, use a condensed 4-5 step flow (Classification -> Infos -> Photos -> Prix & Logistique). Hide advanced rental steps like sessions, spotyous, and deposits. DO NOT create a second stepper.
+        6. **Product Card UI**: Adapt the buyer-side display to show a flat price and an Acheter button for sales.
+     - Why fix this issue and what will be achieved with the fix? Expands the marketplace capabilities to support purchasing items outright, fulfilling a core business requirement while reusing the existing highly-polished stepper architecture.
+     - Status: NOT STARTED
      - Is recurring issue? N
-     - Should Test frontend/backend/both after fix? frontend
+     - Should Test frontend/backend/both after fix? both
      - Blocked on other issue: None
 
 **In progress Task List**: 
@@ -30,84 +36,80 @@ A React Native (Expo) + FastAPI + MongoDB full-stack app. The Expo Metro bundler
 
 **Upcoming and Future Tasks**
     Upcoming Tasks:
-    - 🟡 (P1) **Buyer-Side Reservation UI**: Implement the interactive frontend flow where a buyer selects a duration/quantity on the product page, which calculates the total price dynamically before triggering checkout. (Location:  & ).
-    - 🟡 (P1) **SpotYou Timeslot Selection**: During reservation of a per session product, force the buyer to select a specific SpotYou and an available timeslot.
+    - 🟡 (P1) **Buyer-Side Reservation/Purchase UI**: Implement the interactive frontend flow where a buyer selects a duration/quantity (Rental) or just quantity (Sale) on the product page, calculating the total price dynamically before triggering checkout.
+    - 🟡 (P1) **SpotYou Timeslot Selection**: During reservation of a per session rental product, force the buyer to select a specific SpotYou and an available timeslot.
     
     Future Tasks:
     - 🟢 (P2) **Image Quality Validation System**: Client-side utility for SpotYou/Product image uploads (Resolution, Size, Ratio, Brightness scoring) before upload.
-    - 🟢 (P3) Refactor  into smaller components (currently massive, ~1900+ lines).
+    - 🟢 (P3) Refactor  into smaller components.
 
 **Completed work in this session**
-- Fixed Expo Metro ENOSPC crash by fixing the  monkey-patch in  and expanding ngrok timeout (DONE)
-- Truncated map card long titles using  and  in  (DONE)
-- Restyled  in creation stepper (Step3 & Step7) to match blue tip banners (DONE)
-- Fixed  on image upload by making  read tokens directly from  instead of relying on React AuthContext (DONE)
-- Fixed missing category display in  by fetching  to map the ID to a label (DONE)
-- Fixed 422  missing error in SpotYou creation by passing  from  to the main payload in  (DONE)
-- Redesigned  (Grid layout, removed clunky pills) and enriched the SpotYou selection preview (Added image, members count, next date) (DONE)
-- Redesigned  via Design Agent (Dark Theme) and implemented it as a full-screen route in , replacing the old modal (DONE)
+- Localized keyboard scroll on the Description field in  (DONE)
+- Deleted dead code:  and  (DONE)
+- Reordered steps to put Location before Pricing to feed coordinates to the SpotYou fetcher (DONE)
+- SpotYou Selection Modal: Added 20km Haversine filtering, distance display, sorted owner's spots first, and migrated to a modal selector with compact chips (DONE)
+- Fixed text shrinkage bug on SpotYou chips using  (DONE)
+- Fixed  context validation to require *all* active pricing modes to have valid prices (DONE)
+- Fixed  data loss during edit mode by mapping it in  (DONE)
+- Completely deleted , , , and  from Frontend, Backend APIs, and PostgreSQL DB (DONE)
+- Prevented users from bypassing draft logic: enforced UI block and Backend 403 HTTP Exception if trying to draft an already submitted product (DONE)
 
 **Earlier issues found/mentioned but not fixed**
    - *None.*
 
 **Known issue recurrence from previous fork**
-  - Issue recurrence in previous fork: ngrok tunnel instability and ENOSPC.
-  - Recurrence count: High
-  - Status: RESOLVED (Mitigated via  patch and subdomain cycling. Do NOT remove the  override in ).
+  - Issue recurrence in previous fork:  (Ngrok 5000 session limit exceeded).
+  - Recurrence count: Very High
+  - Status: IN PROGRESS (If Expo native fails to connect, instruct the user to test via the direct web URL  in their browser, which bypasses Ngrok).
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-- **Auth Storage for Uploads**: Due to React lifecycle race conditions,  context tokens can be null during immediate uploads. Always read  directly from  for API utilities outside the component tree.
-- **Expo Bundler Watcher Limits**: The environment relies on a mocked  inside  to bypass container  limits.
+- **Dynamic Stepper Configuration**: The  maps an array of steps. For the new Sale feature, you must conditionally filter this array so Sale products skip rental-specific steps (advanced pricing, spotyou matching, deposits) without duplicating the parent component.
 
 **key DB schema**
-  - : 
-  -  (SpotYou): 
+  - : Currently has 52 clean columns. **Next step**: 
 
 **changes in tech stack**
-  - None.
+  - *None.*
 
 **All files of reference** 
-  -  (Newly redesigned core component)
+  -  (Must update for Sale logic)
+  -  (Target for dynamic step filtering)
   - 
   - 
-  - 
-  - 
-  -  (Created this session)
 
 **Areas that need refactoring**: 
-  -  remains exceptionally large (~1900 lines) and complex.
+  - 
 
 **key api endpoints**
-  - 
-  - 
-  - 
+  -  (Product creation & update)
+  -  (Retrieve product for edit mode)
 
 **Critical Info for New Agent** 
 - **Language**: You MUST respond to the user in **French**.
-- **Design System**: A new  was created. Adhere to it for future marketplace/product UI components to ensure consistency.
-- **Ngrok Tunnels**: If Expo stops responding, the  ngrok subdomain might be locked. Kill the ngrok processes and update  in  to a new random string.
-- **Product Details**: The  is now a shared component used by both buyers (Marketplace) and sellers (My Products). It handles conditional rendering via the  boolean prop.
+- **Execution State**: The user provided a massive prompt for integrating Sale products (Message 321). The previous agent formulated a plan but executed zero code changes. You must start the implementation of this feature from scratch.
+- **Strict Constraints**: Do NOT duplicate the stepper. Do NOT break existing rental functionality. Ensure strict separation of concerns internally based on  vs .
+- **Database Syntax**: Use PostgreSQL  bindings (, ) for all database operations. 
 
 **documents and test reports created in this job** 
-  -  (Design system output from subagent)
+  -  (Updated in early messages)
 
 **Last 10 User Messages and any pending HUMAN messages** 
-  1. **User**: Gerer l’affichage du label quand il est très long (Map titles overflowing).
-  2. **User**: fond sombre Très grand garde l’ancienne version avec un label avec trois points... (Keep gradient, use ellipsis).
-  3. **User**: Flagged that Ces informations... in stepper looks like an input, and Category is missing in summary.
-  4. **User**: Upload failure  when attempting to save photos in product form.
-  5. **User**: Je ne vois toujours pas la catégorie in Step 9.
-  6. **User**: Field required error at the end of SpotYou creation (missing domain_id).
-  7. **User**: Requested redesign of Pricing mode UI (Step 5) and to show SpotYou photo/details in the stepper.
-  8. **User**: Requested using the Design Agent to completely redesign the Product Detail view and use it in My Products (with owner actions).
-  9. **User**: Reported a crash/syntax error upon launching the newly integrated My Products screen.
-  10. **User**: Supprime le code mort et ajoute la fleche de retour pour l’écran mon produit details. (Agent completed this, pending user verification).
+  1. **User**: Ici bloquer le passage au step suivant si les prix ne sont pas saisis...
+  2. **User**: Le prix de la facturation pas seance n’est pas enregistré
+  3. **User**: Supprimer cette info [max duration] j’en veux plus Font back et bdd
+  4. **User**: Je ne vois pas les données en mode edit
+  5. **User**: Redesign le bouton soumettre pour validation Utiliser le même design du bouton partout...
+  6. **User**: Ajouter un produit au brouillon n’est possible qu’en mode creation...
+  7. **User**: Faire une double vérification back et front au cas ou je veux ajouter au brouillon...
+  8. **User**: donne moi la structure de la bdd qui gere toutes les produits de location
+  9. **User**: ## 🎯 OBJECTIF Ajouter la gestion des **produits à la vente** dans l’application SpotU... (PENDING: Massive instruction block to add 'Sale' products without breaking 'Rental'. Execution required).
 
 **Project Health Check:**
-  - Stable. Infrastructure limits bypassed. Deep UI refactoring successful.
+  - Code: Stable.
+  - Infrastructure: Broken (Ngrok shared tier frequently hits 5000 session limits).
 
 **3rd Party Integrations** 
   - Cloudflare R2 (Image Uploads)
@@ -115,11 +117,10 @@ A React Native (Expo) + FastAPI + MongoDB full-stack app. The Expo Metro bundler
   - Google Places API
 
 **Testing status**
-  - Testing agent used after significant changes: NO (Rapid sequential UI/UX fixes directed by user).
+  - Testing agent used after significant changes: NO (relied on curl and self-testing)
   - Troubleshoot agent used after agent stuck in loop: NO
   - Test files created: None
-  - Known regressions: None detected, but visual layout of  header needs human confirmation.
+  - Known regressions: None.
 
 **What agent forgot to execute**
-  - The agent did not use  after doing a massive, multi-file refactoring and integration of  into . 
-  - The agent did not take a final screenshot to visually verify that the back arrow and safe area fixes implemented in the final step actually render correctly on the device. Next agent should start with a  check.</analysis>
+  - The agent read the user's comprehensive plan for the Vente (Sale) feature (Message 321) and viewed the relevant files, but context ended before any database queries or code changes were executed. The new agent must start this feature implementation from scratch based on the exact prompt in Message 321.</analysis>

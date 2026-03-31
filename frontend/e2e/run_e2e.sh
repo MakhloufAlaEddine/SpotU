@@ -19,7 +19,7 @@ if ! $PLAYWRIGHT_BIN install chromium --dry-run 2>/dev/null; then
 fi
 
 echo "=== Lancement des tests E2E SpotU ==="
-echo "URL: ${EXPO_PUBLIC_BACKEND_URL:-https://spot-you-products.preview.emergentagent.com}"
+echo "URL: ${EXPO_PUBLIC_BACKEND_URL:-https://stepper-vente.preview.emergentagent.com}"
 echo ""
 
 cd "$E2E_DIR"
@@ -31,7 +31,7 @@ ARGS="${@:---x --tb=short -v}"
 $PYTEST_BIN \
   --browser chromium \
   --headed=false \
-  --base-url "${EXPO_PUBLIC_BACKEND_URL:-https://spot-you-products.preview.emergentagent.com}" \
+  --base-url "${EXPO_PUBLIC_BACKEND_URL:-https://stepper-vente.preview.emergentagent.com}" \
   $ARGS \
   2>&1 | tee /tmp/e2e_results.txt
 

@@ -30,7 +30,7 @@ import json
 
 BASE_URL = os.environ.get(
     "EXPO_PUBLIC_BACKEND_URL",
-    "https://spot-you-products.preview.emergentagent.com"
+    "https://stepper-vente.preview.emergentagent.com"
 ).rstrip("/")
 
 # ── Credentials ────────────────────────────────────────────────────────────────

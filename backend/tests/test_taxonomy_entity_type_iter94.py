@@ -12,7 +12,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://spot-you-products.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://stepper-vente.preview.emergentagent.com").rstrip("/")
 
 ADMIN_EMAIL = "admin@winek.app"
 ADMIN_PASS = "WinekAdmin2024!"

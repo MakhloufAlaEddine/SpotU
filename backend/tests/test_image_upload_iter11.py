@@ -12,7 +12,7 @@ import io
 
 BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "").rstrip("/")
 if not BASE_URL:
-    BASE_URL = "https://spot-you-products.preview.emergentagent.com"
+    BASE_URL = "https://stepper-vente.preview.emergentagent.com"
 
 
 def _get_valid_tag_ids():
