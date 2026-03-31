@@ -72,6 +72,7 @@ async def get_marketplace_products(
                    FROM marketplace_products p
                    LEFT JOIN users u ON p.seller_id = u.user_id
                    WHERE p.tag_ids && $1::text[]
+                     AND p.status = 'active'
                    ORDER BY CASE WHEN p.seller_id = $2 THEN 0 ELSE 1 END, p.created_at DESC""",
                 tags, owner_id,
             )
@@ -82,6 +83,7 @@ async def get_marketplace_products(
                 """SELECT p.*, u.name AS seller_name, u.picture AS seller_picture
                    FROM marketplace_products p
                    LEFT JOIN users u ON p.seller_id = u.user_id
+                   WHERE p.status = 'active'
                    ORDER BY p.created_at DESC LIMIT 20"""
             )
 
