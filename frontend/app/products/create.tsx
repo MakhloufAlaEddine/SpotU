@@ -55,7 +55,7 @@ function apiToFormData(data: any): Partial<ProductFormData> {
     city:                data.city                 || '',
     selectedLat:         data.lat                  || 0,
     selectedLng:         data.lng                  || 0,
-    locationAddress:     data.city                 || '',
+    locationAddress:     data.location_address_raw || data.city || '',
     location_privacy:    data.location_privacy     || '100m',
     availability_note:   data.availability_note    || '',
     related_spotyou_ids: Array.isArray(data.related_spotyou_ids) ? data.related_spotyou_ids : [],

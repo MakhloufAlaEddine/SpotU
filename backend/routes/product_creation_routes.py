@@ -90,7 +90,7 @@ async def get_product_detail(request: Request, product_id: str):
                    cover_image_url, image_url, image_urls,
                    condition_label, available_quantity,
                    deposit_required, deposit_amount,
-                   pickup_type, pickup_notes, city, location_privacy, lat, lng,
+                   pickup_type, pickup_notes, city, location_address_raw, location_privacy, lat, lng,
                    return_rules, cancellation_rules, availability_note,
                    included_items, size_dimensions,
                    tag_ids,
