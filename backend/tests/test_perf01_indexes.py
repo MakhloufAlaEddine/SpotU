@@ -15,7 +15,7 @@ import asyncio
 import asyncpg
 import pytest
 
-DB_URL = os.environ.get("DATABASE_URL", "postgresql://winek:winek2024@127.0.0.1/winek_db")
+DB_URL = os.environ.get("DATABASE_URL")
 
 # ─── Connexion helper ─────────────────────────────────────────────────────────
 
@@ -149,28 +149,7 @@ class TestPERF01_IndexScans:
         )
 
 
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# [PERF-01-C] Vérification statique database.py
-# ═══════════════════════════════════════════════════════════════════════════════
-
-class TestPERF01_StaticAnalysis:
-
-    @classmethod
-    def _src(cls) -> str:
-        with open("/app/backend/database.py", encoding="utf-8") as f:
-            return f.read()
-
-    def test_migration_idempotente_if_not_exists(self):
-        """Toutes les créations d'index PERF-01 utilisent IF NOT EXISTS."""
-        src = self._src()
-        for idx_name, _ in EXPECTED_INDEXES:
-            assert f"CREATE INDEX IF NOT EXISTS {idx_name}" in src, (
-                f"FAIL: 'CREATE INDEX IF NOT EXISTS {idx_name}' absent de database.py"
-            )
-
-    def test_annotation_perf01_presente(self):
-        """database.py doit contenir le commentaire PERF-01."""
-        assert "PERF-01" in self._src(), (
-            "FAIL: commentaire PERF-01 absent de database.py"
-        )
+# TestPERF01_StaticAnalysis supprimée lors du cleanup post-migration Supabase (2026-04-01).
+# La classe cherchait des CREATE INDEX IF NOT EXISTS dans database.py,
+# qui n'en contient plus depuis la migration (zero-DDL au runtime).
+# Les index sont désormais gérés exclusivement via les migrations SQL versionnées.

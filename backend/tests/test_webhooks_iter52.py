@@ -50,15 +50,9 @@ import pytest
 
 # ── Configuration ──────────────────────────────────────────────────────────────
 
-API_BASE = os.environ.get(
-    "EXPO_PUBLIC_BACKEND_URL",
-    "https://buyer-checkout-ui.preview.emergentagent.com",
-).rstrip("/")
+API_BASE = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "").rstrip("/")
 
-DB_URL = os.environ.get(
-    "DATABASE_URL",
-    "postgresql://winek:winek2024@127.0.0.1/winek_db",
-)
+DB_URL = os.environ.get("DATABASE_URL")
 
 USER_EMAIL  = "user@winek.app"
 USER_PASS   = "WinekUser2024!"

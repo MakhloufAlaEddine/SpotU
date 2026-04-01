@@ -8,8 +8,8 @@ import asyncpg
 import os
 import json
 
-BASE = "http://localhost:8001/api"
-DB_URL = os.environ.get("DATABASE_URL", "postgresql://winek:winek2024@127.0.0.1/winek_db")
+BASE = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "").rstrip("/") + "/api"
+DB_URL = os.environ.get("DATABASE_URL")
 
 # ── helpers ────────────────────────────────────────────────────────────────────
 

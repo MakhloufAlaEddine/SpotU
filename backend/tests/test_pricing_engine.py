@@ -36,8 +36,8 @@ sys.path.insert(0, "/app/backend")
 from pricing_engine import PricingEngine, PricingResult, pricing_engine
 from models import new_id
 
-BASE = "http://localhost:8001/api"
-DB_URL = os.environ.get("DATABASE_URL", "postgresql://winek:winek2024@127.0.0.1/winek_db")
+BASE = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "").rstrip("/") + "/api"
+DB_URL = os.environ.get("DATABASE_URL")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

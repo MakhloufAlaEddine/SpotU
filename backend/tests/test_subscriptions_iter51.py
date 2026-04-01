@@ -28,8 +28,8 @@ import asyncpg
 import httpx
 import pytest
 
-API_BASE   = os.environ.get("API_BASE", "https://buyer-checkout-ui.preview.emergentagent.com")
-DB_URL     = os.environ.get("DATABASE_URL", "postgresql://winek:winek2024@127.0.0.1/winek_db")
+API_BASE   = os.environ.get("EXPO_PUBLIC_BACKEND_URL", os.environ.get("API_BASE", ""))
+DB_URL     = os.environ.get("DATABASE_URL")
 
 ADMIN_EMAIL = "admin@winek.app"
 ADMIN_PASS  = "WinekAdmin2024!"

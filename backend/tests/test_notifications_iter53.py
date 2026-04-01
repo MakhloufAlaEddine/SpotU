@@ -44,8 +44,9 @@ import httpx
 import pytest
 import requests
 
-DB_URL   = "postgresql://winek:winek2024@127.0.0.1/winek_db"
-BASE_URL = "https://buyer-checkout-ui.preview.emergentagent.com"
+import os as _os
+DB_URL   = _os.environ.get("DATABASE_URL")
+BASE_URL = _os.environ.get("EXPO_PUBLIC_BACKEND_URL", "").rstrip("/")
 
 USER_EMAIL  = "user@winek.app"
 USER_PASS   = "WinekUser2024!"

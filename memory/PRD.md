@@ -19,6 +19,30 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 
 ## What's Been Implemented
 
+### Cleanup Post-Migration Supabase — Code Mort et Tests Obsolètes (2026-04-01)
+
+**Fichiers supprimés (psycopg2 + DSN hardcodé localhost/winek_db) :**
+- `test_booking_workflows_v2.py` — psycopg2 + `winek_db/winek2024/localhost`
+- `test_booking_expiry.py` — psycopg2 + `winek_db/winek2024/localhost`
+- `test_webhook_instant_booking_iter62.py` — psycopg2 + `winek_db/winek2024/localhost`
+- `test_business_rules_audit.py` — psycopg2 + `winek_db/winek2024/localhost`
+- `test_tagpoint_address_privacy_iter87.py` — psycopg2 + 5 connexions `127.0.0.1/winek_db`
+- `test_address_privacy_full.py` — `DB_URL` hardcodé sans `os.environ.get`
+
+**Classe supprimée :**
+- `TestPERF01_StaticAnalysis` dans `test_perf01_indexes.py` — cherchait `CREATE INDEX IF NOT EXISTS` dans `database.py` (zero-DDL depuis Supabase migration)
+
+**Fallbacks hardcodés nettoyés (7 fichiers) :**
+- `test_notifications_iter53.py` — `DB_URL` + `BASE_URL` hardcodés → `os.environ.get`
+- `test_webhooks_iter52.py` — fallback DSN + URL preview → `os.environ.get`
+- `test_pricing.py` — `BASE = localhost:8001` + DSN fallback → `os.environ.get`
+- `test_pricing_engine.py` — même correction
+- `test_subscriptions_iter51.py` — `API_BASE` + DSN fallback → `os.environ.get`
+- `test_booking_workflow.py` — `BASE_URL` + DSN fallback → `os.environ.get`
+- `test_perf01_indexes.py` — DSN fallback → `os.environ.get`
+
+**Suite test_no_ddl_at_boot.py : 9/9 PASSED ✅**
+
 ### Unification Sélecteur de Tags — TagPickerField Partagé (2026-03-27)
 | Composant | Changement |
 |-----------|-----------|

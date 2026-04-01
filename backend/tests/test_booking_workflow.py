@@ -17,9 +17,8 @@ import asyncpg
 import os
 import uuid
 
-BASE_URL = os.environ.get("TEST_BASE_URL", "http://localhost:8001")
-DB_URL   = os.environ.get("DATABASE_URL",
-           "postgresql://winek:winek2024@localhost:5432/winek_db")
+BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", os.environ.get("TEST_BASE_URL", ""))
+DB_URL   = os.environ.get("DATABASE_URL")
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
