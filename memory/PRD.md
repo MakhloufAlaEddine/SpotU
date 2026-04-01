@@ -356,6 +356,10 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 - ssl_ctx (CERT_NONE) requis depuis l'hébergeur GCP Kubernetes
 - Connexion directe (`db.PROJECT.supabase.co:5432`) : hostname non résolvable depuis pods GCP
 
+- Route `GET /api/readiness` et `GET /api/liveness` ajoutées dans `server.py` (infra, tag "infra")
+  - Liveness : 200 `{status: alive}` — process FastAPI vivant, aucune dépendance vérifiée
+  - Readiness : 200 `{status: ready, database: ok}` si pool + SELECT 1 OK, sinon 503
+
 ### Architecture migrations versionnées
 - `001_initial_schema.sql` : schéma complet (déjà appliqué par agent précédent)
 - `002_sale_product_fields.sql` : colonnes produits vente

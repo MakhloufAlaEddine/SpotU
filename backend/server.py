@@ -7,11 +7,12 @@ from pathlib import Path
 from slowapi.errors import RateLimitExceeded
 import os
 import logging
+from datetime import datetime, timezone
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
 
-from database import connect_to_db, close_db
+from database import connect_to_db, close_db, get_pool
 from routes.auth_routes import router as auth_router
 from routes.user_routes import router as user_router
 from routes.domain_routes import router as domain_router
@@ -82,6 +83,72 @@ api_router.include_router(address_router, tags=["addresses"])
 api_router.include_router(marketplace_router, tags=["marketplace"])
 api_router.include_router(product_creation_router, tags=["products"])
 api_router.include_router(admin_product_router, tags=["admin-products"])
+
+
+# ── Routes infra (liveness / readiness) ──────────────────────────────────────
+#
+# Liveness  → L'application tourne (process vivant).
+#             Utilisé par les orchestrateurs (Kubernetes, Railway…) pour décider
+#             s'il faut redémarrer le container.
+#             Ne vérifie AUCUNE dépendance externe.
+#
+# Readiness → L'application EST PRÊTE à recevoir du trafic.
+#             Utilisé par les load balancers pour décider si le pod doit
+#             recevoir des requêtes. Vérifie la connexion DB.
+#             HTTP 200 = prêt | HTTP 503 = pas prêt (enlever du LB)
+#
+# Règle : un container peut être alive mais not ready (DB indisponible).
+#         Ne jamais fusionner les deux sondes.
+
+@api_router.get("/liveness", tags=["infra"])
+async def liveness():
+    """
+    Sonde liveness — vérifie uniquement que le process FastAPI répond.
+    Aucune vérification de dépendances (DB, cache, services tiers).
+    """
+    return {
+        "status": "alive",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@api_router.get("/readiness", tags=["infra"])
+async def readiness():
+    """
+    Sonde readiness — vérifie que l'application ET la DB sont prêtes.
+    HTTP 200 si tout est OK, HTTP 503 sinon.
+    """
+    now = datetime.now(timezone.utc).isoformat()
+    db_pool = get_pool()
+
+    if db_pool is None:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "not_ready",
+                "database": "pool_not_initialized",
+                "timestamp": now,
+            },
+        )
+
+    try:
+        async with db_pool.acquire() as conn:
+            await conn.fetchval("SELECT 1")
+        return {
+            "status": "ready",
+            "database": "ok",
+            "timestamp": now,
+        }
+    except Exception as exc:
+        logger.warning("Readiness check DB failure: %s", exc)
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "not_ready",
+                "database": f"error: {exc}",
+                "timestamp": now,
+            },
+        )
 
 
 # ── Endpoint public : configuration des fonctionnalités de réservation ─────────
