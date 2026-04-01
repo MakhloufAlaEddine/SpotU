@@ -574,6 +574,9 @@ async def pay_booking(booking_id: str, request: Request):
     except Exception:
         raw = {}
     origin_url = raw.get("origin_url", "") if isinstance(raw, dict) else ""
+    # Fallback : utiliser APP_URL si origin_url absent (appels API directs, tests)
+    if not origin_url:
+        origin_url = os.environ.get("APP_URL", "")
 
     async with pool.acquire() as conn:
         bk_row = await conn.fetchrow(
@@ -589,17 +592,13 @@ async def pay_booking(booking_id: str, request: Request):
         if effective_payer != user["user_id"] and user.get("role") != "admin":
             raise HTTPException(403, "Seul le payeur peut initier le paiement")
 
-        bk_payment_mode = bk.get("payment_mode") or "pay_now"
-        # Pour manual_approval + pay_now : autoriser l'autorisation depuis l'état 'requested'
-        is_payment_allowed = (
-            bk["status"] == "awaiting_payment"
-            or (bk["status"] == "requested" and bk_payment_mode == "pay_now")
-        )
-        if not is_payment_allowed:
+        # Le paiement est uniquement autorisé depuis 'awaiting_payment'.
+        # Pour manual_approval, le coach doit d'abord accepter (requested → awaiting_payment).
+        if bk["status"] != "awaiting_payment":
             raise HTTPException(
                 409,
-                f"Le paiement n'est pas disponible pour ce booking "
-                f"(statut : '{bk['status']}', mode : '{bk_payment_mode}')",
+                f"Le paiement n'est disponible que pour les réservations en attente de paiement "
+                f"(statut actuel : '{bk['status']}')",
             )
 
         expires_at = bk.get("expires_at")
@@ -626,7 +625,7 @@ async def pay_booking(booking_id: str, request: Request):
             try:
                 session = await stripe_service.retrieve_checkout_session(existing_cs_id)
                 if session.status == "open":
-                    return {"url": session.url, "session_id": session.id, "reused": True}
+                    return {"url": session.url, "checkout_url": session.url, "session_id": session.id, "reused": True}
             except Exception:
                 pass  # session expirée → en créer une nouvelle
 
@@ -668,7 +667,7 @@ async def pay_booking(booking_id: str, request: Request):
                 booking_id,
             )
 
-    return {"url": session.url, "session_id": session.id}
+    return {"url": session.url, "checkout_url": session.url, "session_id": session.id}
 
 
 

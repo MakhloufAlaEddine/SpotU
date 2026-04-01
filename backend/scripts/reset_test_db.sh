@@ -53,6 +53,15 @@ DATABASE_URL="$DB_URL" python migrations/run_migrations.py
 echo "      ✅ Migrations appliquées"
 
 # ── 4. Seed minimal ────────────────────────────────────────────────────────
+# Charge toutes les variables requises depuis .env.test (JWT_SECRET, STRIPE_API_KEY, etc.)
+ENV_TEST_FILE="$(dirname "$0")/../.env.test"
+if [ -f "$ENV_TEST_FILE" ]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "$ENV_TEST_FILE"
+  set +a
+fi
+
 if [ "$SEED" != "--no-seed" ]; then
   echo "[4/4] Seed de données de test..."
   DATABASE_URL="$DB_URL" python seed.py

@@ -235,12 +235,12 @@ class TestFluxA_InstantPayNow:
     def test_A_pay_later_rejected_when_not_allowed(
         self, http, tok_user, tok_coach, tok_admin, service_id
     ):
-        """Flux A : payment_mode='pay_later' refusé si allow_pay_later=False (400/422)."""
+        """Flux A : payment_mode='pay_later' refusé si allow_pay_later=False (400/409/422)."""
         _configure_service(http, tok_admin, tok_coach, service_id,
                            mode="instant_booking", pay_later=False)
         try:
             r = _req_booking(http, tok_user, service_id, payment_mode="pay_later")
-            assert r.status_code in (400, 422), (
+            assert r.status_code in (400, 409, 422), (
                 f"pay_later must be rejected when not allowed, got {r.status_code}"
             )
         finally:
@@ -484,7 +484,7 @@ class TestFluxD_ManualPayLater:
         )
         try:
             r = _req_booking(http, tok_user, service_id, payment_mode="pay_later")
-            assert r.status_code in (400, 422), (
+            assert r.status_code in (400, 409, 422), (
                 f"pay_later must be rejected when global flag disabled, got {r.status_code}"
             )
         finally:

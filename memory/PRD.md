@@ -359,7 +359,34 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 
 ---
 
-## Migration Supabase — Phase 1 TERMINÉE (2026-04-01)
+## Migration Supabase — Phase 2 TERMINÉE (2026-04-01)
+
+### Stabilisation tests P0 — winek_test
+
+**Bugs corrigés :**
+
+| Fichier | Bug | Correction |
+|---------|-----|-----------|
+| `scripts/reset_test_db.sh` | `JWT_SECRET` non injecté → `seed.py` crashait | Chargement `.env.test` via `source` avant seed |
+| `routes/booking_routes.py` POST `/pay` | `origin_url` vide → Stripe "Not a valid URL" → 500 | Fallback `APP_URL` depuis `os.environ` |
+| `routes/booking_routes.py` POST `/pay` | Paiement autorisé depuis statut `requested` (logique métier incorrecte) | Restriction à `awaiting_payment` uniquement |
+| `routes/booking_routes.py` POST `/pay` | Réponse ne retournait que `url` (manquait `checkout_url`) | Ajout alias `checkout_url` pour compatibilité |
+| `tests/test_booking_flows_v2.py` | Assertions trop strictes (400/422) pour rejets pay_later → backend retourne 409 | Ajout 409 dans les codes acceptés |
+
+**Résultats tests P0 :**
+- `test_booking_expiry_v2.py` : 18/18 ✅ (DB isolée winek_test)
+- `test_booking_flows_v2.py` : 22/22 ✅ + 3 skippés (mode ② non activé)
+- `test_perf01_indexes.py` : 15/15 ✅ (déjà propre)
+- **TOTAL : 55/55 passés, 3 skippés (légitimes)**
+
+**Couverture fonctionnelle P0 :**
+- Worker expiration : transitions statuts, libération slots, notifications, idempotence
+- Flux A/B/C/D : instant_booking + manual_approval × pay_now + pay_later
+- Endpoint `/pay` : autorisé, refusé (403/404/409/410), idempotence Stripe
+- Annulation : slot libéré, success 200
+
+**Isolation confirmée :** zéro écriture dans Supabase pour les tests DB.
+
 
 ### Ce qui a été fait
 - `database.py` : réécriture complète (~85 lignes). Zéro DDL/ALTER TABLE au runtime.
