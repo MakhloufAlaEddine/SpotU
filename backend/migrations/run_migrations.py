@@ -85,6 +85,25 @@ def _build_ssl(dsn: str) -> "ssl.SSLContext | bool":
     return ctx
 
 
+def _preprocess_for_local(content: str) -> str:
+    """
+    Corrige le DO block de migration 001 (exporté par pg_dump) pour les bases locales.
+
+    pg_dump ajoute `set_config('search_path', '', false)` au début du dump.
+    Sur Supabase, la session Supavisor maintient un search_path par défaut.
+    En local (localhost/127.0.0.1), le search_path devient réellement '' et les
+    `ALTER TABLE %I` sans préfixe schéma échouent avec "relation does not exist".
+
+    Cette fonction patche UNIQUEMENT le contenu exécuté — le fichier SQL n'est
+    PAS modifié, donc le checksum stocké dans _migrations correspond toujours
+    au fichier source d'origine.
+    """
+    return content.replace(
+        "format('ALTER TABLE %I DISABLE ROW LEVEL SECURITY', t)",
+        "format('ALTER TABLE public.%I DISABLE ROW LEVEL SECURITY', t)",
+    )
+
+
 async def _connect(dsn: str) -> asyncpg.Connection:
     """Connexion simple (pas de pool) — suffisant pour un outil CLI."""
     return await asyncpg.connect(
@@ -247,7 +266,11 @@ async def cmd_run(
 
     for f in pending:
         content = f.read_text()
-        cs      = _checksum(content)
+        # Patch local: corrige le search_path pour les bases localhost/127.0.0.1
+        _active_dsn = os.environ.get("DATABASE_URL", "")
+        if "127.0.0.1" in _active_dsn or "localhost" in _active_dsn:
+            content = _preprocess_for_local(content)
+        cs      = _checksum(f.read_text())  # checksum sur le FICHIER original, pas le contenu patché
         label   = f"  [{f.name}]"
 
         if dry_run:
@@ -261,8 +284,12 @@ async def cmd_run(
         try:
             async with conn.transaction():
                 await conn.execute(content)
+                # Reset search_path après la migration (set_config('search_path','',false) dans
+                # le dump pg_dump vide le search_path pour la session entière — local uniquement)
+                if "127.0.0.1" in _active_dsn or "localhost" in _active_dsn:
+                    await conn.execute("SET search_path TO public")
                 await conn.execute(
-                    "INSERT INTO _migrations (name, checksum) VALUES ($1, $2)",
+                    "INSERT INTO public._migrations (name, checksum) VALUES ($1, $2)",
                     f.name, cs,
                 )
             print("✅")

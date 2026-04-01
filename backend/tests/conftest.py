@@ -9,6 +9,14 @@ Charge également les variables clés du backend/.env (JWT_SECRET, DATABASE_URL�
 pour que les tests qui importent des modules backend directement puissent le faire
 sans RuntimeError.
 
+Mode test local (TEST_ENV=test) :
+    Charge .env.test EN PRIORITÉ pour DATABASE_URL → pointe sur winek_test local.
+    Les autres variables (JWT_SECRET, STRIPE_API_KEY…) tombent en fallback sur .env.
+    Pour utiliser ce mode :
+        TEST_ENV=test pytest tests/
+        # ou via le script :
+        bash /app/backend/scripts/run_tests.sh
+
 Tous les fichiers de test qui utilisent :
     BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "").rstrip("/")
 ...obtiendront ainsi une URL valide.
@@ -20,6 +28,7 @@ def _load_env_file(path: str, keys: list = None):
     """
     Charge les variables d'un fichier .env dans os.environ.
     Si `keys` est fourni, ne charge que ces variables-là.
+    Utilise setdefault : ne remplace JAMAIS une variable déjà définie.
     """
     try:
         with open(path) as f:
@@ -41,13 +50,21 @@ def pytest_configure(config):
     """Injecte les variables d'environnement nécessaires depuis les fichiers .env."""
     base_dir = os.path.dirname(__file__)
 
-    # 1. frontend/.env → EXPO_PUBLIC_BACKEND_URL
+    # ── Priorité 1 : .env.test si TEST_ENV=test (DATABASE_URL → winek_test local) ──
+    if os.environ.get("TEST_ENV") == "test":
+        _load_env_file(
+            os.path.join(base_dir, "../.env.test"),
+            keys=["DATABASE_URL", "JWT_SECRET", "STRIPE_API_KEY", "APP_URL", "TESTING"],
+        )
+
+    # ── Priorité 2 : frontend/.env → EXPO_PUBLIC_BACKEND_URL ────────────────────
     _load_env_file(
         os.path.join(base_dir, "../../frontend/.env"),
         keys=["EXPO_PUBLIC_BACKEND_URL"],
     )
 
-    # 2. backend/.env → variables nécessaires aux imports de modules backend
+    # ── Priorité 3 : backend/.env → fallback pour toutes les autres variables ────
+    # setdefault : ne remplace pas les valeurs déjà chargées depuis .env.test
     _load_env_file(
         os.path.join(base_dir, "../.env"),
         keys=["JWT_SECRET", "DATABASE_URL", "MONGO_URL", "DB_NAME", "STRIPE_API_KEY", "APP_URL", "TESTING"],
