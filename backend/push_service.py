@@ -1,5 +1,6 @@
 """Service d'envoi de push notifications via Expo Push API."""
 import logging
+import os
 from typing import Optional
 from exponent_server_sdk import (
     DeviceNotRegisteredError,
@@ -11,6 +12,11 @@ from exponent_server_sdk import (
 
 logger = logging.getLogger(__name__)
 
+# ── Protection environnement de test ────────────────────────────────────────
+# Quand TEST_ENV=test, toutes les notifications sont supprimées (pas de push,
+# pas d'insertion en DB) pour éviter de polluer les comptes réels.
+_TEST_MODE = os.environ.get("TEST_ENV") == "test"
+
 
 async def send_push_notification(
     token: str,
@@ -20,9 +26,14 @@ async def send_push_notification(
     sound: str = "default",
     badge: Optional[int] = None,
 ) -> dict:
-    """Envoyer une push notification à un token Expo."""
-    if not token or not token.startswith("ExponentPushToken["):
-        return {"status": "invalid_token"}
+    """Envoyer une push notification à un token Expo.
+
+    En mode TEST_ENV=test, l'envoi Expo est supprimé (pas d'appel réseau vers
+    les téléphones réels), mais les notifications restent stockées en DB.
+    """
+    if _TEST_MODE:
+        logger.debug("TEST_MODE — push Expo supprimé (token=%s)", token[:20] if token else "")
+        return {"status": "test_suppressed"}
 
     try:
         msg = PushMessage(
@@ -49,7 +60,11 @@ async def send_push_notification(
 
 
 async def store_notification(pool, user_id: str, notif_type: str, title: str, body: str, data: Optional[dict] = None):
-    """Stocke une notification en DB et diffuse via WebSocket."""
+    """Stocke une notification en DB et diffuse via WebSocket.
+    
+    En mode TEST_ENV=test, le stockage fonctionne normalement dans winek_test.
+    Seul l'envoi push Expo (send_push_notification) est supprimé.
+    """
     import uuid
     from datetime import datetime, timezone
     from chat_manager import notif_manager
@@ -76,7 +91,11 @@ async def store_notification(pool, user_id: str, notif_type: str, title: str, bo
 async def send_push_to_user(pool, user_id: str, title: str, body: str, data: Optional[dict] = None,
                              store: bool = True, notif_type: str = "info"):
     """Récupère les tokens actifs de l'utilisateur et envoie la notification.
-    Si store=True, stocke aussi la notif en DB."""
+    Si store=True, stocke aussi la notif en DB.
+
+    En mode TEST_ENV=test, le push Expo externe est supprimé via send_push_notification(),
+    mais le stockage DB fonctionne normalement dans winek_test.
+    """
     if store:
         await store_notification(pool, user_id, notif_type, title, body, data)
 

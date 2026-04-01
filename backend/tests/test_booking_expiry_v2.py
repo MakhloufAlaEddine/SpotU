@@ -112,13 +112,23 @@ async def test_entities(pool):
 
     yield {"payer_id": _PAYER_ID, "receiver_id": _RECEIVER_ID, "service_id": _SERVICE_ID}
 
-    # Teardown : suppression des notifications liées à ces users de test
+    # Teardown : suppression dans l'ordre FK correct
     async with pool.acquire() as conn:
+        # 1. Payments liés aux bookings du service (FK sur bookings)
+        await conn.execute(
+            "DELETE FROM payments WHERE booking_id IN (SELECT booking_id FROM bookings WHERE service_id=$1)",
+            _SERVICE_ID,
+        )
+        # 2. Bookings du service (FK sur services)
+        await conn.execute("DELETE FROM bookings WHERE service_id=$1", _SERVICE_ID)
+        # 3. Notifications des users de test
         await conn.execute(
             "DELETE FROM notifications WHERE user_id = ANY($1::text[])",
             [_PAYER_ID, _RECEIVER_ID],
         )
+        # 4. Service (FK sur users)
         await conn.execute("DELETE FROM services WHERE service_id=$1", _SERVICE_ID)
+        # 5. Users de test
         await conn.execute(
             "DELETE FROM users WHERE user_id = ANY($1::text[])",
             [_PAYER_ID, _RECEIVER_ID],
