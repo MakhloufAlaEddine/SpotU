@@ -687,16 +687,21 @@ async def get_saved_services(request: Request):
 @router.get("/services/{service_id}")
 async def get_service(service_id: str, request: Request):
     pool = get_pool()
-    viewer = await get_optional_auth(request, pool)
-    async with pool.acquire() as conn:
-        row = await conn.fetchrow(
-            f"SELECT {SVC_FIELDS} FROM services WHERE service_id = $1", service_id
-        )
-        if not row:
-            raise HTTPException(status_code=404, detail="Service not found")
-        svc = build_service(row_to_dict(row))
+    # Paralléliser auth + SELECT de base (2 roundtrips séquentiels → 1 batch)
+    async def _fetch_row():
+        async with pool.acquire() as c:
+            return await c.fetchrow(
+                f"SELECT {SVC_FIELDS} FROM services WHERE service_id = $1", service_id
+            )
+
+    row, viewer = await asyncio.gather(
+        _fetch_row(),
+        get_optional_auth(request, pool),
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Service not found")
+    svc = build_service(row_to_dict(row))
     is_owner = viewer is not None and (viewer["user_id"] == svc["coach_id"] or viewer.get("role") == "admin")
-    # Enrichissement détail : batch + gather (réutilise _batch_enrich_services_for_owner)
     return await _enrich_service_detail(pool, svc, is_owner)
 
 

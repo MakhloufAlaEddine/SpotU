@@ -502,6 +502,22 @@ Zéro écriture sur Supabase.
 
 ---
 
+## Passe finale — GET /services/{id} (2026-04-01)
+
+### Audit et optimisation
+- Identifié : 2 roundtrips Supabase séquentiels inévitables avant le batch (auth + SELECT base)
+- Fix : `asyncio.gather(auth, base_select)` dans `get_service` → 1 roundtrip économisé
+- Bonus : suppression des `print(f"DEBUG...")` dans `get_optional_auth` (polluaient tous les logs)
+- Fichiers : `service_routes.py`, `auth_utils.py`
+- Gain : **1.48s → 1.14s (-23%)** — payload identique, 126/126 tests passés
+
+### Ce qui reste incompressible
+- Batch 1 (6 requêtes en parallèle) = 1 roundtrip Supabase (~211ms) — déjà optimal
+- pkg_slots (dépend du résultat packages) = 1 roundtrip inévitable (~211ms)
+- Base + auth = 1 roundtrip (parallélisés) = 211ms
+- Overhead réseau/pool : ~300ms
+- **Plancher réel estimé : ~950ms**
+
 ## Phase 3 Performance — Middleware + Cache Frontend (2026-04-01)
 
 ### Backend — Middleware X-Response-Time (`server.py`)

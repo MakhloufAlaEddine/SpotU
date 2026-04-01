@@ -87,20 +87,16 @@ async def get_optional_auth(request: Request, pool):
     """Retourne l'utilisateur connecté ou None si pas de token / token invalide."""
     try:
         token = get_token_from_request(request)
-        print(f"DEBUG get_optional_auth: token={token[:30] if token else None}...")
         if not token:
             return None
         payload = decode_jwt(token)
-        print(f"DEBUG get_optional_auth: payload={payload}")
         async with pool.acquire() as conn:
             row = await conn.fetchrow(
                 f"SELECT {USER_FIELDS} FROM users WHERE user_id = $1",
                 payload["user_id"]
             )
-        print(f"DEBUG get_optional_auth: row={row is not None}")
         return row_to_dict(row) if row else None
-    except Exception as e:
-        print(f"DEBUG get_optional_auth: exception={e}")
+    except Exception:
         return None
 
 
