@@ -5,6 +5,7 @@ from models import TagPointCreate, TagPointUpdate, new_id
 from auth_utils import require_auth, get_token_from_request, decode_jwt
 from database import get_pool, row_to_dict, rows_to_list
 from routes.service_routes import _mask_address
+import asyncio
 import json
 import random
 import math
@@ -367,7 +368,7 @@ async def get_saved_tag_points(request: Request):
 @router.get("/tag-points/{point_id}")
 async def get_tag_point(point_id: str, request: Request):
     pool = get_pool()
-    # Determine current user for owner detection
+    # Determine current user for owner detection (pas de require_auth : endpoint public)
     current_user_id = None
     try:
         token = get_token_from_request(request)
@@ -377,6 +378,7 @@ async def get_tag_point(point_id: str, request: Request):
     except Exception:
         pass
 
+    # ── Requête principale (1 seule, inévitable) ───────────────────────────
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             f"""SELECT {TP_FIELDS}
@@ -387,93 +389,135 @@ async def get_tag_point(point_id: str, request: Request):
         )
         if not row:
             raise HTTPException(status_code=404, detail="TagPoint not found")
-        
-        is_owner = current_user_id is not None and row["user_id"] == current_user_id
-        pt = build_point_response(row_to_dict(row), is_owner=is_owner)
 
-        tag_ids_list = pt.get("tag_ids") or []
-        if isinstance(tag_ids_list, str):
-            try:
-                tag_ids_list = json.loads(tag_ids_list)
-            except (json.JSONDecodeError, TypeError):
-                tag_ids_list = []
-        if tag_ids_list:
-            tags = await conn.fetch(
-                "SELECT tag_id, name, label_fr, label_en, category_id FROM tags WHERE tag_id = ANY($1::text[])",
-                tag_ids_list
-            )
-            pt["tags"] = rows_to_list(tags)
-        else:
-            pt["tags"] = []
+    is_owner = current_user_id is not None and row["user_id"] == current_user_id
+    pt = build_point_response(row_to_dict(row), is_owner=is_owner)
 
-        vote_stats = await conn.fetchrow(
-            "SELECT ROUND(AVG(rating)::numeric, 1) as avg_rating, COUNT(*) as vote_count FROM tag_point_votes WHERE point_id = $1",
-            point_id
+    tag_ids_list = pt.get("tag_ids") or []
+    if isinstance(tag_ids_list, str):
+        try:
+            tag_ids_list = json.loads(tag_ids_list)
+        except (json.JSONDecodeError, TypeError):
+            tag_ids_list = []
+
+    # Prochaine séance : calcul CPU, pas de DB
+    from routes.spot_you_routes import get_next_session_date as _get_next
+    next_date = _get_next(pt)
+    pt["next_session_date"] = next_date.isoformat() if next_date else None
+
+    # Valeurs par défaut (écrasées après les batchs)
+    pt["going_count"] = None
+    pt["is_full"] = False
+    pt["can_participate"] = False
+    pt["is_participant"] = False
+    pt["is_member"] = False
+    pt["is_going"] = False
+    pt["is_saved"] = False
+
+    # ── Helper : une connexion du pool par coroutine (pour asyncio.gather) ─
+    async def _q(coro_fn):
+        async with pool.acquire() as c:
+            return await coro_fn(c)
+
+    # ── Batch 1 : 4 requêtes statiques en parallèle ────────────────────────
+    async def _fetch_tags(c):
+        if not tag_ids_list:
+            return []
+        return await c.fetch(
+            "SELECT tag_id, name, label_fr, label_en, category_id FROM tags "
+            "WHERE tag_id = ANY($1::text[])",
+            tag_ids_list,
         )
-        pt["rating"] = float(vote_stats["avg_rating"]) if vote_stats["avg_rating"] else 0
-        pt["votes"] = vote_stats["vote_count"] or 0
 
-        # Distribution 1-5
-        dist = await conn.fetch(
-            "SELECT rating, COUNT(*) as cnt FROM tag_point_votes WHERE point_id=$1 GROUP BY rating ORDER BY rating",
-            point_id
+    async def _fetch_vote_stats(c):
+        return await c.fetchrow(
+            "SELECT ROUND(AVG(rating)::numeric, 1) as avg_rating, COUNT(*) as vote_count "
+            "FROM tag_point_votes WHERE point_id = $1",
+            point_id,
         )
-        pt["rating_distribution"] = {str(r["rating"]): r["cnt"] for r in dist}
 
-        # Participants — utiliser spot_you_members (propriétaire toujours inclus via seed/création)
-        member_count = await conn.fetchval(
+    async def _fetch_vote_dist(c):
+        return await c.fetch(
+            "SELECT rating, COUNT(*) as cnt FROM tag_point_votes "
+            "WHERE point_id=$1 GROUP BY rating ORDER BY rating",
+            point_id,
+        )
+
+    async def _fetch_member_count(c):
+        return await c.fetchval(
             "SELECT COUNT(*) FROM spot_you_members WHERE spot_you_id=$1", point_id
         ) or 0
-        pt["participants_count"] = int(member_count)
 
-        # Prochaine séance
-        from routes.spot_you_routes import get_next_session_date as _get_next
-        next_date = _get_next(pt)
-        pt["next_session_date"] = next_date.isoformat() if next_date else None
-        # going_count n'est visible que pour les membres
-        pt["going_count"] = None
-        pt["is_full"] = False
-        pt["can_participate"] = False
+    tags_rows, vote_stats, dist_rows, member_count = await asyncio.gather(
+        _q(_fetch_tags),
+        _q(_fetch_vote_stats),
+        _q(_fetch_vote_dist),
+        _q(_fetch_member_count),
+    )
 
-        # Current user participation + save
-        pt["is_participant"] = False
-        pt["is_member"] = False
-        pt["is_going"] = False
-        pt["is_saved"] = False
-        auth_header = request.headers.get("Authorization", "")
-        if auth_header.startswith("Bearer "):
-            try:
-                user = await require_auth(request, pool)
-                # Vérification membre dans spot_you_members
-                pt["is_participant"] = bool(await conn.fetchval(
-                    "SELECT EXISTS(SELECT 1 FROM spot_you_members WHERE spot_you_id=$1 AND user_id=$2)",
-                    point_id, user["user_id"]
+    pt["tags"] = rows_to_list(tags_rows)
+    pt["rating"] = float(vote_stats["avg_rating"]) if vote_stats and vote_stats["avg_rating"] else 0
+    pt["votes"] = int(vote_stats["vote_count"]) if vote_stats else 0
+    pt["rating_distribution"] = {str(r["rating"]): r["cnt"] for r in dist_rows}
+    pt["participants_count"] = int(member_count)
+
+    # ── Batch 2 : 3 requêtes auth-dépendantes en parallèle ─────────────────
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        try:
+            user = await require_auth(request, pool)
+            uid = user["user_id"]
+
+            async def _fetch_is_participant(c):
+                return bool(await c.fetchval(
+                    "SELECT EXISTS(SELECT 1 FROM spot_you_members "
+                    "WHERE spot_you_id=$1 AND user_id=$2)",
+                    point_id, uid,
                 ))
-                pt["is_member"] = pt["is_participant"]
-                pt["can_participate"] = pt["is_member"]
-                if pt["is_member"] and next_date:
-                    going_count = await conn.fetchval(
+
+            async def _fetch_is_going(c):
+                if not next_date:
+                    return False
+                return bool(await c.fetchval(
+                    """SELECT EXISTS(
+                         SELECT 1 FROM spot_you_attendance
+                         WHERE spot_you_id=$1 AND user_id=$2
+                           AND session_date=$3 AND status='going'
+                       )""",
+                    point_id, uid, next_date,
+                ))
+
+            async def _fetch_is_saved(c):
+                return bool(await c.fetchval(
+                    "SELECT EXISTS(SELECT 1 FROM tag_point_saves "
+                    "WHERE point_id=$1 AND user_id=$2)",
+                    point_id, uid,
+                ))
+
+            is_participant, is_going, is_saved = await asyncio.gather(
+                _q(_fetch_is_participant),
+                _q(_fetch_is_going),
+                _q(_fetch_is_saved),
+            )
+            pt["is_participant"] = is_participant
+            pt["is_member"] = is_participant
+            pt["can_participate"] = is_participant
+            pt["is_going"] = is_going
+            pt["is_saved"] = is_saved
+
+            # going_count dépend de is_member → 1 requête conditionnelle après Batch 2
+            if is_participant and next_date:
+                async with pool.acquire() as cg:
+                    going_count = int(await cg.fetchval(
                         """SELECT COUNT(*) FROM spot_you_attendance
                            WHERE spot_you_id=$1 AND session_date=$2 AND status='going'""",
                         point_id, next_date,
-                    ) or 0
-                    pt["going_count"] = int(going_count)
-                    max_p = pt.get("maximum_participants")
-                    pt["is_full"] = max_p is not None and going_count >= max_p
-                if next_date:
-                    pt["is_going"] = bool(await conn.fetchval(
-                        """SELECT EXISTS(
-                             SELECT 1 FROM spot_you_attendance
-                             WHERE spot_you_id=$1 AND user_id=$2 AND session_date=$3 AND status='going'
-                           )""",
-                        point_id, user["user_id"], next_date,
-                    ))
-                pt["is_saved"] = bool(await conn.fetchval(
-                    "SELECT EXISTS(SELECT 1 FROM tag_point_saves WHERE point_id=$1 AND user_id=$2)",
-                    point_id, user["user_id"]
-                ))
-            except Exception:
-                pass
+                    ) or 0)
+                pt["going_count"] = going_count
+                max_p = pt.get("maximum_participants")
+                pt["is_full"] = max_p is not None and going_count >= max_p
+        except Exception:
+            pass
 
     return pt
 

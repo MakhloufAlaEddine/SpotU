@@ -502,6 +502,30 @@ Zéro écriture sur Supabase.
 
 ---
 
+## Phase 1 Optimisation Performance Globale — asyncio.gather (2026-04-01)
+
+### Endpoints refactorisés
+| Endpoint | Avant | Après | Gain |
+|----------|-------|-------|------|
+| `GET /tag-points/{id}` | 2.28s | **1.42s moy** | **-38%** |
+| `GET /conversations` | 1.53s | **1.07s moy** | **-30%** |
+| `GET /services/{id}` | 2.07s | **1.40s moy** | **-32%** |
+
+### Stratégie appliquée
+- Remplacement des boucles N+1 séquentielles par `asyncio.gather` avec connexions pool indépendantes
+- `GET /tag-points/{id}` : 9 requêtes séquentielles → 3 batches parallèles (1 base + 4 statiques || + 3 auth ||)
+- `GET /conversations` : N×4 requêtes → 5 requêtes batch (`_batch_enrich_conversations`)
+- `GET /services/{id}` : 5 requêtes séquentielles → 7 batch (`_batch_enrich_services_for_owner`)
+
+### Fichiers modifiés
+- `backend/routes/tagpoint_routes.py` — Phase 1.2 (`import asyncio` + refactor `get_tag_point`)
+- `backend/routes/chat_routes.py` — Phase 1.1 (`_batch_enrich_conversations`)
+- `backend/routes/service_routes.py` — Phase 1.3 (`_enrich_service_detail`)
+
+### Tests
+- 126/126 passés (mode ② winek_test) — zéro régression
+- Payload JSON identique avant/après (vérifié par diff programmatique)
+
 ## Optimisations performance écran recherche (2026-04-01)
 
 ### Contexte
