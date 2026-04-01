@@ -18,7 +18,7 @@ import uuid
 import json
 
 # URL de l'API
-API_BASE = "https://stepper-vente.preview.emergentagent.com/api"
+API_BASE = "https://buyer-checkout-ui.preview.emergentagent.com/api"
 
 
 def _get_valid_tag_ids():

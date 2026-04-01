@@ -10,7 +10,7 @@ import os
 BASE_URL = (
     os.environ.get("EXPO_PUBLIC_BACKEND_URL") or
     os.environ.get("REACT_APP_BACKEND_URL") or
-    "https://stepper-vente.preview.emergentagent.com"
+    "https://buyer-checkout-ui.preview.emergentagent.com"
 ).rstrip("/")
 
 # Test credentials

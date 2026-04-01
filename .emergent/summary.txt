@@ -1,34 +1,28 @@
-<analysis>Here is the handover summary based on the latest LLM message history:
+<analysis>**original_problem_statement**: Migrate PostgreSQL to Supabase, stop auto-DDL/auto-seed at application boot, implement a production-ready SSL connection, implement liveness/readiness routes, strengthen the SQL migrations runner, and conduct an anti-regression audit on the backend to definitively prove zero runtime DDL is executed. 
+PRODUCT REQUIREMENTS: 1. A robust, version-controlled PostgreSQL database hosted on Supabase. 2. A zero-DDL, zero-seed runtime environment for FastAPI. 3. Secure connection using CA certificates. 4. Maintain existing Rental/Sale logic without regressions. 5. Implement Vente (Sale) product types and Buyer-Side UI logic.
 
-original_problem_statement: The user requested a series of UI/UX bug fixes, workflow optimizations (SpotYou modal selection, validation hardening, deletion of legacy columns like ), and most recently, a massive architectural update: integrating Vente (Sale) products into the existing product creation stepper and database without breaking the highly-validated Rental (Location) logic.
-PRODUCT REQUIREMENTS: Deliver a robust product creation flow supporting both Rental and Sale models using a shared architecture. Implement strict backend and frontend validation per product type. Maintain a stable Expo environment.
-
-**User's preferred language**: French (FR). (You MUST automatically detect the user's primary language from their messages inside the <trajectory> tag and INSTRUCT next agent to respond in **French** only).
+**User's preferred language**: French (FR). (INSTRUCTION: The next agent MUST respond to the user in **French** ONLY).
 
 **what currently exists?** 
-A React Native (Expo Web) + FastAPI + PostgreSQL full-stack app. The product creation flow has been heavily refined: it uses a dynamic stepper, implements a custom Modal for selecting nearby SpotYous (using Haversine distance), strictly enforces pricing validations, completely blocks saving to draft after a product is submitted, and maintains a clean 52-column PostgreSQL table () after dropping legacy columns. 
+A React Native (Expo Web) + FastAPI + PostgreSQL full-stack app. The Phase 1 database migration to Supabase is complete, running via Supavisor session mode (port 5432) using an explicit SSL CA certificate (). The application has a strict zero-DDL/zero-seed runtime environment. A checksum-validated SQL migration system is in place. Health-check endpoints ( and ) are active. The anti-regression test suite successfully proves no DDL runs at boot, though one legacy test () fails as expected because it still searches for obsolete DDL strings in the code.
 
 **Last working item**: 
-    - Last item agent was working: Preparing to implement the Vente (Sale) product type. The agent received the comprehensive requirements from the user (Message 321), formulated a step-by-step plan, and viewed the necessary files (, , etc.), but ran out of context before writing any code or modifying the database.
-    - Status: NOT STARTED (Planning phase completed, execution pending).
-    - Agent Testing Done: N
-    - Which testing method agent to use? both (Frontend for dynamic stepper rendering & conditional validation; Backend for API sale creation and DB integrity).
+    - Last item agent was working: Running the final anti-regression audit test suite, verifying health endpoints, and drafting the final Audit Report for the user via the  tool to close the Supabase migration phase. 
+    - Status: USER VERIFICATION PENDING
+    - Agent Testing Done: Y
+    - Which testing method agent to use? manual testing by python -m pytest / bash
     - User Testing Done: N
 
 **All Pending/In progress Issue list**: 
-  Issue 1: 🔴 [P0] Implement Sale (Vente) Product Type Architecture
-     - Attempted fixes: N/A - Planning just finished. No code changes made yet.
+  Issue 1: 🔴 [P0] Delete or Refactor Obsolete Test ()
+     - Attempted fixes: Agent verified that the test fails (2 failed assertions) because it expects to find  strings inside .
      - Next debug checklist: 
-        1. **Database**: Run 
-        2. **Backend Validation** (): Add conditional validation for  (requires , , , and ). Ignore  and SpotYou validations for sales. Ensure the new columns are included in the / queries.
-        3. **Frontend Context** (): Update  to branch logic based on . Include the new sale-specific fields.
-        4. **Frontend Step 1** (): Enable the Vente option.
-        5. **Dynamic Stepper** (): Conditionally render the steps. For sales, use a condensed 4-5 step flow (Classification -> Infos -> Photos -> Prix & Logistique). Hide advanced rental steps like sessions, spotyous, and deposits. DO NOT create a second stepper.
-        6. **Product Card UI**: Adapt the buyer-side display to show a flat price and an Acheter button for sales.
-     - Why fix this issue and what will be achieved with the fix? Expands the marketplace capabilities to support purchasing items outright, fulfilling a core business requirement while reusing the existing highly-polished stepper architecture.
+        1. Open .
+        2. Delete the file OR refactor it to run against the live DB/migration files instead of parsing  text.
+     - Why fix this issue and what will be achieved with the fix? Achieves a 100% green CI/CD test suite and removes legacy logic checks.
      - Status: NOT STARTED
      - Is recurring issue? N
-     - Should Test frontend/backend/both after fix? both
+     - Should Test frontend/backend/both after fix? backend
      - Blocked on other issue: None
 
 **In progress Task List**: 
@@ -44,83 +38,171 @@ A React Native (Expo Web) + FastAPI + PostgreSQL full-stack app. The product cre
     - 🟢 (P3) Refactor  into smaller components.
 
 **Completed work in this session**
-- Localized keyboard scroll on the Description field in  (DONE)
-- Deleted dead code:  and  (DONE)
-- Reordered steps to put Location before Pricing to feed coordinates to the SpotYou fetcher (DONE)
-- SpotYou Selection Modal: Added 20km Haversine filtering, distance display, sorted owner's spots first, and migrated to a modal selector with compact chips (DONE)
-- Fixed text shrinkage bug on SpotYou chips using  (DONE)
-- Fixed  context validation to require *all* active pricing modes to have valid prices (DONE)
-- Fixed  data loss during edit mode by mapping it in  (DONE)
-- Completely deleted , , , and  from Frontend, Backend APIs, and PostgreSQL DB (DONE)
-- Prevented users from bypassing draft logic: enforced UI block and Backend 403 HTTP Exception if trying to draft an already submitted product (DONE)
+- Ran ============================= test session starts ==============================
+platform linux -- Python 3.11.15, pytest-9.0.2, pluggy-1.6.0
+rootdir: /app/backend
+configfile: pytest.ini
+plugins: anyio-4.12.1, base-url-2.1.0, playwright-0.7.2, asyncio-1.3.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=module, asyncio_default_test_loop_scope=module
+collected 9 items
+
+../backend/tests/test_no_ddl_at_boot.py .........                        [100%]
+
+============================== 9 passed in 0.10s =============================== (9/9 tests passed, confirming zero DDL at boot) (DONE)
+- Ran ============================= test session starts ==============================
+platform linux -- Python 3.11.15, pytest-9.0.2, pluggy-1.6.0
+rootdir: /app/frontend
+plugins: anyio-4.12.1, base-url-2.1.0, playwright-0.7.2, asyncio-1.3.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 0 items
+
+============================ no tests ran in 0.00s ============================= to confirm it fails as expected (DONE)
+- Verified  and  endpoints with , both returning 200 OK JSON responses (DONE)
+- Drafted the final Audit Report and submitted it to the user for approval via  (DONE)
 
 **Earlier issues found/mentioned but not fixed**
-   - *None.*
+   *None*
 
 **Known issue recurrence from previous fork**
-  - Issue recurrence in previous fork:  (Ngrok 5000 session limit exceeded).
+  - Issue recurrence in previous fork:  and  (Ngrok 5000 session limit exceeded).
   - Recurrence count: Very High
-  - Status: IN PROGRESS (If Expo native fails to connect, instruct the user to test via the direct web URL  in their browser, which bypasses Ngrok).
+  - Status: IN PROGRESS (This is a persistent infrastructure limitation. Always instruct the user to use the external web preview URL  to test instead of Expo Go).
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-- **Dynamic Stepper Configuration**: The  maps an array of steps. For the new Sale feature, you must conditionally filter this array so Sale products skip rental-specific steps (advanced pricing, spotyou matching, deposits) without duplicating the parent component.
+- **Supabase Connectivity**: Direct DB connections are blocked. The app relies strictly on the **Supavisor Session Mode Pooler** (). 
+- **SSL Certificates**: The connection enforces  using a custom SSL context pointing to  ().
+- **Zero DDL Rule**: FastAPI MUST NOT execute  or auto-seed. All schema changes use .
 
 **key DB schema**
-  - : Currently has 52 clean columns. **Next step**: 
+  - : Strict tracking table .
+  - : Free of legacy columns. Support for  = 'sale'.
 
 **changes in tech stack**
-  - *None.*
+  - Remote Supabase PostgreSQL (via Supavisor pooler) instead of local PostgreSQL.
 
 **All files of reference** 
-  -  (Must update for Sale logic)
-  -  (Target for dynamic step filtering)
-  - 
-  - 
+  -  (Tested)
+  -  (Needs fix/deletion)
+  -  (Confirmed exists)
+  -  (Probes working)
 
 **Areas that need refactoring**: 
-  - 
+  -  (Obsolete, parsing text instead of DB state).
 
 **key api endpoints**
-  -  (Product creation & update)
-  -  (Retrieve product for edit mode)
+  - 
+  - 
 
 **Critical Info for New Agent** 
 - **Language**: You MUST respond to the user in **French**.
-- **Execution State**: The user provided a massive prompt for integrating Sale products (Message 321). The previous agent formulated a plan but executed zero code changes. You must start the implementation of this feature from scratch.
-- **Strict Constraints**: Do NOT duplicate the stepper. Do NOT break existing rental functionality. Ensure strict separation of concerns internally based on  vs .
-- **Database Syntax**: Use PostgreSQL  bindings (, ) for all database operations. 
+- **Pending Ask Human**: The previous agent just sent an  request to the user with the final audit report. Read the user's incoming response carefully.
+- **Immediate Next Step**: Address the user's response, clean up  so the test suite is 100% green, and transition into Phase P1 (Buyer-Side Reservation/Purchase UI).
+- **Database Rules**: Never introduce runtime DDL.
 
 **documents and test reports created in this job** 
-  -  (Updated in early messages)
+  - 
+  - 
+  - 
 
 **Last 10 User Messages and any pending HUMAN messages** 
-  1. **User**: Ici bloquer le passage au step suivant si les prix ne sont pas saisis...
-  2. **User**: Le prix de la facturation pas seance n’est pas enregistré
-  3. **User**: Supprimer cette info [max duration] j’en veux plus Font back et bdd
-  4. **User**: Je ne vois pas les données en mode edit
-  5. **User**: Redesign le bouton soumettre pour validation Utiliser le même design du bouton partout...
-  6. **User**: Ajouter un produit au brouillon n’est possible qu’en mode creation...
-  7. **User**: Faire une double vérification back et front au cas ou je veux ajouter au brouillon...
-  8. **User**: donne moi la structure de la bdd qui gere toutes les produits de location
-  9. **User**: ## 🎯 OBJECTIF Ajouter la gestion des **produits à la vente** dans l’application SpotU... (PENDING: Massive instruction block to add 'Sale' products without breaking 'Rental'. Execution required).
+  1. **User (Message 2)**: Sent the handoff summary and context, demanding a final audit report on the zero-DDL anti-regression checks.
+  2. **Assistant**: Viewed test files and server files.
+  3. **Assistant**: Ran ============================= test session starts ==============================
+platform linux -- Python 3.11.15, pytest-9.0.2, pluggy-1.6.0
+rootdir: /app/backend
+configfile: pytest.ini
+plugins: anyio-4.12.1, base-url-2.1.0, playwright-0.7.2, asyncio-1.3.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=module, asyncio_default_test_loop_scope=module
+collected 9 items
+
+../backend/tests/test_no_ddl_at_boot.py .........                        [100%]
+
+============================== 9 passed in 0.10s =============================== (passed).
+  4. **Assistant**: Ran ============================= test session starts ==============================
+platform linux -- Python 3.11.15, pytest-9.0.2, pluggy-1.6.0
+rootdir: /app/frontend
+plugins: anyio-4.12.1, base-url-2.1.0, playwright-0.7.2, asyncio-1.3.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 0 items
+
+============================ no tests ran in 0.00s ============================= (failed).
+  5. **Assistant**: Ran  against liveness/readiness probes (passed).
+  6. **Assistant**: Sent  to provide the final report and plan to the user.
+  - **PENDING HUMAN MESSAGE**: The user is currently responding to the  report. Wait for and carefully read their response.
 
 **Project Health Check:**
-  - Code: Stable.
-  - Infrastructure: Broken (Ngrok shared tier frequently hits 5000 session limits).
+  - Code: Backend stable. Legacy test  is broken and needs cleanup.
+  - Infrastructure: Ngrok tunnel frequently errors out (ERR_NGROK).
 
 **3rd Party Integrations** 
   - Cloudflare R2 (Image Uploads)
   - Stripe (Payments) — requires User API Key
   - Google Places API
+  - Supabase (PostgreSQL Hosting)
 
 **Testing status**
-  - Testing agent used after significant changes: NO (relied on curl and self-testing)
+  - Testing agent used after significant changes: NO (pytest executed manually via bash).
   - Troubleshoot agent used after agent stuck in loop: NO
-  - Test files created: None
-  - Known regressions: None.
+  - Test files created: None newly created in this exact sub-session, but ran existing ones.
+  - Known regressions: 
+
+**Credentials to test flow:**
+  - Check .
 
 **What agent forgot to execute**
-  - The agent read the user's comprehensive plan for the Vente (Sale) feature (Message 321) and viewed the relevant files, but context ended before any database queries or code changes were executed. The new agent must start this feature implementation from scratch based on the exact prompt in Message 321.</analysis>
+  - Nothing was forgotten; the agent correctly paused execution by sending an  message and is currently waiting for the user's approval to proceed. The next agent must handle the user's reply.
+
+**Debugging checklist for current issue**
+    Issue: Obsolete test  fails.
+
+    Backend files to check:
+    -  (Delete this file or completely refactor it to connect to the DB using  to verify indexes, rather than parsing  text).
+   
+    ============================= test session starts ==============================
+platform linux -- Python 3.11.15, pytest-9.0.2, pluggy-1.6.0
+rootdir: /app/backend
+configfile: pytest.ini
+plugins: anyio-4.12.1, base-url-2.1.0, playwright-0.7.2, asyncio-1.3.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=module, asyncio_default_test_loop_scope=module
+collected 17 items
+
+../backend/tests/test_perf01_indexes.py ...............FF                [100%]
+
+=================================== FAILURES ===================================
+______ TestPERF01_StaticAnalysis.test_migration_idempotente_if_not_exists ______
+
+self = <test_perf01_indexes.TestPERF01_StaticAnalysis object at 0xfa74f45e76d0>
+
+    def test_migration_idempotente_if_not_exists(self):
+        """Toutes les créations d'index PERF-01 utilisent IF NOT EXISTS."""
+        src = self._src()
+        for idx_name, _ in EXPECTED_INDEXES:
+>           assert f"CREATE INDEX IF NOT EXISTS {idx_name}" in src, (
+                f"FAIL: 'CREATE INDEX IF NOT EXISTS {idx_name}' absent de database.py"
+            )
+E           AssertionError: FAIL: 'CREATE INDEX IF NOT EXISTS idx_bookings_user_id' absent de database.py
+E           assert 'CREATE INDEX IF NOT EXISTS idx_bookings_user_id' in '"""\ndatabase.py — Connexion asyncpg pour SpotU\n\nStratégie de connexion :\n  - Local (127.0.0.1 / localhost) : pas ...ync def close_db():\n    global pool\n    if pool:\n        await pool.close()\n\n\ndef get_pool():\n    return pool\n'
+
+../backend/tests/test_perf01_indexes.py:168: AssertionError
+__________ TestPERF01_StaticAnalysis.test_annotation_perf01_presente ___________
+
+self = <test_perf01_indexes.TestPERF01_StaticAnalysis object at 0xfa74f45e7dd0>
+
+    def test_annotation_perf01_presente(self):
+        """database.py doit contenir le commentaire PERF-01."""
+>       assert "PERF-01" in self._src(), (
+            "FAIL: commentaire PERF-01 absent de database.py"
+        )
+E       AssertionError: FAIL: commentaire PERF-01 absent de database.py
+E       assert 'PERF-01' in '"""\ndatabase.py — Connexion asyncpg pour SpotU\n\nStratégie de connexion :\n  - Local (127.0.0.1 / localhost) : pas ...ync def close_db():\n    global pool\n    if pool:\n        await pool.close()\n\n\ndef get_pool():\n    return pool\n'
+E        +  where '"""\ndatabase.py — Connexion asyncpg pour SpotU\n\nStratégie de connexion :\n  - Local (127.0.0.1 / localhost) : pas ...ync def close_db():\n    global pool\n    if pool:\n        await pool.close()\n\n\ndef get_pool():\n    return pool\n' = _src()
+E        +    where _src = <test_perf01_indexes.TestPERF01_StaticAnalysis object at 0xfa74f45e7dd0>._src
+
+../backend/tests/test_perf01_indexes.py:174: AssertionError
+=========================== short test summary info ============================
+FAILED ../backend/tests/test_perf01_indexes.py::TestPERF01_StaticAnalysis::test_migration_idempotente_if_not_exists
+FAILED ../backend/tests/test_perf01_indexes.py::TestPERF01_StaticAnalysis::test_annotation_perf01_presente
+======================== 2 failed, 15 passed in 16.42s =========================</analysis>

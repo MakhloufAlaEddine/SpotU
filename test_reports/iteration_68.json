@@ -40,7 +40,7 @@
   "retest_needed": false,
   "main_agent_can_self_test": true,
   "should_main_agent_self_test": false,
-  "context_for_next_testing_agent": "Iteration 68: tous les tests E2E passent (68/68). Nouveaux fichiers : test_11_spotyou_rules.py (10 tests règles métier SpotYou) et test_12_spotme.py (13 tests SpotMe/Planning/Profile). SpotYous clé : pt_demo009 (coach owner, récurrent), pt_demo013 (user est membre, récurrent), pt_demo014 (user est membre, récurrent). APP_URL = EXPO_PUBLIC_BACKEND_URL env var = https://stepper-vente.preview.emergentagent.com. Commande : cd /app/frontend/e2e && EXPO_PUBLIC_BACKEND_URL=https://stepper-vente.preview.emergentagent.com python -m pytest -v.",
+  "context_for_next_testing_agent": "Iteration 68: tous les tests E2E passent (68/68). Nouveaux fichiers : test_11_spotyou_rules.py (10 tests règles métier SpotYou) et test_12_spotme.py (13 tests SpotMe/Planning/Profile). SpotYous clé : pt_demo009 (coach owner, récurrent), pt_demo013 (user est membre, récurrent), pt_demo014 (user est membre, récurrent). APP_URL = EXPO_PUBLIC_BACKEND_URL env var = https://buyer-checkout-ui.preview.emergentagent.com. Commande : cd /app/frontend/e2e && EXPO_PUBLIC_BACKEND_URL=https://buyer-checkout-ui.preview.emergentagent.com python -m pytest -v.",
   "test_results_detail": {
     "test_01_auth.py": "6/6 PASS — login UI, wrong password, empty fields, register fields, logout",
     "test_02_home.py": "5/5 PASS — home loads, spotyous visibles, search btn, hero-card click, recent-row click",

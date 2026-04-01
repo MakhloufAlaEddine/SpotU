@@ -16,7 +16,7 @@
 - Rôle: admin (validation des produits)
 
 ## URL de prévisualisation
-https://stepper-vente.preview.emergentagent.com
+https://buyer-checkout-ui.preview.emergentagent.com
 
 ## Base de données
 - Fournisseur: Supabase PostgreSQL (Supavisor session mode)

@@ -7,7 +7,7 @@ import requests
 import os
 import json
 
-BASE_URL = os.environ.get('EXPO_PUBLIC_BACKEND_URL', 'https://stepper-vente.preview.emergentagent.com')
+BASE_URL = os.environ.get('EXPO_PUBLIC_BACKEND_URL', 'https://buyer-checkout-ui.preview.emergentagent.com')
 
 @pytest.fixture
 def coach_token():
