@@ -621,15 +621,22 @@ async def seed_initial_data():
                 #      seller_id, tag_ids, image_url,
                 #      condition_label, available_quantity, pickup_type,
                 #      pricing_modes, price_per_day, city, lat, lng)
+                img_url = p[8]
                 await conn.execute("""
                     INSERT INTO marketplace_products
                         (product_id, title, description, price, product_type,
-                         seller_type, seller_id, tag_ids, image_url, in_stock,
-                         status, category,
+                         seller_type, seller_id, tag_ids,
+                         image_url, cover_image_url, image_urls,
+                         in_stock, status, category,
                          condition_label, available_quantity, pickup_type,
-                         pricing_modes, price_per_day, city, lat, lng)
-                    VALUES ($1,$2,$3,$4,$5,'creator',$6,$7,$8,TRUE,'active',$9,
-                            $10,$11,$12,$13,$14,$15,$16,$17)
+                         pricing_modes, price_per_day,
+                         city, lat, lng, location_privacy)
+                    VALUES ($1,$2,$3,$4,$5,'creator',$6,$7,
+                            $8,$8,to_jsonb(ARRAY[$8::text]),
+                            TRUE,'active',$9,
+                            $10,$11,$12,
+                            $13,$14,
+                            $15,$16,$17,'100m')
                     ON CONFLICT (product_id) DO UPDATE SET
                         title=EXCLUDED.title,
                         description=EXCLUDED.description,
@@ -638,6 +645,8 @@ async def seed_initial_data():
                         seller_id=EXCLUDED.seller_id,
                         tag_ids=EXCLUDED.tag_ids,
                         image_url=EXCLUDED.image_url,
+                        cover_image_url=EXCLUDED.cover_image_url,
+                        image_urls=EXCLUDED.image_urls,
                         category=EXCLUDED.category,
                         condition_label=EXCLUDED.condition_label,
                         available_quantity=EXCLUDED.available_quantity,
@@ -646,8 +655,9 @@ async def seed_initial_data():
                         price_per_day=EXCLUDED.price_per_day,
                         city=EXCLUDED.city,
                         lat=EXCLUDED.lat,
-                        lng=EXCLUDED.lng
-                """, p[0], p[1], p[2], p[3], p[4], p[6], p[7], p[8], p[5],
+                        lng=EXCLUDED.lng,
+                        location_privacy=EXCLUDED.location_privacy
+                """, p[0], p[1], p[2], p[3], p[4], p[6], p[7], img_url, p[5],
                      p[9], int(p[10]), p[11], p[12], p[13], p[14], p[15], p[16])
 
             logger.info("Seeded 5 demo marketplace products")
