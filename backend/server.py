@@ -35,7 +35,32 @@ from routes.admin_product_routes import router as admin_product_router
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
+import time
+
 app = FastAPI(title="SpotU API", version="1.0.0")
+
+
+# ── Middleware X-Response-Time ─────────────────────────────────────────────────
+@app.middleware("http")
+async def add_response_time_header(request: Request, call_next):
+    """
+    Mesure et expose le temps de traitement de chaque requête HTTP.
+    Header ajouté : X-Response-Time (ms, entier)
+    Log structuré  : METHOD path → status  XXXms
+    Impact runtime : ~1µs par requête (time.perf_counter uniquement).
+    """
+    t0 = time.perf_counter()
+    response = await call_next(request)
+    elapsed_ms = round((time.perf_counter() - t0) * 1000)
+    response.headers["X-Response-Time"] = str(elapsed_ms)
+    logger.info(
+        "%s %s → %s  %dms",
+        request.method,
+        request.url.path,
+        response.status_code,
+        elapsed_ms,
+    )
+    return response
 
 # ── [SEC-03] Rate Limiting — slowapi ─────────────────────────────────────────
 from limiter import limiter

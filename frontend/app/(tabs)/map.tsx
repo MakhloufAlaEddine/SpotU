@@ -13,7 +13,7 @@ import { useLocation } from '../../context/LocationContext';
 import { useAuth } from '../../context/AuthContext';
 import { haversineDistance, formatDistance } from '../../utils/distance';
 import { TagImage, DOMAIN_COLORS, DOMAIN_ICONS } from '../../components/TagImage';
-import { buildCacheKey, cacheGet, cacheSet, isFresh, cacheAgeMinutes, SCHEMA_VERSION } from '../../lib/cache';
+import { buildCacheKey, cacheGet, cacheSet, isFresh, cacheAgeMinutes, getTtl, SCHEMA_VERSION } from '../../lib/cache';
 import { StaleBanner, ErrorNoData } from '../../components/OfflineBanner';
 import { registerScreenRefresh } from '../../hooks/useNetwork';
 import { useGuardedRouter } from '../../hooks/useGuardedRouter';
@@ -437,7 +437,7 @@ export default function HomeScreen() {
     const userId = user?.user_id;
 
     const feedKey = buildCacheKey({ path: '/home/feed', params: { lat: latStr, lng: lngStr }, userId, schemaVersion: SCHEMA_VERSION });
-    const feedTtl = 5; // minutes
+    const feedTtl = getTtl('/home/feed') ?? 5 * 60_000; // ms
 
     // ── 1. Cache immédiat sur premier chargement ──────────────────────────────
     if (!isRefresh) {
@@ -518,11 +518,31 @@ export default function HomeScreen() {
   const fetchNearestSector = async () => {
     setNearestLoading(true);
     try {
+      // Cache clé basée sur coordonnées arrondies à 2 décimales (~1 km de précision)
+      const latR = location.lat.toFixed(2);
+      const lngR = location.lng.toFixed(2);
+      const nearKey = buildCacheKey({
+        path: '/home/nearest-sector',
+        params: { lat: latR, lng: lngR },
+        schemaVersion: SCHEMA_VERSION,
+      });
+      const nearTtl = getTtl('/home/nearest-sector') ?? 10 * 60_000;
+
+      // ── Lire le cache d'abord ────────────────────────────────────────────
+      const cached = await cacheGet<any>(nearKey);
+      if (cached && isFresh(cached)) {
+        const city_name = await getCityFromCoords(cached.data.lat, cached.data.lng);
+        setNearestSector({ ...cached.data, city_name });
+        setNearestLoading(false);
+        return;
+      }
+
+      // ── Fetch réseau ─────────────────────────────────────────────────────
       const data = await api.get(
         `/home/nearest-sector?lat=${location.lat}&lng=${location.lng}`
       );
       if (data && data.lat !== undefined) {
-        // Utiliser getCityFromCoords pour avoir le vrai nom de ville (pas de code Plus)
+        await cacheSet(nearKey, data, nearTtl);
         const city_name = await getCityFromCoords(data.lat, data.lng);
         setNearestSector({ ...data, city_name });
       }

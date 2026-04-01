@@ -15,6 +15,10 @@ export const SCHEMA_VERSION = 1;
 
 // ── TTL par préfixe d'endpoint (ms) ──────────────────────────────────────────
 const CACHE_TTL_MAP: Record<string, number> = {
+  '/home/feed':              5 * 60_000,
+  '/home/nearest-sector':    10 * 60_000,
+  '/marketplace/products':   5 * 60_000,
+  '/tags/categories':        10 * 60_000,
   '/tag-points/mine':        5 * 60_000,
   '/tag-points/saved':       10 * 60_000,
   '/tag-points':             10 * 60_000,

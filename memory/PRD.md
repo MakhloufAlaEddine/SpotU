@@ -502,6 +502,20 @@ Zéro écriture sur Supabase.
 
 ---
 
+## Phase 3 Performance — Middleware + Cache Frontend (2026-04-01)
+
+### Backend — Middleware X-Response-Time (`server.py`)
+- Middleware `add_response_time_header` ajouté (impact ~1µs/req)
+- Header `X-Response-Time` (ms entier) sur toutes les réponses
+- Log structuré : `METHOD path → status  XXXms` via `logging.INFO`
+
+### Frontend — Cache semi-statiques (`map.tsx`, `cache.ts`)
+1. **Bug corrigé** : `feedTtl = 5` (ms!) → `getTtl('/home/feed') ?? 5 * 60_000` — le cache feed était toujours invalide
+2. **Cache ajouté** : `/home/nearest-sector` dans `fetchNearestSector` (TTL 10 min, clé = coords arrondies à 0.01°)
+3. **TTLs ajoutés** dans `CACHE_TTL_MAP` : `/home/feed` (5 min), `/home/nearest-sector` (10 min), `/marketplace/products` (5 min)
+
+### Tests : 126/126 passés — zéro régression
+
 ## Phase 2 Optimisation Performance Globale — Batch N+1 (2026-04-01)
 
 ### Endpoints refactorisés
