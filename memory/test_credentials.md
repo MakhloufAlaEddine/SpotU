@@ -40,7 +40,7 @@ bash /app/backend/scripts/start_test_server.sh --stop
 - Rôle: admin (validation des produits)
 
 ## URL de prévisualisation
-https://location-payload-fix.preview.emergentagent.com
+https://data-refresh-9.preview.emergentagent.com
 
 ## Base de données
 - Fournisseur: Supabase PostgreSQL (Supavisor session mode)

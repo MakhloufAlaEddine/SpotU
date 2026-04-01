@@ -515,7 +515,7 @@ Zéro écriture sur Supabase.
 ## Nettoyage pollution données de test Supabase prod (2026-04-01)
 
 ### Cause identifiée
-- `test_spotyou_participation.py` + `test_winek_iter9.py` et 12 autres fichiers avaient une **URL de production hardcodée** (`"https://location-payload-fix.preview.emergentagent.com/api"`) comme constante de module, **bypassing entièrement** le mécanisme d'isolation de `conftest.py`
+- `test_spotyou_participation.py` + `test_winek_iter9.py` et 12 autres fichiers avaient une **URL de production hardcodée** (`"https://data-refresh-9.preview.emergentagent.com/api"`) comme constante de module, **bypassing entièrement** le mécanisme d'isolation de `conftest.py`
 - Premier `run_tests.sh` du fork a déclenché ces tests → 35 SpotYou de test créés dans Supabase prod
 
 ### Corrections appliquées

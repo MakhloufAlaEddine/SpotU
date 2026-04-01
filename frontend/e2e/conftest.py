@@ -7,7 +7,7 @@ import os
 from playwright.sync_api import Page
 
 # ─── Configuration ─────────────────────────────────────────────────────────────
-APP_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://location-payload-fix.preview.emergentagent.com")
+APP_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://data-refresh-9.preview.emergentagent.com")
 API_URL = APP_URL
 
 CREDENTIALS = {

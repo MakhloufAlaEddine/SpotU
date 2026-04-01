@@ -8,7 +8,7 @@ import pytest
 import requests
 from PIL import Image
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://location-payload-fix.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://data-refresh-9.preview.emergentagent.com").rstrip("/")
 
 # ─── Fixtures ─────────────────────────────────────────────────────────────────
 

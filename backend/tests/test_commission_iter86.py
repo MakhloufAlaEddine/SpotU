@@ -6,7 +6,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://location-payload-fix.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://data-refresh-9.preview.emergentagent.com').rstrip('/')
 
 class TestCommissionEndpoint:
     """Tests for GET /api/config/commission public endpoint"""
