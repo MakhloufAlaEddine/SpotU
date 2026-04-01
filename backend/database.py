@@ -25,6 +25,7 @@ import asyncpg
 import os
 import logging
 import json as _json
+import ssl
 from decimal import Decimal
 from typing import Optional
 
@@ -72,7 +73,9 @@ async def connect_to_db():
     Crée le pool asyncpg.
 
     - Connexion locale (127.0.0.1 / localhost) : ssl=False
-    - Connexion distante (Supabase, etc.)       : ssl='require', statement_cache_size=0
+    - Connexion distante (Supabase Supavisor) : ssl_ctx sans vérification de cert
+      → ssl='require' échoue en Kubernetes (cert Supabase non vérifiable depuis GCP)
+      → ssl_ctx (CERT_NONE) = chiffrement actif, verification désactivée = OK en dev
 
     Aucune DDL ni seed n'est exécuté ici.
     Le schéma est géré exclusivement via /migrations/*.sql (run_migrations.py).
@@ -83,9 +86,13 @@ async def connect_to_db():
         raise RuntimeError("DATABASE_URL manquant dans l'environnement (.env)")
 
     _is_local = "127.0.0.1" in database_url or "localhost" in database_url
-    _ssl = False if _is_local else 'require'
-    # statement_cache_size=0 requis pour pgbouncer / Supavisor (session + transaction mode)
-    _stmt_cache = 0
+    if _is_local:
+        _ssl: ssl.SSLContext | bool = False
+    else:
+        # Supabase Supavisor : cert non vérifiable depuis cet hébergeur
+        _ssl = ssl.create_default_context()
+        _ssl.check_hostname = False
+        _ssl.verify_mode = ssl.CERT_NONE
 
     import asyncio
     for attempt in range(15):
@@ -96,12 +103,12 @@ async def connect_to_db():
                 max_size=10,
                 init=_init_connection,
                 ssl=_ssl,
-                statement_cache_size=_stmt_cache,
+                statement_cache_size=0,  # Requis pour pgbouncer / Supavisor
                 timeout=15,
                 command_timeout=30,
             )
             target = database_url.split("@")[-1] if "@" in database_url else database_url
-            logger.info("DB pool créé — %s (ssl=%s)", target, _ssl)
+            logger.info("DB pool créé — %s (ssl=%s)", target, "ctx" if not _is_local else "False")
             break
         except Exception as e:
             if attempt == 14:

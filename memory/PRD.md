@@ -335,24 +335,30 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 
 ---
 
-## Migration Supabase — Phase 1 (2026-04-01)
+## Migration Supabase — Phase 1 TERMINÉE (2026-04-01)
 
 ### Ce qui a été fait
-- `database.py` : réécriture complète (~80 lignes). Zéro DDL/ALTER TABLE au runtime. Pool asyncpg avec auto-détection SSL (local=False, Supabase=require) et `statement_cache_size=0` (Supavisor-compatible).
-- `server.py` : `seed_initial_data()` retiré du hook `startup`. Démarrage propre = pool + workers uniquement.
-- `seed.py` : guard `if __name__ == '__main__':` ajouté. Jamais appelé automatiquement.
-- `migrations/001_initial_schema.sql` : ligne `\unrestrict` parasite supprimée.
-- `migrations/003_drop_legacy_columns.sql` : créé et appliqué localement (brand_model, max_duration_days, rental_duration_unit, rental_duration_qty).
-- `migrations/run_migrations.py` : SSL auto-detect + fix `pool.terminate()` (résout le hang asyncpg).
-- `_migrations` : table créée, 3 migrations enregistrées (001, 002, 003).
-- `.env` : URL Supavisor documentée en commentaire (`DATABASE_URL` local toujours actif).
-- Export données : `/tmp/data_export_v2.sql` (schéma propre, prêt pour import Supabase).
-
-### Blocage restant
-- **IP allowlist Supabase** : l'IP du pod `34.170.12.145` doit être autorisée dans Supabase → Settings → Database → Connection pooling → Allowed IPs.
-- Une fois autorisée : appliquer les migrations sur Supabase, importer les données, commuter DATABASE_URL.
-- Guide complet : `/app/memory/SUPABASE_MIGRATION_GUIDE.md`
+- `database.py` : réécriture complète (~85 lignes). Zéro DDL/ALTER TABLE au runtime.
+  Pool asyncpg avec auto-détection SSL :
+  - Local (127.0.0.1) → ssl=False
+  - Supabase (Supavisor) → ssl_ctx (CERT_NONE) — cert Supabase non vérifiable depuis GCP
+  - statement_cache_size=0 (pgbouncer/Supavisor compatible)
+- `server.py` : seed_initial_data() retiré du hook startup
+- `seed.py` : guard CLI `if __name__ == '__main__':` ajouté + seed exécuté avec succès sur Supabase
+- `migrations/003_drop_legacy_columns.sql` : créé et appliqué (brand_model, max_duration_days, rental_duration_unit, rental_duration_qty supprimés)
+- `migrations/run_migrations.py` : SSL auto-detect + pool.terminate() (résout le hang asyncpg)
+- Supabase : 35 tables, _migrations enregistrées (001, 002, 003), colonnes legacy supprimées
+- `.env` : DATABASE_URL → Supabase Supavisor session mode (aws-0-eu-west-1.pooler.supabase.com:5432)
+- API vérifiée : Login ✅, Marketplace ✅ (5 produits, 0 colonnes legacy), Domains ✅, Profile ✅
 
 ### Stratégie de connexion retenue
 - **Dev + Prod** : Supavisor session mode (`aws-0-eu-west-1.pooler.supabase.com:5432`)
-- Connexion directe (`db.PROJECT.supabase.co:5432`) : envisageable si DNS IPv6 disponible côté hébergeur
+- ssl_ctx (CERT_NONE) requis depuis l'hébergeur GCP Kubernetes
+- Connexion directe (`db.PROJECT.supabase.co:5432`) : hostname non résolvable depuis pods GCP
+
+### Architecture migrations versionnées
+- `001_initial_schema.sql` : schéma complet (déjà appliqué par agent précédent)
+- `002_sale_product_fields.sql` : colonnes produits vente
+- `003_drop_legacy_columns.sql` : suppression colonnes obsolètes
+- Commande : `cd /app/backend && python migrations/run_migrations.py`
+- Seed manuel : `cd /app/backend && python seed.py`

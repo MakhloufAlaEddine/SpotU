@@ -5,6 +5,11 @@
 - Mot de passe: WinekUser2024!
 - Rôle: coach / utilisateur standard
 
+## Coach
+- Email: coach@winek.app
+- Mot de passe: WinekCoach2024!
+- Rôle: coach (crée services et produits)
+
 ## Administrateur
 - Email: admin@winek.app
 - Mot de passe: WinekAdmin2024!
@@ -13,6 +18,14 @@
 ## URL de prévisualisation
 https://stepper-vente.preview.emergentagent.com
 
-## Données de test
-- Produit location actif: prod_demo (Location kit matériel HIIT - status active)
-- Produit vente pending_review: prod_75207a71f708 (Raquette de tennis Artengo TR990)
+## Base de données
+- Fournisseur: Supabase PostgreSQL (Supavisor session mode)
+- Host: aws-0-eu-west-1.pooler.supabase.com:5432
+- DB: postgres
+- Migrations appliquées: 001, 002, 003
+
+## Données de test (seed)
+- 4 domaines (sport, bien-être, arts, tech)
+- 5 produits marketplace seed (rental)
+- 3 utilisateurs: admin, coach, user
+- 3 services demo avec créneaux et localisation

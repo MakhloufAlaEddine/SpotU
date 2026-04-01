@@ -704,4 +704,3 @@ if __name__ == '__main__':
 
     logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s %(levelname)s %(message)s')
     asyncio.run(_run_seed())
-            logger.info("Seeded 3 subscription plans: plan_basic, plan_premium, plan_pro_annual")
