@@ -73,31 +73,65 @@ def pytest_configure(config):
 
 def pytest_sessionstart(session):
     """
-    Avertissement de sécurité au démarrage de la session pytest.
+    Garde de sécurité HTTP — empêche toute pollution de la base Supabase de production.
 
-    Si TEST_BASE_URL n'est PAS défini, les tests HTTP utilisent
-    EXPO_PUBLIC_BACKEND_URL (backend Supabase de production).
-    Cela peut créer de vraies réservations et envoyer de vraies notifications
-    aux comptes réels.
+    Règle :
+      • Si TEST_BASE_URL est défini → l'injecter en EXPO_PUBLIC_BACKEND_URL
+        (les tests HTTP ciblent le backend de test isolé).
+      • Si TEST_BASE_URL N'EST PAS défini ET que TEST_ENV=test →
+        EXPO_PUBLIC_BACKEND_URL est écrasé par une URL invalide (localhost:9999).
+        Les tests HTTP échoueront avec "Connection refused" au lieu de
+        silencieusement écrire sur Supabase prod.
+      • Si ni TEST_BASE_URL ni TEST_ENV ne sont définis →
+        comportement standard (avertissement seulement, pas de blocage).
 
-    Pour éviter toute pollution :
-      bash /app/backend/scripts/start_test_server.sh
-      TEST_ENV=test TEST_BASE_URL=http://localhost:8002 \\
-        DATABASE_URL="postgresql://winek_test:WinekTest2024!@127.0.0.1:5432/winek_test" \\
-        python -m pytest tests/ -v
+    Pour isolation complète (mode ②) :
+        bash /app/backend/scripts/start_test_server.sh
+        TEST_ENV=test TEST_BASE_URL=http://localhost:8002 \\
+          DATABASE_URL="postgresql://winek_test:WinekTest2024!@127.0.0.1:5432/winek_test" \\
+          python -m pytest tests/ -v
+        bash /app/backend/scripts/start_test_server.sh --stop
     """
-    test_base_url = os.environ.get("TEST_BASE_URL")
-    if not test_base_url:
+    test_base_url = os.environ.get("TEST_BASE_URL", "").strip()
+    test_env = os.environ.get("TEST_ENV", "").strip()
+
+    if test_base_url:
+        # ✅ Mode ② : injecter TEST_BASE_URL comme URL HTTP pour tous les tests
+        os.environ["EXPO_PUBLIC_BACKEND_URL"] = test_base_url
+        print(f"\n[pytest] Mode ② — Tests HTTP → {test_base_url}  |  DB → winek_test\n")
+
+    elif test_env == "test":
+        # 🔒 TEST_ENV=test mais pas de TEST_BASE_URL → bloquer HTTP vers prod
+        # On écrase l'URL par une adresse volontairement invalide.
+        # Les tests DB (asyncpg direct) ne sont pas affectés.
+        # Les tests HTTP échoueront proprement au lieu de polluer Supabase.
+        _BLOCKED = "http://localhost:9999/__PRODUCTION_ACCESS_BLOCKED__"
+        os.environ["EXPO_PUBLIC_BACKEND_URL"] = _BLOCKED
         import warnings
         warnings.warn(
             "\n"
-            "⚠️  TEST_BASE_URL non défini — les tests HTTP cibleront le backend de PRODUCTION (Supabase).\n"
-            "   Cela peut créer de vraies réservations et envoyer de vraies notifications aux comptes réels.\n"
-            "   Pour isolation complète, utiliser le mode ② :\n"
+            "🔒 ISOLATION ACTIVÉE — Tests HTTP BLOQUÉS (pas de TEST_BASE_URL).\n"
+            "   EXPO_PUBLIC_BACKEND_URL → http://localhost:9999 (invalide intentionnellement).\n"
+            "   Les tests DB (asyncpg direct) tournent normalement sur winek_test.\n"
+            "   Les tests HTTP échoueront avec ConnectionError — c'est voulu.\n\n"
+            "   Pour activer les tests HTTP en isolation complète :\n"
             "     bash /app/backend/scripts/start_test_server.sh\n"
             "     TEST_ENV=test TEST_BASE_URL=http://localhost:8002 \\\n"
             "       DATABASE_URL=\"postgresql://winek_test:WinekTest2024!@127.0.0.1:5432/winek_test\" \\\n"
-            "       python -m pytest tests/ -v\n",
+            "       python -m pytest tests/ -v\n"
+            "     bash /app/backend/scripts/start_test_server.sh --stop\n",
+            UserWarning,
+            stacklevel=1,
+        )
+
+    else:
+        # Pas de TEST_ENV — avertissement mais sans blocage (lancement manuel explicite)
+        import warnings
+        warnings.warn(
+            "\n"
+            "⚠️  TEST_BASE_URL et TEST_ENV non définis.\n"
+            "   Les tests HTTP cibleront EXPO_PUBLIC_BACKEND_URL (Supabase de production).\n"
+            "   Utilisez TEST_ENV=test pour activer le blocage automatique.\n",
             UserWarning,
             stacklevel=1,
         )

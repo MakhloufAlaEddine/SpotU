@@ -502,7 +502,29 @@ Zéro écriture sur Supabase.
 
 ---
 
-## Fix `location_address_raw` — INSERT/UPDATE + Frontend payload (2026-04-01)
+## Fix isolation tests + nettoyage Supabase (2026-04-01)
+
+### Problème
+Les tests E2E HTTP tournaient sans `TEST_BASE_URL` → ils écrivaient sur Supabase prod :
+- 107 SpotYous, 117 services, 45 users, 234 notifications, 164 bookings de test créés en production
+- Thomas Dupont (user_demo001) recevait des notifications de test sur son vrai compte
+
+### Corrections
+**1. `conftest.py` — Garde anti-contamination**
+- Si `TEST_ENV=test` mais `TEST_BASE_URL` absent → `EXPO_PUBLIC_BACKEND_URL` écrasé par `http://localhost:9999`
+- Les tests HTTP échouent avec `ConnectionError` au lieu de polluer Supabase
+- Si `TEST_BASE_URL` est défini → il est injecté comme URL HTTP (mode ②)
+
+**2. Nettoyage Supabase prod**
+- Supprimé : 107 SpotYous test, 117 services test, 45 users test, 234+ notifications test
+- Supprimé : 96 bookings test, 96 paiements test
+- DB finale : 8 SpotYous légitimes, 8 services légitimes, 0 bookings, 42 notifications
+
+### État final
+- `user_demo001`: 0 notifications ✅
+- `user_coach001`: 6 notifications légitimes ✅
+- 9/9 tests No-DDL toujours ✅
+- Prochaine exécution de `bash run_tests.sh` → message "🔒 ISOLATION ACTIVÉE" (HTTP bloqué)
 
 ### Problème
 Le formulaire d'édition produit affichait la ville masquée ("Lyon") au lieu de l'adresse exacte saisie par le propriétaire, car :

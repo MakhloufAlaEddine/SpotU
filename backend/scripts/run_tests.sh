@@ -12,10 +12,20 @@
 #   TEST_ENV=test            → conftest.py charge .env.test (DATABASE_URL local)
 #   DATABASE_URL=...         → pointe sur winek_test (priorité absolue sur .env)
 #
-# Note sur les tests HTTP (API) :
-#   Les tests qui appellent EXPO_PUBLIC_BACKEND_URL (le backend en cours)
-#   utilisent toujours le backend principal (Supabase).
-#   Pour les isoler, lancer d'abord : bash scripts/start_test_server.sh
+# ════════════════════════════════════════════════════════════════════════
+# ISOLATION HTTP (IMPORTANT)
+# ════════════════════════════════════════════════════════════════════════
+# Par défaut (sans TEST_BASE_URL) :
+#   • Tests DB (asyncpg direct) → winek_test local ✅
+#   • Tests HTTP (requests.post...) → BLOQUÉS (http://localhost:9999)
+#     → échouent avec ConnectionError, ne touchent PAS Supabase prod ✅
+#
+# Pour activer les tests HTTP en isolation complète (mode ②) :
+#   bash /app/backend/scripts/start_test_server.sh
+#   TEST_ENV=test TEST_BASE_URL=http://localhost:8002 \
+#     DATABASE_URL="postgresql://winek_test:WinekTest2024!@127.0.0.1:5432/winek_test" \
+#     python -m pytest tests/ -v
+#   bash /app/backend/scripts/start_test_server.sh --stop
 # =============================================================================
 set -euo pipefail
 
