@@ -262,27 +262,34 @@ async def home_feed(
             """
             spot_rows = await conn.fetch(spot_query, *params)
 
+            # Première passe : désérialiser sans requête SQL par ligne
             raw_spots = []
             for row in spot_rows:
                 d = row_to_dict(row)
-                # Sérialiser tag_ids
                 raw_ti = d.get("tag_ids")
                 if isinstance(raw_ti, str):
                     try:
                         d["tag_ids"] = json.loads(raw_ti)
                     except Exception:
                         d["tag_ids"] = []
-                # is_going pour l'utilisateur courant
                 d["is_going"] = False
-                if current_user_id:
-                    going = await conn.fetchval(
-                        """SELECT COUNT(*) FROM spot_you_attendance
-                           WHERE spot_you_id = $1 AND user_id = $2
-                             AND status = 'going' AND session_date >= CURRENT_DATE""",
-                        d["point_id"], current_user_id,
-                    )
-                    d["is_going"] = bool(going)
                 raw_spots.append(d)
+
+            # Batch is_going : 1 requête pour tous les SpotYou (remplace N+1)
+            if current_user_id and raw_spots:
+                spot_ids = [d["point_id"] for d in raw_spots]
+                is_going_rows = await conn.fetch(
+                    """SELECT DISTINCT spot_you_id
+                       FROM spot_you_attendance
+                       WHERE spot_you_id = ANY($1::text[])
+                         AND user_id = $2
+                         AND status = 'going'
+                         AND session_date >= CURRENT_DATE""",
+                    spot_ids, current_user_id,
+                )
+                is_going_set = {r["spot_you_id"] for r in is_going_rows}
+                for d in raw_spots:
+                    d["is_going"] = d["point_id"] in is_going_set
 
             # ── Services ─────────────────────────────────────────────────
             svc_params: list = []

@@ -502,6 +502,22 @@ Zéro écriture sur Supabase.
 
 ---
 
+## Phase 2 Optimisation Performance Globale — Batch N+1 (2026-04-01)
+
+### Endpoints refactorisés
+| Endpoint | Avant | Après | Gain |
+|----------|-------|-------|------|
+| `GET /home/feed` | 1.76s | **1.31s** | **-26%** |
+| `GET /tag-points/mine` | 2.25s | **1.39s** | **-38%** |
+| `GET /marketplace/products` | 1.28s | **0.81s** | **-37%** |
+
+### Stratégie appliquée
+- **`GET /home/feed`** (`home_routes.py`) : N+1 `is_going` (1 requête/SpotYou dans boucle) → 1 batch `SELECT DISTINCT ... ANY($1::text[])` pour tous les SpotYou
+- **`GET /tag-points/mine`** (`tagpoint_routes.py`) : 2N queries (`going_count` + `is_going` par point) → 2 batch queries `WHERE spot_you_id = ANY()`, résultat filtré en Python par date de session
+- **`GET /marketplace/products`** (`marketplace_routes.py`) : `SELECT p.*` (64 cols) → 47 colonnes ciblées (exclusion : `stripe_*`, `brand`, `model`, `weight`, `size_dimensions`, `location_address_raw`, `admin_validated_*`, `rejection_reason`, `radius_km`) + 4 seller_stats séquentielles → `asyncio.gather` parallèle
+
+### Tests : 126/126 passés — zéro régression
+
 ## Phase 1 Optimisation Performance Globale — asyncio.gather (2026-04-01)
 
 ### Endpoints refactorisés

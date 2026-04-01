@@ -1,6 +1,7 @@
 """Marketplace routes — produits ET services filtrés par tags, avec distances."""
 import json
 import math
+import asyncio
 from fastapi import APIRouter, Query
 from typing import Optional
 from database import get_pool, rows_to_list
@@ -66,9 +67,32 @@ async def get_marketplace_products(
                         tags = list(raw or [])
 
         # ── Produits ──────────────────────────────────────────────────────────
+        # Colonnes listing : exclut les champs backend-only/détail pour alléger le payload
+        # Colonnes réellement présentes dans marketplace_products (vérifiées sur schéma)
+        PRODUCT_LIST_COLS = """
+            p.product_id, p.product_type, p.status, p.title,
+            p.description, p.short_description,
+            p.price, p.currency, p.pricing_type, p.pricing_modes,
+            p.price_per_hour, p.price_per_day, p.price_per_week,
+            p.price_per_month, p.price_per_session,
+            p.image_url, p.image_urls, p.cover_image_url,
+            p.tag_ids, p.seller_id, p.seller_type,
+            p.condition_label, p.category, p.subcategory, p.skill_level,
+            p.lat, p.lng, p.city, p.location_privacy,
+            p.related_spotyou_ids,
+            p.delivery_modes, p.pickup_type, p.pickup_notes,
+            p.deposit_required, p.deposit_amount,
+            p.available_quantity, p.in_stock,
+            p.included_items, p.availability_note,
+            p.cancellation_rules, p.return_rules,
+            p.admin_comment,
+            p.created_at, p.updated_at,
+            u.name AS seller_name, u.picture AS seller_picture,
+            u.picture AS seller_picture_url
+        """
         if tags:
             prows = await conn.fetch(
-                """SELECT p.*, u.name AS seller_name, u.picture AS seller_picture
+                f"""SELECT {PRODUCT_LIST_COLS}
                    FROM marketplace_products p
                    LEFT JOIN users u ON p.seller_id = u.user_id
                    WHERE p.tag_ids && $1::text[]
@@ -80,7 +104,7 @@ async def get_marketplace_products(
             prows = []
         else:
             prows = await conn.fetch(
-                """SELECT p.*, u.name AS seller_name, u.picture AS seller_picture
+                f"""SELECT {PRODUCT_LIST_COLS}
                    FROM marketplace_products p
                    LEFT JOIN users u ON p.seller_id = u.user_id
                    WHERE p.status = 'active'
@@ -157,7 +181,7 @@ async def get_marketplace_products(
         other_items = [x for x in all_items if x["badge_type"] != "owner"]
         items = owner_items + other_items
 
-        # ── Seller stats (rating, compteurs) ───────────────────────────────────
+        # ── Seller stats : 4 requêtes en parallèle (remplace 4 séquentielles) ──────
         sids_set: set = {
             it.get("seller_id") or it.get("coach_id")
             for it in items
@@ -166,15 +190,52 @@ async def get_marketplace_products(
         if sids_set:
             sids = list(sids_set)
 
-            rating_rows = await conn.fetch(
-                """SELECT reviewee_id,
-                          ROUND(AVG(rating)::numeric, 1) AS avg_r,
-                          COUNT(*) AS cnt_r
-                   FROM reviews
-                   WHERE reviewee_id = ANY($1::text[])
-                   GROUP BY reviewee_id""",
-                sids,
+            async def _q(coro_fn):
+                async with pool.acquire() as c:
+                    return await coro_fn(c)
+
+            async def _ratings(c):
+                return await c.fetch(
+                    """SELECT reviewee_id,
+                              ROUND(AVG(rating)::numeric, 1) AS avg_r,
+                              COUNT(*) AS cnt_r
+                       FROM reviews
+                       WHERE reviewee_id = ANY($1::text[])
+                       GROUP BY reviewee_id""",
+                    sids,
+                )
+
+            async def _prod_cnt(c):
+                return await c.fetch(
+                    """SELECT seller_id, COUNT(*) AS cnt
+                       FROM marketplace_products
+                       WHERE seller_id = ANY($1::text[])
+                       GROUP BY seller_id""",
+                    sids,
+                )
+
+            async def _svc_cnt(c):
+                return await c.fetch(
+                    """SELECT coach_id, COUNT(*) AS cnt
+                       FROM services
+                       WHERE coach_id = ANY($1::text[]) AND active = TRUE
+                       GROUP BY coach_id""",
+                    sids,
+                )
+
+            async def _spot_cnt(c):
+                return await c.fetch(
+                    """SELECT user_id, COUNT(*) AS cnt
+                       FROM tag_points
+                       WHERE user_id = ANY($1::text[])
+                       GROUP BY user_id""",
+                    sids,
+                )
+
+            rating_rows, prod_cnt_rows, svc_cnt_rows, spot_cnt_rows = await asyncio.gather(
+                _q(_ratings), _q(_prod_cnt), _q(_svc_cnt), _q(_spot_cnt)
             )
+
             rating_map = {
                 r["reviewee_id"]: {
                     "avg":   float(r["avg_r"]) if r["avg_r"] is not None else None,
@@ -182,33 +243,9 @@ async def get_marketplace_products(
                 }
                 for r in rating_rows
             }
-
-            prod_cnt_rows = await conn.fetch(
-                """SELECT seller_id, COUNT(*) AS cnt
-                   FROM marketplace_products
-                   WHERE seller_id = ANY($1::text[])
-                   GROUP BY seller_id""",
-                sids,
-            )
-            prod_cnt_map = {r["seller_id"]: int(r["cnt"]) for r in prod_cnt_rows}
-
-            svc_cnt_rows = await conn.fetch(
-                """SELECT coach_id, COUNT(*) AS cnt
-                   FROM services
-                   WHERE coach_id = ANY($1::text[]) AND active = TRUE
-                   GROUP BY coach_id""",
-                sids,
-            )
-            svc_cnt_map = {r["coach_id"]: int(r["cnt"]) for r in svc_cnt_rows}
-
-            spot_cnt_rows = await conn.fetch(
-                """SELECT user_id, COUNT(*) AS cnt
-                   FROM tag_points
-                   WHERE user_id = ANY($1::text[])
-                   GROUP BY user_id""",
-                sids,
-            )
-            spot_cnt_map = {r["user_id"]: int(r["cnt"]) for r in spot_cnt_rows}
+            prod_cnt_map  = {r["seller_id"]: int(r["cnt"]) for r in prod_cnt_rows}
+            svc_cnt_map   = {r["coach_id"]:  int(r["cnt"]) for r in svc_cnt_rows}
+            spot_cnt_map  = {r["user_id"]:   int(r["cnt"]) for r in spot_cnt_rows}
 
             for it in items:
                 sid = it.get("seller_id") or it.get("coach_id")

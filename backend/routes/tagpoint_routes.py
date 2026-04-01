@@ -260,21 +260,44 @@ async def my_tag_points(request: Request):
             nd = _get_next(pt)
             next_dates[pt["point_id"]] = nd
 
-        # Batch: going count per spot for next session
+        # Batch: going count + is_going — 2 requêtes pour tous les points (remplace 2N séquentiels)
         going_pairs = [(pid, nd) for pid, nd in next_dates.items() if nd]
         going_map = {}
         is_going_map = {}
         if going_pairs:
-            for pid, nd in going_pairs:
-                cnt = await conn.fetchval(
-                    """SELECT COUNT(*) FROM spot_you_attendance
-                       WHERE spot_you_id=$1 AND session_date=$2 AND status='going'""",
-                    pid, nd) or 0
-                going_map[pid] = int(cnt)
-                is_going_map[pid] = bool(await conn.fetchval(
-                    """SELECT EXISTS(SELECT 1 FROM spot_you_attendance
-                       WHERE spot_you_id=$1 AND user_id=$2 AND session_date=$3 AND status='going')""",
-                    pid, user["user_id"], nd))
+            pids_nd = [pid for pid, nd in going_pairs]
+
+            # Requête 1 : going counts pour tous les (spot_you_id, session_date)
+            going_count_rows = await conn.fetch(
+                """SELECT spot_you_id, session_date, COUNT(*) AS cnt
+                   FROM spot_you_attendance
+                   WHERE spot_you_id = ANY($1::text[])
+                     AND status = 'going'
+                   GROUP BY spot_you_id, session_date""",
+                pids_nd,
+            )
+            for r in going_count_rows:
+                pid = r["spot_you_id"]
+                nd = next_dates.get(pid)
+                if nd and r["session_date"] == nd:
+                    going_map[pid] = int(r["cnt"])
+
+            # Requête 2 : is_going pour l'utilisateur courant
+            is_going_rows = await conn.fetch(
+                """SELECT spot_you_id, session_date
+                   FROM spot_you_attendance
+                   WHERE spot_you_id = ANY($1::text[])
+                     AND user_id = $2
+                     AND status = 'going'""",
+                pids_nd, user["user_id"],
+            )
+            is_going_set = set()
+            for r in is_going_rows:
+                pid = r["spot_you_id"]
+                nd = next_dates.get(pid)
+                if nd and r["session_date"] == nd:
+                    is_going_set.add(pid)
+            is_going_map = {pid: (pid in is_going_set) for pid, nd in going_pairs}
 
         for pt in points:
             pid = pt["point_id"]
