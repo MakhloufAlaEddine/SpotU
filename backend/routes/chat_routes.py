@@ -351,9 +351,15 @@ async def list_conversations(request: Request):
     uid = user["user_id"]
     async with pool.acquire() as conn:
         rows = await conn.fetch(
-            """SELECT c.conversation_id, c.type, c.context_id, c.context_title,
+            """SELECT c.conversation_id, c.type, c.context_id,
+                      COALESCE(
+                          CASE WHEN c.type IN ('tagpoint_private', 'tagpoint_group') THEN tp.title ELSE NULL END,
+                          c.context_title
+                      ) AS context_title,
                       c.created_by, c.last_message_at, c.created_at
                FROM conversations c
+               LEFT JOIN tag_points tp
+                   ON c.type IN ('tagpoint_private', 'tagpoint_group') AND tp.point_id = c.context_id
                JOIN conversation_participants cp ON cp.conversation_id = c.conversation_id
                WHERE cp.user_id = $1
                ORDER BY c.last_message_at DESC NULLS LAST""",

@@ -44,20 +44,30 @@ function TypeBadge({ type }: { type: string }) {
   );
 }
 
+/** Retourne un libellé lisible — jamais un ID brut (ex: "pt_demo009") */
+function resolveDisplayTitle(raw: string | null | undefined): string {
+  if (!raw) return 'Sans titre';
+  // Si ça ressemble à un ID brut généré (pt_xxx, conv_xxx, etc.)
+  if (/^(pt|conv|svc|user)_/.test(raw)) return 'SpotYou supprimé';
+  return raw;
+}
+
 function ConvItem({ item, currentUserId }: { item: Conversation; currentUserId: string }) {
   const router = useGuardedRouter();
   const other = item.other_participant;
   const isGroup = item.type === 'tagpoint_group';
 
+  const contextLabel = resolveDisplayTitle(item.context_title);
+
   const title = isGroup
-    ? item.context_title
-    : other?.name ?? item.context_title;
+    ? contextLabel
+    : other?.name ?? contextLabel;
 
   const subtitle = isGroup
-    ? item.context_title
+    ? contextLabel
     : item.type === 'service'
-    ? `Service · ${item.context_title}`
-    : `SpotYou · ${item.context_title}`;
+    ? `Service · ${contextLabel}`
+    : `SpotYou · ${contextLabel}`;
 
   return (
     <TouchableOpacity
