@@ -496,5 +496,27 @@ Zéro écriture sur Supabase.
 - `001_initial_schema.sql` : schéma complet (déjà appliqué par agent précédent)
 - `002_sale_product_fields.sql` : colonnes produits vente
 - `003_drop_legacy_columns.sql` : suppression colonnes obsolètes
+- `006_product_location_address_raw.sql` : colonne `location_address_raw` sur `marketplace_products`
 - Commande : `cd /app/backend && python migrations/run_migrations.py`
 - Seed manuel : `cd /app/backend && python seed.py`
+
+---
+
+## Fix `location_address_raw` — INSERT/UPDATE + Frontend payload (2026-04-01)
+
+### Problème
+Le formulaire d'édition produit affichait la ville masquée ("Lyon") au lieu de l'adresse exacte saisie par le propriétaire, car :
+1. Le payload frontend (`ProductCreationFlow.tsx`) n'incluait pas `location_address_raw`
+2. Le backend (`product_creation_routes.py`) n'acceptait pas ni ne sauvegardait ce champ
+
+### Solution appliquée
+| Fichier | Changement |
+|---------|-----------|
+| `frontend/components/product-form/ProductCreationFlow.tsx` | Ajout `location_address_raw: (form.locationAddress ?? '').trim() \|\| null` dans le payload de soumission |
+| `backend/routes/product_creation_routes.py` | Ajout d'un UPDATE séparé `SET location_address_raw = $1 WHERE product_id = $2` après l'INSERT/UPDATE principal (même pattern que `price_per_session` et `brand/model/weight`) |
+
+### Résultat
+- `POST /api/products` : `location_address_raw` sauvegardée ✅
+- `POST /api/products` (UPDATE) : `location_address_raw` mise à jour ✅
+- `GET /api/products/{id}/detail` : `location_address_raw` restituée correctement ✅
+- Tests No-DDL : 9/9 ✅

@@ -6,7 +6,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = "https://buyer-checkout-ui.preview.emergentagent.com"
+BASE_URL = "https://location-payload-fix.preview.emergentagent.com"
 
 ADMIN_EMAIL = "admin@winek.app"
 ADMIN_PASS = "WinekAdmin2024!"

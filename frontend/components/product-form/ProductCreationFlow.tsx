@@ -215,6 +215,7 @@ export function ProductCreationFlow({ isEditMode = false }: { isEditMode?: boole
         return_rules:         (form.return_rules ?? '').trim(),
         cancellation_rules:   (form.cancellation_rules ?? '').trim(),
         city:                 (form.city ?? '').trim(),
+        location_address_raw: (form.locationAddress ?? '').trim() || null,
         lat:                  form.selectedLat || null,
         lng:                  form.selectedLng || null,
         location_privacy:     form.location_privacy,

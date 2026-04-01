@@ -325,7 +325,7 @@ agent_communication:
       - Coach: coach@winek.app / WinekCoach2024!
       - User: user@winek.app / WinekUser2024!
       
-      FRONTEND URL: https://buyer-checkout-ui.preview.emergentagent.com
-      BACKEND URL: https://buyer-checkout-ui.preview.emergentagent.com/api
+      FRONTEND URL: https://location-payload-fix.preview.emergentagent.com
+      BACKEND URL: https://location-payload-fix.preview.emergentagent.com/api
       
       Test all high priority features. Note: Stripe payment test not critical for MVP verification.

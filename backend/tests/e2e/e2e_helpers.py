@@ -25,7 +25,7 @@ def _load_env():
 
 _load_env()
 
-API_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://buyer-checkout-ui.preview.emergentagent.com")
+API_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://location-payload-fix.preview.emergentagent.com")
 
 CREDENTIALS = {
     "admin":  {"email": "admin@winek.app",  "password": "WinekAdmin2024!"},

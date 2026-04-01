@@ -6,7 +6,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://buyer-checkout-ui.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://location-payload-fix.preview.emergentagent.com").rstrip("/")
 
 ADMIN_CREDS = {"email": "admin@winek.app", "password": "WinekAdmin2024!"}
 USER_CREDS  = {"email": "user@winek.app",  "password": "WinekUser2024!"}

@@ -40,7 +40,7 @@ bash /app/backend/scripts/start_test_server.sh --stop
 - Rôle: admin (validation des produits)
 
 ## URL de prévisualisation
-https://buyer-checkout-ui.preview.emergentagent.com
+https://location-payload-fix.preview.emergentagent.com
 
 ## Base de données
 - Fournisseur: Supabase PostgreSQL (Supavisor session mode)

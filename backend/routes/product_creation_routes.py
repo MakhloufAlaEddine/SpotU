@@ -416,6 +416,14 @@ async def create_product(request: Request):
             product_id,
         )
 
+    # Sauvegarder l'adresse exacte (non masquée) du propriétaire
+    async with pool.acquire() as conn:
+        raw_addr = (body.get("location_address_raw") or "").strip() or None
+        await conn.execute(
+            "UPDATE marketplace_products SET location_address_raw = $1 WHERE product_id = $2",
+            raw_addr, product_id,
+        )
+
     # Notification admins si soumission en validation par un non-admin
     if requested_status == "pending_review" and not is_admin:
         await _notify_admins_new_product(pool, product_id, title, is_admin)
