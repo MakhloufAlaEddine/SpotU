@@ -117,6 +117,7 @@ export default function NotificationsScreen() {
   const [notifs, setNotifs]     = useState<any[]>([]);
   const [screenState, setScreenState] = useState<'loading_initial' | 'ready_fresh' | 'ready_cached' | 'error_no_data'>('loading_initial');
   const [staleMinutes, setStaleMinutes] = useState<number | null>(null);
+  const [networkFailed, setNetworkFailed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -171,8 +172,10 @@ export default function NotificationsScreen() {
       setUnreadCount(notifList.filter(n => !n.read).length);
       setScreenState('ready_fresh');
       setStaleMinutes(null);
+      setNetworkFailed(false);
       await cacheSet(notifKey, dbNotifs, notifTtl);
     } catch {
+      setNetworkFailed(true);
       // Utilise loadedFromCache (variable locale) pour éviter le bug de closure sur notifs
       if (!loadedFromCache) setScreenState('error_no_data');
       else setScreenState('ready_cached');

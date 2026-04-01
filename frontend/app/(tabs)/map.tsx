@@ -374,8 +374,7 @@ export default function HomeScreen() {
   const { location, loading: locLoading, setLocation } = useLocation();
   const [screenState, setScreenState] = useState<'loading_initial' | 'ready_fresh' | 'ready_cached' | 'error_no_data' | 'error_network'>('loading_initial');
   const [staleMinutes, setStaleMinutes] = useState<number | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const [SpotYou, setSpotYou] = useState<any[]>([]);
+  const [networkFailed, setNetworkFailed] = useState(false);
   const [services, setServices] = useState<any[]>([]);
   const [activityFeed, setActivityFeed] = useState<any[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
@@ -476,7 +475,9 @@ export default function HomeScreen() {
       const isEmpty = (!feed.spotyou || feed.spotyou.length === 0) && (!feed.services || feed.services.length === 0);
       setScreenState(isEmpty ? 'error_no_data' : 'ready_fresh');
       setStaleMinutes(null);
+      setNetworkFailed(false);
     } catch {
+      setNetworkFailed(true);
       if (SpotYou.length === 0 && services.length === 0) {
         setScreenState('error_network');
       }

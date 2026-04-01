@@ -30,6 +30,7 @@ export default function MenuScreen() {
   const [reviewStats, setReviewStats] = useState<{ avg_rating: number | null; review_count: number }>({ avg_rating: null, review_count: 0 });
   const [dataScreenState, setDataScreenState] = useState<'loading_initial' | 'ready_fresh' | 'ready_cached' | 'error_no_data'>('loading_initial');
   const [staleMinutes, setStaleMinutes] = useState<number | null>(null);
+  const [networkFailed, setNetworkFailed] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -108,11 +109,13 @@ export default function MenuScreen() {
       }
       setDataScreenState('ready_fresh');
       setStaleMinutes(null);
+      setNetworkFailed(false);
       await Promise.all([
         cacheSet(tpCacheKey, points || [], tpTtl),
         cacheSet(profileCacheKey, profileData || {}, profileTtl),
       ]);
     } catch {
+      setNetworkFailed(true);
       setMySpotYou(prev => {
         if (prev.length > 0) {
           setDataScreenState('ready_cached');

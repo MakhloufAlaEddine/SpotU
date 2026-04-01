@@ -117,6 +117,7 @@ export default function ChatListScreen() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [screenState, setScreenState] = useState<'loading_initial' | 'ready_fresh' | 'ready_cached' | 'error_no_data'>('loading_initial');
   const [staleMinutes, setStaleMinutes] = useState<number | null>(null);
+  const [networkFailed, setNetworkFailed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [currentUserId, setCurrentUserId] = useState('');
 
@@ -154,8 +155,10 @@ export default function ChatListScreen() {
       setConversations(convList);
       setScreenState('ready_fresh');
       setStaleMinutes(null);
+      setNetworkFailed(false);
       await cacheSet(convKey, convList, convTtl);
     } catch {
+      setNetworkFailed(true);
       if (conversations.length === 0) setScreenState('error_no_data');
       else setScreenState('ready_cached');
     } finally {

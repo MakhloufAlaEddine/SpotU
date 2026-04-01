@@ -353,7 +353,7 @@ export default function SpotYouDetail() {
   const [loading, setLoading] = useState(true);
   const [screenState, setScreenState] = useState<'loading_initial' | 'ready_fresh' | 'ready_cached' | 'error_no_data'>('loading_initial');
   const [staleMinutes, setStaleMinutes] = useState<number | null>(null);
-  const [showFullDesc, setShowFullDesc] = useState(false);
+  const [networkFailed, setNetworkFailed] = useState(false);
   const [votes, setVotes] = useState<any[]>([]);
   const [showVoteModal, setShowVoteModal] = useState(false);
   const [showAllVotes, setShowAllVotes] = useState(false);
@@ -556,10 +556,12 @@ export default function SpotYouDetail() {
       applyData(data);
       setScreenState('ready_fresh');
       setStaleMinutes(null);
+      setNetworkFailed(false);
       await cacheSet(cacheKey, data, ttl);
       const member = data.is_member || data.is_participant;
       if (member) loadActivity();
     } catch {
+      setNetworkFailed(true);
       setPoint(prev => {
         if (prev !== null) setScreenState('ready_cached');
         else setScreenState('error_no_data');

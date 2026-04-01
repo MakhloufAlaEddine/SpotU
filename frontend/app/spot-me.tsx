@@ -34,6 +34,7 @@ export default function MySpotYouScreen() {
   const [points, setPoints] = useState<any[]>([]);
   const [screenState, setScreenState] = useState<'loading_initial' | 'ready_fresh' | 'ready_cached' | 'error_no_data'>('loading_initial');
   const [staleMinutes, setStaleMinutes] = useState<number | null>(null);
+  const [networkFailed, setNetworkFailed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
@@ -81,8 +82,10 @@ export default function MySpotYouScreen() {
       setPoints(list);
       setScreenState('ready_fresh');
       setStaleMinutes(null);
+      setNetworkFailed(false);
       await cacheSet(cacheKey, list, ttl);
     } catch {
+      setNetworkFailed(true);
       setPoints(prev => {
         if (prev.length > 0) {
           setScreenState('ready_cached');
