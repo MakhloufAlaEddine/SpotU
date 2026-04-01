@@ -359,6 +359,14 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 - Route `GET /api/readiness` et `GET /api/liveness` ajoutées dans `server.py` (infra, tag "infra")
   - Liveness : 200 `{status: alive}` — process FastAPI vivant, aucune dépendance vérifiée
   - Readiness : 200 `{status: ready, database: ok}` si pool + SELECT 1 OK, sinon 503
+- Système de migrations renforcé (2026-04-01)
+  - Transactions atomiques par migration (rollback automatique si échec)
+  - Vérification checksum anti-tamper (SHA-256 complet + compat anciens checksums 16 chars)
+  - Commande `--new <nom>` pour créer une migration depuis un template
+  - Connexion simple `asyncpg.connect()` au lieu d'un pool (outil CLI)
+  - Documentation complète : `migrations/MIGRATIONS.md`
+  - Convention nommage stricte validée par regex : `NNN_description.sql`
+  - Limites documentées : forward-only, pas de lock distribué, certains DDL hors transaction
 
 ### Architecture migrations versionnées
 - `001_initial_schema.sql` : schéma complet (déjà appliqué par agent précédent)
