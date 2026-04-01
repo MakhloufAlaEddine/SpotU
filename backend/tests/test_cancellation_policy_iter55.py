@@ -137,7 +137,7 @@ def api_url():
     """URL de l'API backend (depuis env ou valeur par défaut)."""
     return os.environ.get(
         "BACKEND_URL",
-        "https://location-payload-fix.preview.emergentagent.com/api",
+        os.environ.get("EXPO_PUBLIC_BACKEND_URL", "http://localhost:9999").rstrip("/") + "/api",
     )
 
 

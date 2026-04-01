@@ -20,7 +20,7 @@ def _load_base_url():
                     return line.split('=', 1)[1].strip().rstrip('/')
     except Exception:
         pass
-    return 'https://location-payload-fix.preview.emergentagent.com'
+    return os.environ.get("EXPO_PUBLIC_BACKEND_URL", "http://localhost:9999").rstrip("/")
 
 BASE_URL = _load_base_url()
 USER_EMAIL = "user@winek.app"

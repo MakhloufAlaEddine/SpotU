@@ -13,7 +13,7 @@ import os
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
 if not BASE_URL:
-    BASE_URL = "https://location-payload-fix.preview.emergentagent.com"
+    BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "http://localhost:9999").rstrip("/")
 
 USER_EMAIL = "user@winek.app"
 USER_PASSWORD = "WinekUser2024!"

@@ -10,11 +10,12 @@ Couvre :
   - Résultat trié par timestamp DESC
 """
 import pytest
+import os
 import httpx
 from datetime import datetime, timezone
 
 # URL de l'API
-API_BASE = "https://location-payload-fix.preview.emergentagent.com/api"
+API_BASE = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "http://localhost:9999").rstrip("/") + "/api"
 
 # Credentials
 USER_EMAIL = "user@winek.app"

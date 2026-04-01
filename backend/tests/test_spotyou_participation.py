@@ -17,8 +17,10 @@ import os
 import uuid
 import json
 
-# URL de l'API
-API_BASE = "https://location-payload-fix.preview.emergentagent.com/api"
+# URL de l'API — injectée par conftest.py (jamais hardcodée)
+# En mode ② TEST_BASE_URL=http://localhost:8002, en mode bloqué localhost:9999
+BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "http://localhost:9999").rstrip("/")
+API_BASE = BASE_URL if BASE_URL.endswith("/api") else BASE_URL + "/api"
 
 
 def _get_valid_tag_ids():

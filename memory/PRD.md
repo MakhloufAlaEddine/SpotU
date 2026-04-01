@@ -502,6 +502,22 @@ Zéro écriture sur Supabase.
 
 ---
 
+## Nettoyage pollution données de test Supabase prod (2026-04-01)
+
+### Cause identifiée
+- `test_spotyou_participation.py` + `test_winek_iter9.py` et 12 autres fichiers avaient une **URL de production hardcodée** (`"https://location-payload-fix.preview.emergentagent.com/api"`) comme constante de module, **bypassing entièrement** le mécanisme d'isolation de `conftest.py`
+- Premier `run_tests.sh` du fork a déclenché ces tests → 35 SpotYou de test créés dans Supabase prod
+
+### Corrections appliquées
+1. **35 records nettoyés** de Supabase prod (tag_points + dépendances FK)
+2. **14 fichiers de test corrigés** : URL hardcodée → `os.environ.get("EXPO_PUBLIC_BACKEND_URL", "http://localhost:9999")` — désormais bloqués par conftest.py
+3. `run_tests.sh` : déjà correct (`TEST_ENV=test` forcé), pas de changement nécessaire
+
+### Garanties post-correction
+- Aucun test HTTP ne peut atteindre Supabase prod sans `TEST_BASE_URL=http://localhost:800x`
+- Tests DB-only (`winek_test`) : toujours isolés ✅
+- 126/126 tests passés après correction ✅
+
 ## Passe finale — GET /services/{id} (2026-04-01)
 
 ### Audit et optimisation
