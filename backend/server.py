@@ -180,8 +180,6 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup():
     await connect_to_db()
-    from seed import seed_initial_data
-    await seed_initial_data()
 
     # ── Démarrage du worker d'expiration des bookings ─────────────────────────
     from database import get_pool

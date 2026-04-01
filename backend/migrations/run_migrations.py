@@ -47,9 +47,14 @@ def _checksum(content: str) -> str:
 
 
 async def _get_pool(dsn: str) -> asyncpg.Pool:
+    # Auto-détection SSL : local (127.0.0.1 / localhost) = pas de SSL,
+    # connexion distante (Supabase, etc.) = ssl='require'
+    _is_local = "127.0.0.1" in dsn or "localhost" in dsn
+    _ssl = False if _is_local else "require"
     return await asyncpg.create_pool(
         dsn,
-        ssl="require",
+        ssl=_ssl,
+        statement_cache_size=0,  # Requis pour pgbouncer / Supavisor
         min_size=1,
         max_size=3,
         command_timeout=60,
@@ -100,7 +105,7 @@ async def run(dry_run: bool = False, status_only: bool = False):
                     print(f"  {f.name:<50} ⏳ en attente")
             pending = [f for f in sql_files if f.name not in executed]
             print(f"\n{len(executed)} appliquée(s), {len(pending)} en attente.\n")
-            await pool.close()
+            pool.terminate()
             return
 
         # ── Mode run ─────────────────────────────────────────────────────────
@@ -108,7 +113,7 @@ async def run(dry_run: bool = False, status_only: bool = False):
 
         if not pending:
             print("✅  Toutes les migrations sont à jour.")
-            await pool.close()
+            pool.terminate()
             return
 
         print(f"▶  {len(pending)} migration(s) en attente :\n")
@@ -132,12 +137,12 @@ async def run(dry_run: bool = False, status_only: bool = False):
                 print("✅")
             except Exception as exc:
                 print(f"❌  ERREUR : {exc}", file=sys.stderr)
-                await pool.close()
+                pool.terminate()
                 sys.exit(1)
 
         print(f"\n✅  Migration(s) terminée(s).\n")
 
-    await pool.close()
+    pool.terminate()
 
 
 # ─── Entrée CLI ───────────────────────────────────────────────────────────────

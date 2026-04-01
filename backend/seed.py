@@ -1,6 +1,12 @@
 """
 seed.py — Données initiales SpotU / Winek App
 Architecture: Domaines → Catégories (entity_type) → Tags (partagés) + liaisons
+
+Usage CLI (manuel uniquement) :
+    cd /app/backend && python seed.py
+
+Ce script ne doit PLUS être appelé automatiquement au startup de l'application.
+Le schéma est géré exclusivement via /migrations/*.sql (run_migrations.py).
 """
 from database import get_pool
 from auth_utils import hash_password
@@ -680,4 +686,22 @@ async def seed_initial_data():
                      TRUE,TRUE,TRUE,TRUE,TRUE,3)
                 ON CONFLICT DO NOTHING
             """)
+
+
+# ── CLI Manuel ────────────────────────────────────────────────────────────────
+# Usage: cd /app/backend && python seed.py
+# Ce bloc ne s'exécute que lors d'un appel direct. Jamais au startup FastAPI.
+
+if __name__ == '__main__':
+    import asyncio
+    from database import connect_to_db, close_db
+
+    async def _run_seed():
+        await connect_to_db()
+        await seed_initial_data()
+        await close_db()
+        logger.info("Seed terminé avec succès.")
+
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s %(levelname)s %(message)s')
+    asyncio.run(_run_seed())
             logger.info("Seeded 3 subscription plans: plan_basic, plan_premium, plan_pro_annual")
