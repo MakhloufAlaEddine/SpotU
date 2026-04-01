@@ -966,8 +966,8 @@ export default function SpotYouDetail() {
     <View style={st.screen}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      {/* Bannière données périmées */}
-      {screenState === 'ready_cached' && <StaleBanner staleMinutes={staleMinutes} />}
+      {/* Bannière données périmées — uniquement si le refresh réseau a échoué */}
+      {screenState === 'ready_cached' && networkFailed && <StaleBanner staleMinutes={staleMinutes} />}
 
       {/* Header */}
       <SafeAreaView edges={['top']} style={{ backgroundColor: Colors.header }}>

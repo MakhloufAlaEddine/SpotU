@@ -4,7 +4,6 @@ import {
   RefreshControl, Image, Modal, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-;
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { useRefresh } from '../../context/RefreshContext';
@@ -314,8 +313,8 @@ export default function MenuScreen() {
           </View>
         )}
 
-        {/* ── Stale data indicator ─────────────────────────────── */}
-        {dataScreenState === 'ready_cached' && <StaleBanner staleMinutes={staleMinutes} />}
+        {/* ── Stale data indicator — uniquement si le refresh réseau a échoué ── */}
+        {dataScreenState === 'ready_cached' && networkFailed && <StaleBanner staleMinutes={staleMinutes} />}
 
         {/* ── MY TAGPOINTS (horizontal scroll) ──────────────── */}
         {mySpotYou.length > 0 && (

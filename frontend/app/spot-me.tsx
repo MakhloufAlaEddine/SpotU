@@ -186,7 +186,7 @@ export default function MySpotYouScreen() {
         </TouchableOpacity>
       </View>
 
-      {screenState === 'ready_cached' && <StaleBanner staleMinutes={staleMinutes} />}
+      {screenState === 'ready_cached' && networkFailed && <StaleBanner staleMinutes={staleMinutes} />}
 
       {screenState === 'loading_initial' ? (
         <ScreenLoader />

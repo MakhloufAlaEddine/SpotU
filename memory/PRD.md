@@ -19,6 +19,16 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 
 ## What's Been Implemented
 
+### Fix StaleBanner — Affichage conditionnel au seul échec réseau (2026-04-01)
+**Problème** : Le `StaleBanner` ("cache de il y a X minutes") s'affichait toujours en `ready_cached`, même quand un refresh réseau en arrière-plan réussissait.
+**Correction appliquée sur 5 écrans** :
+- `map.tsx` : ajout des états manquants `SpotYou` + `refreshing` (crash potentiel corrigé) + condition `isStale && networkFailed`
+- `chat.tsx` : condition `ready_cached && networkFailed`
+- `spot-me.tsx` : condition `ready_cached && networkFailed`
+- `profile.tsx` : point-virgule parasite supprimé + condition `ready_cached && networkFailed`
+- `spot-you/[id].tsx` : condition `ready_cached && networkFailed`
+**Comportement final** : Le banner n'apparaît **que** si le fetch réseau échoue explicitement.
+
 ### Cleanup Post-Migration Supabase — Code Mort et Tests Obsolètes (2026-04-01)
 
 **Fichiers supprimés (psycopg2 + DSN hardcodé localhost/winek_db) :**

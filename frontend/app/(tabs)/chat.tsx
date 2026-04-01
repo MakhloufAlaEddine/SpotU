@@ -200,8 +200,8 @@ export default function ChatListScreen() {
         </View>
       </SafeAreaView>
 
-      {/* Indicateur stale */}
-      {screenState === 'ready_cached' && <StaleBanner staleMinutes={staleMinutes} />}
+      {/* Indicateur stale — uniquement si le refresh réseau a échoué */}
+      {screenState === 'ready_cached' && networkFailed && <StaleBanner staleMinutes={staleMinutes} />}
 
       {screenState === 'loading_initial' ? (
         <ScreenLoader />

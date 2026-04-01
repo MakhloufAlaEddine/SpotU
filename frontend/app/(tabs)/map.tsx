@@ -375,6 +375,8 @@ export default function HomeScreen() {
   const [screenState, setScreenState] = useState<'loading_initial' | 'ready_fresh' | 'ready_cached' | 'error_no_data' | 'error_network'>('loading_initial');
   const [staleMinutes, setStaleMinutes] = useState<number | null>(null);
   const [networkFailed, setNetworkFailed] = useState(false);
+  const [SpotYou, setSpotYou] = useState<any[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
   const [services, setServices] = useState<any[]>([]);
   const [activityFeed, setActivityFeed] = useState<any[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
@@ -606,7 +608,7 @@ export default function HomeScreen() {
       </SafeAreaView>
 
       {/* ── Bannière stale ── */}
-      {isStale && <StaleBanner staleMinutes={staleMinutes} />}
+      {isStale && networkFailed && <StaleBanner staleMinutes={staleMinutes} />}
 
       {isLoading ? <SkeletonScreen /> : screenState === 'error_network' ? (
         // ── Connexion faible → écran d'erreur réseau ───────────────────────
