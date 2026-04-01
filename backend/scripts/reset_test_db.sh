@@ -27,6 +27,8 @@ echo ""
 
 # ── 1. Drop & recreate ─────────────────────────────────────────────────────
 echo "[1/4] Drop + Create database..."
+# Créer le rôle si absent (résiste aux redémarrages du pod)
+sudo -u postgres psql -q -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='$DB_USER') THEN CREATE USER $DB_USER WITH PASSWORD 'WinekTest2024!'; END IF; END \$\$;"
 sudo -u postgres psql -q -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$DB_NAME' AND pid <> pg_backend_pid();" 2>/dev/null || true
 sudo -u postgres psql -q -c "DROP DATABASE IF EXISTS $DB_NAME;"
 sudo -u postgres psql -q -c "CREATE DATABASE $DB_NAME OWNER $DB_USER;"

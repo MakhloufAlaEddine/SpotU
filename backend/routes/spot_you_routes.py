@@ -223,7 +223,9 @@ async def leave_spot_you(point_id: str, request: Request):
             owner_id = await conn.fetchval(
                 "SELECT user_id FROM tag_points WHERE point_id = $1", point_id
             )
-            if owner_id and str(owner_id) == str(user["user_id"]):
+            if owner_id is None:
+                raise HTTPException(status_code=404, detail="SpotYou introuvable.")
+            if str(owner_id) == str(user["user_id"]):
                 raise HTTPException(status_code=403, detail="Le propriétaire ne peut pas quitter sa propre communauté.")
 
             await conn.execute(

@@ -359,7 +359,39 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 
 ---
 
-## Mode ② — Serveur de test isolé OPÉRATIONNEL (2026-04-01)
+## Restauration couverture P1 TERMINÉE (2026-04-01)
+
+### test_mask_address_unit.py — 22 tests unitaires
+
+| Classe | Tests | Cas couverts |
+|--------|-------|-------------|
+| `TestMaskAddressExact` | 3 | exact → identique, None, '' |
+| `TestMaskAddressNullInput` | 4 | None × {100m,1000m}, '' × {100m,1000m} |
+| `TestMaskAddress100m` | 8 | numéro, bis, ter, quater, sans numéro, sans virgule, grand numéro, seul segment |
+| `TestMaskAddress1000m` | 7 | CP → ville, France ignoré, CP seul, arrondissement, sans CP, méridionale, CP4 |
+
+### test_business_rules_v2.py — 14 tests HTTP
+
+| Classe | Tests | Règle |
+|--------|-------|-------|
+| `TestOwnerCannotLeaveCommunity` | 4 | 403 owner, 200 membre, 404 inexistant, 401 sans auth |
+| `TestMaxImagesValidation` | 6 | 11 imgs→400, 10 imgs→200, PUT 11→400, 0 img→200, tag_ids req, min>max |
+| `TestSlotsMasquesSiBookingActif` | 4 | visible→réservé→masqué→annulé→visible, slot_status dans réponse |
+
+**Bug backend corrigé :** `spot_you_routes.py` — `/leave` sur SpotYou inexistant retournait 200 (manquait le 404 quand `owner_id is None`)
+
+### Suite complète finale
+```
+126 tests / 0 échec / 0 skip (5.86s, mode ②)
+  test_mask_address_unit.py           22/22
+  test_booking_expiry_v2.py           18/18
+  test_booking_flows_v2.py            25/25
+  test_booking_business_rules_v2.py   32/32
+  test_business_rules_v2.py           14/14
+  test_perf01_indexes.py              15/15
+Zéro écriture sur Supabase.
+```
+
 
 ### Levée des 3 skips restants
 
