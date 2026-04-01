@@ -23,6 +23,30 @@ interface Category { category_id: string; label_fr: string; label_en: string; na
 const SERVICE_ORANGE = '#FF9500';
 const SERVICE_ORANGE_BG = 'rgba(255,149,0,0.10)';
 
+// ─── Cache module-level pour /tags/categories ─────────────────────────────────
+// Ces données sont quasi-statiques (changent au maximum à chaque déploiement).
+// Le cache évite 2 appels Supabase (~640ms) à chaque montage de l'écran.
+// TTL : 5 minutes. Réinitialisé automatiquement à l'expiration ou au pull-to-refresh.
+const TAG_CACHE_TTL_MS = 5 * 60 * 1000;
+const _tagCache: Record<string, { data: any[]; fetchedAt: number }> = {};
+
+async function getCachedTagCategories(entityType: string): Promise<any[]> {
+  const now = Date.now();
+  const cached = _tagCache[entityType];
+  if (cached && now - cached.fetchedAt < TAG_CACHE_TTL_MS) {
+    return cached.data;
+  }
+  const data = await api.get(`/tags/categories?entity_type=${entityType}`);
+  _tagCache[entityType] = { data: Array.isArray(data) ? data : [], fetchedAt: now };
+  return _tagCache[entityType].data;
+}
+
+/** Invalide le cache (utilisé au pull-to-refresh pour forcer un rechargement propre) */
+function invalidateTagCache() {
+  delete _tagCache['spotyou'];
+  delete _tagCache['service'];
+}
+
 // ─── Star Rating ──────────────────────────────────────────────────────────────
 function StarRating({ rating = 0 }: { rating?: number }) {
   return (
@@ -112,9 +136,11 @@ export default function SearchScreen() {
   const [tagExpansion, setTagExpansion] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
+    // 1er chargement : données quasi-statiques servies depuis le cache module-level
+    // (0ms si déjà chargées dans la session, ~640ms au 1er montage uniquement)
     Promise.all([
-      api.get('/tags/categories?entity_type=spotyou').catch(() => []),
-      api.get('/tags/categories?entity_type=service').catch(() => []),
+      getCachedTagCategories('spotyou').catch(() => []),
+      getCachedTagCategories('service').catch(() => []),
     ]).then(([syuCats, svcCats]: [any[], any[]]) => {
       const map: Record<string, string[]> = {};
       syuCats.forEach((syuCat: any) => {
@@ -350,7 +376,7 @@ export default function SearchScreen() {
       ) : (
         /* ─── VUE LISTE ─────────────────────────────────────── */
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await doSearch(); setRefreshing(false); }} tintColor={Colors.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); invalidateTagCache(); await doSearch(); setRefreshing(false); }} tintColor={Colors.primary} />}
       >
         {/* Tag search row */}
         <View style={styles.tagInputRow}>

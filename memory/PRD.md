@@ -502,7 +502,35 @@ Zéro écriture sur Supabase.
 
 ---
 
-## Fix isolation tests + nettoyage Supabase (2026-04-01)
+## Optimisations performance écran recherche (2026-04-01)
+
+### Contexte
+Audit performance déclenché par un chargement > 1s sur l'écran recherche SpotYou + Service.
+Latence de base Supabase = 215ms/requête. Le N+1 Python était le multiplicateur principal.
+
+### Fix 1 : Batch N+1 `/services` (search)
+- Remplacé `_enrich_service × N` par `_batch_enrich_services_for_search` (4 requêtes `asyncio.gather`)
+- 3 820ms → 762ms (-80%)
+- Slots et packages non chargés pour la liste (non affichés dans cet écran)
+
+### Fix 2 : Migration 007 — Index `service_locations(service_id)`
+- `CREATE INDEX IF NOT EXISTS idx_service_locations_service_id ON service_locations(service_id)`
+- Seq Scan 46ms → Index Scan 12ms sur le filtre EXISTS géographique
+
+### Fix 3 : Cache module-level `/tags/categories` (frontend)
+- Variable `_tagCache` TTL 5min dans `search.tsx`
+- `getCachedTagCategories()` / `invalidateTagCache()` au pull-to-refresh
+- 640ms sur montages 2+ → 0ms (cache hit)
+
+### Fix 4 : Batch N+1 `/services/mine`
+- Nouveau `_batch_enrich_services_for_owner` : 6 requêtes batch + 1 pour package_slots
+- 3 750ms → 1 400ms (-63%)
+- is_owner=True, original_description, slots, packages conservés
+
+### Fichiers modifiés
+- `backend/routes/service_routes.py`
+- `backend/migrations/007_service_locations_service_id_index.sql`
+- `frontend/app/(tabs)/search.tsx`
 
 ### Problème
 Les tests E2E HTTP tournaient sans `TEST_BASE_URL` → ils écrivaient sur Supabase prod :

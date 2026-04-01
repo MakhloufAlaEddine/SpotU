@@ -422,10 +422,223 @@ async def my_services(request: Request):
             f"SELECT {SVC_FIELDS} FROM services WHERE coach_id = $1 AND active = TRUE ORDER BY created_at DESC",
             user["user_id"]
         )
-        services = [build_service(row_to_dict(r)) for r in rows]
-        result = []
-        for svc in services:
-            result.append(await _enrich_service(conn, svc, is_owner=True))
+    services = [build_service(row_to_dict(r)) for r in rows]
+    # Batch enrich (owner view) : 7 requêtes parallèles au lieu de N×7 séquentielles
+    return await _batch_enrich_services_for_owner(pool, services)
+
+
+async def _batch_enrich_services_for_owner(pool, services: list) -> list:
+    """Enrichissement batch pour l'écran 'Mes services' (is_owner=True).
+
+    Identique à _batch_enrich_services_for_search mais :
+    - is_owner = True (adresse originale visible, is_owner=True dans réponse)
+    - slots     chargés (le coach voit ses créneaux disponibles)
+    - packages  chargés (le coach voit ses formules avec leurs créneaux)
+
+    Requêtes : 7 batch en asyncio.gather au lieu de N×(6+P) séquentielles.
+    """
+    if not services:
+        return services
+
+    svc_ids   = [s["service_id"] for s in services]
+    coach_ids = list({s["coach_id"] for s in services if s.get("coach_id")})
+
+    all_tag_ids: set = set()
+    for s in services:
+        raw = s.get("tag_ids")
+        if isinstance(raw, str):
+            try:
+                raw = json.loads(raw)
+            except Exception:
+                raw = []
+        for t in (raw or []):
+            all_tag_ids.add(str(t))
+    all_tag_ids_list = list(all_tag_ids)
+
+    # ── 6 requêtes batch indépendantes en parallèle ───────────────────────
+    async def _fetch_coaches():
+        async with pool.acquire() as c:
+            return await c.fetch(
+                "SELECT user_id, name, picture, is_coach_verified FROM users WHERE user_id = ANY($1::text[])",
+                coach_ids,
+            )
+
+    async def _fetch_locations():
+        # is_owner : on retourne la description originale + la version masquée
+        async with pool.acquire() as c:
+            return await c.fetch(
+                """SELECT service_id, location_id, precision, description,
+                          ST_Y(location::geometry) AS latitude,
+                          ST_X(location::geometry) AS longitude
+                   FROM service_locations
+                   WHERE service_id = ANY($1::text[])""",
+                svc_ids,
+            )
+
+    async def _fetch_reviews():
+        async with pool.acquire() as c:
+            return await c.fetch(
+                """SELECT reviewee_id,
+                          ROUND(AVG(rating)::numeric, 1) AS avg_rating,
+                          COUNT(*) AS review_count
+                   FROM reviews
+                   WHERE reviewee_id = ANY($1::text[])
+                   GROUP BY reviewee_id""",
+                coach_ids,
+            )
+
+    async def _fetch_tags():
+        if not all_tag_ids_list:
+            return []
+        async with pool.acquire() as c:
+            return await c.fetch(
+                "SELECT tag_id, label_fr, label_en, category_id FROM tags WHERE tag_id = ANY($1::text[])",
+                all_tag_ids_list,
+            )
+
+    async def _fetch_slots():
+        async with pool.acquire() as c:
+            return await c.fetch(
+                """SELECT service_id, slot_id, slot_type, slot_status, location_id, package_id,
+                          day_of_week, days_of_week, start_time, end_time, slot_date
+                   FROM service_slots ss
+                   WHERE ss.service_id = ANY($1::text[])
+                   AND (
+                       ss.slot_date IS NULL
+                       OR (ss.slot_date || ' ' || ss.start_time)::timestamp > NOW()::timestamp
+                   )
+                   AND NOT EXISTS (
+                       SELECT 1 FROM bookings b
+                       WHERE b.slot_id = ss.slot_id
+                       AND b.status IN ('pending', 'accepted', 'awaiting_payment', 'confirmed')
+                   )
+                   ORDER BY ss.slot_date NULLS LAST, ss.start_time""",
+                svc_ids,
+            )
+
+    async def _fetch_packages():
+        async with pool.acquire() as c:
+            return await c.fetch(
+                """SELECT service_id, package_id, type_id, type_label, duration_min, max_participants, price
+                   FROM service_packages
+                   WHERE service_id = ANY($1::text[])
+                   ORDER BY created_at""",
+                svc_ids,
+            )
+
+    coaches_rows, locations_rows, reviews_rows, tags_rows, slots_rows, packages_rows = await asyncio.gather(
+        _fetch_coaches(),
+        _fetch_locations(),
+        _fetch_reviews(),
+        _fetch_tags(),
+        _fetch_slots(),
+        _fetch_packages(),
+    )
+
+    # ── Package slots (1 requête batch sur les package_ids récupérés) ──────
+    pkg_ids = [r["package_id"] for r in packages_rows]
+    if pkg_ids:
+        async with pool.acquire() as c:
+            pkg_slots_rows = await c.fetch(
+                """SELECT package_id, slot_id, slot_date, start_time, end_time
+                   FROM service_slots ss
+                   WHERE ss.package_id = ANY($1::text[])
+                   AND (
+                       ss.slot_date IS NULL
+                       OR (ss.slot_date || ' ' || ss.start_time)::timestamp > NOW()::timestamp
+                   )
+                   AND NOT EXISTS (
+                       SELECT 1 FROM bookings b
+                       WHERE b.slot_id = ss.slot_id
+                       AND b.status IN ('pending', 'accepted', 'awaiting_payment', 'confirmed')
+                   )
+                   ORDER BY ss.slot_date, ss.start_time""",
+                pkg_ids,
+            )
+    else:
+        pkg_slots_rows = []
+
+    # ── Maps de lookup O(1) ────────────────────────────────────────────────
+    coaches_map = {r["user_id"]: row_to_dict(r) for r in coaches_rows}
+    reviews_map = {
+        r["reviewee_id"]: (
+            float(r["avg_rating"]) if r["avg_rating"] is not None else None,
+            int(r["review_count"]),
+        )
+        for r in reviews_rows
+    }
+    tags_lookup = {r["tag_id"]: row_to_dict(r) for r in tags_rows}
+
+    # Locations par service (is_owner → garder original_description)
+    locs_by_svc: dict = {}
+    for r in locations_rows:
+        d = row_to_dict(r)
+        sid = d.pop("service_id")
+        original = d.get("description") or ""
+        prec = d.get("precision", "exact")
+        d["description"] = _mask_address(original, prec)
+        if prec != "exact":
+            d["original_description"] = original
+        locs_by_svc.setdefault(sid, []).append(d)
+
+    # Slots par service (sans le service_id dans la réponse)
+    slots_by_svc: dict = {}
+    for r in slots_rows:
+        d = row_to_dict(r)
+        sid = d.pop("service_id")
+        slots_by_svc.setdefault(sid, []).append(d)
+
+    # Package slots par package_id
+    pkg_slots_by_pkg: dict = {}
+    for r in pkg_slots_rows:
+        d = row_to_dict(r)
+        pid = d.pop("package_id")
+        pkg_slots_by_pkg.setdefault(pid, []).append(d)
+
+    # Packages par service (avec leurs slots intégrés)
+    pkgs_by_svc: dict = {}
+    for r in packages_rows:
+        d = row_to_dict(r)
+        sid = d.pop("service_id")
+        d["slots"] = pkg_slots_by_pkg.get(d["package_id"], [])
+        pkgs_by_svc.setdefault(sid, []).append(d)
+
+    # ── Assemblage final ───────────────────────────────────────────────────
+    result = []
+    for svc in services:
+        svc = dict(svc)
+        coach_id  = svc["coach_id"]
+        svc_id    = svc["service_id"]
+
+        svc["coach"]        = coaches_map.get(coach_id, {})
+        rev                  = reviews_map.get(coach_id)
+        svc["avg_rating"]   = rev[0] if rev else None
+        svc["review_count"] = rev[1] if rev else 0
+
+        locs = locs_by_svc.get(svc_id, [])
+        svc["locations"] = locs
+        if locs:
+            first_prec = locs[0].get("precision", "exact")
+            if first_prec != "exact" and svc.get("address"):
+                original_addr = svc["address"]
+                svc["address"] = _mask_address(original_addr, first_prec)
+                svc["original_address"] = original_addr
+
+        raw_tags = svc.get("tag_ids")
+        if isinstance(raw_tags, str):
+            try:
+                raw_tags = json.loads(raw_tags)
+            except Exception:
+                raw_tags = []
+        svc["tag_ids"]  = raw_tags or []
+        svc["tags"]     = [tags_lookup[t] for t in (raw_tags or []) if t in tags_lookup]
+
+        svc["slots"]    = slots_by_svc.get(svc_id, [])
+        svc["packages"] = pkgs_by_svc.get(svc_id, [])
+        svc["is_owner"] = True
+
+        result.append(svc)
+
     return result
 
 
