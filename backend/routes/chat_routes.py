@@ -63,63 +63,158 @@ async def _resolve_title(conn, conv_type: str, context_id: str) -> str:
 
 
 async def _enrich_conversations(conn, convs: list, current_user_id: str) -> list:
-    result = []
-    for c in convs:
-        # Last message
-        msg_row = await conn.fetchrow(
-            """SELECT m.message_id, m.content, m.created_at, m.sender_id, u.name as sender_name
-               FROM messages m JOIN users u ON m.sender_id = u.user_id
-               WHERE m.conversation_id = $1 ORDER BY m.created_at DESC LIMIT 1""",
-            c["conversation_id"]
-        )
-        c["last_message"] = row_to_dict(msg_row) if msg_row else None
+    """[DEPRECATED] Conservé pour compatibilité mais plus appelé — voir _batch_enrich_conversations."""
+    return await _batch_enrich_conversations(None, conn, convs, current_user_id)
 
-        # Unread count
-        unread_row = await conn.fetchrow(
-            """SELECT COUNT(*) as cnt FROM messages m
+
+async def _batch_enrich_conversations(pool, conn, convs: list, current_user_id: str) -> list:
+    """Enrichissement batch des conversations.
+
+    Remplace le N+1 séquentiel (4 requêtes × N conversations = 849ms/conv).
+    → 5 requêtes batch indépendantes en asyncio.gather quel que soit N.
+
+    Peut utiliser soit un pool (pour les connexions parallèles) soit une connexion existante.
+    """
+    if not convs:
+        return convs
+
+    conv_ids = [c["conversation_id"] for c in convs]
+    group_ids    = [c["conversation_id"] for c in convs if c["type"] == "tagpoint_group"]
+    private_ids  = [c["conversation_id"] for c in convs if c["type"] != "tagpoint_group"]
+    group_ctx_ids = [c["context_id"] for c in convs if c["type"] == "tagpoint_group"]
+
+    # Choisir la source de connexion
+    use_pool = pool is not None
+
+    async def _fetch(coro_fn):
+        if use_pool:
+            async with pool.acquire() as c:
+                return await coro_fn(c)
+        else:
+            return await coro_fn(conn)
+
+    async def get_last_messages(c):
+        return await c.fetch(
+            """SELECT DISTINCT ON (m.conversation_id)
+                      m.conversation_id, m.message_id, m.content,
+                      m.created_at, m.sender_id, u.name AS sender_name
+               FROM messages m
+               JOIN users u ON u.user_id = m.sender_id
+               WHERE m.conversation_id = ANY($1::text[])
+               ORDER BY m.conversation_id, m.created_at DESC""",
+            conv_ids,
+        )
+
+    async def get_unread_counts(c):
+        return await c.fetch(
+            """SELECT m.conversation_id,
+                      COUNT(*) FILTER (
+                          WHERE m.created_at > cp.last_read_at
+                            AND m.sender_id != $1
+                      ) AS unread_count
+               FROM messages m
                JOIN conversation_participants cp
                  ON cp.conversation_id = m.conversation_id AND cp.user_id = $1
-               WHERE m.conversation_id = $2 AND m.created_at > cp.last_read_at AND m.sender_id != $1""",
-            current_user_id, c["conversation_id"]
+               WHERE m.conversation_id = ANY($2::text[])
+               GROUP BY m.conversation_id""",
+            current_user_id, conv_ids,
         )
-        c["unread_count"] = unread_row["cnt"] if unread_row else 0
 
-        # Status de l'utilisateur courant dans la conversation (active / blocked)
-        status_row = await conn.fetchrow(
-            "SELECT status FROM conversation_participants WHERE conversation_id=$1 AND user_id=$2",
-            c["conversation_id"], current_user_id
+    async def get_statuses(c):
+        return await c.fetch(
+            """SELECT conversation_id, status
+               FROM conversation_participants
+               WHERE conversation_id = ANY($1::text[]) AND user_id = $2""",
+            conv_ids, current_user_id,
         )
-        c["is_blocked"] = (status_row["status"] == "blocked") if status_row else False
 
-        # Other participant (for 1-to-1 conversations)
-        if c["type"] != "tagpoint_group":
-            other = await conn.fetchrow(
-                """SELECT u.user_id, u.name, u.picture FROM users u
-                   JOIN conversation_participants cp ON cp.user_id = u.user_id
-                   WHERE cp.conversation_id = $1 AND u.user_id != $2 LIMIT 1""",
-                c["conversation_id"], current_user_id
+    async def get_other_participants(c):
+        if not private_ids:
+            return []
+        return await c.fetch(
+            """SELECT cp.conversation_id, u.user_id, u.name, u.picture
+               FROM conversation_participants cp
+               JOIN users u ON u.user_id = cp.user_id
+               WHERE cp.conversation_id = ANY($1::text[]) AND cp.user_id != $2""",
+            private_ids, current_user_id,
+        )
+
+    async def get_group_data(c):
+        counts, images = [], []
+        if group_ids:
+            counts = await c.fetch(
+                """SELECT conversation_id, COUNT(*) AS cnt
+                   FROM conversation_participants
+                   WHERE conversation_id = ANY($1::text[])
+                   GROUP BY conversation_id""",
+                group_ids,
             )
-            c["other_participant"] = row_to_dict(other) if other else None
-        else:
-            # For group: show participant count + first image of the SpotYou
-            cnt = await conn.fetchrow(
-                "SELECT COUNT(*) as cnt FROM conversation_participants WHERE conversation_id = $1",
-                c["conversation_id"]
+        if group_ctx_ids:
+            images = await c.fetch(
+                "SELECT point_id, images FROM tag_points WHERE point_id = ANY($1::text[])",
+                group_ctx_ids,
             )
-            c["participant_count"] = cnt["cnt"] if cnt else 0
-            c["other_participant"] = None
-            # Récupérer la première image du SpotYou associé
-            img_row = await conn.fetchrow(
-                "SELECT images FROM tag_points WHERE point_id = $1", c["context_id"]
-            )
-            context_images = img_row["images"] if img_row else []
-            if isinstance(context_images, str):
+        return counts, images
+
+    if use_pool:
+        (last_msgs, unread_rows, status_rows,
+         other_rows, group_result) = await asyncio.gather(
+            _fetch(get_last_messages),
+            _fetch(get_unread_counts),
+            _fetch(get_statuses),
+            _fetch(get_other_participants),
+            _fetch(get_group_data),
+        )
+    else:
+        # Connexion unique — séquentiel mais avec une seule connexion (fallback)
+        last_msgs    = await get_last_messages(conn)
+        unread_rows  = await get_unread_counts(conn)
+        status_rows  = await get_statuses(conn)
+        other_rows   = await get_other_participants(conn)
+        group_result = await get_group_data(conn)
+
+    group_counts_rows, group_images_rows = group_result
+
+    # ── Maps de lookup O(1) ────────────────────────────────────────────────
+    last_msg_map  = {r["conversation_id"]: row_to_dict(r) for r in last_msgs}
+    unread_map    = {r["conversation_id"]: int(r["unread_count"]) for r in unread_rows}
+    status_map    = {r["conversation_id"]: r["status"] for r in status_rows}
+    group_cnt_map = {r["conversation_id"]: int(r["cnt"]) for r in group_counts_rows}
+    ctx_image_map : dict = {}
+    for r in group_images_rows:
+        imgs = r["images"]
+        if isinstance(imgs, str):
+            try:
                 import json as _j
-                try:
-                    context_images = _j.loads(context_images)
-                except Exception:
-                    context_images = []
-            c["context_image"] = context_images[0] if context_images else None
+                imgs = _j.loads(imgs)
+            except Exception:
+                imgs = []
+        ctx_image_map[r["point_id"]] = imgs[0] if imgs else None
+
+    # Regrouper les autres participants par conversation
+    other_by_conv: dict = {}
+    for r in other_rows:
+        cid = r["conversation_id"]
+        other_by_conv.setdefault(cid, []).append(row_to_dict(r))
+
+    # ── Assembler ──────────────────────────────────────────────────────────
+    result = []
+    for c in convs:
+        cid = c["conversation_id"]
+        msg = last_msg_map.get(cid)
+        if msg:
+            msg.pop("conversation_id", None)
+        c["last_message"]   = msg
+        c["unread_count"]   = unread_map.get(cid, 0)
+        c["is_blocked"]     = (status_map.get(cid) == "blocked")
+
+        if c["type"] != "tagpoint_group":
+            others = other_by_conv.get(cid, [])
+            c["other_participant"] = others[0] if others else None
+        else:
+            c["participant_count"] = group_cnt_map.get(cid, 0)
+            c["other_participant"] = None
+            c["context_image"]     = ctx_image_map.get(c.get("context_id", ""))
 
         result.append(c)
     return result
@@ -265,7 +360,8 @@ async def list_conversations(request: Request):
             uid
         )
         convs = rows_to_list(rows)
-        return await _enrich_conversations(conn, convs, uid)
+    # Batch enrich avec pool pour asyncio.gather parallèle
+    return await _batch_enrich_conversations(pool, None, convs, uid)
 
 
 @router.get("/conversations/{conv_id}/messages")
