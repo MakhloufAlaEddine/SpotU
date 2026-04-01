@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Request, HTTPException, Query
 from typing import Optional
+import asyncio
 from models import ServiceCreate, ServiceUpdate, new_id
 from auth_utils import require_auth, get_token_from_request, decode_jwt, get_optional_auth
 from database import get_pool, row_to_dict, rows_to_list
@@ -169,6 +170,9 @@ async def _get_service_packages(conn, service_id: str) -> list:
 
 
 async def _enrich_service(conn, svc: dict, is_owner: bool = False) -> dict:
+    """Enrichissement complet d'un service — utilisé pour la vue détail et 'Mes services'.
+    Conservé tel quel pour ne casser aucun endpoint existant.
+    """
     coach_row = await conn.fetchrow(
         "SELECT user_id, name, picture, is_coach_verified FROM users WHERE user_id = $1",
         svc["coach_id"]
@@ -209,6 +213,142 @@ async def _enrich_service(conn, svc: dict, is_owner: bool = False) -> dict:
     return svc
 
 
+async def _batch_enrich_services_for_search(pool, services: list) -> list:
+    """Enrichissement batch pour l'écran de recherche.
+
+    Remplace la boucle N+1 (_enrich_service × N) par 4 requêtes batch parallèles.
+    - Avant : N services × 7 roundtrips Supabase = N × 215ms
+    - Après  : 4 requêtes en asyncio.gather ≈ 215ms constant (1 seul round réseau)
+
+    Différences intentionnelles avec _enrich_service (écran liste) :
+    - slots   = [] (non affiché dans la liste, chargé au détail)
+    - packages = [] (idem)
+    - is_owner = False (les propres services du coach sont exclus de la recherche)
+    """
+    if not services:
+        return services
+
+    svc_ids   = [s["service_id"] for s in services]
+    coach_ids = list({s["coach_id"] for s in services if s.get("coach_id")})
+
+    # Collecter tous les tag_ids uniques à résoudre
+    all_tag_ids: set = set()
+    for s in services:
+        raw = s.get("tag_ids")
+        if isinstance(raw, str):
+            try:
+                raw = json.loads(raw)
+            except Exception:
+                raw = []
+        for t in (raw or []):
+            all_tag_ids.add(str(t))
+    all_tag_ids_list = list(all_tag_ids)
+
+    # ── 4 requêtes indépendantes lancées en parallèle ──────────────────────
+    async def _fetch_coaches():
+        async with pool.acquire() as c:
+            return await c.fetch(
+                "SELECT user_id, name, picture, is_coach_verified FROM users WHERE user_id = ANY($1::text[])",
+                coach_ids,
+            )
+
+    async def _fetch_locations():
+        async with pool.acquire() as c:
+            return await c.fetch(
+                """SELECT service_id,
+                          location_id, precision, description,
+                          ST_Y(location::geometry) AS latitude,
+                          ST_X(location::geometry) AS longitude
+                   FROM service_locations
+                   WHERE service_id = ANY($1::text[])""",
+                svc_ids,
+            )
+
+    async def _fetch_reviews():
+        async with pool.acquire() as c:
+            return await c.fetch(
+                """SELECT reviewee_id,
+                          ROUND(AVG(rating)::numeric, 1) AS avg_rating,
+                          COUNT(*) AS review_count
+                   FROM reviews
+                   WHERE reviewee_id = ANY($1::text[])
+                   GROUP BY reviewee_id""",
+                coach_ids,
+            )
+
+    async def _fetch_tags():
+        if not all_tag_ids_list:
+            return []
+        async with pool.acquire() as c:
+            return await c.fetch(
+                "SELECT tag_id, label_fr, label_en, category_id FROM tags WHERE tag_id = ANY($1::text[])",
+                all_tag_ids_list,
+            )
+
+    coaches_rows, locations_rows, reviews_rows, tags_rows = await asyncio.gather(
+        _fetch_coaches(),
+        _fetch_locations(),
+        _fetch_reviews(),
+        _fetch_tags(),
+    )
+
+    # ── Maps de lookup O(1) ────────────────────────────────────────────────
+    coaches_map  = {r["user_id"]: row_to_dict(r) for r in coaches_rows}
+    reviews_map  = {
+        r["reviewee_id"]: (
+            float(r["avg_rating"]) if r["avg_rating"] is not None else None,
+            int(r["review_count"]),
+        )
+        for r in reviews_rows
+    }
+    tags_lookup  = {r["tag_id"]: row_to_dict(r) for r in tags_rows}
+
+    locs_by_svc: dict = {}
+    for r in locations_rows:
+        d = row_to_dict(r)
+        sid = d.pop("service_id")
+        # Masquage adresse (viewer = non-owner dans la recherche)
+        prec = d.get("precision", "exact")
+        d["description"] = _mask_address(d.get("description") or "", prec)
+        locs_by_svc.setdefault(sid, []).append(d)
+
+    # ── Assemblage final ───────────────────────────────────────────────────
+    result = []
+    for svc in services:
+        svc = dict(svc)
+        coach_id = svc["coach_id"]
+
+        svc["coach"]        = coaches_map.get(coach_id, {})
+        rev                  = reviews_map.get(coach_id)
+        svc["avg_rating"]   = rev[0] if rev else None
+        svc["review_count"] = rev[1] if rev else 0
+
+        locs = locs_by_svc.get(svc["service_id"], [])
+        svc["locations"] = locs
+        if locs:
+            first_prec = locs[0].get("precision", "exact")
+            if first_prec != "exact" and svc.get("address"):
+                svc["address"] = _mask_address(svc["address"], first_prec)
+
+        raw_tags = svc.get("tag_ids")
+        if isinstance(raw_tags, str):
+            try:
+                raw_tags = json.loads(raw_tags)
+            except Exception:
+                raw_tags = []
+        svc["tag_ids"]  = raw_tags or []
+        svc["tags"]     = [tags_lookup[t] for t in (raw_tags or []) if t in tags_lookup]
+
+        # Liste de recherche : slots et packages non chargés (non affichés dans cette vue)
+        svc["slots"]    = []
+        svc["packages"] = []
+        svc["is_owner"] = False
+
+        result.append(svc)
+
+    return result
+
+
 @router.get("/services")
 async def search_services(
     lat: Optional[float] = Query(None),
@@ -231,7 +371,6 @@ async def search_services(
         pass
 
     conditions = ["active = TRUE"]
-    # Exclure les services créés par l'utilisateur connecté (accessibles via "Mes services")
     params: list = []
     param_idx = 1
     if current_user_id:
@@ -265,13 +404,13 @@ async def search_services(
     where_clause = " AND ".join(conditions)
     query = f"SELECT {SVC_FIELDS} FROM services WHERE {where_clause} LIMIT 100"
 
+    # 1 seule connexion pour la requête principale (légère)
     async with pool.acquire() as conn:
         rows = await conn.fetch(query, *params)
-        services = [build_service(row_to_dict(r)) for r in rows]
-        enriched = []
-        for svc in services:
-            enriched.append(await _enrich_service(conn, svc))
-    return enriched
+    services = [build_service(row_to_dict(r)) for r in rows]
+
+    # Batch enrich : 4 requêtes parallèles au lieu de N×7 séquentielles
+    return await _batch_enrich_services_for_search(pool, services)
 
 
 @router.get("/services/mine")
