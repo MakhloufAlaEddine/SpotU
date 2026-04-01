@@ -359,7 +359,48 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 
 ---
 
-## Migration Supabase — Phase 2 TERMINÉE (2026-04-01)
+## Mode ② — Serveur de test isolé OPÉRATIONNEL (2026-04-01)
+
+### Levée des 3 skips restants
+
+| Test | Résultat | Raison du skip initial |
+|------|----------|----------------------|
+| `test_F_cancel_awaiting_payment_releases_slot` | **PASSÉ** ✅ | Manque `slot_status` dans réponse API service |
+| `test_G_accept_expired_booking_returns_410` | **PASSÉ** ✅ | Serveur de test non démarré |
+| `test_G_accept_valid_booking_returns_200` | **PASSÉ** ✅ | Serveur de test non démarré |
+
+**Corrections apportées :**
+- `routes/service_routes.py` : ajout `slot_status` dans `_get_service_slots` SELECT
+- `scripts/start_test_server.sh` : chargement `.env.test` via source + timeout 3s
+- `scripts/reset_test_db.sh` : chargement `.env.test` avant seed.py (déjà corrigé)
+
+### Nouveaux tests règles métier (test_booking_business_rules_v2.py)
+
+| Classe | Tests | Couverture |
+|--------|-------|-----------|
+| `TestRequiredFields` | 7 | service_id manquant (422), payment_mode invalide (400), service inexistant (404), auth requise (401) |
+| `TestResponseFields` | 3 | booking_id/status/expires_at/amount/pricing_snapshot obligatoires, /accept response |
+| `TestPricingEngine` | 2 | amount = prix service, devise EUR |
+| `TestInvalidStateTransitions` | 6 | cancel refused (409), refuse accepted (409), tous les 404 sur IDs inexistants |
+| `TestAuthorization` | 6 | user≠accept (403), user≠refuse (403), tiers≠cancel (403), receiver≠cancel requested (409), coach≠pay (403), admin=cancel any (200) |
+| `TestIdempotence` | 4 | idempotency_key, /refuse×2, /cancel×2, /accept×2 |
+| `TestSelfBookingForbidden` | 1 | coach ne réserve pas son propre service |
+| `TestPayExpiredBooking` | 1 | /pay expiré → 410 (mode ②) |
+| `TestCancelByPayerReleasesSlot` | 1 | cancel payeur → slot available (mode ②) |
+| `TestSlotUnavailableRejection` | 1 | slot reserved → 409 (mode ②) |
+
+### Suite P0 finale
+
+```
+90 tests / 0 échec / 0 skip  (en mode ②, 4.93s)
+  - test_booking_expiry_v2.py        : 18/18
+  - test_booking_flows_v2.py         : 25/25 (dont F et G@DB)
+  - test_booking_business_rules_v2.py: 32/32
+  - test_perf01_indexes.py           : 15/15
+```
+
+**Isolation confirmée :** zéro écriture dans Supabase pour tous les tests.
+
 
 ### Stabilisation tests P0 — winek_test
 

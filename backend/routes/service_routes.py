@@ -120,7 +120,7 @@ async def _get_service_locations(conn, service_id: str, is_owner: bool = False) 
 
 async def _get_service_slots(conn, service_id: str) -> list:
     rows = await conn.fetch(
-        """SELECT slot_id, slot_type, location_id, package_id, day_of_week, days_of_week, start_time, end_time, slot_date
+        """SELECT slot_id, slot_type, slot_status, location_id, package_id, day_of_week, days_of_week, start_time, end_time, slot_date
            FROM service_slots ss
            WHERE ss.service_id = $1
            AND (
