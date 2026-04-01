@@ -19,6 +19,7 @@ import asyncio
 import asyncpg
 import hashlib
 import os
+import ssl
 import sys
 from pathlib import Path
 
@@ -47,10 +48,29 @@ def _checksum(content: str) -> str:
 
 
 async def _get_pool(dsn: str) -> asyncpg.Pool:
-    # Auto-détection SSL : local (127.0.0.1 / localhost) = pas de SSL,
-    # connexion distante (Supabase, etc.) = ssl='require'
+    """
+    Crée un pool asyncpg avec la configuration SSL adaptée :
+      - Local (127.0.0.1 / localhost) → ssl=False
+      - Supabase (Supavisor) → CA cert Supabase + check_hostname=True + CERT_REQUIRED
+    """
     _is_local = "127.0.0.1" in dsn or "localhost" in dsn
-    _ssl = False if _is_local else "require"
+    if _is_local:
+        _ssl: ssl.SSLContext | bool = False
+    else:
+        # CA cert Supabase embarqué dans le projet
+        cert_path = os.environ.get(
+            "SSL_CA_CERT_PATH",
+            str(Path(__file__).parent.parent / "certs" / "supabase-ca.crt")
+        )
+        if not Path(cert_path).is_file():
+            raise FileNotFoundError(
+                f"CA cert introuvable : {cert_path}\n"
+                "Vérifiez SSL_CA_CERT_PATH ou que backend/certs/supabase-ca.crt existe."
+            )
+        _ssl = ssl.create_default_context(cafile=cert_path)
+        _ssl.check_hostname = True
+        _ssl.verify_mode = ssl.CERT_REQUIRED
+
     return await asyncpg.create_pool(
         dsn,
         ssl=_ssl,

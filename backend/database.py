@@ -2,23 +2,33 @@
 database.py — Connexion asyncpg pour SpotU
 
 Stratégie de connexion :
-  - Développement : connexion directe PostgreSQL local (127.0.0.1)
-  - Production    : Supavisor session mode (port 5432) sur aws-0-{region}.pooler.supabase.com
+  - Local (127.0.0.1 / localhost) : pas de SSL
+  - Supabase (Supavisor session mode) : SSL complet avec CA Supabase
 
-Pourquoi Supavisor session mode et pas la connexion directe Supabase ?
-  → db.PROJECT.supabase.co:5432 ne résout pas depuis les pods Kubernetes
-    hébergés sur GCP (DNS interne restreint, pas d'IPv6 sortant).
-  → La connexion directe sera privilégiée en production si l'hébergeur
-    supporte IPv6 ou si l'IP publique est ajoutée à l'allowlist Supabase.
+SSL production-ready :
+  - cafile : certs/supabase-ca.crt (Supabase Root 2021 CA, valide jusqu'en 2031)
+  - check_hostname = True
+  - verify_mode   = CERT_REQUIRED
+  → Pas de CERT_NONE en production.
 
-Pourquoi pas le transaction mode (port 6543) ?
-  → Incompatible avec les prepared statements asyncpg.
-  → Session mode (5432) = connexion persistante avec recycling, compatible asyncpg.
+Configuration env :
+  DATABASE_URL        : URL de connexion PostgreSQL (obligatoire)
+  SSL_CA_CERT_PATH    : chemin vers le CA cert (optionnel, défaut = certs/supabase-ca.crt)
+  APP_ENV             : dev | staging | prod (optionnel, défaut = prod)
+                        - dev local  : ssl=False si 127.0.0.1
+                        - staging    : ssl CA cert + check_hostname=True
+                        - prod       : ssl CA cert + check_hostname=True
 
-Configuration pool pour pgbouncer / Supavisor :
-  → statement_cache_size=0  : désactive le cache de prepared statements
-  → ssl='require'           : obligatoire côté Supabase (ignoré sur 127.0.0.1)
-  → min/max_size conservatif pour nano tier
+Connexion Supabase (Supavisor session mode, port 5432) :
+  Format : postgresql://postgres.PROJECT_REF:PASSWORD@aws-0-REGION.pooler.supabase.com:5432/postgres
+  Pourquoi session mode et pas la connexion directe ?
+    → db.PROJECT.supabase.co:5432 ne résout pas depuis les pods GCP Kubernetes
+    → Supavisor session mode (port 5432) = connexion persistante, compatible asyncpg
+  Pourquoi pas transaction mode (port 6543) ?
+    → Incompatible avec les prepared statements asyncpg
+
+Pool asyncpg pour pgbouncer / Supavisor :
+  statement_cache_size=0  → désactive le cache de prepared statements (requis)
 """
 
 import asyncpg
@@ -26,11 +36,16 @@ import os
 import logging
 import json as _json
 import ssl
+from pathlib import Path
 from decimal import Decimal
 from typing import Optional
 
 logger = logging.getLogger(__name__)
 pool: Optional[asyncpg.Pool] = None
+
+# Chemin du CA cert Supabase (embarqué dans le projet)
+_CERT_DIR = Path(__file__).parent / "certs"
+_DEFAULT_CA_CERT = _CERT_DIR / "supabase-ca.crt"
 
 
 # ── Helpers de sérialisation ───────────────────────────────────────────────────
@@ -66,17 +81,38 @@ async def _init_connection(conn):
     )
 
 
+# ── Création du contexte SSL ──────────────────────────────────────────────────
+
+def _build_ssl_context(database_url: str) -> "ssl.SSLContext | bool":
+    """
+    Retourne le contexte SSL adapté à l'URL :
+      - 127.0.0.1 / localhost → False (pas de SSL)
+      - Toute autre URL       → SSLContext avec CA cert Supabase
+                                check_hostname=True + CERT_REQUIRED
+    """
+    if "127.0.0.1" in database_url or "localhost" in database_url:
+        return False
+
+    ca_cert = os.environ.get("SSL_CA_CERT_PATH", str(_DEFAULT_CA_CERT))
+
+    if not Path(ca_cert).is_file():
+        raise FileNotFoundError(
+            f"CA cert introuvable : {ca_cert}\n"
+            f"Vérifiez SSL_CA_CERT_PATH ou que {_DEFAULT_CA_CERT} existe."
+        )
+
+    ctx = ssl.create_default_context(cafile=ca_cert)
+    ctx.check_hostname = True
+    ctx.verify_mode = ssl.CERT_REQUIRED
+    logger.debug("SSL ctx créé avec CA : %s", ca_cert)
+    return ctx
+
+
 # ── Pool ──────────────────────────────────────────────────────────────────────
 
 async def connect_to_db():
     """
     Crée le pool asyncpg.
-
-    - Connexion locale (127.0.0.1 / localhost) : ssl=False
-    - Connexion distante (Supabase Supavisor) : ssl_ctx sans vérification de cert
-      → ssl='require' échoue en Kubernetes (cert Supabase non vérifiable depuis GCP)
-      → ssl_ctx (CERT_NONE) = chiffrement actif, verification désactivée = OK en dev
-
     Aucune DDL ni seed n'est exécuté ici.
     Le schéma est géré exclusivement via /migrations/*.sql (run_migrations.py).
     """
@@ -85,14 +121,8 @@ async def connect_to_db():
     if not database_url:
         raise RuntimeError("DATABASE_URL manquant dans l'environnement (.env)")
 
-    _is_local = "127.0.0.1" in database_url or "localhost" in database_url
-    if _is_local:
-        _ssl: ssl.SSLContext | bool = False
-    else:
-        # Supabase Supavisor : cert non vérifiable depuis cet hébergeur
-        _ssl = ssl.create_default_context()
-        _ssl.check_hostname = False
-        _ssl.verify_mode = ssl.CERT_NONE
+    _ssl = _build_ssl_context(database_url)
+    _is_local = _ssl is False
 
     import asyncio
     for attempt in range(15):
@@ -108,13 +138,14 @@ async def connect_to_db():
                 command_timeout=30,
             )
             target = database_url.split("@")[-1] if "@" in database_url else database_url
-            logger.info("DB pool créé — %s (ssl=%s)", target, "ctx" if not _is_local else "False")
+            ssl_label = "False (local)" if _is_local else "CA cert (CERT_REQUIRED)"
+            logger.info("DB pool créé — %s | ssl=%s", target, ssl_label)
             break
         except Exception as e:
             if attempt == 14:
                 logger.error(
                     "Impossible de se connecter à la DB après 15 tentatives. "
-                    "Vérifiez DATABASE_URL et l'accessibilité du serveur."
+                    "Vérifiez DATABASE_URL, SSL_CA_CERT_PATH et l'accessibilité du serveur."
                 )
                 raise
             wait = min(2 ** attempt, 30)

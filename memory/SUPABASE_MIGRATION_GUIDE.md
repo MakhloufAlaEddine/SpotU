@@ -103,17 +103,57 @@ utiliser la connexion directe (`db.PROJECT.supabase.co:5432`).
 
 ---
 
-## Configuration asyncpg (déjà en place dans database.py)
+## Configuration SSL production-ready (2026-04-01)
 
+### Certificat CA Supabase
+- Fichier : `backend/certs/supabase-ca.crt`
+- CN : Supabase Root 2021 CA
+- Valide jusqu'au : 26 avril 2031
+
+### Contexte SSL asyncpg
 ```python
-pool = await asyncpg.create_pool(
-    database_url,
-    min_size=2,
-    max_size=10,
-    init=_init_connection,
-    ssl='require',           # Obligatoire pour Supabase (auto-détecté : False pour local)
-    statement_cache_size=0,  # Requis pour Supavisor/pgbouncer
-    timeout=15,
-    command_timeout=30,
-)
+ctx = ssl.create_default_context(cafile="backend/certs/supabase-ca.crt")
+ctx.check_hostname = True
+ctx.verify_mode = ssl.CERT_REQUIRED
+```
+**Pas de CERT_NONE en production.**
+
+### Variable d'environnement
+- `SSL_CA_CERT_PATH` : chemin alternatif vers le CA cert (optionnel)
+- Par défaut : `backend/certs/supabase-ca.crt` (embarqué dans le projet)
+
+### Log de démarrage attendu
+```
+DB pool créé — aws-0-eu-west-1.pooler.supabase.com:5432/postgres | ssl=CA cert (CERT_REQUIRED)
+```
+
+---
+
+## URL de connexion Supabase (Supavisor session mode)
+
+```
+postgresql://postgres.PROJECT_REF:[PASSWORD]@aws-0-eu-west-1.pooler.supabase.com:5432/postgres
+```
+
+**Pourquoi Supavisor session mode (port 5432) et pas la connexion directe ?**
+- `db.PROJECT.supabase.co:5432` : hostname ne résout pas depuis les pods GCP (DNS interne restreint)
+- Supavisor session mode = connexion persistante compatible asyncpg
+- Transaction mode (port 6543) : incompatible avec les prepared statements
+
+**En production hébergée** : si IPv6 disponible ou IP allowlist configurée,
+la connexion directe (`db.PROJECT.supabase.co:5432`) peut être utilisée.
+
+---
+
+## Commandes utiles
+
+```bash
+# Status des migrations
+cd /app/backend && python migrations/run_migrations.py --status
+
+# Seed (données initiales, CLI uniquement)
+cd /app/backend && python seed.py
+
+# Dry-run (vérifier sans appliquer)
+cd /app/backend && python migrations/run_migrations.py --dry-run
 ```
