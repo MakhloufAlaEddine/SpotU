@@ -393,6 +393,7 @@ export default function SpotYouDetail() {
   const [isPublic, setIsPublic] = useState(true);
   const [ownerActionLoading, setOwnerActionLoading] = useState(false);
   const [showExactAddress, setShowExactAddress] = useState(false);
+  const [showFullDesc, setShowFullDesc] = useState(false);
 
   // ── Animation pulse bouton Marketplace ───────────────────────────────────
   const marketplacePulse = useRef(new Animated.Value(1)).current;
