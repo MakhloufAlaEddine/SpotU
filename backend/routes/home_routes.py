@@ -65,7 +65,7 @@ async def nearest_sector(
                     ST_SetSRID(ST_MakePoint($1::float8, $2::float8), 4326)::geography
                 ) AS distance_m
             FROM tag_points tp
-            WHERE tp.active = TRUE AND tp.is_public = TRUE
+            WHERE tp.active = TRUE
             {user_cond}
             ORDER BY distance_m ASC
             LIMIT 1
@@ -81,7 +81,7 @@ async def nearest_sector(
         # Compter les SpotYou dans un rayon de 50 km autour du point le plus proche
         count = await conn.fetchval("""
             SELECT COUNT(*) FROM tag_points
-            WHERE active = TRUE AND is_public = TRUE
+            WHERE active = TRUE
               AND ST_DWithin(
                 location::geography,
                 ST_SetSRID(ST_MakePoint($1::float8, $2::float8), 4326)::geography,
@@ -197,7 +197,7 @@ async def home_feed(
             # ── SpotYou ──────────────────────────────────────────────────
             params: list = []
             p = 1
-            conditions = ["tp.active = TRUE", "tp.is_public = TRUE"]
+            conditions = ["tp.active = TRUE"]
 
             if current_user_id:
                 conditions.append(f"tp.user_id != ${p}")
@@ -226,7 +226,7 @@ async def home_feed(
                 SELECT
                     tp.point_id, tp.user_id, tp.title, tp.description,
                     tp.precision, tp.tag_ids, tp.domain_id, tp.active,
-                    tp.is_public, tp.cancelled, tp.image_url, tp.images,
+                    tp.cancelled, tp.image_url, tp.images,
                     tp.schedule, tp.event_date, tp.event_end_date,
                     tp.minimum_participants, tp.maximum_participants,
                     ST_Y(tp.location::geometry) AS latitude,

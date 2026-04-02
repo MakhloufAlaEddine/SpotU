@@ -184,9 +184,9 @@ async def get_public_profile(user_id: str, request: Request):
         # Public tagpoints — enriched for SpotYouCard carousel
         tp_rows = await conn.fetch(
             """SELECT point_id, title, images, event_date, event_schedule, domain_id, tag_ids,
-                      minimum_participants, maximum_participants, is_public
+                      minimum_participants, maximum_participants
                FROM tag_points
-               WHERE user_id = $1 AND active = TRUE AND is_public = TRUE
+               WHERE user_id = $1 AND active = TRUE
                ORDER BY created_at DESC LIMIT 20""",
             user_id
         )

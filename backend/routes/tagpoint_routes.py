@@ -30,7 +30,7 @@ def _first_image(images_raw) -> str:
 
 TP_FIELDS = """
     tp.point_id, tp.user_id, tp.title, tp.description,
-    tp.precision, tp.tag_ids, tp.domain_id, tp.active, tp.is_public, tp.cancelled, tp.expires_at, tp.created_at, tp.updated_at,
+    tp.precision, tp.tag_ids, tp.domain_id, tp.active, tp.cancelled, tp.expires_at, tp.created_at, tp.updated_at,
     tp.image_url, tp.images, tp.schedule, tp.event_date, tp.event_end_date, tp.event_schedule, tp.new_date_coming,
     tp.minimum_participants, tp.maximum_participants, tp.address,
     ST_Y(tp.location::geometry) as latitude,
@@ -167,14 +167,11 @@ async def search_tag_points(
     params: list = []
     param_idx = 1
 
-    # Visibilité : si connecté, exclure ses propres SpotYou; sinon seulement les publics
+    # Visibilité : si connecté, exclure ses propres SpotYou
     if current_user_id:
-        conditions.append("tp.is_public = TRUE")
         conditions.append(f"tp.user_id != ${param_idx}")
         params.append(current_user_id)
         param_idx += 1
-    else:
-        conditions.append("tp.is_public = TRUE")
 
     if lat is not None and lng is not None:
         lng_idx = param_idx
@@ -889,7 +886,7 @@ async def get_planning_events(request: Request):
                JOIN spot_you_attendance a ON tp.point_id = a.spot_you_id
                LEFT JOIN users u ON tp.user_id = u.user_id
                WHERE a.user_id = $1 AND a.status = 'going' AND tp.active = TRUE
-                 AND (tp.is_public = TRUE OR tp.user_id = $1)
+                 AND tp.active = TRUE
                  AND a.session_date >= (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Paris')::date""",
             user["user_id"]
         )
@@ -1293,7 +1290,7 @@ async def update_tag_point(point_id: str, data: TagPointUpdate, request: Request
         existing = await conn.fetchrow(
             """SELECT user_id, title, cancelled,
                       description, precision, tag_ids, images, domain_id,
-                      active, is_public, event_date, event_end_date, event_schedule,
+                      active, event_date, event_end_date, event_schedule,
                       ST_Y(location::geometry) as latitude,
                       ST_X(location::geometry) as longitude
                FROM tag_points WHERE point_id = $1""", point_id
@@ -1446,33 +1443,8 @@ async def toggle_new_date_coming(point_id: str, request: Request):
     return {"new_date_coming": new_val}
 
 
-@router.patch("/tag-points/{point_id}/visibility")
-async def toggle_visibility(point_id: str, request: Request):
-    """Owner peut basculer public/masqué UNIQUEMENT si aucun autre participant."""
-    pool = get_pool()
-    user = await require_auth(request, pool)
-
-    async with pool.acquire() as conn:
-        existing = await conn.fetchrow(
-            "SELECT user_id, is_public, title FROM tag_points WHERE point_id = $1 AND active = TRUE", point_id
-        )
-        if not existing:
-            raise HTTPException(status_code=404, detail="TagPoint not found")
-        if existing["user_id"] != user["user_id"] and user["role"] != "admin":
-            raise HTTPException(status_code=403, detail="Not authorized")
-        # Vérifier qu'il n'y a pas d'autres participants
-        other_count = await conn.fetchval(
-            "SELECT COUNT(*) FROM spot_you_members WHERE spot_you_id=$1 AND user_id != $2",
-            point_id, existing["user_id"]
-        )
-        if other_count > 0:
-            raise HTTPException(status_code=400, detail="Impossible: d'autres participants sont inscrits.")
-        new_val = not (existing["is_public"] if existing["is_public"] is not None else True)
-        await conn.execute(
-            "UPDATE tag_points SET is_public = $1, updated_at = NOW() WHERE point_id = $2",
-            new_val, point_id
-        )
-    return {"is_public": new_val}
+# NOTE: PATCH /tag-points/{point_id}/visibility — supprimé
+# La visibilité publique est désormais gérée uniquement par active=TRUE (soft delete 90j)
 
 
 @router.post("/tag-points/{point_id}/cancel")

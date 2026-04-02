@@ -390,7 +390,6 @@ export default function SpotYouDetail() {
   const [saveLoading, setSaveLoading] = useState(false);
   const [rsvpLoading, setRsvpLoading] = useState(false);
   const [goingLoading, setGoingLoading] = useState(false);
-  const [isPublic, setIsPublic] = useState(true);
   const [ownerActionLoading, setOwnerActionLoading] = useState(false);
   const [showExactAddress, setShowExactAddress] = useState(false);
   const [showFullDesc, setShowFullDesc] = useState(false);
@@ -605,28 +604,6 @@ export default function SpotYouDetail() {
     } finally {
       setActivityLoading(false);
     }
-  };
-
-  const [showVisibilityConfirm, setShowVisibilityConfirm] = useState(false);
-
-  const handleToggleVisibility = async () => {
-    // Si on est visible → demander confirmation avant de masquer
-    if (isPublic) {
-      setShowVisibilityConfirm(true);
-      return;
-    }
-    // Si masqué → remettre visible directement, pas besoin de confirmation
-    await doToggleVisibility();
-  };
-
-  const doToggleVisibility = async () => {
-    setShowVisibilityConfirm(false);
-    setOwnerActionLoading(true);
-    try {
-      const res = await api.patch(`/tag-points/${id}/visibility`, {});
-      setIsPublic(res.is_public);
-    } catch (e: any) { Alert.alert('Erreur', e.message); }
-    finally { setOwnerActionLoading(false); }
   };
 
   const handleCancel = () => {
@@ -1012,15 +989,8 @@ export default function SpotYouDetail() {
             <Text style={st.ownerBarBtnText}>Modifier</Text>
           </TouchableOpacity>
           {!hasOtherParticipants ? (
-            /* Solo : masquer/supprimer autorisés */
+            /* Solo : désactivation autorisée */
             <>
-              <View style={st.ownerBarDivider} />
-              <TouchableOpacity style={st.ownerBarBtn} onPress={handleToggleVisibility} testID="visibility-btn" disabled={ownerActionLoading}>
-                <Ionicons name={isPublic ? 'eye-outline' : 'eye-off-outline'} size={18} color={isPublic ? Colors.foreground : Colors.muted} />
-                <Text style={[st.ownerBarBtnText, !isPublic && { color: Colors.muted }]}>
-                  {isPublic ? 'Visible' : 'Masqué'}
-                </Text>
-              </TouchableOpacity>
               <View style={st.ownerBarDivider} />
               <TouchableOpacity style={[st.ownerBarBtn, { gap: 4 }]} onPress={handleDelete} testID="delete-btn" disabled={ownerActionLoading}>
                 <Ionicons name="pause-circle-outline" size={18} color="#F59E0B" />
@@ -1681,42 +1651,6 @@ export default function SpotYouDetail() {
         </View>
       </Modal>
 
-      {/* Modal confirmation masquage */}
-      <Modal visible={showVisibilityConfirm} animationType="fade" transparent onRequestClose={() => setShowVisibilityConfirm(false)}>
-        <View style={vc.overlay}>
-          <View style={vc.card}>
-            <View style={vc.iconWrap}>
-              <Ionicons name="eye-off" size={32} color="#F59E0B" />
-            </View>
-            <Text style={vc.title}>Masquer ce SpotYou ?</Text>
-            <Text style={vc.body}>
-              Il ne sera plus visible sur la carte ni dans le planning des participants.
-              Ces derniers seront notifiés.
-            </Text>
-            <View style={vc.btnRow}>
-              <TouchableOpacity
-                style={vc.btnCancel}
-                onPress={() => setShowVisibilityConfirm(false)}
-                testID="visibility-confirm-cancel"
-              >
-                <Text style={vc.btnCancelTxt}>Annuler</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={vc.btnConfirm}
-                onPress={doToggleVisibility}
-                disabled={ownerActionLoading}
-                testID="visibility-confirm-ok"
-              >
-                {ownerActionLoading
-                  ? <ActivityIndicator size="small" color="#fff" />
-                  : <Text style={vc.btnConfirmTxt}>Masquer</Text>
-                }
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
       {/* Modal Participants */}
       <Modal visible={showParticipants} animationType="slide" transparent onRequestClose={() => setShowParticipants(false)}>
         <View style={ms.overlay}>
@@ -2098,18 +2032,4 @@ const ps = StyleSheet.create({
   badgeOrganizerTxt: { fontSize: 10, fontWeight: '700', color: '#F59E0B' },
   badgeCoach: { backgroundColor: Colors.primary + '22', borderRadius: Radius.full, paddingHorizontal: 7, paddingVertical: 3, borderWidth: 1, borderColor: Colors.primary + '44' },
   badgeCoachTxt: { fontSize: 10, fontWeight: '700', color: Colors.primary },
-});
-
-
-const vc = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center', padding: Spacing.lg },
-  card: { backgroundColor: Colors.card, borderRadius: Radius.xl, padding: Spacing.xl, width: '100%', alignItems: 'center', gap: Spacing.sm },
-  iconWrap: { width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(245,158,11,0.15)', alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.sm },
-  title: { fontSize: 18, fontWeight: '800', color: Colors.foreground, textAlign: 'center' },
-  body: { fontSize: 14, color: Colors.muted, textAlign: 'center', lineHeight: 20 },
-  btnRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.md, width: '100%' },
-  btnCancel: { flex: 1, paddingVertical: 12, borderRadius: Radius.full, borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center' },
-  btnCancelTxt: { fontSize: 14, fontWeight: '700', color: Colors.muted },
-  btnConfirm: { flex: 1, paddingVertical: 12, borderRadius: Radius.full, backgroundColor: '#F59E0B', alignItems: 'center' },
-  btnConfirmTxt: { fontSize: 14, fontWeight: '700', color: '#fff' },
 });
