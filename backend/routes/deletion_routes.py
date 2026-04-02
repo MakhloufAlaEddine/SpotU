@@ -268,7 +268,10 @@ async def delete_tag_point(point_id: str, request: Request):
     1. active=FALSE + deleted_at
     2. Toutes les conversations liées → context_deleted=TRUE
     3. Images → pending_file_deletions (purge différée)
+    4. Notification push à tous les membres (si > 0)
     """
+    from push_service import send_push_to_user
+    import asyncio
     pool = get_pool()
     caller = await require_auth(request, pool)
     is_admin = caller.get("role") == "admin"
@@ -305,13 +308,39 @@ async def delete_tag_point(point_id: str, request: Request):
             conn, "tag_point", point_id, tp["images"], scheduled_at=media_purge_at
         )
 
-    logger.info("[SOFTDEL] SpotYou %s supprimé par %s (médias dans %dj)", point_id, caller["user_id"], MEDIA_RETENTION_DAYS)
+        # Récupérer les membres à notifier (hors owner)
+        members = await conn.fetch(
+            "SELECT user_id FROM spot_you_members WHERE spot_you_id=$1 AND user_id != $2",
+            point_id, tp["user_id"]
+        )
+
+    title_str = tp["title"] or "SpotYou"
+    for m in members:
+        asyncio.create_task(send_push_to_user(
+            pool, m["user_id"],
+            title="SpotYou désactivé",
+            body=f'"{title_str}" a été désactivé par son créateur.',
+            data={
+                "type": "spotyu_deactivated", "point_id": point_id,
+                "sender_id": caller["user_id"],
+                "sender_name": caller.get("name", ""),
+                "sender_picture": caller.get("picture") or "",
+                "action_text": "a désactivé le SpotYou",
+                "content_title": title_str,
+                "image_url": _first_image(tp["images"]),
+            },
+            notif_type="spotyu_deactivated"
+        ))
+
+    logger.info("[SOFTDEL] SpotYou %s supprimé par %s (médias dans %dj, membres notifiés: %d)",
+                point_id, caller["user_id"], MEDIA_RETENTION_DAYS, len(members))
     return {
         "success":               True,
         "deleted":               True,
         "point_id":              point_id,
         "conversations_marked":  n_convs,
         "images_queued":         n_imgs,
+        "members_notified":      len(members),
         "media_purge_scheduled_at": media_purge_at.isoformat(),
     }
 

@@ -373,7 +373,6 @@ export default function SpotYouDetail() {
   const [currentRating, setCurrentRating] = useState(0);
   const [currentVotes, setCurrentVotes] = useState(0);
   const [ratingDist, setRatingDist] = useState<Record<string, number>>({});
-  const [isCancelled, setIsCancelled] = useState(false);
   const [isParticipant, setIsParticipant] = useState(false);
   const [isMember, setIsMember] = useState(false);
   const [canParticipate, setCanParticipate] = useState(false);
@@ -533,7 +532,6 @@ export default function SpotYouDetail() {
       setIsFull(data.is_full || false);
       setParticipantsCount(data.participants_count || 0);
       setIsSaved(data.is_saved || false);
-      setIsCancelled(!!data.cancelled);
     };
 
     // Étape 1 : lecture cache sur le premier chargement
@@ -605,57 +603,27 @@ export default function SpotYouDetail() {
     }
   };
 
-  const handleCancel = () => {
-    Alert.alert(
-      'Annuler ce SpotYou ?',
-      'Les participants seront notifiés. Les créneaux resteront visibles dans leur planning avec un badge "Annulé".',
-      [
-        { text: 'Retour', style: 'cancel' },
-        {
-          text: 'Confirmer l\'annulation', style: 'destructive',
-          onPress: async () => {
-            setOwnerActionLoading(true);
-            try {
-              await api.post(`/tag-points/${id}/cancel`, {});
-              setIsCancelled(true);
-            } catch (e: any) { Alert.alert('Erreur', e.message); }
-            finally { setOwnerActionLoading(false); }
-          },
-        },
-      ]
-    );
-  };
-
-  const handleRestore = async () => {
-    setOwnerActionLoading(true);
-    try {
-      await api.post(`/tag-points/${id}/restore`, {});
-      setIsCancelled(false);
-    } catch (e: any) { Alert.alert('Erreur', e.message); }
-    finally { setOwnerActionLoading(false); }
-  };
-
   const handleDelete = () => {
-    Alert.alert(
-      'Désactiver ce SpotYou ?',
-      'Le SpotYou sera masqué publiquement. Vos médias sont conservés 90 jours — vous pouvez le réactiver depuis votre profil.',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Désactiver', style: 'destructive',
-          onPress: () => {
-            setOwnerActionLoading(true);
-            api.delete(`/tag-points/${id}`)
-              .then(() => {
-                triggerProfileRefresh();
-                setTimeout(() => router.replace('/(tabs)/map' as any), 100);
-              })
-              .catch((e: any) => Alert.alert('Erreur', e.message))
-              .finally(() => setOwnerActionLoading(false));
-          },
+    const memberCount = participants.filter(p => !p.is_creator).length;
+    const msg = memberCount > 0
+      ? `Les ${memberCount} membre${memberCount > 1 ? 's' : ''} du SpotYou seront notifiés. Le SpotYou sera masqué publiquement. Vos médias sont conservés 90 jours.`
+      : 'Le SpotYou sera masqué publiquement. Vos médias sont conservés 90 jours — vous pouvez le réactiver depuis votre profil.';
+    Alert.alert('Désactiver ce SpotYou ?', msg, [
+      { text: 'Annuler', style: 'cancel' },
+      {
+        text: 'Désactiver', style: 'destructive',
+        onPress: () => {
+          setOwnerActionLoading(true);
+          api.delete(`/tag-points/${id}`)
+            .then(() => {
+              triggerProfileRefresh();
+              setTimeout(() => router.replace('/(tabs)/map' as any), 100);
+            })
+            .catch((e: any) => Alert.alert('Erreur', e.message))
+            .finally(() => setOwnerActionLoading(false));
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const handleReactivate = () => {
@@ -1041,8 +1009,8 @@ export default function SpotYouDetail() {
                 <Text style={[st.ownerBarBtnText, { color: Colors.primary }]}>Réactiver</Text>
               </TouchableOpacity>
             </>
-          ) : !hasOtherParticipants ? (
-            /* Solo : désactivation autorisée */
+          ) : (
+            /* Solo ou avec membres : toujours proposer Désactiver */
             <>
               <View style={st.ownerBarDivider} />
               <TouchableOpacity style={[st.ownerBarBtn, { gap: 4 }]} onPress={handleDelete} testID="delete-btn" disabled={ownerActionLoading}>
@@ -1050,31 +1018,7 @@ export default function SpotYouDetail() {
                 <Text style={[st.ownerBarBtnText, { color: '#F59E0B' }]}>Désactiver</Text>
               </TouchableOpacity>
             </>
-          ) : (
-            /* Avec participants : annuler ou restaurer */
-            <>
-              <View style={st.ownerBarDivider} />
-              {!isCancelled ? (
-                <TouchableOpacity style={st.ownerBarBtn} onPress={handleCancel} testID="cancel-btn" disabled={ownerActionLoading}>
-                  <Ionicons name="close-circle-outline" size={18} color="#F59E0B" />
-                  <Text style={[st.ownerBarBtnText, { color: '#F59E0B' }]}>Annuler</Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity style={st.ownerBarBtn} onPress={handleRestore} testID="restore-btn" disabled={ownerActionLoading}>
-                  <Ionicons name="refresh-circle-outline" size={18} color={Colors.primary} />
-                  <Text style={[st.ownerBarBtnText, { color: Colors.primary }]}>Restaurer</Text>
-                </TouchableOpacity>
-              )}
-            </>
           )}
-        </View>
-      )}
-
-      {/* Banner SpotYou annulé */}
-      {isCancelled && (
-        <View style={st.cancelledBanner} testID="cancelled-banner">
-          <Ionicons name="close-circle" size={16} color="#fff" />
-          <Text style={st.cancelledBannerTxt}>SpotYou annulé — les créneaux restent visibles dans le planning</Text>
         </View>
       )}
 
@@ -1916,8 +1860,6 @@ const st = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.header },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm },
   headerBtn: { padding: 4 },
-  cancelledBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#EF4444', paddingHorizontal: Spacing.md, paddingVertical: 8 },
-  cancelledBannerTxt: { flex: 1, fontSize: 12, fontWeight: '600', color: '#fff' },
   deactivatedBanner: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     gap: 8, backgroundColor: '#2D1F00',

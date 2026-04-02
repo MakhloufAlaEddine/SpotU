@@ -1471,90 +1471,9 @@ async def toggle_new_date_coming(point_id: str, request: Request):
 # La visibilité publique est désormais gérée uniquement par active=TRUE (soft delete 90j)
 
 
-@router.post("/tag-points/{point_id}/cancel")
-async def cancel_tag_point(point_id: str, request: Request):
-    """Annule un SpotYou (soft cancel). Notifie tous les participants."""
-    pool = get_pool()
-    user = await require_auth(request, pool)
-    from push_service import send_push_to_user
-    import asyncio
-
-    async with pool.acquire() as conn:
-        existing = await conn.fetchrow(
-            "SELECT user_id, title, cancelled, images FROM tag_points WHERE point_id = $1 AND active = TRUE", point_id
-        )
-        if not existing:
-            raise HTTPException(status_code=404, detail="TagPoint not found")
-        if existing["user_id"] != user["user_id"] and user["role"] != "admin":
-            raise HTTPException(status_code=403, detail="Not authorized")
-        await conn.execute(
-            "UPDATE tag_points SET cancelled = TRUE, updated_at = NOW() WHERE point_id = $1", point_id
-        )
-        participants = await conn.fetch(
-            "SELECT user_id FROM spot_you_members WHERE spot_you_id=$1 AND user_id != $2",
-            point_id, existing["user_id"]
-        )
-
-    title_str = existing["title"] or "SpotYou"
-    for p in participants:
-        asyncio.create_task(send_push_to_user(
-            pool, p["user_id"],
-            title="SpotYou annulé",
-            body=f'"{title_str}" a été annulé par son créateur. Les créneaux restent visibles dans votre planning.',
-            data={
-                "type": "spotyu_cancelled", "point_id": point_id,
-                "sender_id": user["user_id"], "sender_name": user.get("name", ""),
-                "sender_picture": user.get("picture") or "",
-                "action_text": "a annulé le SpotYou",
-                "content_title": title_str,
-                "image_url": _first_image(existing["images"]),
-            },
-            notif_type="spotyu_cancelled"
-        ))
-    return {"success": True, "cancelled": True}
-
-
-@router.post("/tag-points/{point_id}/restore")
-async def restore_tag_point(point_id: str, request: Request):
-    """Restaure un SpotYou annulé. Notifie tous les participants."""
-    pool = get_pool()
-    user = await require_auth(request, pool)
-    from push_service import send_push_to_user
-    import asyncio
-
-    async with pool.acquire() as conn:
-        existing = await conn.fetchrow(
-            "SELECT user_id, title, images FROM tag_points WHERE point_id = $1 AND active = TRUE", point_id
-        )
-        if not existing:
-            raise HTTPException(status_code=404, detail="TagPoint not found")
-        if existing["user_id"] != user["user_id"] and user["role"] != "admin":
-            raise HTTPException(status_code=403, detail="Not authorized")
-        await conn.execute(
-            "UPDATE tag_points SET cancelled = FALSE, updated_at = NOW() WHERE point_id = $1", point_id
-        )
-        participants = await conn.fetch(
-            "SELECT user_id FROM spot_you_members WHERE spot_you_id=$1 AND user_id != $2",
-            point_id, existing["user_id"]
-        )
-
-    title_str = existing["title"] or "SpotYou"
-    for p in participants:
-        asyncio.create_task(send_push_to_user(
-            pool, p["user_id"],
-            title="SpotYou restauré !",
-            body=f'"{title_str}" est de nouveau actif. Le badge "Annulé" a été retiré de votre planning.',
-            data={
-                "type": "spotyu_restored", "point_id": point_id,
-                "sender_id": user["user_id"], "sender_name": user.get("name", ""),
-                "sender_picture": user.get("picture") or "",
-                "action_text": "a restauré le SpotYou",
-                "content_title": title_str,
-                "image_url": _first_image(existing["images"]),
-            },
-            notif_type="spotyu_restored"
-        ))
-    return {"success": True, "cancelled": False}
+# NOTE: POST /tag-points/{point_id}/cancel et POST /tag-points/{point_id}/restore
+# ont été supprimés. La désactivation (DELETE /tag-points/{id}) remplace l'annulation
+# et notifie automatiquement les membres.
 
 
 

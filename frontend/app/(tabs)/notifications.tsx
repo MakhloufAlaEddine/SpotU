@@ -26,8 +26,7 @@ const NOTIF_CFG: Record<string, { icon: any; color: string; bg: string; label: s
   spotyu_join:       { icon: 'person-add-outline',         color: '#10B981',       bg: '#10B9811A',             label: 'Rejoint' },
   spotyu_leave:      { icon: 'person-remove-outline',      color: '#F59E0B',       bg: '#F59E0B1A',             label: 'Quitté' },
   spotyu_vote:       { icon: 'star-outline',               color: '#FBBF24',       bg: '#FBBF241A',             label: 'Évaluation SpotYou' },
-  spotyu_cancelled:  { icon: 'close-circle',               color: '#EF4444',       bg: '#EF44441A',             label: 'SpotYou annulé' },
-  spotyu_restored:   { icon: 'refresh-circle',             color: '#10B981',       bg: '#10B9811A',             label: 'SpotYou restauré' },
+  spotyu_deactivated:{ icon: 'pause-circle-outline',       color: '#F59E0B',       bg: '#F59E0B1A',             label: 'SpotYou désactivé' },
   spotyu_updated:    { icon: 'create-outline',             color: '#F59E0B',       bg: '#F59E0B1A',             label: 'SpotYou mis à jour' },
   profile_review:    { icon: 'star-half-outline',          color: '#8B5CF6',       bg: '#8B5CF61A',             label: 'Évaluation profil' },
   info:              { icon: 'information-circle-outline', color: Colors.muted,    bg: Colors.card,             label: 'Info' },
@@ -123,10 +122,18 @@ export default function NotificationsScreen() {
 
   const parseNotifs = (dbNotifs: any[]) => (Array.isArray(dbNotifs) ? dbNotifs.map(n => {
     const d = n.data || {};
-    let action = '/planning';
-    if (d.point_id) action = `/spot-you/${d.point_id}`;
-    else if (d.service_id) action = `/service/${d.service_id}`;
-    else if (d.profile_id) action = `/user/${d.profile_id}`;
+    // Navigation contextuelle par type
+    let action = '/';
+    if (d.type === 'spotyu_deactivated') {
+      // SpotYou désactivé → le membre va dans son planning (les séances sont annulées)
+      action = '/planning';
+    } else if (d.point_id) {
+      action = `/spot-you/${d.point_id}`;
+    } else if (d.service_id) {
+      action = `/service/${d.service_id}`;
+    } else if (d.profile_id) {
+      action = `/user/${d.profile_id}`;
+    }
     return {
       id: n.id,
       type: d.type === 'chat_message' ? 'chat_message' : (n.type || d.type || 'info'),
