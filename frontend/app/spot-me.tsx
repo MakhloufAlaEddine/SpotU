@@ -31,9 +31,10 @@ export default function MySpotYouScreen() {
 
   const { isOnline } = useNetwork();
 
-  const [tab, setTab] = useState<'active' | 'deactivated'>('active');
+  const [tab, setTab] = useState<'active' | 'deactivated' | 'communities'>('active');
   const [points, setPoints] = useState<any[]>([]);
   const [deactivated, setDeactivated] = useState<any[]>([]);
+  const [joined, setJoined] = useState<any[]>([]);
   const [reactivatingId, setReactivatingId] = useState<string | null>(null);
   const [screenState, setScreenState] = useState<'loading_initial' | 'ready_fresh' | 'ready_cached' | 'error_no_data'>('loading_initial');
   const [staleMinutes, setStaleMinutes] = useState<number | null>(null);
@@ -64,10 +65,19 @@ export default function MySpotYouScreen() {
     const cacheKey = buildCacheKey({ path: '/tag-points/mine', userId, schemaVersion: SCHEMA_VERSION });
     const ttl = getTtl('/tag-points/mine') ?? 5 * 60_000;
 
-    // Toujours charger les désactivés en parallèle (pas de cache)
+    // Toujours charger les désactivés et communautés en parallèle (pas de cache)
     const fetchDeactivated = () =>
       api.get('/users/me/reactivatable')
         .then((d: any) => { if (d?.spotyous) setDeactivated(d.spotyous); })
+        .catch(() => {});
+
+    const fetchJoined = () =>
+      api.get('/users/me/events')
+        .then((d: any) => {
+          if (Array.isArray(d)) {
+            setJoined(d.filter((item: any) => !item.is_owner));
+          }
+        })
         .catch(() => {});
 
     // Étape 1 : lecture cache sur le premier chargement
@@ -79,6 +89,7 @@ export default function MySpotYouScreen() {
         setScreenState(fresh ? 'ready_fresh' : 'ready_cached');
         setStaleMinutes(fresh ? null : cacheAgeMinutes(cached));
         fetchDeactivated();
+        fetchJoined();
         if (fresh) return;
       }
     }
@@ -90,6 +101,7 @@ export default function MySpotYouScreen() {
       const [data] = await Promise.all([
         api.get('/tag-points/mine'),
         fetchDeactivated(),
+        fetchJoined(),
       ]);
       const list = data || [];
       setPoints(list);
@@ -252,6 +264,18 @@ export default function MySpotYouScreen() {
             </View>
           )}
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[st.tab, tab === 'communities' && st.tabActive]}
+          onPress={() => setTab('communities')}
+          testID="tab-communities"
+        >
+          <Text style={[st.tabText, tab === 'communities' && st.tabTextActive]}>Communautés</Text>
+          {joined.length > 0 && (
+            <View style={[st.tabBadge, tab === 'communities' && st.tabBadgeActive]}>
+              <Text style={[st.tabBadgeText, tab === 'communities' && st.tabBadgeTextActive]}>{joined.length}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
 
       {screenState === 'ready_cached' && networkFailed && <StaleBanner staleMinutes={staleMinutes} />}
@@ -360,6 +384,35 @@ export default function MySpotYouScreen() {
               <Ionicons name="pause-circle-outline" size={48} color={Colors.muted} />
               <Text style={st.emptyTitle}>Aucun SpotYou désactivé</Text>
               <Text style={st.emptyText}>Vos SpotYous désactivés apparaîtront ici.</Text>
+            </View>
+          }
+        />
+      )}
+
+      {/* Contenu onglet Communautés */}
+      {tab === 'communities' && (
+        <FlatList
+          data={joined}
+          keyExtractor={item => item.point_id}
+          contentContainerStyle={{ padding: Spacing.md, gap: 12, paddingBottom: 48 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+          renderItem={({ item }) => (
+            <SpotYouCard
+              item={item}
+              onNavigate={id => router.push(`/spot-you/${id}` as any)}
+              onToggleGoing={toggleGoing}
+              togglingId={togglingId}
+              onViewMembers={openMembersModal}
+              testID={`community-card-${item.point_id}`}
+              userLat={location.lat}
+              userLng={location.lng}
+            />
+          )}
+          ListEmptyComponent={
+            <View style={st.empty}>
+              <Ionicons name="people-outline" size={48} color={Colors.muted} />
+              <Text style={st.emptyTitle}>Aucune communauté</Text>
+              <Text style={st.emptyText}>Rejoignez des SpotYou pour les retrouver ici.</Text>
             </View>
           }
         />

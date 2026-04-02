@@ -131,6 +131,8 @@ export default function MenuScreen() {
   const [dataScreenState, setDataScreenState] = useState<'loading_initial' | 'ready_fresh' | 'ready_cached' | 'error_no_data'>('loading_initial');
   const [staleMinutes, setStaleMinutes] = useState<number | null>(null);
   const [networkFailed, setNetworkFailed] = useState(false);
+  const [savedCount, setSavedCount] = useState<number | null>(null);
+  const [joinedCount, setJoinedCount] = useState<number | null>(null);
   const [reactivatable, setReactivatable] = useState<{ spotyous: any[]; services: any[]; products: any[]; total: number } | null>(null);
 
   useEffect(() => {
@@ -199,10 +201,12 @@ export default function MenuScreen() {
 
     // Étape 2 : fetch réseau
     try {
-      const [points, profileData, reactivatableData] = await Promise.all([
+      const [points, profileData, reactivatableData, savedData, eventsData] = await Promise.all([
         api.get('/tag-points/mine'),
         api.get('/users/profile'),
         api.get('/users/me/reactivatable').catch(() => null),
+        api.get('/tag-points/saved').catch(() => null),
+        api.get('/users/me/events').catch(() => null),
       ]);
       setMySpotYou(points || []);
       if (profileData) {
@@ -212,6 +216,8 @@ export default function MenuScreen() {
         });
       }
       if (reactivatableData) setReactivatable(reactivatableData);
+      if (Array.isArray(savedData)) setSavedCount(savedData.length);
+      if (Array.isArray(eventsData)) setJoinedCount(eventsData.filter((e: any) => !e.is_owner).length);
       setDataScreenState('ready_fresh');
       setStaleMinutes(null);
       setNetworkFailed(false);
@@ -370,30 +376,65 @@ export default function MenuScreen() {
         </TouchableOpacity>
 
         {/* ── QUICK ACTIONS ─────────────────────────────────── */}
-        <View style={st.actionsGrid}>
-          <TouchableOpacity style={st.actionCard} onPress={() => router.push('/saved' as any)} activeOpacity={0.8} testID="saved-nav-btn">
-            <View style={st.actionIconBox}>
-              <Ionicons name="bookmark" size={22} color={Colors.primary} />
+        <View style={st.quickActions}>
+
+          {/* Enregistrés */}
+          <TouchableOpacity style={st.quickRow} onPress={() => router.push('/saved' as any)} activeOpacity={0.8} testID="saved-nav-btn">
+            <View style={st.quickIcon}>
+              <Ionicons name="bookmark" size={20} color={Colors.primary} />
             </View>
-            <Text style={st.actionLabel}>Enregistrés</Text>
-            <Text style={st.actionSub}>Vos favoris</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={st.quickLabel}>Enregistrés</Text>
+              <Text style={st.quickSub}>Vos SpotYou favoris</Text>
+            </View>
+            {savedCount !== null && savedCount > 0 && (
+              <View style={st.quickBadge}>
+                <Text style={st.quickBadgeText}>{savedCount}</Text>
+              </View>
+            )}
+            <Ionicons name="chevron-forward" size={15} color={Colors.muted} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={st.actionCard} onPress={() => router.push('/spot-me' as any)} activeOpacity={0.8} testID="my-tp-nav-btn">
-            <View style={st.actionIconBox}>
-              <Ionicons name="location" size={22} color={Colors.primary} />
+          <View style={st.quickSep} />
+
+          {/* Mes SpotYou */}
+          <TouchableOpacity style={st.quickRow} onPress={() => router.push('/spot-me' as any)} activeOpacity={0.8} testID="my-tp-nav-btn">
+            <View style={st.quickIcon}>
+              <Ionicons name="location" size={20} color={Colors.primary} />
             </View>
-            <Text style={st.actionLabel}>Mes SpotMe</Text>
-            <Text style={st.actionSub}>{mySpotYou.length} créés</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={st.quickLabel}>Mes SpotYou</Text>
+              <View style={st.quickStats}>
+                <Text style={st.quickStatChip}>{mySpotYou.length} actif{mySpotYou.length !== 1 ? 's' : ''}</Text>
+                {(reactivatable?.spotyous?.length ?? 0) > 0 && (
+                  <Text style={[st.quickStatChip, st.quickStatChipAmber]}>
+                    {reactivatable!.spotyous.length} désactivé{reactivatable!.spotyous.length > 1 ? 's' : ''}
+                  </Text>
+                )}
+                {(joinedCount ?? 0) > 0 && (
+                  <Text style={[st.quickStatChip, st.quickStatChipBlue]}>
+                    {joinedCount} communauté{joinedCount! > 1 ? 's' : ''}
+                  </Text>
+                )}
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={15} color={Colors.muted} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={st.actionCard} onPress={() => router.push('/planning' as any)} activeOpacity={0.8} testID="planning-nav-btn">
-            <View style={st.actionIconBox}>
-              <Ionicons name="calendar-number" size={22} color={Colors.primary} />
+          <View style={st.quickSep} />
+
+          {/* Planning */}
+          <TouchableOpacity style={st.quickRow} onPress={() => router.push('/planning' as any)} activeOpacity={0.8} testID="planning-nav-btn">
+            <View style={st.quickIcon}>
+              <Ionicons name="calendar-number" size={20} color={Colors.primary} />
             </View>
-            <Text style={st.actionLabel}>Planning</Text>
-            <Text style={st.actionSub}>Mes séances</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={st.quickLabel}>Planning</Text>
+              <Text style={st.quickSub}>Mes prochaines séances</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={15} color={Colors.muted} />
           </TouchableOpacity>
+
         </View>
 
         {/* ── COACH SECTION ─────────────────────────────────── */}
@@ -761,6 +802,53 @@ const st = StyleSheet.create({
 
   // ACTIONS
   actionsRow: { flexDirection: 'row', gap: 10, paddingHorizontal: Spacing.md, marginBottom: Spacing.xl },
+  // ── Quick actions redesign ────────────────────────────────────────────────
+  quickActions: {
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.xl,
+    backgroundColor: Colors.card,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  quickRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    gap: 12,
+  },
+  quickSep: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginLeft: 14 + 36 + 12, // align with text
+  },
+  quickIcon: {
+    width: 36, height: 36,
+    borderRadius: 10,
+    backgroundColor: Colors.primary + '18',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  quickLabel: { fontSize: 14, fontWeight: '600', color: Colors.foreground, marginBottom: 1 },
+  quickSub:   { fontSize: 12, color: Colors.muted },
+  quickBadge: {
+    minWidth: 22, height: 22, borderRadius: 11,
+    backgroundColor: Colors.primary,
+    alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 6, marginRight: 6,
+  },
+  quickBadgeText: { fontSize: 11, fontWeight: '700', color: Colors.background },
+  quickStats: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 2 },
+  quickStatChip: {
+    fontSize: 11, fontWeight: '600', color: Colors.primary,
+    backgroundColor: Colors.primary + '15',
+    paddingHorizontal: 7, paddingVertical: 2,
+    borderRadius: 20,
+  },
+  quickStatChipAmber: { color: '#F59E0B', backgroundColor: '#F59E0B15' },
+  quickStatChipBlue:  { color: '#60A5FA', backgroundColor: '#60A5FA15' },
+  // ─────────────────────────────────────────────────────────────────────────
   actionsGrid: { flexDirection: 'row', gap: 8, paddingHorizontal: Spacing.md, marginBottom: Spacing.xl },
   actionCard: {
     flex: 1, backgroundColor: Colors.card,
