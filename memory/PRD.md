@@ -13,12 +13,12 @@ Implémenter une stratégie de rétention et réactivation avancée (Soft Delete
 ├── frontend/
 │   └── app/
 │       ├── (tabs)/
-│       │   ├── profile.tsx       ← Section "À réactiver" (ReactivatableSection)
+│       │   ├── profile.tsx       ← Cartes stats 3-en-ligne + styles chips corrigés
 │       │   ├── chat.tsx
 │       │   └── map.tsx
 │       ├── chat/[id].tsx         ← Fix MessageBubble déclaration
-│       ├── spot-you/[id].tsx
-│       ├── spot-me.tsx
+│       ├── spot-you/[id].tsx     ← Bannière ambre owner désactivé
+│       ├── spot-me.tsx           ← 3 tabs: Actifs, Désactivés, Communautés
 │       └── products/
 │           └── my-products.tsx
 ├── backend/
@@ -29,10 +29,10 @@ Implémenter une stratégie de rétention et réactivation avancée (Soft Delete
 │   ├── admin_purge_worker.py
 │   ├── push_service.py
 │   └── routes/
-│       ├── deletion_routes.py              ← Mis à jour
+│       ├── deletion_routes.py              ← Soft delete + notifications membres
 │       ├── service_routes.py               ← Mis à jour
 │       ├── product_creation_routes.py      ← Mis à jour
-│       └── tagpoint_routes.py              ← DELETE conflit supprimé
+│       └── tagpoint_routes.py              ← DELETE conflit supprimé + 404 désactivés
 ```
 
 ---
@@ -67,6 +67,18 @@ Implémenter une stratégie de rétention et réactivation avancée (Soft Delete
 - `profile.tsx` : section "À réactiver" avec compteur dynamique "Suppression des médias dans XX jours"
 - Bouton "Réactiver" par entité avec appel API
 - Fix bug préexistant `chat/[id].tsx` : déclaration `function MessageBubble` manquante + `<Bubble>` → `<MessageBubble>`
+
+### Phase E — Soft Delete UI + Tabs (2026-04-02)
+- `spot-me.tsx` : 3 tabs (Actifs, Désactivés, Communautés)
+- `spot-you/[id].tsx` : bannière ambre owner + protection 404 non-owners pour désactivés
+- Endpoints `join`, `vote`, `save` bloqués sur SpotYous désactivés + auto-refresh frontend
+- Code `cancel`/`restore` ancien supprimé, notifications membres déplacées vers deactivation
+- Fix 500 lors désactivation (import `_first_image` manquant dans `deletion_routes.py`)
+
+### Phase F — Profile cards stats (2026-04-02)
+- Cartes Enregistrés / Mes SpotYou / Planning alignées sur une ligne (`flexDirection: 'row'`)
+- Styles `actionChips`, `actionChip`, `actionChipAmber`, `actionChipBlue` ajoutés
+- Stats colorées dans carte "Mes SpotYou" : actifs (teal), désactivés (amber), communautés (bleu)
 
 ---
 

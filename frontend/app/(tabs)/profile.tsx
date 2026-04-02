@@ -844,6 +844,10 @@ const st = StyleSheet.create({
   },
   actionLabel: { fontSize: 12, fontWeight: '700', color: Colors.foreground, textAlign: 'center' },
   actionSub: { fontSize: 10, color: Colors.muted, textAlign: 'center' },
+  actionChips: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 4 },
+  actionChip: { fontSize: 10, fontWeight: '700', color: Colors.primary },
+  actionChipAmber: { color: '#F59E0B' },
+  actionChipBlue: { color: '#60A5FA' },
 
   // SECTIONS
   section: { paddingHorizontal: Spacing.md, marginBottom: Spacing.xl },
