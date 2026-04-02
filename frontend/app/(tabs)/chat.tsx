@@ -56,6 +56,7 @@ function ConvItem({ item, currentUserId }: { item: Conversation; currentUserId: 
   const router = useGuardedRouter();
   const other = item.other_participant;
   const isGroup = item.type === 'tagpoint_group';
+  const isArchived = item.context_deleted === true;
 
   const contextLabel = resolveDisplayTitle(item.context_title);
 
@@ -71,13 +72,13 @@ function ConvItem({ item, currentUserId }: { item: Conversation; currentUserId: 
 
   return (
     <TouchableOpacity
-      style={[st.item, item.unread_count > 0 && st.itemUnread]}
+      style={[st.item, item.unread_count > 0 && st.itemUnread, isArchived && st.itemArchived]}
       onPress={() => router.push(`/chat/${item.conversation_id}` as any)}
       testID={`conv-item-${item.conversation_id}`}
       activeOpacity={0.7}
     >
-      {/* Avatar */}
-      <View style={st.avatarWrap}>
+      {/* Avatar — légèrement assombri si archivé */}
+      <View style={[st.avatarWrap, isArchived && { opacity: 0.55 }]}>
         {isGroup ? (
           item.context_image ? (
             <Image source={{ uri: item.context_image }} style={st.avatar} />
@@ -89,9 +90,14 @@ function ConvItem({ item, currentUserId }: { item: Conversation; currentUserId: 
         ) : (
           <UserAvatar uri={other?.picture} name={other?.name} size={48} bgColor={Colors.card} />
         )}
-        {item.unread_count > 0 && (
+        {!isArchived && item.unread_count > 0 && (
           <View style={st.unreadDot}>
             <Text style={st.unreadDotText}>{item.unread_count > 9 ? '9+' : item.unread_count}</Text>
+          </View>
+        )}
+        {isArchived && (
+          <View style={st.archivedBadgeIcon} testID={`conv-archived-${item.conversation_id}`}>
+            <Ionicons name="archive-outline" size={10} color={Colors.muted} />
           </View>
         )}
       </View>
@@ -99,23 +105,33 @@ function ConvItem({ item, currentUserId }: { item: Conversation; currentUserId: 
       {/* Content */}
       <View style={st.content}>
         <View style={st.row}>
-          <Text style={[st.title, item.unread_count > 0 && st.titleUnread]} numberOfLines={1}>
+          <Text style={[
+            st.title,
+            item.unread_count > 0 && !isArchived && st.titleUnread,
+            isArchived && st.titleArchived,
+          ]} numberOfLines={1}>
             {title}
           </Text>
-          <Text style={st.time}>
+          <Text style={[st.time, isArchived && st.timeArchived]}>
             {item.last_message ? timeAgo(item.last_message.created_at) : timeAgo(item.last_message_at)}
           </Text>
         </View>
         <View style={st.row}>
-          <TypeBadge type={item.type} />
-          {item.last_message ? (
-            <Text style={[st.preview, item.unread_count > 0 && st.previewUnread]} numberOfLines={1}>
-              {item.last_message.sender_id === currentUserId ? 'Vous : ' : ''}
-              {item.last_message.content}
-            </Text>
+          {isArchived ? (
+            <View style={st.archivedTag} testID={`conv-archived-tag-${item.conversation_id}`}>
+              <Text style={st.archivedTagText}>ARCHIVÉE</Text>
+            </View>
           ) : (
-            <Text style={st.preview} numberOfLines={1}>{subtitle}</Text>
+            <TypeBadge type={item.type} />
           )}
+          <Text style={[st.preview, item.unread_count > 0 && !isArchived && st.previewUnread, isArchived && st.previewArchived]} numberOfLines={1}>
+            {isArchived
+              ? 'Contenu lié non disponible — Lecture seule'
+              : item.last_message
+                ? `${item.last_message.sender_id === currentUserId ? 'Vous : ' : ''}${item.last_message.content}`
+                : subtitle
+            }
+          </Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -277,6 +293,7 @@ const st = StyleSheet.create({
   title: { fontSize: 15, fontWeight: '600', color: Colors.foreground, flex: 1 },
   titleUnread: { color: Colors.foreground, fontWeight: '700' },
   time: { fontSize: 12, color: Colors.muted },
+  timeArchived: { color: 'rgba(255,255,255,0.2)' },
   badge: {
     borderWidth: 1, borderRadius: 4, paddingHorizontal: 4, paddingVertical: 1,
     marginRight: 4,
@@ -284,6 +301,27 @@ const st = StyleSheet.create({
   badgeText: { fontSize: 9, fontWeight: '700', letterSpacing: 0.5 },
   preview: { fontSize: 13, color: Colors.muted, flex: 1 },
   previewUnread: { color: Colors.foreground, fontWeight: '500' },
+  previewArchived: { color: 'rgba(255,255,255,0.25)', fontStyle: 'italic' },
+
+  // ── Archived conversation ──────────────────────────────────────────────────
+  itemArchived: { opacity: 0.7 },
+  titleArchived: { color: 'rgba(255,255,255,0.4)', fontWeight: '500' },
+  archivedBadgeIcon: {
+    position: 'absolute', bottom: -2, right: -2,
+    backgroundColor: Colors.card, borderRadius: 8,
+    width: 16, height: 16, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  archivedTag: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    borderWidth: 1, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1,
+    marginRight: 4, borderColor: 'rgba(255,255,255,0.15)',
+  },
+  archivedTagText: {
+    fontSize: 8, fontWeight: '700', color: 'rgba(255,255,255,0.35)',
+    letterSpacing: 0.5,
+  },
+
   empty: {
     flex: 1, alignItems: 'center', justifyContent: 'center',
     padding: Spacing.xxl, gap: Spacing.md,

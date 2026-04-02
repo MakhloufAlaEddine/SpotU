@@ -36,6 +36,10 @@ function shouldShowDaySeparator(messages: ChatMessage[], index: number): boolean
 }
 
 function Bubble({ msg, isMe }: { msg: ChatMessage; isMe: boolean }) {
+  // Détection message soft-deleted (deleted_at non-null OU contenu marqué par le backend)
+  const isDeleted = !!msg.deleted_at || msg.content === '[Message supprimé]';
+  const senderLabel = msg.sender_name || 'Utilisateur supprimé';
+
   return (
     <View style={[st.bubbleRow, isMe && st.bubbleRowMe]}>
       {!isMe && (
@@ -44,17 +48,21 @@ function Bubble({ msg, isMe }: { msg: ChatMessage; isMe: boolean }) {
         ) : (
           <View style={[st.bubbleAvatar, { backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center' }]}>
             <Text style={{ fontSize: 13, fontWeight: '700', color: Colors.primary }}>
-              {(msg.sender_name || '?').charAt(0).toUpperCase()}
+              {senderLabel.charAt(0).toUpperCase()}
             </Text>
           </View>
         )
       )}
-      <View style={[st.bubble, isMe ? st.bubbleMe : st.bubbleThem]}>
+      <View style={[st.bubble, isMe ? st.bubbleMe : st.bubbleThem, isDeleted && st.bubbleDeletedWrap]}>
         {!isMe && (
-          <Text style={st.bubbleSender}>{msg.sender_name}</Text>
+          <Text style={[st.bubbleSender, isDeleted && { color: Colors.muted }]}>{senderLabel}</Text>
         )}
-        <Text style={[st.bubbleText, isMe && st.bubbleTextMe]}>{msg.content}</Text>
-        <Text style={[st.bubbleTime, isMe && st.bubbleTimeMe]}>{formatTime(msg.created_at)}</Text>
+        <Text style={[st.bubbleText, isMe && !isDeleted && st.bubbleTextMe, isDeleted && st.bubbleDeletedText]}>
+          {isDeleted ? '[Message supprimé]' : msg.content}
+        </Text>
+        {!isDeleted && (
+          <Text style={[st.bubbleTime, isMe && st.bubbleTimeMe]}>{formatTime(msg.created_at)}</Text>
+        )}
       </View>
     </View>
   );
@@ -72,6 +80,7 @@ export default function ChatScreen() {
   const { messages, sendMessage, isConnected, historyState, loadHistory } = useChat(id ?? null);
 
   const isBlocked = convInfo?.is_blocked === true;
+  const isContextDeleted = convInfo?.context_deleted === true;
 
   useEffect(() => {
     // currentUserId depuis le cache auth (offline-safe, évite l'appel /auth/me)
@@ -112,6 +121,8 @@ export default function ChatScreen() {
   const handleSend = useCallback(() => {
     const text = input.trim();
     if (!text || sending) return;
+    // Guard : lecture seule si contexte supprimé ou bloqué
+    if (isContextDeleted || isBlocked) return;
     if (!isConnected) {
       Alert.alert(
         'Envoi impossible',
@@ -123,7 +134,7 @@ export default function ChatScreen() {
     sendMessage(text);
     setInput('');
     setSending(false);
-  }, [input, sending, sendMessage, isConnected]);
+  }, [input, sending, sendMessage, isConnected, isContextDeleted, isBlocked]);
 
   const typeLabel = convInfo?.type === 'service' ? 'Service'
     : convInfo?.type === 'tagpoint_group' ? 'Groupe'
@@ -180,37 +191,60 @@ export default function ChatScreen() {
           />
         </View>
       ) : (
-      <FlatList
-        ref={flatRef}
-        data={messages}
-        keyExtractor={m => m.message_id}
-        style={{ flex: 1 }}
-        contentContainerStyle={[st.messageList, messages.length === 0 && { flex: 1 }]}
-        onContentSizeChange={() => flatRef.current?.scrollToEnd({ animated: false })}
-        renderItem={({ item, index }) => (
-          <>
-            {shouldShowDaySeparator(messages, index) && (
-              <View style={st.daySep}>
-                <View style={st.daySepLine} />
-                <Text style={st.daySepText}>{formatDay(item.created_at)}</Text>
-                <View style={st.daySepLine} />
-              </View>
-            )}
-            <Bubble msg={item} isMe={item.sender_id === currentUserId} />
-          </>
-        )}
-        ListEmptyComponent={
-          <View style={st.emptyChat}>
-            <Ionicons name="chatbubble-outline" size={40} color={Colors.muted} />
-            <Text style={st.emptyChatText}>Aucun message pour l'instant</Text>
-            <Text style={st.emptyChatSub}>Envoie le premier message !</Text>
+      <>
+        {/* Bandeau : conversation archivée / contexte supprimé */}
+        {isContextDeleted && (
+          <View style={st.archivedBanner} testID="chat-archived-banner">
+            <Ionicons name="archive-outline" size={15} color={Colors.muted} />
+            <Text style={st.archivedBannerText}>
+              Cette conversation est archivée. Le contenu lié n'est plus disponible.
+              Vous pouvez consulter l'historique, mais vous ne pouvez plus envoyer de messages.
+            </Text>
           </View>
-        }
-      />
+        )}
+        <FlatList
+          ref={flatRef}
+          data={messages}
+          keyExtractor={m => m.message_id}
+          style={{ flex: 1 }}
+          contentContainerStyle={[st.messageList, messages.length === 0 && { flex: 1 }]}
+          onContentSizeChange={() => flatRef.current?.scrollToEnd({ animated: false })}
+          renderItem={({ item, index }) => (
+            <>
+              {shouldShowDaySeparator(messages, index) && (
+                <View style={st.daySep}>
+                  <View style={st.daySepLine} />
+                  <Text style={st.daySepText}>{formatDay(item.created_at)}</Text>
+                  <View style={st.daySepLine} />
+                </View>
+              )}
+              <Bubble msg={item} isMe={item.sender_id === currentUserId} />
+            </>
+          )}
+          ListEmptyComponent={
+            <View style={st.emptyChat}>
+              <Ionicons name="chatbubble-outline" size={40} color={Colors.muted} />
+              <Text style={st.emptyChatText}>
+                {isContextDeleted ? 'Aucun message enregistré' : 'Aucun message pour l\'instant'}
+              </Text>
+              {!isContextDeleted && (
+                <Text style={st.emptyChatSub}>Envoie le premier message !</Text>
+              )}
+            </View>
+          }
+        />
+      </>
       )}
 
-      {/* Input bar — désactivé si bloqué */}
-      {isBlocked ? (
+      {/* Input bar — 3 états : archivé / bloqué / actif */}
+      {isContextDeleted ? (
+        <SafeAreaView edges={['bottom']} style={st.inputSafe}>
+          <View style={st.readOnlyBar} testID="chat-readonly-bar">
+            <Ionicons name="lock-closed-outline" size={14} color={Colors.muted} />
+            <Text style={st.readOnlyText}>Conversation en lecture seule</Text>
+          </View>
+        </SafeAreaView>
+      ) : isBlocked ? (
         <SafeAreaView edges={['bottom']} style={st.inputSafe}>
           <View style={st.blockedBanner} testID="chat-blocked-banner">
             <Ionicons name="lock-closed-outline" size={16} color={Colors.muted} />
@@ -331,5 +365,36 @@ const st = StyleSheet.create({
   blockedText: {
     flex: 1, fontSize: 13, color: Colors.muted,
     fontStyle: 'italic', lineHeight: 18,
+  },
+
+  // ── Archived / context deleted ─────────────────────────────────────────────
+  archivedBanner: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+    paddingHorizontal: 16, paddingVertical: 12,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)',
+  },
+  archivedBannerText: {
+    flex: 1, fontSize: 12.5, color: Colors.muted,
+    lineHeight: 18, fontStyle: 'italic',
+  },
+  readOnlyBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 7, paddingVertical: 14, paddingHorizontal: 16,
+    borderTopWidth: 1, borderTopColor: Colors.border,
+    backgroundColor: Colors.card,
+  },
+  readOnlyText: {
+    fontSize: 13, color: Colors.muted, fontStyle: 'italic',
+  },
+
+  // ── Message soft-deleted ───────────────────────────────────────────────────
+  bubbleDeletedWrap: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+    borderStyle: 'dashed',
+  },
+  bubbleDeletedText: {
+    fontStyle: 'italic', color: Colors.muted, fontSize: 13,
   },
 });

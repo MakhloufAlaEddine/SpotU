@@ -22,7 +22,7 @@ import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { haversineDistance, formatDistance } from '../../utils/distance';
 import { useClickSound } from '../../hooks/useClickSound';
 import { useNetwork } from '../../hooks/useNetwork';
-import { StaleBanner, ErrorNoData } from '../../components/OfflineBanner';
+import { StaleBanner, ErrorNoData, ContentDeletedState } from '../../components/OfflineBanner';
 import { buildCacheKey, cacheGet, cacheSet, isFresh, cacheAgeMinutes, getTtl, SCHEMA_VERSION, cacheInvalidate } from '../../lib/cache';
 import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 
@@ -354,6 +354,7 @@ export default function SpotYouDetail() {
   const [screenState, setScreenState] = useState<'loading_initial' | 'ready_fresh' | 'ready_cached' | 'error_no_data'>('loading_initial');
   const [staleMinutes, setStaleMinutes] = useState<number | null>(null);
   const [networkFailed, setNetworkFailed] = useState(false);
+  const [contentNotFound, setContentNotFound] = useState(false);
   const [votes, setVotes] = useState<any[]>([]);
   const [showVoteModal, setShowVoteModal] = useState(false);
   const [showAllVotes, setShowAllVotes] = useState(false);
@@ -560,7 +561,15 @@ export default function SpotYouDetail() {
       await cacheSet(cacheKey, data, ttl);
       const member = data.is_member || data.is_participant;
       if (member) loadActivity();
-    } catch {
+    } catch (e: any) {
+      // Détection 404 / contenu supprimé — pas d'écran d'erreur réseau, état "non disponible" propre
+      const status = e?.statusCode ?? e?.status ?? (typeof e === 'object' && e?.message?.includes('404') ? 404 : 0);
+      if (status === 404 || status === 410) {
+        setContentNotFound(true);
+        setLoading(false);
+        return;
+      }
+      // Données supprimées (active=false) détectées côté API et renvoyées avec 404
       setNetworkFailed(true);
       setPoint(prev => {
         if (prev !== null) setScreenState('ready_cached');
@@ -942,11 +951,18 @@ export default function SpotYouDetail() {
   if (!point) return (
     <View style={st.screen}>
       <Stack.Screen options={{ headerShown: false }} />
-      <ErrorNoData
-        onRetry={() => loadPoint(true)}
-        onBack={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/map' as any)}
-        testID="spotyou-not-found"
-      />
+      {contentNotFound ? (
+        <ContentDeletedState
+          onBack={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/map' as any)}
+          testID="spotyou-deleted-state"
+        />
+      ) : (
+        <ErrorNoData
+          onRetry={() => loadPoint(true)}
+          onBack={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/map' as any)}
+          testID="spotyou-not-found"
+        />
+      )}
     </View>
   );
 

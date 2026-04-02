@@ -10,6 +10,7 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNetwork } from '../hooks/useNetwork';
+import { Colors } from '../constants/Colors';
 
 // ── OfflineBanner ─────────────────────────────────────────────────────────────
 
@@ -116,6 +117,56 @@ const sst = StyleSheet.create({
     color: '#F59E0B',
     fontWeight: '500',
   },
+});
+
+// ── ContentDeletedState ───────────────────────────────────────────────────────
+/** État affiché quand un contenu (SpotYou, service) est supprimé ou inaccessible.
+ *  Distincte de ErrorNoData : pas de bouton "Réessayer", pas d'icône réseau.
+ */
+interface ContentDeletedStateProps {
+  onBack?: () => void;
+  message?: string;
+  testID?: string;
+}
+
+export function ContentDeletedState({ onBack, message, testID }: ContentDeletedStateProps) {
+  return (
+    <View style={cst.wrap} testID={testID || 'content-deleted-state'}>
+      <Ionicons name="cube-outline" size={56} color="rgba(255,255,255,0.2)" />
+      <Text style={cst.title}>Contenu indisponible</Text>
+      <Text style={cst.sub}>
+        {message || 'Ce contenu n\'est plus disponible.\nIl a peut-être été supprimé par son auteur.'}
+      </Text>
+      {onBack && (
+        <TouchableOpacity style={cst.backBtn} onPress={onBack} testID="content-deleted-back-btn">
+          <Ionicons name="chevron-back" size={15} color={Colors.foreground} />
+          <Text style={cst.backBtnText}>Retour</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}
+
+const Colors_local = { background: '#000000', foreground: '#FFFFFF', muted: '#8E8E93', primary: '#00BFA5' };
+
+const cst = StyleSheet.create({
+  wrap: {
+    flex: 1, alignItems: 'center', justifyContent: 'center',
+    gap: 14, padding: 40, backgroundColor: Colors.background,
+  },
+  title: { fontSize: 18, fontWeight: '700', color: 'rgba(255,255,255,0.8)' },
+  sub: {
+    fontSize: 14, color: 'rgba(255,255,255,0.4)',
+    textAlign: 'center', lineHeight: 22,
+  },
+  backBtn: {
+    marginTop: 8,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 20, paddingHorizontal: 22, paddingVertical: 11,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
+  },
+  backBtnText: { fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.8)' },
 });
 
 // ── ErrorNoData ───────────────────────────────────────────────────────────────

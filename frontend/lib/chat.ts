@@ -9,11 +9,12 @@ const BASE_WS = BASE_URL.replace('https://', 'wss://').replace('http://', 'ws://
 export interface ChatMessage {
   message_id: string;
   conversation_id: string;
-  sender_id: string;
+  sender_id: string | null;
   sender_name: string;
   sender_picture?: string;
   content: string;
   created_at: string;
+  deleted_at?: string | null;
 }
 
 export interface Conversation {
@@ -29,6 +30,7 @@ export interface Conversation {
   other_participant?: { user_id: string; name: string; picture?: string } | null;
   participant_count?: number;
   is_blocked?: boolean;
+  context_deleted?: boolean;
 }
 
 // ── Emitter module-level pour les nouvelles notifications ─────────────────────
@@ -167,7 +169,22 @@ export function useChat(conversationId: string | null) {
     ws.onerror = () => setIsConnected(false);
     ws.onmessage = (e) => {
       try {
-        const msg: ChatMessage = JSON.parse(e.data);
+        const data = JSON.parse(e.data);
+
+        // Message supprimé en temps réel (soft delete)
+        if (data.type === 'message_deleted') {
+          setMessages(prev => prev.map(m =>
+            m.message_id === data.message_id
+              ? { ...m, deleted_at: new Date().toISOString() }
+              : m
+          ));
+          return;
+        }
+
+        // Erreur CONTEXT_DELETED (rejet WS si contexte supprimé) — ignorer silencieusement
+        if (data.type === 'error') return;
+
+        const msg: ChatMessage = data;
         setMessages(prev => {
           const updated = [...prev, msg];
           // Mise à jour du cache en arrière-plan pour la prochaine consultation offline

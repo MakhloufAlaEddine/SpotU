@@ -20,7 +20,7 @@ import { useLocation } from '../../context/LocationContext';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 import { classifyFetchError, isOfflineOrTimeout } from '../../lib/network-error';
-import { ErrorNoData } from '../../components/OfflineBanner';
+import { ErrorNoData, ContentDeletedState } from '../../components/OfflineBanner';
 import { haversineDistance, formatDistance } from '../../utils/distance';
 import { ServicePlaceholder } from '../../components/ServicePlaceholder';
 
@@ -83,6 +83,7 @@ export default function ServiceDetailScreen() {
   const [service, setService] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isNetworkError, setIsNetworkError] = useState(false);
+  const [isContentNotFound, setIsContentNotFound] = useState(false);
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
   const [activeLocIdx, setActiveLocIdx] = useState(0);
@@ -162,7 +163,10 @@ export default function ServiceDetailScreen() {
       }
     } catch (e: any) {
       const classified = classifyFetchError(e);
-      if (isOfflineOrTimeout(classified)) {
+      const status = e?.statusCode ?? e?.status ?? 0;
+      if (status === 404 || status === 410) {
+        setIsContentNotFound(true);
+      } else if (isOfflineOrTimeout(classified)) {
         setIsNetworkError(true);
       }
     } finally {
@@ -226,6 +230,17 @@ export default function ServiceDetailScreen() {
 
   if (!service) {
     const goBack = () => router.canGoBack() ? router.back() : router.replace('/(tabs)/map' as any);
+    if (isContentNotFound) {
+      return (
+        <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
+          <ContentDeletedState
+            onBack={goBack}
+            message="Ce service n'est plus disponible.\nIl a été désactivé ou supprimé par son auteur."
+            testID="service-deleted-state"
+          />
+        </SafeAreaView>
+      );
+    }
     if (isNetworkError) {
       return (
         <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
@@ -240,18 +255,7 @@ export default function ServiceDetailScreen() {
     }
     return (
       <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 }}>
-          <Ionicons name="alert-circle-outline" size={48} color={Colors.muted} />
-          <Text style={{ color: Colors.muted, marginTop: 8 }}>Service introuvable</Text>
-          <TouchableOpacity
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 8, paddingHorizontal: 16 }}
-            onPress={goBack}
-            testID="service-notfound-back-btn"
-          >
-            <Ionicons name="chevron-back" size={15} color={Colors.primary} />
-            <Text style={{ fontSize: 14, color: Colors.primary, fontWeight: '600' }}>Retour</Text>
-          </TouchableOpacity>
-        </View>
+        <ContentDeletedState onBack={goBack} testID="service-not-found-state" />
       </SafeAreaView>
     );
   }
