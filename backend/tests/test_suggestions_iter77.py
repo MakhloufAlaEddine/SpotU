@@ -6,7 +6,7 @@ import pytest
 import httpx
 import os
 
-BASE_URL = os.environ.get("API_URL", "https://data-refresh-9.preview.emergentagent.com")
+BASE_URL = os.environ.get("API_URL", "https://spotme-ui-polish.preview.emergentagent.com")
 
 COACH_EMAIL = "coach@winek.app"
 COACH_PASS  = "WinekCoach2024!"
