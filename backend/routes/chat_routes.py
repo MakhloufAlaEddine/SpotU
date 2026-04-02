@@ -96,10 +96,12 @@ async def _batch_enrich_conversations(pool, conn, convs: list, current_user_id: 
     async def get_last_messages(c):
         return await c.fetch(
             """SELECT DISTINCT ON (m.conversation_id)
-                      m.conversation_id, m.message_id, m.content,
-                      m.created_at, m.sender_id, u.name AS sender_name
+                      m.conversation_id, m.message_id,
+                      CASE WHEN m.deleted_at IS NOT NULL THEN '[Message supprimé]' ELSE m.content END AS content,
+                      m.created_at, m.sender_id,
+                      COALESCE(u.name, 'Utilisateur supprimé') AS sender_name
                FROM messages m
-               JOIN users u ON u.user_id = m.sender_id
+               LEFT JOIN users u ON u.user_id = m.sender_id
                WHERE m.conversation_id = ANY($1::text[])
                ORDER BY m.conversation_id, m.created_at DESC""",
             conv_ids,
@@ -354,14 +356,28 @@ async def list_conversations(request: Request):
             """SELECT c.conversation_id, c.type, c.context_id,
                       COALESCE(
                           CASE WHEN c.type IN ('tagpoint_private', 'tagpoint_group') THEN tp.title ELSE NULL END,
+                          CASE WHEN c.type = 'service' THEN svc.title ELSE NULL END,
                           c.context_title
                       ) AS context_title,
-                      c.created_by, c.last_message_at, c.created_at
+                      c.created_by, c.last_message_at, c.created_at,
+                      -- context_deleted : colonne DB (authoritative) + détection dynamique fallback
+                      CASE
+                          WHEN c.context_deleted = TRUE THEN TRUE
+                          WHEN c.type IN ('tagpoint_private','tagpoint_group')
+                               AND (tp.point_id IS NULL OR tp.active = FALSE OR tp.deleted_at IS NOT NULL)
+                               THEN TRUE
+                          WHEN c.type = 'service'
+                               AND (svc.service_id IS NULL OR svc.active = FALSE OR svc.deleted_at IS NOT NULL)
+                               THEN TRUE
+                          ELSE FALSE
+                      END AS context_deleted
                FROM conversations c
                LEFT JOIN tag_points tp
                    ON c.type IN ('tagpoint_private', 'tagpoint_group') AND tp.point_id = c.context_id
+               LEFT JOIN services svc
+                   ON c.type = 'service' AND svc.service_id = c.context_id
                JOIN conversation_participants cp ON cp.conversation_id = c.conversation_id
-               WHERE cp.user_id = $1
+               WHERE cp.user_id = $1 AND c.deleted_at IS NULL
                ORDER BY c.last_message_at DESC NULLS LAST""",
             uid
         )
@@ -385,18 +401,24 @@ async def get_messages(conv_id: str, request: Request, limit: int = Query(50, ge
 
         if before:
             rows = await conn.fetch(
-                """SELECT m.message_id, m.conversation_id, m.sender_id, m.content, m.created_at,
-                          u.name as sender_name, u.picture as sender_picture
-                   FROM messages m JOIN users u ON m.sender_id = u.user_id
+                """SELECT m.message_id, m.conversation_id, m.sender_id,
+                          CASE WHEN m.deleted_at IS NOT NULL THEN '[Message supprimé]' ELSE m.content END AS content,
+                          m.created_at, m.deleted_at,
+                          COALESCE(u.name, 'Utilisateur supprimé') AS sender_name,
+                          u.picture as sender_picture
+                   FROM messages m LEFT JOIN users u ON m.sender_id = u.user_id
                    WHERE m.conversation_id = $1 AND m.created_at < $2::timestamptz
                    ORDER BY m.created_at DESC LIMIT $3""",
                 conv_id, before, limit
             )
         else:
             rows = await conn.fetch(
-                """SELECT m.message_id, m.conversation_id, m.sender_id, m.content, m.created_at,
-                          u.name as sender_name, u.picture as sender_picture
-                   FROM messages m JOIN users u ON m.sender_id = u.user_id
+                """SELECT m.message_id, m.conversation_id, m.sender_id,
+                          CASE WHEN m.deleted_at IS NOT NULL THEN '[Message supprimé]' ELSE m.content END AS content,
+                          m.created_at, m.deleted_at,
+                          COALESCE(u.name, 'Utilisateur supprimé') AS sender_name,
+                          u.picture as sender_picture
+                   FROM messages m LEFT JOIN users u ON m.sender_id = u.user_id
                    WHERE m.conversation_id = $1
                    ORDER BY m.created_at DESC LIMIT $2""",
                 conv_id, limit
@@ -487,6 +509,11 @@ async def ws_chat(websocket: WebSocket, conv_id: str):
             "SELECT user_id, name, picture FROM users WHERE user_id = $1", user_id
         )
         user_info = row_to_dict(user_row)
+        # Charger l'état context_deleted (cache local pour la durée de la session WS)
+        conv_meta = await conn.fetchrow(
+            "SELECT context_deleted FROM conversations WHERE conversation_id = $1", conv_id
+        )
+        _context_deleted: bool = bool(conv_meta and conv_meta["context_deleted"]) if conv_meta else False
 
     manager.add(conv_id, websocket)
 
@@ -498,6 +525,15 @@ async def ws_chat(websocket: WebSocket, conv_id: str):
             data = await websocket.receive_json()
             content = (data.get("content") or "").strip()
             if not content:
+                continue
+
+            # [SOFTDEL] Bloquer l'envoi si le contexte est supprimé
+            if _context_deleted:
+                await websocket.send_json({
+                    "type":    "error",
+                    "code":    "CONTEXT_DELETED",
+                    "message": "Ce contexte a été supprimé. La conversation est en lecture seule.",
+                })
                 continue
 
             # [SEC-15] Limite de taille (8 Ko)

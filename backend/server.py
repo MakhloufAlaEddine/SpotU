@@ -31,6 +31,7 @@ from routes.address_routes import router as address_router
 from routes.marketplace_routes import router as marketplace_router
 from routes.product_creation_routes import router as product_creation_router
 from routes.admin_product_routes import router as admin_product_router
+from routes.deletion_routes import router as deletion_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -108,6 +109,7 @@ api_router.include_router(address_router, tags=["addresses"])
 api_router.include_router(marketplace_router, tags=["marketplace"])
 api_router.include_router(product_creation_router, tags=["products"])
 api_router.include_router(admin_product_router, tags=["admin-products"])
+api_router.include_router(deletion_router, tags=["deletion"])
 
 
 # ── Routes infra (liveness / readiness) ──────────────────────────────────────

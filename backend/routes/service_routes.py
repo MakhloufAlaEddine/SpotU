@@ -954,8 +954,10 @@ async def update_service(service_id: str, data: ServiceUpdate, request: Request)
 
 @router.delete("/services/{service_id}")
 async def delete_service(service_id: str, request: Request):
+    from datetime import datetime, timezone as _tz
     pool = get_pool()
     user = await require_auth(request, pool)
+    now = datetime.now(_tz.utc)
     async with pool.acquire() as conn:
         existing = await conn.fetchrow(
             "SELECT coach_id, images FROM services WHERE service_id = $1", service_id
@@ -964,8 +966,32 @@ async def delete_service(service_id: str, request: Request):
             raise HTTPException(status_code=404, detail="Service not found")
         if existing["coach_id"] != user["user_id"] and user["role"] != "admin":
             raise HTTPException(status_code=403, detail="Not authorized")
+
+        # [GUARD] Bloquer si des réservations actives existent (sauf admin)
+        if user["role"] != "admin":
+            active_count = await conn.fetchval(
+                """SELECT COUNT(*) FROM bookings
+                   WHERE service_id = $1
+                     AND status IN ('pending','accepted','awaiting_payment','confirmed')""",
+                service_id
+            )
+            if active_count and int(active_count) > 0:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Impossible de supprimer : {int(active_count)} réservation(s) active(s) sur ce service. Annulez-les d'abord."
+                )
+
+        # Soft delete avec deleted_at + deleted_by
         await conn.execute(
-            "UPDATE services SET active = FALSE, updated_at = NOW() WHERE service_id = $1",
+            """UPDATE services
+               SET active=FALSE, deleted_at=$1, deleted_by=$2, updated_at=$1
+               WHERE service_id=$3""",
+            now, user["user_id"], service_id
+        )
+        # Marquer les conversations liées context_deleted
+        await conn.execute(
+            """UPDATE conversations SET context_deleted=TRUE
+               WHERE context_id=$1 AND context_deleted=FALSE""",
             service_id
         )
 
