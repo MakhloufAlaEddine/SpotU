@@ -33,6 +33,7 @@ export default function MenuScreen() {
   const [networkFailed, setNetworkFailed] = useState(false);
   const [savedCount, setSavedCount] = useState<number | null>(null);
   const [joinedCount, setJoinedCount] = useState<number | null>(null);
+  const [deactivatedSpotYouCount, setDeactivatedSpotYouCount] = useState(0);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -98,9 +99,10 @@ export default function MenuScreen() {
 
     // Étape 2 : fetch réseau
     try {
-      const [points, profileData, savedData, eventsData] = await Promise.all([
+      const [points, profileData, reactivatableData, savedData, eventsData] = await Promise.all([
         api.get('/tag-points/mine'),
         api.get('/users/profile'),
+        api.get('/users/me/reactivatable').catch(() => null),
         api.get('/tag-points/saved').catch(() => null),
         api.get('/users/me/events').catch(() => null),
       ]);
@@ -111,6 +113,7 @@ export default function MenuScreen() {
           review_count: profileData.review_count ?? 0,
         });
       }
+      if (reactivatableData?.spotyous) setDeactivatedSpotYouCount(reactivatableData.spotyous.length);
       if (Array.isArray(savedData)) setSavedCount(savedData.length);
       if (Array.isArray(eventsData)) setJoinedCount(eventsData.filter((e: any) => !e.is_owner).length);
       setDataScreenState('ready_fresh');
@@ -292,6 +295,9 @@ export default function MenuScreen() {
             <Text style={st.actionLabel}>Mes SpotYou</Text>
             <View style={st.actionChips}>
               <Text style={st.actionChip}>{mySpotYou.length} actif{mySpotYou.length !== 1 ? 's' : ''}</Text>
+              {deactivatedSpotYouCount > 0 && (
+                <Text style={[st.actionChip, st.actionChipAmber]}>{deactivatedSpotYouCount} désactivé{deactivatedSpotYouCount > 1 ? 's' : ''}</Text>
+              )}
               {(joinedCount ?? 0) > 0 && (
                 <Text style={[st.actionChip, st.actionChipBlue]}>{joinedCount} com.</Text>
               )}
