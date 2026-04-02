@@ -446,6 +446,96 @@ async def get_app_config(request: Request):
         return await _get_booking_flags(conn)
 
 
+# ── Purge différée des fichiers R2 orphelins ──────────────────────────────────
+
+@router.post("/purge")
+async def trigger_purge(
+    request: Request,
+    dry_run: bool       = Query(default=True,  description="Simuler sans supprimer (défaut: true)"),
+    retention_days: int = Query(default=30,    ge=1,  le=365, description="Jours de rétention avant purge"),
+    batch_size: int     = Query(default=100,   ge=1,  le=500, description="Nombre max de fichiers par run"),
+    retry_failed: bool  = Query(default=False, description="Re-tenter les entrées en status=failed"),
+):
+    """
+    Déclenche un cycle de purge des fichiers R2 orphelins (pending_file_deletions).
+
+    - **dry_run=true** (défaut) : lecture seule, retourne ce qui SERAIT supprimé.
+    - **dry_run=false** : exécute la suppression réelle.
+    - Seuls les fichiers planifiés il y a > `retention_days` jours sont traités.
+    - Un échec individuel n'arrête pas le batch (robustesse partielle).
+    - Idempotent : peut être relancé sans danger.
+
+    Retourne :
+      - `scanned`   : entrées lues
+      - `eligible`  : entrées dont scheduled_at >= seuil de rétention
+      - `deleted`   : fichiers supprimés avec succès (ou déjà absents)
+      - `failed`    : erreurs irrécupérables
+      - `skipped`   : ignorés (URL vide, déjà en traitement)
+      - `dry_run`   : booléen du mode
+      - `details`   : liste des entrées traitées (max batch_size)
+    """
+    pool = get_pool()
+    await require_role(request, pool, "admin")
+
+    import sys
+    import os
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from admin_purge_worker import run_purge
+
+    result = await run_purge(
+        pool,
+        dry_run=dry_run,
+        retention_days=retention_days,
+        batch_size=batch_size,
+        retry_failed=retry_failed,
+    )
+    return result
+
+
+@router.get("/purge/status")
+async def purge_status(request: Request):
+    """
+    Retourne un résumé des entrées pending_file_deletions par statut.
+    Permet de surveiller la file de purge sans déclencher de traitement.
+    """
+    pool = get_pool()
+    await require_role(request, pool, "admin")
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT status,
+                      COUNT(*)                              AS count,
+                      MIN(scheduled_at)                    AS oldest,
+                      MAX(scheduled_at)                    AS newest,
+                      SUM(attempt_count)                   AS total_attempts,
+                      COUNT(*) FILTER (WHERE processed_at IS NOT NULL) AS processed
+               FROM pending_file_deletions
+               GROUP BY status
+               ORDER BY status"""
+        )
+        total = await conn.fetchval("SELECT COUNT(*) FROM pending_file_deletions")
+        pending = await conn.fetchval(
+            "SELECT COUNT(*) FROM pending_file_deletions WHERE status='pending'"
+        )
+        oldest_pending = await conn.fetchval(
+            "SELECT MIN(scheduled_at) FROM pending_file_deletions WHERE status='pending'"
+        )
+    return {
+        "total":           int(total),
+        "pending":         int(pending),
+        "oldest_pending":  oldest_pending.isoformat() if oldest_pending else None,
+        "by_status":       [
+            {
+                "status":          r["status"],
+                "count":           int(r["count"]),
+                "oldest":          r["oldest"].isoformat() if r["oldest"] else None,
+                "newest":          r["newest"].isoformat() if r["newest"] else None,
+                "total_attempts":  int(r["total_attempts"]) if r["total_attempts"] else 0,
+            }
+            for r in rows
+        ],
+    }
+
+
 @router.put("/app-config")
 async def update_app_config(request: Request):
     """Met à jour un ou plusieurs flags de configuration (admin seulement)."""
