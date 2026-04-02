@@ -182,6 +182,8 @@ export default function MenuScreen() {
         if (tpFresh && profileFresh) {
           setDataScreenState('ready_fresh');
           setStaleMinutes(null);
+          // On rafraîchit quand même les entités réactivables (pas de cache, change souvent)
+          api.get('/users/me/reactivatable').then(d => { if (d) setReactivatable(d); }).catch(() => {});
           return;
         }
         setDataScreenState('ready_cached');
