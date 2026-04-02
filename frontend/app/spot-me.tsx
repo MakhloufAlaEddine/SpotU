@@ -41,6 +41,7 @@ export default function MySpotYouScreen() {
   const [networkFailed, setNetworkFailed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [joiningId, setJoiningId] = useState<string | null>(null);
 
   // Modal membres
   const [membersModal, setMembersModal] = useState(false);
@@ -53,9 +54,16 @@ export default function MySpotYouScreen() {
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
   const [pendingCallback, setPendingCallback] = useState<(() => void) | null>(null);
 
-  // ── Mises à jour temps réel via le hook centralisé ───────────────────────
+  // ── Mises à jour temps réel — SpotYou actifs ────────────────────────────
   useSpotYouListLive(points, (pid, update) => {
     setPoints(prev => prev.map(p =>
+      p.point_id === pid ? { ...p, ...update } : p
+    ));
+  });
+
+  // ── Mises à jour temps réel — Communautés rejointes ───────────────────────
+  useSpotYouListLive(joined, (pid, update) => {
+    setJoined(prev => prev.map(p =>
       p.point_id === pid ? { ...p, ...update } : p
     ));
   });
@@ -167,8 +175,53 @@ export default function MySpotYouScreen() {
     finally { setMembersLoading(false); }
   };
 
-  const toggleGoing = (item: any) => {
-    if (!user) { Alert.alert('Connexion requise', 'Connectez-vous pour participer.'); return; }
+  const toggleJoin = async (item: any) => {
+    if (!user) { Alert.alert('Connexion requise', 'Connectez-vous pour rejoindre.'); return; }
+    if (!isOnline) {
+      Alert.alert('Action impossible hors ligne', 'Vérifiez votre connexion réseau.');
+      return;
+    }
+    const alreadyMember = joined.some(j => j.point_id === item.point_id);
+    if (alreadyMember) {
+      Alert.alert(
+        'Quitter cette communauté ?',
+        `Vous quitterez «${item.title}» et vos participations futures seront annulées.`,
+        [
+          { text: 'Annuler', style: 'cancel' },
+          {
+            text: 'Quitter',
+            style: 'destructive',
+            onPress: async () => {
+              setJoiningId(item.point_id);
+              try {
+                await api.delete(`/spot-you/${item.point_id}/leave`);
+                setJoined(prev => prev.filter(j => j.point_id !== item.point_id));
+              } catch (e: any) {
+                Alert.alert('Erreur', e.message || 'Une erreur est survenue');
+              } finally {
+                setJoiningId(null);
+              }
+            },
+          },
+        ]
+      );
+    } else {
+      setJoiningId(item.point_id);
+      try {
+        const res: any = await api.post(`/spot-you/${item.point_id}/join`, {});
+        setJoined(prev => [...prev, {
+          ...item,
+          participants_count: res.participants_count ?? (item.participants_count || 0) + 1,
+        }]);
+      } catch (e: any) {
+        Alert.alert('Erreur', e.message || 'Une erreur est survenue');
+      } finally {
+        setJoiningId(null);
+      }
+    }
+  };
+
+  const toggleGoing = (item: any) => {    if (!user) { Alert.alert('Connexion requise', 'Connectez-vous pour participer.'); return; }
     if (!isOnline) {
       Alert.alert(
         'Action impossible hors ligne',
@@ -404,8 +457,13 @@ export default function MySpotYouScreen() {
               togglingId={togglingId}
               onViewMembers={openMembersModal}
               testID={`community-card-${item.point_id}`}
+              isLive
               userLat={location.lat}
               userLng={location.lng}
+              onToggleJoin={toggleJoin}
+              joiningId={joiningId}
+              isMember={true}
+              isOwner={false}
             />
           )}
           ListEmptyComponent={

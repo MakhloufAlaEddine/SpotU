@@ -1,0 +1,90 @@
+{
+  "summary": "Frontend test: SpotYouCard Rejoindre/Quitter feature + Communautés tab. User logged in as user@winek.app. 6/7 feature requirements pass. CRITICAL BUG: Alert.alert() is a no-op in react-native-web — the 'Quitter' confirmation dialog never appears and the leave-community flow is completely broken on web.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "DELETE /api/spot-you/pt_demo001/leave",
+        "issue": "Returns 403 Forbidden when user@winek.app (non-owner member) tries to leave community. Observed in backend logs during Playwright testing. Could indicate: (a) user@winek.app lacks a formal JOIN record for pt_demo001 (seed data member vs join-API member), or (b) authorization logic is too restrictive.",
+        "priority": "MEDIUM"
+      }
+    ]
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Quitter community (leave flow)",
+        "issue": "Clicking 'Quitter' button does nothing on Expo Web. Alert.alert() is a no-op in react-native-web (confirmed: /node_modules/react-native-web/src/exports/Alert/index.js has `static alert() {}`). The confirmation dialog 'Quitter cette communauté ?' never appears and DELETE /api/spot-you/{id}/leave is never called. Users cannot leave a community on the web platform.",
+        "affected_selectors": ["[data-testid^='join-btn-']"],
+        "priority": "CRITICAL"
+      },
+      {
+        "flow": "Error handling in toggleJoin",
+        "issue": "catch blocks in toggleJoin also use Alert.alert (no-op on web). API errors are silently swallowed on web.",
+        "affected_selectors": ["[data-testid^='join-btn-']"],
+        "priority": "MEDIUM"
+      }
+    ],
+    "design_issues": [
+      {
+        "screen": "Communities tab card",
+        "issues": ["Layout correct: title, Membre badge (green #00E676), Quitter button (red #EF4444 border) — all properly styled"]
+      }
+    ]
+  },
+
+  "test_results": {
+    "tab_visibility": "✅ PASSED — All 3 tabs visible: Actifs [1], Désactivés [1], Communautés [1]",
+    "actifs_tab_works": "✅ PASSED — Actifs tab shows 'HIIT morning — Parc de Sceaux' SpotYouCard with isLive indicator",
+    "communities_tab_content": "✅ PASSED — Communautés tab shows SpotYouCard for community (community-card-pt_demo001)",
+    "membre_badge_green": "✅ PASSED — 'Membre' badge present with green styling: bg=rgba(0,230,118,0.08), border=rgba(0,230,118,0.31), text color #00E676",
+    "quitter_button_red": "✅ PASSED — 'Quitter' button present with red border: borderColor=rgb(239,68,68)",
+    "live_indicator_pulsing_dot": "✅ PASSED — Members chip has pulsing dot (element with bg=rgb(0,230,118), borderRadius=4px found inside members-chip; chip has live green background rgba(0,230,118,0.06) and border rgba(0,230,118,0.38))",
+    "actifs_no_regression": "✅ PASSED — Actifs tab still works correctly after navigating to Communautés and back",
+    "quitter_alert_dialog": "❌ FAILED — Clicking 'Quitter' does NOT show Alert. Alert.alert() is a no-op in react-native-web. No window.confirm/alert fired, no DOM changes, no network request made. RCA confirmed via source inspection."
+  },
+
+  "rca_of_issue": {
+    "bug": "Alert.alert() is completely non-functional on Expo Web / react-native-web",
+    "root_cause": "react-native-web intentionally implements Alert as a stub: `class Alert { static alert() {} }` (source: /app/frontend/node_modules/react-native-web/src/exports/Alert/index.js). The method body is empty — no-op.",
+    "affected_code": "spot-me.tsx toggleJoin function (lines 186-207): uses Alert.alert() for the 'Quitter cette communauté ?' confirmation, Alert.alert for offline error (line 182-183), and catch blocks Alert.alert for API errors (lines 199-201).",
+    "mitigation": "Replace Alert.alert() in toggleJoin with ConfirmActionModal (already used in toggleGoing for the same screen). Pattern already exists in spot-me.tsx — setConfirmAction + setPendingCallback + setConfirmVisible. Also, replace Alert.alert for error messages with a toast or inline error display.",
+    "reproduction": "1. Login as user@winek.app, 2. Navigate to /spot-me, 3. Click Communautés tab, 4. Click 'Quitter' button — nothing happens"
+  },
+
+  "test_report_links": [
+    "/app/test_reports/iteration_104.json"
+  ],
+
+  "action_items": [
+    "CRITICAL: Fix toggleJoin in spot-me.tsx to use ConfirmActionModal instead of Alert.alert() for the 'Quitter cette communauté ?' confirmation dialog — Alert.alert is a no-op in react-native-web",
+    "MEDIUM: Fix error Alert.alert calls in toggleJoin catch blocks — use toast/inline error instead",
+    "LOW: Consider audit of all Alert.alert() usages across the app for web compatibility (toggleGoing offline check on line 225-229 also uses Alert.alert)"
+  ],
+
+  "critical_code_review_comments": [
+    "react-native-web Alert.alert is a NO-OP: All Alert.alert() calls in spot-me.tsx are silently ignored on Expo Web. The 'Quitter' leave-community flow is completely non-functional on web. Fix: use ConfirmActionModal (already present in the file) for confirmations and use a different mechanism for error toasts.",
+    "toggleJoin uses Alert for confirmation while toggleGoing correctly uses ConfirmActionModal — inconsistency in the same file. Harmonize to use ConfirmActionModal for toggleJoin as well.",
+    "Good: isLive=true correctly passed to communities tab SpotYouCard — pulsing dot visible in members chip. Live hook dual usage (one for points, one for joined) is correctly implemented."
+  ],
+
+  "updated_files": [],
+
+  "success_rate": {
+    "backend": "N/A (frontend-only testing)",
+    "frontend": "86% (6/7 features pass; critical issue: Alert.alert no-op breaks Quitter flow)"
+  },
+
+  "test_credentials": "user@winek.app / WinekUser2024! — 1 community membership (HIIT morning — Parc de Sceaux, point_id: pt_demo001)",
+
+  "seed_data_creation": "No seed data created. Used existing community membership (user is member of HIIT morning — Parc de Sceaux).",
+
+  "retest_needed": true,
+
+  "should_main_agent_self_test": true,
+
+  "context_for_next_testing_agent": "SpotYouCard Rejoindre/Quitter feature is 86% complete. The UI is correct (Membre badge green, Quitter button red outline, pulsing dot on members chip, Communautés tab working). The ONLY issue is that Alert.alert() is a no-op in react-native-web — clicking Quitter does nothing. Fix: replace Alert.alert() in toggleJoin (spot-me.tsx ~line 186-207) with ConfirmActionModal. Use the same pattern as toggleGoing. After fix, test: 1) click Quitter → confirmation modal appears, 2) click confirm → DELETE /api/spot-you/pt_demo001/leave API called, card removed from list, 3) Rejoindre flow (non-member card). Community card testID: community-card-pt_demo001, join button testID: join-btn-pt_demo001."
+}
