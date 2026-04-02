@@ -171,42 +171,18 @@ export function SpotYouCard({
         </View>
 
         <View style={{ flex: 1 }}>
-          {/* Titre + badge type + bouton Rejoindre/Quitter */}
+          {/* Titre + badge type */}
           <View style={sc.titleRow}>
             <Text style={sc.cardTitle} numberOfLines={2}>{item.title || 'Sans titre'}</Text>
-            <View style={{ alignItems: 'flex-end', gap: 4 }}>
-              <View style={[sc.typeBadge, isRecurring ? sc.typeBadgeRecurring : sc.typeBadgeOnce]}>
-                <Ionicons
-                  name={isRecurring ? 'repeat' : 'calendar-outline'}
-                  size={10}
-                  color={isRecurring ? Colors.primary : Colors.muted}
-                />
-                <Text style={[sc.typeBadgeText, isRecurring ? { color: Colors.primary } : { color: Colors.muted }]}>
-                  {isRecurring ? 'Récurrent' : 'Unique'}
-                </Text>
-              </View>
-              {onToggleJoin && (
-                <TouchableOpacity
-                  style={[sc.joinChip, isMember && sc.leaveChip]}
-                  onPress={() => onToggleJoin(item)}
-                  disabled={joiningId === item.point_id}
-                  testID={`join-btn-${item.point_id}`}
-                >
-                  {joiningId === item.point_id
-                    ? <ActivityIndicator size="small" color={isMember ? '#EF4444' : Colors.background} style={{ width: 10, height: 10 }} />
-                    : <>
-                        <Ionicons
-                          name={isMember ? 'exit-outline' : 'person-add-outline'}
-                          size={11}
-                          color={isMember ? '#EF4444' : Colors.background}
-                        />
-                        <Text style={[sc.joinChipText, isMember && sc.leaveChipText]}>
-                          {isMember ? 'Quitter' : 'Rejoindre'}
-                        </Text>
-                      </>
-                  }
-                </TouchableOpacity>
-              )}
+            <View style={[sc.typeBadge, isRecurring ? sc.typeBadgeRecurring : sc.typeBadgeOnce]}>
+              <Ionicons
+                name={isRecurring ? 'repeat' : 'calendar-outline'}
+                size={10}
+                color={isRecurring ? Colors.primary : Colors.muted}
+              />
+              <Text style={[sc.typeBadgeText, isRecurring ? { color: Colors.primary } : { color: Colors.muted }]}>
+                {isRecurring ? 'Récurrent' : 'Unique'}
+              </Text>
             </View>
           </View>
 
@@ -225,7 +201,7 @@ export function SpotYouCard({
             </View>
           )}
 
-          {/* Badges: visibilité + membres + distance */}
+          {/* Badges : visibilité + membres + distance + rejoindre/quitter */}
           <View style={sc.metaBadgesRow}>
             {item.is_public === false && (
               <View style={sc.badge}>
@@ -250,6 +226,28 @@ export function SpotYouCard({
                 <Text style={sc.distChipText}>{dist}</Text>
               </View>
             ) : null}
+            {onToggleJoin && (
+              <TouchableOpacity
+                style={[sc.joinChip, isMember && sc.leaveChip]}
+                onPress={() => onToggleJoin(item)}
+                disabled={joiningId === item.point_id}
+                testID={`join-btn-${item.point_id}`}
+              >
+                {joiningId === item.point_id
+                  ? <ActivityIndicator size="small" color={isMember ? '#EF4444' : Colors.background} style={{ width: 10, height: 10 }} />
+                  : <>
+                      <Ionicons
+                        name={isMember ? 'exit-outline' : 'person-add-outline'}
+                        size={11}
+                        color={isMember ? '#EF4444' : Colors.background}
+                      />
+                      <Text style={[sc.joinChipText, isMember && sc.leaveChipText]}>
+                        {isMember ? 'Quitter' : 'Rejoindre'}
+                      </Text>
+                    </>
+                }
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </View>
