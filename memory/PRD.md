@@ -80,9 +80,12 @@ Implémenter une stratégie de rétention et réactivation avancée (Soft Delete
 - Styles `actionChips`, `actionChip`, `actionChipAmber`, `actionChipBlue` ajoutés
 - Stats colorées dans carte "Mes SpotYou" : actifs (teal), désactivés (amber), communautés (bleu)
 
----
+### Phase G — SpotYouCard non-owner + Communautés temps réel (2026-04-02)
+- `SpotYouCard.tsx` : nouvelles props `onToggleJoin`, `joiningId`, `isMember`, `isOwner`. Section "Rejoindre/Quitter" avec badge "Membre" vert et bouton "Quitter" rouge pour les non-owners.
+- `spot-me.tsx` : 2e hook `useSpotYouListLive` branché sur la liste `joined` (stats temps réel communautés). Fonction `toggleJoin` utilisant `ConfirmActionModal` (compatible web, pas d'Alert.alert). Onglet Communautés passe `isLive`, `isOwner=false`, `isMember=true`, `onToggleJoin`, `joiningId`.
+- `tagpoint_routes.py` : Fix bug `GET /users/me/events` — calcul `is_owner` corrigé (comparaison user_id). Avant : tous les items avaient `is_owner=False`. Après : les SpotYous créés par l'utilisateur ont `is_owner=True` et sont filtrés de l'onglet Communautés.
 
-## Règles métier critiques
+---
 1. Soft delete = désactivation 90j, médias conservés, réactivation possible
 2. Réactivation > 90j (`media_purged=TRUE`) : entité restaurée mais `requires_media_reupload=TRUE`
 3. Réactivation profil utilisateur : NE cascade PAS vers SpotYou/services/produits

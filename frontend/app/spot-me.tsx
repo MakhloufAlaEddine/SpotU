@@ -175,7 +175,7 @@ export default function MySpotYouScreen() {
     finally { setMembersLoading(false); }
   };
 
-  const toggleJoin = async (item: any) => {
+  const toggleJoin = (item: any) => {
     if (!user) { Alert.alert('Connexion requise', 'Connectez-vous pour rejoindre.'); return; }
     if (!isOnline) {
       Alert.alert('Action impossible hors ligne', 'Vérifiez votre connexion réseau.');
@@ -183,41 +183,45 @@ export default function MySpotYouScreen() {
     }
     const alreadyMember = joined.some(j => j.point_id === item.point_id);
     if (alreadyMember) {
-      Alert.alert(
-        'Quitter cette communauté ?',
-        `Vous quitterez «${item.title}» et vos participations futures seront annulées.`,
-        [
-          { text: 'Annuler', style: 'cancel' },
-          {
-            text: 'Quitter',
-            style: 'destructive',
-            onPress: async () => {
-              setJoiningId(item.point_id);
-              try {
-                await api.delete(`/spot-you/${item.point_id}/leave`);
-                setJoined(prev => prev.filter(j => j.point_id !== item.point_id));
-              } catch (e: any) {
-                Alert.alert('Erreur', e.message || 'Une erreur est survenue');
-              } finally {
-                setJoiningId(null);
-              }
-            },
-          },
-        ]
-      );
+      setConfirmAction({
+        title: 'Quitter cette communauté ?',
+        description: `Vous quitterez «${item.title}» et vos participations futures seront annulées.`,
+        icon: 'exit-outline',
+        iconColor: '#EF4444',
+        iconBg: '#FEF2F2',
+        confirmLabel: 'Quitter la communauté',
+        confirmStyle: 'danger',
+        cancelLabel: 'Rester membre',
+        bullets: [
+          'Vos participations futures seront annulées',
+          'Vous pourrez rejoindre à nouveau plus tard',
+        ],
+      });
+      setPendingCallback(() => async () => {
+        setJoiningId(item.point_id);
+        try {
+          await api.delete(`/spot-you/${item.point_id}/leave`);
+          setJoined(prev => prev.filter(j => j.point_id !== item.point_id));
+        } catch (e: any) {
+          Alert.alert('Erreur', e.message || 'Une erreur est survenue');
+        } finally {
+          setJoiningId(null);
+        }
+      });
+      setConfirmVisible(true);
     } else {
       setJoiningId(item.point_id);
-      try {
-        const res: any = await api.post(`/spot-you/${item.point_id}/join`, {});
-        setJoined(prev => [...prev, {
-          ...item,
-          participants_count: res.participants_count ?? (item.participants_count || 0) + 1,
-        }]);
-      } catch (e: any) {
-        Alert.alert('Erreur', e.message || 'Une erreur est survenue');
-      } finally {
-        setJoiningId(null);
-      }
+      api.post(`/spot-you/${item.point_id}/join`, {})
+        .then((res: any) => {
+          setJoined(prev => [...prev, {
+            ...item,
+            participants_count: res.participants_count ?? (item.participants_count || 0) + 1,
+          }]);
+        })
+        .catch((e: any) => {
+          Alert.alert('Erreur', e.message || 'Une erreur est survenue');
+        })
+        .finally(() => setJoiningId(null));
     }
   };
 
