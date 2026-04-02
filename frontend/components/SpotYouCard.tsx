@@ -91,6 +91,11 @@ export interface SpotYouCardProps {
   /** Position de l'utilisateur pour afficher la distance */
   userLat?: number;
   userLng?: number;
+  /** Bouton Rejoindre/Quitter (non-owners) */
+  onToggleJoin?: (item: any) => void;
+  joiningId?: string | null;
+  isMember?: boolean;
+  isOwner?: boolean;
 }
 
 export function SpotYouCard({
