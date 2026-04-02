@@ -533,7 +533,6 @@ export default function SpotYouDetail() {
       setIsFull(data.is_full || false);
       setParticipantsCount(data.participants_count || 0);
       setIsSaved(data.is_saved || false);
-      setIsPublic(data.is_public !== false);
       setIsCancelled(!!data.cancelled);
     };
 
