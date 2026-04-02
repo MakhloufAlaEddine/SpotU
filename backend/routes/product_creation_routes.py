@@ -4,7 +4,7 @@ Status: draft → pending_review → active (validation admin)
 Admin: auto-publication directe (pas de validation)
 """
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import JSONResponse
 
@@ -458,19 +458,102 @@ async def _notify_admins_new_product(pool, product_id: str, title: str, is_admin
 # ─── DELETE /api/products/{product_id} ───────────────────────────────────────
 @router.delete("/products/{product_id}")
 async def delete_product(request: Request, product_id: str):
-    """Suppression douce — met le statut à 'deleted'."""
+    """Suppression douce — soft delete avec rétention médias 90 jours."""
     pool = get_pool()
     user = await require_auth(request, pool)
     user_id = user["user_id"]
+    now = _now()
+    media_purge_at = now + timedelta(days=90)
 
     async with pool.acquire() as conn:
-        result = await conn.execute(
-            "UPDATE marketplace_products SET status='deleted', updated_at=$1 WHERE product_id=$2 AND seller_id=$3",
-            _now(), product_id, user_id,
+        row = await conn.fetchrow(
+            "SELECT product_id, image_urls, cover_image_url FROM marketplace_products WHERE product_id=$1 AND seller_id=$2 AND status != 'deleted'",
+            product_id, user_id,
         )
-    if result == "UPDATE 0":
-        return JSONResponse({"error": "Produit introuvable ou non autorisé."}, status_code=404)
-    return {"ok": True}
+        if not row:
+            return JSONResponse({"error": "Produit introuvable ou non autorisé."}, status_code=404)
+
+        await conn.execute(
+            """UPDATE marketplace_products
+               SET status='deleted', deleted_at=$1, deleted_by=$2,
+                   media_purge_scheduled_at=$3, updated_at=$1
+               WHERE product_id=$4""",
+            now, user_id, media_purge_at, product_id,
+        )
+
+        # Programmer suppression images dans 90j
+        imgs = row["image_urls"] or []
+        if isinstance(imgs, str):
+            import json as _json
+            try:
+                imgs = _json.loads(imgs)
+            except Exception:
+                imgs = []
+        for url in imgs:
+            if url:
+                await conn.execute(
+                    """INSERT INTO pending_file_deletions(file_url,entity_type,entity_id,scheduled_at)
+                       VALUES($1,'product',$2,$3) ON CONFLICT DO NOTHING""",
+                    url, product_id, media_purge_at
+                )
+
+    return {
+        "ok": True,
+        "media_purge_scheduled_at": media_purge_at.isoformat(),
+    }
+
+
+# ─── POST /api/products/{product_id}/reactivate ───────────────────────────────
+@router.post("/products/{product_id}/reactivate")
+async def reactivate_product(request: Request, product_id: str):
+    """
+    Réactive un produit supprimé.
+
+    - < 90j : restauration complète avec médias → statut 'active'
+    - ≥ 90j (media_purged=TRUE) : restauration sans médias → statut 'active'
+      mais requires_media_reupload=True
+    """
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    user_id = user["user_id"]
+    is_admin = user.get("role") == "admin"
+    now = _now()
+
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT seller_id, status, deleted_at, media_purged, title FROM marketplace_products WHERE product_id=$1",
+            product_id,
+        )
+        if not row:
+            raise HTTPException(status_code=404, detail="Produit introuvable")
+        if row["status"] != "deleted" or not row["deleted_at"]:
+            raise HTTPException(status_code=409, detail="Ce produit n'est pas supprimé")
+        if row["seller_id"] != user_id and not is_admin:
+            raise HTTPException(status_code=403, detail="Non autorisé")
+
+        # Annuler les suppressions de fichiers en attente
+        await conn.execute(
+            "DELETE FROM pending_file_deletions WHERE entity_id=$1 AND status='pending'",
+            product_id
+        )
+
+        await conn.execute(
+            """UPDATE marketplace_products
+               SET status='active', deleted_at=NULL, deleted_by=NULL, updated_at=$1,
+                   media_purge_scheduled_at=NULL, media_purge_notified_at=NULL,
+                   reactivated_at=$1
+               WHERE product_id=$2""",
+            now, product_id,
+        )
+
+    media_purged = row["media_purged"]
+    return {
+        "ok":                      True,
+        "reactivated":             True,
+        "product_id":              product_id,
+        "media_purged":            media_purged,
+        "requires_media_reupload": media_purged,
+    }
 
 
 # ─── helpers ──────────────────────────────────────────────────────────────────

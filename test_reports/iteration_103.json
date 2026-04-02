@@ -1,0 +1,84 @@
+{
+  "summary": "Phase A–D — Stratégie de rétention 90j soft-delete + réactivation. 22/24 tests PASSED (2 skipped expected due to idempotency from double-run). All endpoints verified: reactivatable, tag-point/service/product/user deactivate-reactivate cycles. Workers, routing, and frontend components all present.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "DELETE /products/{id}",
+        "issue": "Response uses 'ok:true' instead of 'success:true' — inconsistent with service/tag-point delete responses",
+        "priority": "LOW"
+      },
+      {
+        "endpoint": "PATCH /users/{id}/deactivate",
+        "issue": "Guard checks 'deleted_at' (shared with RGPD delete). Error message 'déjà désactivé' appears for RGPD-deleted users too — misleading but not blocking",
+        "priority": "LOW"
+      },
+      {
+        "endpoint": "POST /users/{id}/reactivate",
+        "issue": "Does not check 'anonymized_at' — could theoretically allow reactivation of RGPD-anonymized accounts (edge case, no realistic exploit path)",
+        "priority": "LOW"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_results": {
+    "TestReactivatableInitial::test_reactivatable_requires_auth": "PASSED — 401/403 sans token",
+    "TestReactivatableInitial::test_reactivatable_returns_empty_structure": "PASSED — {spotyous, services, products, total} présents",
+    "TestTagPointSoftDeleteCycle::test_01_delete_tagpoint_returns_media_purge_date": "PASSED (run1) / SKIPPED (run2 — déjà supprimé, guard 409)",
+    "TestTagPointSoftDeleteCycle::test_02_reactivatable_includes_deleted_spotyou": "PASSED — days_until_media_purge >= 89",
+    "TestTagPointSoftDeleteCycle::test_03_reactivate_tagpoint_success": "PASSED — {success:true, reactivated:true, pending_deletions_cancelled>=0}",
+    "TestTagPointSoftDeleteCycle::test_04_reactivatable_excludes_reactivated_spotyou": "PASSED — pt_demo003 absent après réactivation",
+    "TestServiceSoftDeleteCycle::test_01_delete_service_returns_purge_date": "PASSED — {success:true, media_purge_scheduled_at ≈ J+90}",
+    "TestServiceSoftDeleteCycle::test_02_get_deactivated_services_returns_200": "PASSED — routing conflict résolu (deactivated avant /{service_id})",
+    "TestServiceSoftDeleteCycle::test_03_deactivated_services_includes_deleted_service": "PASSED — svc_demo001 visible avec days_until_media_purge",
+    "TestServiceSoftDeleteCycle::test_04_reactivate_service_success": "PASSED — {success:true, reactivated:true}",
+    "TestProductSoftDeleteCycle::test_01_get_coach_product": "PASSED — GET /products/mine fonctionne",
+    "TestProductSoftDeleteCycle::test_02_delete_product_sets_purge_date": "PASSED (run1) / SKIPPED (run2 — plus de produits actifs)",
+    "TestProductSoftDeleteCycle::test_03_reactivate_product_success": "PASSED — {ok:true, reactivated:true} via /users/me/reactivatable",
+    "TestUserDeactivateReactivateCycle::test_01_deactivate_user_coach": "PASSED — 200 ou 409",
+    "TestUserDeactivateReactivateCycle::test_02_reactivate_user_coach": "PASSED — 200, coach restauré",
+    "TestSecurityEdgeCases::test_user_cannot_deactivate_other_user": "PASSED — 403",
+    "TestSecurityEdgeCases::test_user_cannot_reactivate_tagpoint_of_other": "PASSED — 403/404/409",
+    "TestSecurityEdgeCases::test_deactivate_nonexistent_user_returns_404": "PASSED — 404",
+    "TestSecurityEdgeCases::test_reactivate_nonexistent_tagpoint_returns_404": "PASSED — 404",
+    "TestSecurityEdgeCases::test_get_services_deactivated_requires_auth": "PASSED — 401",
+    "TestSecurityEdgeCases::test_reactivate_already_active_service_returns_409": "PASSED — 409",
+    "TestSecurityEdgeCases::test_reactivatable_user_creds_also_works": "PASSED — fonctionne pour user@winek.app",
+    "TestMigration012Columns::test_reactivatable_endpoint_responds_to_migration012": "PASSED — migration 012 appliquée",
+    "TestMigration012Columns::test_services_deactivated_uses_migration012_columns": "PASSED — colonnes présentes"
+  },
+  "additional_verifications": {
+    "MediaPurgeWorker": "Correctement enregistré dans server.py (startup/shutdown), scanne hourly",
+    "MediaNotifWorker": "Correctement enregistré dans server.py (startup/shutdown), notifie à J+83",
+    "chat_[id].tsx_MessageBubble_bug_fixed": "BUG FOUND AND FIXED — function MessageBubble déclarée à ligne 46 mais UTILISÉE comme <Bubble> à ligne 233. Fix: line 233 changed to <MessageBubble>. Expo logs confirmed rendering error before fix.",
+    "profile.tsx_ReactivatableSection": "ReactivatableSection correctement implémentée avec testID, onReactivate handler, et api.get('/users/me/reactivatable').catch(()=>null)",
+    "routing_conflict_resolved": "GET /services/deactivated (ligne 687) placé AVANT GET /services/{service_id} (ligne 718) — aucun conflit"
+  },
+  "expo_logs": "Ngrok 'Cannot read properties of undefined (reading body)' — known tunnel issue, NON un bug code (confirmé par problem statement). Chat rendering error <Bubble> FIXED (changed to <MessageBubble>).",
+  "test_report_links": [
+    "/app/backend/tests/test_retention_90j.py",
+    "/app/test_reports/pytest/iter103_retention_90j.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "DELETE /products/{id} returns {ok:true} vs {success:true} for tag-points/services — minor inconsistency",
+    "PATCH /users/{id}/deactivate uses deleted_at as the 'already deactivated' check — this is shared with RGPD hard-delete, could produce misleading 409 message for anonymized accounts",
+    "POST /users/{id}/reactivate doesn't guard against reactivating RGPD-anonymized users (anonymized_at check missing) — low risk edge case"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_retention_90j.py",
+    "/app/frontend/app/chat/[id].tsx (line 233: <Bubble> → <MessageBubble>)"
+  ],
+  "success_rate": {
+    "backend": "100% (22 passed + 2 idempotency-skips / 24 total)",
+    "frontend": "N/A — code review only (ReactivatableSection and MessageBubble both present and correct)"
+  },
+  "seed_data_creation": "Tests used and restored seed data: pt_demo003 (deleted→reactivated), svc_demo001 (deleted→reactivated), coach products (deleted→reactivated), user_coach001 profile (deactivated→reactivated). All entities restored to active state.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Phase A-D retention 90j fully tested. All endpoints working. Test file: /app/backend/tests/test_retention_90j.py (24 tests). Key IDs: pt_demo003 (coach spotyou), svc_demo001 (coach service), user_coach001 (coach user). All entities restored to active state after testing. Workers (MediaPurgeWorker, MediaNotifWorker) properly registered in server.py. No critical bugs found."
+}

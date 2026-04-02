@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  RefreshControl, Image, Modal, ActivityIndicator,
+  RefreshControl, Image, Modal, ActivityIndicator, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +17,107 @@ import { ScreenLoader } from '../../components/ScreenLoader';
 import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 import { useCart } from '../../context/CartContext';
 
+/* ── ReactivatableSection ────────────────────────────────────────────────── */
+const TYPE_META: Record<string, { label: string; color: string; icon: keyof typeof Ionicons.glyphMap }> = {
+  spotyou: { label: 'SpotYou',  color: '#8B5CF6', icon: 'location-outline'    },
+  service: { label: 'Service',  color: '#F59E0B', icon: 'fitness-outline'      },
+  product: { label: 'Produit',  color: '#3B82F6', icon: 'cube-outline'         },
+};
+
+function ReactivatableSection({ data, onReactivate }: {
+  data: { spotyous: any[]; services: any[]; products: any[] };
+  onReactivate: (entity: any) => void;
+}) {
+  const all = [
+    ...data.spotyous.map(e => ({ ...e, type: 'spotyou' })),
+    ...data.services.map(e => ({ ...e, type: 'service' })),
+    ...data.products.map(e => ({ ...e, type: 'product' })),
+  ];
+
+  return (
+    <View style={rt.section}>
+      <View style={rt.headerRow}>
+        <Ionicons name="refresh-circle-outline" size={18} color="#F59E0B" />
+        <Text style={rt.title}>À réactiver</Text>
+        <View style={rt.badge}><Text style={rt.badgeText}>{all.length}</Text></View>
+      </View>
+      <View style={rt.card}>
+        {all.map((entity, idx) => {
+          const meta = TYPE_META[entity.type] || TYPE_META.spotyou;
+          const days = entity.days_until_media_purge;
+          const purged = entity.media_purged;
+          const urgent = days !== null && days <= 7;
+          return (
+            <View
+              key={entity.id}
+              style={[rt.row, idx < all.length - 1 && rt.rowBorder]}
+              testID={`reactivatable-item-${entity.id}`}
+            >
+              {/* Thumbnail */}
+              {entity.thumbnail ? (
+                <Image source={{ uri: entity.thumbnail }} style={rt.thumb} />
+              ) : (
+                <View style={[rt.thumbPlaceholder, { backgroundColor: meta.color + '22' }]}>
+                  <Ionicons name={meta.icon} size={18} color={meta.color} />
+                </View>
+              )}
+
+              <View style={rt.info}>
+                {/* Type badge */}
+                <View style={[rt.typeBadge, { backgroundColor: meta.color + '18' }]}>
+                  <Text style={[rt.typeLabel, { color: meta.color }]}>{meta.label}</Text>
+                </View>
+                <Text style={rt.entityTitle} numberOfLines={1}>{entity.title || 'Sans titre'}</Text>
+
+                {/* Countdown */}
+                {purged ? (
+                  <Text style={rt.purgedLabel}>Photos supprimées — à remettre</Text>
+                ) : days !== null ? (
+                  <Text style={[rt.countdown, urgent && rt.countdownUrgent]}>
+                    Suppression des médias dans {days} jour{days > 1 ? 's' : ''}
+                  </Text>
+                ) : null}
+              </View>
+
+              {/* Reactivate button */}
+              <TouchableOpacity
+                style={rt.reactivateBtn}
+                onPress={() => onReactivate(entity)}
+                testID={`reactivate-btn-${entity.id}`}
+              >
+                <Text style={rt.reactivateBtnText}>Réactiver</Text>
+              </TouchableOpacity>
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+const rt = StyleSheet.create({
+  section:         { paddingHorizontal: Spacing.md, marginBottom: Spacing.md },
+  headerRow:       { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 6 },
+  title:           { fontSize: 13, fontWeight: '700', color: Colors.foreground, flex: 1 },
+  badge:           { backgroundColor: '#F59E0B', borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 },
+  badgeText:       { fontSize: 11, fontWeight: '800', color: '#fff' },
+  card:            { backgroundColor: Colors.surface, borderRadius: Radius.md, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border },
+  row:             { flexDirection: 'row', alignItems: 'center', padding: 12, gap: 10 },
+  rowBorder:       { borderBottomWidth: 1, borderBottomColor: Colors.border },
+  thumb:           { width: 44, height: 44, borderRadius: 8 },
+  thumbPlaceholder:{ width: 44, height: 44, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  info:            { flex: 1, gap: 3 },
+  typeBadge:       { alignSelf: 'flex-start', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  typeLabel:       { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
+  entityTitle:     { fontSize: 13, fontWeight: '600', color: Colors.foreground },
+  countdown:       { fontSize: 11, color: Colors.muted },
+  countdownUrgent: { color: '#F59E0B', fontWeight: '600' },
+  purgedLabel:     { fontSize: 11, color: '#EF4444', fontWeight: '600' },
+  reactivateBtn:   { backgroundColor: Colors.primary, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8 },
+  reactivateBtnText:{ fontSize: 12, fontWeight: '700', color: '#fff' },
+});
+
+/* ── Main Screen ─────────────────────────────────────────────────────────── */
 export default function MenuScreen() {
   const router = useGuardedRouter();
   const { user, logout, loading, refreshUser } = useAuth();
@@ -30,6 +131,7 @@ export default function MenuScreen() {
   const [dataScreenState, setDataScreenState] = useState<'loading_initial' | 'ready_fresh' | 'ready_cached' | 'error_no_data'>('loading_initial');
   const [staleMinutes, setStaleMinutes] = useState<number | null>(null);
   const [networkFailed, setNetworkFailed] = useState(false);
+  const [reactivatable, setReactivatable] = useState<{ spotyous: any[]; services: any[]; products: any[]; total: number } | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -95,9 +197,10 @@ export default function MenuScreen() {
 
     // Étape 2 : fetch réseau
     try {
-      const [points, profileData] = await Promise.all([
+      const [points, profileData, reactivatableData] = await Promise.all([
         api.get('/tag-points/mine'),
         api.get('/users/profile'),
+        api.get('/users/me/reactivatable').catch(() => null),
       ]);
       setMySpotYou(points || []);
       if (profileData) {
@@ -106,6 +209,7 @@ export default function MenuScreen() {
           review_count: profileData.review_count ?? 0,
         });
       }
+      if (reactivatableData) setReactivatable(reactivatableData);
       setDataScreenState('ready_fresh');
       setStaleMinutes(null);
       setNetworkFailed(false);
@@ -409,6 +513,24 @@ export default function MenuScreen() {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* ── À RÉACTIVER ──────────────────────────────────── */}
+        {reactivatable && reactivatable.total > 0 && (
+          <ReactivatableSection
+            data={reactivatable}
+            onReactivate={async (entity: any) => {
+              try {
+                const ep = entity.type === 'spotyou' ? `/tag-points/${entity.id}/reactivate`
+                         : entity.type === 'service' ? `/services/${entity.id}/reactivate`
+                         : `/products/${entity.id}/reactivate`;
+                await api.post(ep, {});
+                loadData(true);
+              } catch {
+                Alert.alert('Erreur', 'Impossible de réactiver cet élément.');
+              }
+            }}
+          />
+        )}
 
         {/* ── RÉSERVATIONS & ABONNEMENTS ────────────────────── */}
         <View style={st.section}>

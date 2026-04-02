@@ -43,6 +43,7 @@ function resolveDisplayTitle(raw: string | null | undefined): string {
 }
 
 
+function MessageBubble({ msg, isMe }: { msg: ChatMessage; isMe: boolean }) {
   // Détection message soft-deleted (deleted_at non-null OU contenu marqué par le backend)
   const isDeleted = !!msg.deleted_at || msg.content === '[Message supprimé]';
   const senderLabel = msg.sender_name || 'Utilisateur supprimé';
@@ -229,7 +230,7 @@ export default function ChatScreen() {
                   <View style={st.daySepLine} />
                 </View>
               )}
-              <Bubble msg={item} isMe={item.sender_id === currentUserId} />
+              <MessageBubble msg={item} isMe={item.sender_id === currentUserId} />
             </>
           )}
           ListEmptyComponent={

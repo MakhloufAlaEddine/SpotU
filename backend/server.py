@@ -296,6 +296,18 @@ async def startup():
     reminder_worker.start()
     app.state.admin_product_reminder_worker = reminder_worker
 
+    # ── Démarrage du worker de purge médias (J+90) ────────────────────────────
+    from media_purge_worker import MediaPurgeWorker
+    media_purge = MediaPurgeWorker(get_pool())
+    media_purge.start()
+    app.state.media_purge_worker = media_purge
+
+    # ── Démarrage du worker de notification pré-purge (J+83) ─────────────────
+    from media_notif_worker import MediaNotifWorker
+    media_notif = MediaNotifWorker(get_pool())
+    media_notif.start()
+    app.state.media_notif_worker = media_notif
+
     logger.info(
         "SpotU API started successfully (expiry TTL=%dh, worker_interval=%ds)",
         ttl_hours, interval_secs,
@@ -310,4 +322,8 @@ async def shutdown():
         await app.state.spotyou_notif_worker.stop()
     if hasattr(app.state, "admin_product_reminder_worker"):
         await app.state.admin_product_reminder_worker.stop()
+    if hasattr(app.state, "media_purge_worker"):
+        await app.state.media_purge_worker.stop()
+    if hasattr(app.state, "media_notif_worker"):
+        await app.state.media_notif_worker.stop()
     await close_db()

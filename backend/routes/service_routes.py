@@ -684,6 +684,37 @@ async def get_saved_services(request: Request):
         return result
 
 
+@router.get("/services/deactivated")
+async def get_deactivated_services(request: Request):
+    """Retourne les services désactivés de l'utilisateur courant."""
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    from datetime import datetime, timezone as _tz
+    now = datetime.now(_tz.utc)
+
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            f"""SELECT {SVC_FIELDS}, deleted_at, media_purge_scheduled_at, media_purged, reactivated_at
+                FROM services
+                WHERE coach_id=$1 AND deleted_at IS NOT NULL
+                  AND (reactivated_at IS NULL OR reactivated_at < deleted_at)
+                ORDER BY deleted_at DESC""",
+            user["user_id"]
+        )
+    result = []
+    for r in rows:
+        d = build_service(row_to_dict(r))
+        mpsa = r["media_purge_scheduled_at"]
+        days_left = None
+        if mpsa:
+            delta = (mpsa.replace(tzinfo=_tz.utc) if mpsa.tzinfo is None else mpsa) - now
+            days_left = max(0, delta.days)
+        d["days_until_media_purge"] = days_left
+        d["media_purged"] = r["media_purged"]
+        result.append(d)
+    return result
+
+
 @router.get("/services/{service_id}")
 async def get_service(service_id: str, request: Request):
     pool = get_pool()
@@ -954,10 +985,13 @@ async def update_service(service_id: str, data: ServiceUpdate, request: Request)
 
 @router.delete("/services/{service_id}")
 async def delete_service(service_id: str, request: Request):
-    from datetime import datetime, timezone as _tz
+    from datetime import datetime, timezone as _tz, timedelta as _td
+    MEDIA_RETENTION_DAYS = 90
     pool = get_pool()
     user = await require_auth(request, pool)
     now = datetime.now(_tz.utc)
+    media_purge_at = now + _td(days=MEDIA_RETENTION_DAYS)
+
     async with pool.acquire() as conn:
         existing = await conn.fetchrow(
             "SELECT coach_id, images FROM services WHERE service_id = $1", service_id
@@ -981,12 +1015,13 @@ async def delete_service(service_id: str, request: Request):
                     detail=f"Impossible de supprimer : {int(active_count)} réservation(s) active(s) sur ce service. Annulez-les d'abord."
                 )
 
-        # Soft delete avec deleted_at + deleted_by
+        # Soft delete avec deleted_at + media_purge_scheduled_at (90j)
         await conn.execute(
             """UPDATE services
-               SET active=FALSE, deleted_at=$1, deleted_by=$2, updated_at=$1
-               WHERE service_id=$3""",
-            now, user["user_id"], service_id
+               SET active=FALSE, deleted_at=$1, deleted_by=$2, updated_at=$1,
+                   media_purge_scheduled_at=$3
+               WHERE service_id=$4""",
+            now, user["user_id"], media_purge_at, service_id
         )
         # Marquer les conversations liées context_deleted
         await conn.execute(
@@ -994,16 +1029,79 @@ async def delete_service(service_id: str, request: Request):
                WHERE context_id=$1 AND context_deleted=FALSE""",
             service_id
         )
-
-    # Supprimer les images de R2 / filesystem
-    raw_images = existing["images"]
-    if raw_images:
+        # Programmer suppression images dans 90j (pas de suppression immédiate)
+        raw_images = existing["images"]
         import json as _j
-        imgs = _j.loads(raw_images) if isinstance(raw_images, str) else list(raw_images)
-        from routes.upload_routes import delete_upload_files
-        delete_upload_files(imgs)
+        imgs = _j.loads(raw_images) if isinstance(raw_images, str) else (list(raw_images) if raw_images else [])
+        for url in imgs:
+            if url:
+                await conn.execute(
+                    """INSERT INTO pending_file_deletions(file_url,entity_type,entity_id,scheduled_at)
+                       VALUES($1,'service',$2,$3) ON CONFLICT DO NOTHING""",
+                    url, service_id, media_purge_at
+                )
 
-    return {"success": True}
+    return {
+        "success": True,
+        "media_purge_scheduled_at": media_purge_at.isoformat(),
+    }
+
+
+
+@router.post("/services/{service_id}/reactivate")
+async def reactivate_service(service_id: str, request: Request):
+    """
+    Réactive un service désactivé.
+
+    - < 90j : restauration complète avec médias
+    - ≥ 90j (media_purged=TRUE) : restauration sans médias
+    """
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    is_admin = user.get("role") == "admin"
+    from datetime import datetime, timezone as _tz
+    now = datetime.now(_tz.utc)
+
+    async with pool.acquire() as conn:
+        svc = await conn.fetchrow(
+            "SELECT coach_id, active, deleted_at, media_purged, title FROM services WHERE service_id=$1",
+            service_id
+        )
+        if not svc:
+            raise HTTPException(status_code=404, detail="Service introuvable")
+        if svc["active"] and not svc["deleted_at"]:
+            raise HTTPException(status_code=409, detail="Ce service est déjà actif")
+        if svc["coach_id"] != user["user_id"] and not is_admin:
+            raise HTTPException(status_code=403, detail="Non autorisé")
+
+        # Annuler les suppressions de fichiers en attente
+        await conn.execute(
+            "DELETE FROM pending_file_deletions WHERE entity_id=$1 AND status='pending'",
+            service_id
+        )
+
+        await conn.execute(
+            """UPDATE services
+               SET active=TRUE, deleted_at=NULL, deleted_by=NULL, updated_at=$1,
+                   media_purge_scheduled_at=NULL, media_purge_notified_at=NULL,
+                   reactivated_at=$1
+               WHERE service_id=$2""",
+            now, service_id
+        )
+        # Rouvrir les conversations archivées liées
+        await conn.execute(
+            "UPDATE conversations SET context_deleted=FALSE WHERE context_id=$1 AND context_deleted=TRUE",
+            service_id
+        )
+
+    media_purged = svc["media_purged"]
+    return {
+        "success":                 True,
+        "reactivated":             True,
+        "service_id":              service_id,
+        "media_purged":            media_purged,
+        "requires_media_reupload": media_purged,
+    }
 
 
 @router.post("/services/{service_id}/save")

@@ -1561,38 +1561,7 @@ async def restore_tag_point(point_id: str, request: Request):
     return {"success": True, "cancelled": False}
 
 
-@router.delete("/tag-points/{point_id}")
-async def delete_tag_point(point_id: str, request: Request):
-    """Suppression définitive, UNIQUEMENT si aucun autre participant. Pas de notification."""
-    pool = get_pool()
-    user = await require_auth(request, pool)
-    async with pool.acquire() as conn:
-        existing = await conn.fetchrow(
-            "SELECT user_id, image_url, images FROM tag_points WHERE point_id = $1",
-            point_id
-        )
-        if not existing:
-            raise HTTPException(status_code=404, detail="TagPoint not found")
-        if existing["user_id"] != user["user_id"] and user["role"] != "admin":
-            raise HTTPException(status_code=403, detail="Not authorized")
-        other_count = await conn.fetchval(
-            "SELECT COUNT(*) FROM spot_you_members WHERE spot_you_id=$1 AND user_id != $2",
-            point_id, existing["user_id"]
-        )
-        if other_count > 0:
-            raise HTTPException(status_code=400, detail="Impossible: d'autres participants sont inscrits.")
-        await conn.execute(
-            "UPDATE tag_points SET active = FALSE, updated_at = NOW() WHERE point_id = $1", point_id
-        )
 
-    # Supprimer les images de R2 / filesystem
-    from routes.upload_routes import delete_upload_file, delete_upload_files
-    if existing["image_url"]:
-        delete_upload_file(existing["image_url"])
-    raw_images = existing["images"]
-    if raw_images:
-        import json as _j
-        imgs = _j.loads(raw_images) if isinstance(raw_images, str) else list(raw_images)
-        delete_upload_files(imgs)
+# NOTE: DELETE /tag-points/{point_id} est géré dans deletion_routes.py
+# (soft delete avec rétention médias 90j)
 
-    return {"success": True}

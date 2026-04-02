@@ -1,16 +1,19 @@
 """
-Routes de suppression logique (soft delete) — Phases 1, 2 & 3
-Stratégie d'audit AUDIT_SUPPRESSION.md
+Routes de suppression logique (soft delete) + réactivation — Phases 1, 2, 3 & 5
 
 Endpoints:
-  DELETE /users/{user_id}           Anonymisation RGPD complète
-  DELETE /tag-points/{point_id}     Soft delete SpotYou + nettoyage convs
-  DELETE /messages/{message_id}     Soft delete message (contenu masqué)
-  PATCH  /conversations/{conv_id}/leave  Quitter une conversation
+  DELETE /users/{user_id}                   Anonymisation RGPD complète
+  PATCH  /users/{user_id}/deactivate        Désactivation réversible (garde les médias 90j)
+  POST   /users/{user_id}/reactivate        Réactivation profil uniquement (pas cascade)
+  DELETE /tag-points/{point_id}             Soft delete SpotYou
+  POST   /tag-points/{point_id}/reactivate  Réactivation SpotYou
+  DELETE /messages/{message_id}             Soft delete message (contenu masqué)
+  PATCH  /conversations/{conv_id}/leave     Quitter une conversation
+  GET    /users/me/reactivatable            Entités désactivées de l'utilisateur courant
 """
 
 from fastapi import APIRouter, Request, HTTPException
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import logging
 import json as _j
 
@@ -19,6 +22,8 @@ from database import get_pool, row_to_dict
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+MEDIA_RETENTION_DAYS = 90
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -36,18 +41,40 @@ def _parse_images(raw) -> list:
     return []
 
 
-async def _schedule_file_deletions(conn, entity_type: str, entity_id: str, images_raw) -> int:
-    """Enregistre les images dans pending_file_deletions pour purge différée."""
+async def _schedule_file_deletions(
+    conn, entity_type: str, entity_id: str, images_raw,
+    scheduled_at=None
+) -> int:
+    """Enregistre les images dans pending_file_deletions pour purge différée.
+    Par défaut scheduled_at = NOW() + 90j (rétention 90 jours).
+    """
+    if scheduled_at is None:
+        scheduled_at = datetime.now(timezone.utc) + timedelta(days=MEDIA_RETENTION_DAYS)
     imgs = _parse_images(images_raw)
     count = 0
     for url in imgs:
         if url:
             await conn.execute(
-                "INSERT INTO pending_file_deletions(file_url,entity_type,entity_id) VALUES($1,$2,$3)",
-                url, entity_type, entity_id
+                """INSERT INTO pending_file_deletions(file_url,entity_type,entity_id,scheduled_at)
+                   VALUES($1,$2,$3,$4)
+                   ON CONFLICT DO NOTHING""",
+                url, entity_type, entity_id, scheduled_at
             )
             count += 1
     return count
+
+
+async def _cancel_file_deletions(conn, entity_id: str) -> int:
+    """Annule les suppressions de fichiers en attente pour une entité réactivée."""
+    result = await conn.execute(
+        "DELETE FROM pending_file_deletions WHERE entity_id=$1 AND status='pending'",
+        entity_id
+    )
+    # asyncpg retourne "DELETE N"
+    try:
+        return int(result.split()[-1])
+    except Exception:
+        return 0
 
 
 async def _mark_conversations_context_deleted(conn, context_ids: list[str]) -> int:
@@ -92,6 +119,7 @@ async def delete_user(user_id: str, request: Request):
         raise HTTPException(status_code=403, detail="Non autorisé à supprimer ce compte")
 
     now = datetime.now(timezone.utc)
+    media_purge_at = now + timedelta(days=MEDIA_RETENTION_DAYS)
 
     async with pool.acquire() as conn:
         target = await conn.fetchrow(
@@ -143,12 +171,15 @@ async def delete_user(user_id: str, request: Request):
         if tag_points:
             pt_ids = [r["point_id"] for r in tag_points]
             await conn.execute(
-                "UPDATE tag_points SET active=FALSE, deleted_at=$1, deleted_by=$2 WHERE point_id=ANY($3::text[])",
-                now, caller["user_id"], pt_ids
+                """UPDATE tag_points SET active=FALSE, deleted_at=$1, deleted_by=$2,
+                   media_purge_scheduled_at=$3 WHERE point_id=ANY($4::text[])""",
+                now, caller["user_id"], media_purge_at, pt_ids
             )
             await _mark_conversations_context_deleted(conn, pt_ids)
             for tp in tag_points:
-                await _schedule_file_deletions(conn, "tag_point", tp["point_id"], tp["images"])
+                await _schedule_file_deletions(
+                    conn, "tag_point", tp["point_id"], tp["images"], scheduled_at=media_purge_at
+                )
 
         # 3. Soft-delete services + marquer conversations context_deleted
         services = await conn.fetch(
@@ -158,20 +189,35 @@ async def delete_user(user_id: str, request: Request):
         if services:
             svc_ids = [r["service_id"] for r in services]
             await conn.execute(
-                "UPDATE services SET active=FALSE, deleted_at=$1, deleted_by=$2 WHERE service_id=ANY($3::text[])",
-                now, caller["user_id"], svc_ids
+                """UPDATE services SET active=FALSE, deleted_at=$1, deleted_by=$2,
+                   media_purge_scheduled_at=$3 WHERE service_id=ANY($4::text[])""",
+                now, caller["user_id"], media_purge_at, svc_ids
             )
             await _mark_conversations_context_deleted(conn, svc_ids)
             for svc in services:
-                await _schedule_file_deletions(conn, "service", svc["service_id"], svc["images"])
+                await _schedule_file_deletions(
+                    conn, "service", svc["service_id"], svc["images"], scheduled_at=media_purge_at
+                )
 
         # 4. Soft-delete produits marketplace
-        await conn.execute(
-            """UPDATE marketplace_products
-               SET status='deleted', deleted_at=$1, deleted_by=$2
-               WHERE seller_id=$3 AND status != 'deleted' AND deleted_at IS NULL""",
-            now, caller["user_id"], user_id
+        prod_rows = await conn.fetch(
+            "SELECT product_id, image_urls FROM marketplace_products WHERE seller_id=$1 AND status != 'deleted' AND deleted_at IS NULL",
+            user_id
         )
+        if prod_rows:
+            prod_ids = [r["product_id"] for r in prod_rows]
+            await conn.execute(
+                """UPDATE marketplace_products
+                   SET status='deleted', deleted_at=$1, deleted_by=$2, media_purge_scheduled_at=$3
+                   WHERE product_id=ANY($4::text[])""",
+                now, caller["user_id"], media_purge_at, prod_ids
+            )
+            for p in prod_rows:
+                raw = p["image_urls"]
+                imgs = raw if isinstance(raw, list) else (_j.loads(raw) if isinstance(raw, str) else [])
+                await _schedule_file_deletions(
+                    conn, "product", p["product_id"], imgs, scheduled_at=media_purge_at
+                )
 
         # 5 + 6. Anonymisation PII + soft delete
         anon_email = f"deleted_{user_id}@anonymized.invalid"
@@ -239,27 +285,97 @@ async def delete_tag_point(point_id: str, request: Request):
         if tp["user_id"] != caller["user_id"] and not is_admin:
             raise HTTPException(status_code=403, detail="Non autorisé")
 
-        # Soft-delete
+        media_purge_at = now + timedelta(days=MEDIA_RETENTION_DAYS)
+
+        # Soft-delete + planification purge 90j
         await conn.execute(
             """UPDATE tag_points
-               SET active=FALSE, deleted_at=$1, deleted_by=$2, updated_at=$1
-               WHERE point_id=$3""",
-            now, caller["user_id"], point_id
+               SET active=FALSE, deleted_at=$1, deleted_by=$2, updated_at=$1,
+                   media_purge_scheduled_at=$3
+               WHERE point_id=$4""",
+            now, caller["user_id"], media_purge_at, point_id
         )
 
         # Marquer conversations context_deleted
         n_convs = await _mark_conversations_context_deleted(conn, [point_id])
 
-        # Programmer suppression images
-        n_imgs = await _schedule_file_deletions(conn, "tag_point", point_id, tp["images"])
+        # Programmer suppression images dans 90j
+        n_imgs = await _schedule_file_deletions(
+            conn, "tag_point", point_id, tp["images"], scheduled_at=media_purge_at
+        )
 
-    logger.info("[SOFTDEL] SpotYou %s supprimé par %s", point_id, caller["user_id"])
+    logger.info("[SOFTDEL] SpotYou %s supprimé par %s (médias dans %dj)", point_id, caller["user_id"], MEDIA_RETENTION_DAYS)
     return {
         "success":               True,
         "deleted":               True,
         "point_id":              point_id,
         "conversations_marked":  n_convs,
         "images_queued":         n_imgs,
+        "media_purge_scheduled_at": media_purge_at.isoformat(),
+    }
+
+
+# ── POST /tag-points/{point_id}/reactivate — Réactivation SpotYou ────────────
+
+@router.post("/tag-points/{point_id}/reactivate")
+async def reactivate_tag_point(point_id: str, request: Request):
+    """
+    Réactive un SpotYou désactivé.
+
+    - < 90j : restauration complète avec médias
+    - ≥ 90j (media_purged=TRUE) : restauration sans médias
+      (requires_media_reupload=True dans la réponse)
+
+    La réactivation d'un profil utilisateur NE cascade PAS sur ses SpotYou —
+    chaque SpotYou doit être réactivé manuellement.
+    """
+    pool = get_pool()
+    caller = await require_auth(request, pool)
+    is_admin = caller.get("role") == "admin"
+    now = datetime.now(timezone.utc)
+
+    async with pool.acquire() as conn:
+        tp = await conn.fetchrow(
+            """SELECT user_id, deleted_at, active, media_purged, title
+               FROM tag_points WHERE point_id=$1""",
+            point_id
+        )
+        if not tp:
+            raise HTTPException(status_code=404, detail="SpotYou introuvable")
+        if tp["active"] and not tp["deleted_at"]:
+            raise HTTPException(status_code=409, detail="Ce SpotYou est déjà actif")
+        if tp["user_id"] != caller["user_id"] and not is_admin:
+            raise HTTPException(status_code=403, detail="Non autorisé")
+
+        # Annuler les suppressions de fichiers en attente
+        cancelled = await _cancel_file_deletions(conn, point_id)
+
+        # Réactiver
+        await conn.execute(
+            """UPDATE tag_points
+               SET active=TRUE, deleted_at=NULL, deleted_by=NULL, updated_at=$1,
+                   media_purge_scheduled_at=NULL, media_purge_notified_at=NULL,
+                   reactivated_at=$1
+               WHERE point_id=$2""",
+            now, point_id
+        )
+
+        # Rouvrir les conversations archivées liées
+        await conn.execute(
+            """UPDATE conversations SET context_deleted=FALSE
+               WHERE context_id=$1 AND context_deleted=TRUE""",
+            point_id
+        )
+
+    media_purged = tp["media_purged"]
+    logger.info("[REACTIVATE] SpotYou %s réactivé par %s (médias_purgés=%s)", point_id, caller["user_id"], media_purged)
+    return {
+        "success":               True,
+        "reactivated":           True,
+        "point_id":              point_id,
+        "media_purged":          media_purged,
+        "requires_media_reupload": media_purged,
+        "pending_deletions_cancelled": cancelled,
     }
 
 
@@ -347,3 +463,247 @@ async def leave_conversation(conv_id: str, request: Request):
             )
 
     return {"success": True, "left": True, "conversation_id": conv_id}
+
+
+# ── PATCH /users/{user_id}/deactivate — Désactivation réversible ──────────────
+
+@router.patch("/users/{user_id}/deactivate")
+async def deactivate_user(user_id: str, request: Request):
+    """
+    Désactivation réversible d'un profil utilisateur.
+
+    Différent du DELETE RGPD : la PII est conservée, le compte peut être réactivé.
+    Les médias sont conservés 90 jours (media_purge_scheduled_at).
+
+    RÈGLE CRITIQUE : les SpotYou / services / produits de l'utilisateur sont
+    également désactivés, mais NE SERONT PAS réactivés automatiquement lors
+    de la réactivation du profil — chaque entité doit être réactivée manuellement.
+    """
+    pool = get_pool()
+    caller = await require_auth(request, pool)
+    is_admin = caller.get("role") == "admin"
+    is_self = caller["user_id"] == user_id
+
+    if not is_self and not is_admin:
+        raise HTTPException(status_code=403, detail="Non autorisé")
+
+    now = datetime.now(timezone.utc)
+    media_purge_at = now + timedelta(days=MEDIA_RETENTION_DAYS)
+
+    async with pool.acquire() as conn:
+        target = await conn.fetchrow(
+            "SELECT user_id, deleted_at FROM users WHERE user_id=$1", user_id
+        )
+        if not target:
+            raise HTTPException(status_code=404, detail="Utilisateur introuvable")
+        if target["deleted_at"]:
+            raise HTTPException(status_code=409, detail="Ce compte est déjà désactivé")
+
+        # Désactivation profil
+        await conn.execute(
+            """UPDATE users SET deleted_at=$1, deleted_by=$2, media_purge_scheduled_at=$3, updated_at=$1
+               WHERE user_id=$4""",
+            now, caller["user_id"], media_purge_at, user_id
+        )
+
+        # Désactiver SpotYou en cascade
+        tp_rows = await conn.fetch(
+            "SELECT point_id, images FROM tag_points WHERE user_id=$1 AND active=TRUE AND deleted_at IS NULL",
+            user_id
+        )
+        if tp_rows:
+            pt_ids = [r["point_id"] for r in tp_rows]
+            await conn.execute(
+                """UPDATE tag_points SET active=FALSE, deleted_at=$1, deleted_by=$2,
+                   media_purge_scheduled_at=$3 WHERE point_id=ANY($4::text[])""",
+                now, caller["user_id"], media_purge_at, pt_ids
+            )
+            await _mark_conversations_context_deleted(conn, pt_ids)
+            for tp in tp_rows:
+                await _schedule_file_deletions(
+                    conn, "tag_point", tp["point_id"], tp["images"], scheduled_at=media_purge_at
+                )
+
+        # Désactiver services en cascade
+        svc_rows = await conn.fetch(
+            "SELECT service_id, images FROM services WHERE coach_id=$1 AND active=TRUE AND deleted_at IS NULL",
+            user_id
+        )
+        if svc_rows:
+            svc_ids = [r["service_id"] for r in svc_rows]
+            await conn.execute(
+                """UPDATE services SET active=FALSE, deleted_at=$1, deleted_by=$2,
+                   media_purge_scheduled_at=$3 WHERE service_id=ANY($4::text[])""",
+                now, caller["user_id"], media_purge_at, svc_ids
+            )
+            await _mark_conversations_context_deleted(conn, svc_ids)
+            for svc in svc_rows:
+                await _schedule_file_deletions(
+                    conn, "service", svc["service_id"], svc["images"], scheduled_at=media_purge_at
+                )
+
+        # Désactiver produits en cascade
+        prod_rows = await conn.fetch(
+            "SELECT product_id, image_urls FROM marketplace_products WHERE seller_id=$1 AND status != 'deleted' AND deleted_at IS NULL",
+            user_id
+        )
+        if prod_rows:
+            prod_ids = [r["product_id"] for r in prod_rows]
+            await conn.execute(
+                """UPDATE marketplace_products SET status='deleted', deleted_at=$1, deleted_by=$2,
+                   media_purge_scheduled_at=$3 WHERE product_id=ANY($4::text[])""",
+                now, caller["user_id"], media_purge_at, prod_ids
+            )
+
+    logger.info("[DEACTIVATE] Utilisateur %s désactivé par %s (médias dans %dj)", user_id, caller["user_id"], MEDIA_RETENTION_DAYS)
+    return {
+        "success":                True,
+        "deactivated":            True,
+        "user_id":                user_id,
+        "media_purge_scheduled_at": media_purge_at.isoformat(),
+        "spotyou_count":          len(tp_rows) if tp_rows else 0,
+        "services_count":         len(svc_rows) if svc_rows else 0,
+        "products_count":         len(prod_rows) if prod_rows else 0,
+    }
+
+
+# ── POST /users/{user_id}/reactivate — Réactivation profil seulement ─────────
+
+@router.post("/users/{user_id}/reactivate")
+async def reactivate_user(user_id: str, request: Request):
+    """
+    Réactive un profil utilisateur.
+
+    RÈGLE CRITIQUE : les SpotYou / services / produits NE SONT PAS réactivés
+    automatiquement. L'utilisateur doit les réactiver manuellement un par un.
+
+    - < 90j : profil restauré normalement
+    - ≥ 90j (media_purged=TRUE) : profil restauré, photos de profil manquantes
+    """
+    pool = get_pool()
+    caller = await require_auth(request, pool)
+    is_admin = caller.get("role") == "admin"
+    is_self = caller["user_id"] == user_id
+
+    if not is_self and not is_admin:
+        raise HTTPException(status_code=403, detail="Non autorisé")
+
+    now = datetime.now(timezone.utc)
+
+    async with pool.acquire() as conn:
+        target = await conn.fetchrow(
+            "SELECT user_id, deleted_at, media_purged FROM users WHERE user_id=$1", user_id
+        )
+        if not target:
+            raise HTTPException(status_code=404, detail="Utilisateur introuvable")
+        if not target["deleted_at"]:
+            raise HTTPException(status_code=409, detail="Ce compte est déjà actif")
+
+        # Annuler la purge des fichiers du profil
+        await _cancel_file_deletions(conn, user_id)
+
+        # Réactiver profil seulement
+        await conn.execute(
+            """UPDATE users
+               SET deleted_at=NULL, deleted_by=NULL, updated_at=$1,
+                   media_purge_scheduled_at=NULL, media_purge_notified_at=NULL,
+                   reactivated_at=$1
+               WHERE user_id=$2""",
+            now, user_id
+        )
+
+    media_purged = target["media_purged"]
+    logger.info("[REACTIVATE] Utilisateur %s réactivé (médias_purgés=%s)", user_id, media_purged)
+    return {
+        "success":                 True,
+        "reactivated":             True,
+        "user_id":                 user_id,
+        "media_purged":            media_purged,
+        "requires_media_reupload": media_purged,
+        "warning":                 "Vos SpotYou, services et produits restent désactivés. Réactivez-les manuellement.",
+    }
+
+
+# ── GET /users/me/reactivatable — Toutes les entités désactivées ──────────────
+
+@router.get("/users/me/reactivatable")
+async def get_reactivatable(request: Request):
+    """
+    Retourne toutes les entités désactivées de l'utilisateur courant :
+    SpotYou, Services et Produits, avec le nombre de jours restants
+    avant purge des médias.
+    """
+    pool = get_pool()
+    caller = await require_auth(request, pool)
+    uid = caller["user_id"]
+    now = datetime.now(timezone.utc)
+
+    async with pool.acquire() as conn:
+        tp_rows = await conn.fetch(
+            """SELECT point_id AS id, title, images AS image_data,
+                      deleted_at, media_purge_scheduled_at, media_purged, reactivated_at
+               FROM tag_points
+               WHERE user_id=$1 AND deleted_at IS NOT NULL
+                 AND (reactivated_at IS NULL OR reactivated_at < deleted_at)
+               ORDER BY deleted_at DESC""",
+            uid
+        )
+        svc_rows = await conn.fetch(
+            """SELECT service_id AS id, title, images AS image_data,
+                      deleted_at, media_purge_scheduled_at, media_purged, reactivated_at
+               FROM services
+               WHERE coach_id=$1 AND deleted_at IS NOT NULL
+                 AND (reactivated_at IS NULL OR reactivated_at < deleted_at)
+               ORDER BY deleted_at DESC""",
+            uid
+        )
+        prod_rows = await conn.fetch(
+            """SELECT product_id AS id, title, image_urls AS image_data,
+                      deleted_at, media_purge_scheduled_at, media_purged, reactivated_at
+               FROM marketplace_products
+               WHERE seller_id=$1 AND deleted_at IS NOT NULL
+                 AND (reactivated_at IS NULL OR reactivated_at < deleted_at)
+               ORDER BY deleted_at DESC""",
+            uid
+        )
+
+    def _fmt(rows, entity_type: str) -> list:
+        result = []
+        for r in rows:
+            mpsa = r["media_purge_scheduled_at"]
+            days_left = None
+            if mpsa:
+                delta = (mpsa.replace(tzinfo=timezone.utc) if mpsa.tzinfo is None else mpsa) - now
+                days_left = max(0, delta.days)
+            # Thumbnail
+            img_data = r["image_data"]
+            thumb = None
+            if isinstance(img_data, list) and img_data:
+                thumb = img_data[0]
+            elif isinstance(img_data, str):
+                try:
+                    parsed = _j.loads(img_data)
+                    thumb = parsed[0] if parsed else None
+                except Exception:
+                    pass
+            result.append({
+                "id":                       r["id"],
+                "type":                     entity_type,
+                "title":                    r["title"],
+                "thumbnail":                thumb,
+                "deleted_at":               r["deleted_at"].isoformat() if r["deleted_at"] else None,
+                "media_purge_scheduled_at": mpsa.isoformat() if mpsa else None,
+                "days_until_media_purge":   days_left,
+                "media_purged":             r["media_purged"],
+            })
+        return result
+
+    return {
+        "spotyous": _fmt(tp_rows, "spotyou"),
+        "services": _fmt(svc_rows, "service"),
+        "products": _fmt(prod_rows, "product"),
+        "total":    len(tp_rows) + len(svc_rows) + len(prod_rows),
+    }
+
+
+import asyncio
