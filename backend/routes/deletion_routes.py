@@ -17,6 +17,7 @@ from datetime import datetime, timezone, timedelta
 import asyncio
 import logging
 import json as _j
+from routes.tagpoint_routes import _first_image
 
 from auth_utils import require_auth
 from database import get_pool, row_to_dict
