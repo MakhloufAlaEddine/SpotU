@@ -35,7 +35,14 @@ function shouldShowDaySeparator(messages: ChatMessage[], index: number): boolean
   return prev !== curr;
 }
 
-function Bubble({ msg, isMe }: { msg: ChatMessage; isMe: boolean }) {
+/** Résout un titre brut en titre lisible — même logique que dans chat.tsx */
+function resolveDisplayTitle(raw: string | null | undefined): string {
+  if (!raw) return 'Sans titre';
+  if (/^(pt|conv|svc|user)_/.test(raw)) return 'SpotYou supprimé';
+  return raw;
+}
+
+
   // Détection message soft-deleted (deleted_at non-null OU contenu marqué par le backend)
   const isDeleted = !!msg.deleted_at || msg.content === '[Message supprimé]';
   const senderLabel = msg.sender_name || 'Utilisateur supprimé';
@@ -140,8 +147,12 @@ export default function ChatScreen() {
     : convInfo?.type === 'tagpoint_group' ? 'Groupe'
     : 'Message privé';
 
-  const headerTitle = convInfo?.other_participant?.name ?? convInfo?.context_title ?? '…';
-  const headerSub = convInfo ? `${typeLabel} · ${convInfo.context_title}` : '';
+  const headerTitle = convInfo?.other_participant?.name
+    ?? resolveDisplayTitle(convInfo?.context_title)
+    ?? '…';
+  const headerSub = convInfo
+    ? `${typeLabel} · ${resolveDisplayTitle(convInfo.context_title)}`
+    : '';
 
   return (
     <KeyboardAvoidingView

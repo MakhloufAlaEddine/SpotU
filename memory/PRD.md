@@ -19,6 +19,18 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 
 ## What's Been Implemented
 
+### Phase 4 — Frontend Read-Only (2026-04-02)
+
+**Composants modifiés :**
+- `lib/chat.ts` : `Conversation.context_deleted?:boolean` + `ChatMessage.deleted_at?:string|null` + handler WS `message_deleted` + erreur `CONTEXT_DELETED` silencieuse
+- `app/chat/[id].tsx` : `ArchivedBanner` (`chat-archived-banner`), `ReadOnlyBar` (`chat-readonly-bar`), guard `handleSend`, Bubble soft-delete (`[Message supprimé]` italique gris), `resolveDisplayTitle()` sur headerTitle
+- `app/(tabs)/chat.tsx` : `ConvItem` badge "ARCHIVÉE" (`conv-archived-tag-{id}`), preview "Contenu lié non disponible — Lecture seule", styles atténués
+- `components/OfflineBanner.tsx` : nouveau `ContentDeletedState` (sans retry, bouton Retour)
+- `app/spot-you/[id].tsx` : état `contentNotFound`, catch 404/410 → `ContentDeletedState`
+- `app/service/[id].tsx` : état `isContentNotFound`, catch 404/410 → `ContentDeletedState`
+
+**Tests :** `test_reports/iteration_101.json` — 11/11 PASSED, 0 FAILED
+
 ### Stratégie de Suppression Logique — Phases 1, 2 & 3 (2026-04-02)
 
 **Audit complet des dépendances DB** → `/app/memory/AUDIT_SUPPRESSION.md`
