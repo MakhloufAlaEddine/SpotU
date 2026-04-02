@@ -228,7 +228,7 @@ export function SpotYouCard({
             ) : null}
             {onToggleJoin && (
               <TouchableOpacity
-                style={[sc.joinChip, isMember && sc.leaveChip]}
+                style={[sc.joinChip, isMember && sc.leaveChip, { marginLeft: 'auto' }]}
                 onPress={() => onToggleJoin(item)}
                 disabled={joiningId === item.point_id}
                 testID={`join-btn-${item.point_id}`}
