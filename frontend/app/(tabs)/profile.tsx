@@ -651,6 +651,36 @@ export default function MenuScreen() {
           <Text style={st.logoutText}>Déconnexion</Text>
         </TouchableOpacity>
 
+        {/* ── DÉSACTIVER COMPTE ─────────────────────────────── */}
+        <TouchableOpacity
+          style={st.deactivateBtn}
+          onPress={() => {
+            Alert.alert(
+              'Désactiver mon compte',
+              'Votre profil sera masqué et toutes vos publications désactivées. Vos médias sont conservés 90 jours — vous pourrez réactiver votre compte à tout moment.',
+              [
+                { text: 'Annuler', style: 'cancel' },
+                {
+                  text: 'Désactiver', style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      await api.patch(`/users/${user.user_id}/deactivate`, {});
+                      handleLogout();
+                    } catch (e: any) {
+                      Alert.alert('Erreur', e.message || 'Désactivation impossible.');
+                    }
+                  },
+                },
+              ]
+            );
+          }}
+          activeOpacity={0.8}
+          testID="deactivate-account-btn"
+        >
+          <Ionicons name="pause-circle-outline" size={16} color={Colors.muted} />
+          <Text style={st.deactivateText}>Désactiver mon compte</Text>
+        </TouchableOpacity>
+
         <View style={{ height: 40 }} />
       </ScrollView>
 
@@ -795,6 +825,12 @@ const st = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(255,69,58,0.25)',
   },
   logoutText: { fontSize: 15, fontWeight: '700', color: '#FF453A' },
+
+  deactivateBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    marginHorizontal: Spacing.md, paddingVertical: 10, marginBottom: 4,
+  },
+  deactivateText: { fontSize: 12, fontWeight: '500', color: Colors.muted },
 
   // COACH CREATE SERVICE
   coachCreateBtn: {

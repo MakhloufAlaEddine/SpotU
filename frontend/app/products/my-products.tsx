@@ -61,12 +61,12 @@ export default function MyProductsScreen() {
 
   const handleDelete = (product: any) => {
     Alert.alert(
-      'Supprimer l\'annonce',
-      `Êtes-vous sûr de vouloir supprimer "${product.title}" ?`,
+      'Désactiver l\'annonce',
+      `"${product.title}" sera masquée. Vos médias sont conservés 90 jours — réactivez-la depuis votre profil.`,
       [
         { text: 'Annuler', style: 'cancel' },
         {
-          text: 'Supprimer',
+          text: 'Désactiver',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -74,7 +74,7 @@ export default function MyProductsScreen() {
               setSelected(null);
               load(true);
             } catch {
-              Alert.alert('Erreur', 'La suppression a échoué.');
+              Alert.alert('Erreur', 'La désactivation a échoué.');
             }
           },
         },

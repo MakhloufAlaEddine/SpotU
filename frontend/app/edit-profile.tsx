@@ -238,10 +238,10 @@ export default function EditProfileScreen() {
   };
 
   const handleDeleteService = (svcId: string, title: string) => {
-    Alert.alert('Supprimer', `Supprimer le service "${title}" ?`, [
+    Alert.alert('Désactiver le service', `"${title}" sera masqué. Vos médias sont conservés 90 jours — réactivez-le depuis votre profil.`, [
       { text: 'Annuler', style: 'cancel' },
       {
-        text: 'Supprimer', style: 'destructive', onPress: async () => {
+        text: 'Désactiver', style: 'destructive', onPress: async () => {
           try {
             await api.delete(`/services/${svcId}`);
             setServices(prev => prev.filter(s => s.service_id !== svcId));
@@ -448,7 +448,7 @@ export default function EditProfileScreen() {
                     <TouchableOpacity style={st.serviceDeleteBtn}
                       onPress={() => handleDeleteService(svc.service_id, svc.title)}
                       testID={`delete-service-${svc.service_id}`}>
-                      <Ionicons name="trash-outline" size={18} color="#FF453A" />
+                      <Ionicons name="pause-circle-outline" size={18} color="#F59E0B" />
                     </TouchableOpacity>
                   </View>
                 ))}

@@ -661,12 +661,12 @@ export default function SpotYouDetail() {
 
   const handleDelete = () => {
     Alert.alert(
-      'Supprimer ce SpotYou ?',
-      'Cette action est irréversible. Le SpotYou sera définitivement supprimé.',
+      'Désactiver ce SpotYou ?',
+      'Le SpotYou sera masqué publiquement. Vos médias sont conservés 90 jours — vous pouvez le réactiver depuis votre profil.',
       [
         { text: 'Annuler', style: 'cancel' },
         {
-          text: 'Supprimer', style: 'destructive',
+          text: 'Désactiver', style: 'destructive',
           onPress: () => {
             setOwnerActionLoading(true);
             api.delete(`/tag-points/${id}`)
@@ -1023,8 +1023,8 @@ export default function SpotYouDetail() {
               </TouchableOpacity>
               <View style={st.ownerBarDivider} />
               <TouchableOpacity style={[st.ownerBarBtn, { gap: 4 }]} onPress={handleDelete} testID="delete-btn" disabled={ownerActionLoading}>
-                <Ionicons name="trash-outline" size={18} color="#EF4444" />
-                <Text style={[st.ownerBarBtnText, { color: '#EF4444' }]}>Supprimer</Text>
+                <Ionicons name="pause-circle-outline" size={18} color="#F59E0B" />
+                <Text style={[st.ownerBarBtnText, { color: '#F59E0B' }]}>Désactiver</Text>
               </TouchableOpacity>
             </>
           ) : (
