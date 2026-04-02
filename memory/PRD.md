@@ -19,6 +19,31 @@ Fonctionnalites : creation/decouverte de services et SpotYous, systeme de reserv
 
 ## What's Been Implemented
 
+### Stratégie de Suppression Logique — Phases 1, 2 & 3 (2026-04-02)
+
+**Audit complet des dépendances DB** → `/app/memory/AUDIT_SUPPRESSION.md`
+
+**Phase 2 — Migrations DB appliquées :**
+- `008_soft_delete_columns.sql` : colonnes `deleted_at / deleted_by` sur `users`, `tag_points`, `services`, `marketplace_products`, `conversations`, `messages` + colonne `context_deleted BOOLEAN NOT NULL DEFAULT FALSE` sur `conversations`
+- `009_pending_file_deletions.sql` : table `pending_file_deletions` (purge R2 différée)
+- `010_fk_set_null_anonymization.sql` : FKs `messages.sender_id`, `reviews.reviewer_id/reviewee_id` → `ON DELETE SET NULL` + colonnes `reviewer_name_snapshot / reviewee_name_snapshot`
+- Conversation orpheline `conv_ed6d1a80279b` (pt_demo009) marquée `context_deleted = TRUE`
+
+**Phase 1 — Sécurité immédiate :**
+- `GET /api/conversations` : champ `context_deleted` calculé dynamiquement (colonne DB + LEFT JOIN de fallback sur `tag_points.active` et `services.active`)
+- `GET /api/conversations` : filtre `deleted_at IS NULL` (exclut les conversations soft-deleted)
+- `GET /api/conversations/{id}/messages` : `LEFT JOIN users` + `CASE WHEN deleted_at IS NOT NULL THEN '[Message supprimé]' ELSE content` (résistant aux utilisateurs anonymisés)
+- WebSocket chat : guard `_context_deleted` — bloque l'envoi de message si le contexte est supprimé (code `CONTEXT_DELETED`)
+- `DELETE /api/services/{id}` : guard bookings actifs (retourne 409 si réservations en cours)
+
+**Phase 3 — Endpoints de suppression :**
+- `DELETE /api/users/{user_id}` : anonymisation RGPD complète (PII, soft-delete SpotYou/services/produits, purge tokens)
+- `DELETE /api/tag-points/{point_id}` : soft-delete + `context_deleted=TRUE` sur conversations liées + pending_file_deletions
+- `DELETE /api/messages/{message_id}` : soft-delete (contenu masqué à l'affichage)
+- `PATCH /api/conversations/{conv_id}/leave` : statut participant → 'left', auto-archive si plus personne d'actif
+
+**Tests :** `/app/backend/tests/test_deletion_strategy.py` — 20/23 PASSED, 3 SKIPPED intentionnels, 0 FAILED
+
 ### Fix StaleBanner — Affichage conditionnel au seul échec réseau (2026-04-01)
 **Problème** : Le `StaleBanner` ("cache de il y a X minutes") s'affichait toujours en `ready_cached`, même quand un refresh réseau en arrière-plan réussissait.
 **Correction appliquée sur 5 écrans** :
