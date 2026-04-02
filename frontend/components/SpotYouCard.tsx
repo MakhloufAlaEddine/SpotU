@@ -201,7 +201,7 @@ export function SpotYouCard({
             </View>
           )}
 
-          {/* Badges: visibilité + membres + distance */}
+          {/* Badges: visibilité + membres + distance + rejoindre/quitter */}
           <View style={sc.metaBadgesRow}>
             {item.is_public === false && (
               <View style={sc.badge}>
@@ -226,41 +226,31 @@ export function SpotYouCard({
                 <Text style={sc.distChipText}>{dist}</Text>
               </View>
             ) : null}
+            {onToggleJoin && (
+              <TouchableOpacity
+                style={[sc.joinChip, isMember && sc.leaveChip]}
+                onPress={() => onToggleJoin(item)}
+                disabled={joiningId === item.point_id}
+                testID={`join-btn-${item.point_id}`}
+              >
+                {joiningId === item.point_id
+                  ? <ActivityIndicator size="small" color={isMember ? '#EF4444' : Colors.background} style={{ width: 10, height: 10 }} />
+                  : <>
+                      <Ionicons
+                        name={isMember ? 'exit-outline' : 'person-add-outline'}
+                        size={11}
+                        color={isMember ? '#EF4444' : Colors.background}
+                      />
+                      <Text style={[sc.joinChipText, isMember && sc.leaveChipText]}>
+                        {isMember ? 'Quitter' : 'Rejoindre'}
+                      </Text>
+                    </>
+                }
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </View>
-
-      {/* Section Rejoindre/Quitter — non-propriétaire */}
-      {onToggleJoin && (
-        <View style={sc.joinSection}>
-          <View style={[sc.memberBadge, isMember && sc.memberBadgeActive]}>
-            <Ionicons name="people" size={11} color={isMember ? '#00E676' : Colors.muted} />
-            <Text style={[sc.memberBadgeText, isMember && sc.memberBadgeTextActive]}>
-              {isMember ? 'Membre' : 'Non membre'}
-            </Text>
-          </View>
-          <TouchableOpacity
-            style={[sc.joinBtn, isMember && sc.leaveBtn]}
-            onPress={() => onToggleJoin(item)}
-            disabled={joiningId === item.point_id}
-            testID={`join-btn-${item.point_id}`}
-          >
-            {joiningId === item.point_id
-              ? <ActivityIndicator size="small" color={isMember ? '#EF4444' : Colors.background} />
-              : <>
-                  <Ionicons
-                    name={isMember ? 'exit-outline' : 'person-add-outline'}
-                    size={12}
-                    color={isMember ? '#EF4444' : Colors.background}
-                  />
-                  <Text style={[sc.joinBtnText, isMember && sc.leaveBtnText]}>
-                    {isMember ? 'Quitter' : 'Rejoindre'}
-                  </Text>
-                </>
-            }
-          </TouchableOpacity>
-        </View>
-      )}
 
       {/* Section événement — prochaine date + bouton */}
       {(nextLabel || past) && (
@@ -469,28 +459,17 @@ export const sc = StyleSheet.create({
   },
   distChipText: { fontSize: 10, color: Colors.muted, fontWeight: '600' },
 
-  // ── Rejoindre / Quitter ──────────────────────────────────────────────────
-  joinSection: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    borderTopWidth: 1, borderTopColor: Colors.border,
-    paddingHorizontal: Spacing.md, paddingVertical: 8,
-  },
-  memberBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: Colors.border + '60',
-    borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 4,
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  memberBadgeActive: { backgroundColor: '#00E67615', borderColor: '#00E67650' },
-  memberBadgeText: { fontSize: 11, fontWeight: '600', color: Colors.muted },
-  memberBadgeTextActive: { color: '#00E676' },
-  joinBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
+  // ── Rejoindre / Quitter (chip inline) ───────────────────────────────────
+  joinChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
     backgroundColor: Colors.primary,
-    paddingHorizontal: 12, paddingVertical: 6,
-    borderRadius: Radius.full,
+    borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 3,
+    borderWidth: 1, borderColor: Colors.primary,
   },
-  leaveBtn: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: '#EF4444' },
-  joinBtnText: { fontSize: 12, fontWeight: '700', color: Colors.background },
-  leaveBtnText: { color: '#EF4444' },
+  leaveChip: {
+    backgroundColor: 'transparent',
+    borderColor: '#EF4444',
+  },
+  joinChipText: { fontSize: 11, fontWeight: '700', color: Colors.background },
+  leaveChipText: { color: '#EF4444' },
 });
