@@ -376,63 +376,43 @@ export default function MenuScreen() {
         </TouchableOpacity>
 
         {/* ── QUICK ACTIONS ─────────────────────────────────── */}
-        <View style={st.quickActions}>
+        <View style={st.actionsGrid}>
 
           {/* Enregistrés */}
-          <TouchableOpacity style={st.quickRow} onPress={() => router.push('/saved' as any)} activeOpacity={0.8} testID="saved-nav-btn">
-            <View style={st.quickIcon}>
-              <Ionicons name="bookmark" size={20} color={Colors.primary} />
+          <TouchableOpacity style={st.actionCard} onPress={() => router.push('/saved' as any)} activeOpacity={0.8} testID="saved-nav-btn">
+            <View style={st.actionIconBox}>
+              <Ionicons name="bookmark" size={22} color={Colors.primary} />
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={st.quickLabel}>Enregistrés</Text>
-              <Text style={st.quickSub}>Vos SpotYou favoris</Text>
-            </View>
-            {savedCount !== null && savedCount > 0 && (
-              <View style={st.quickBadge}>
-                <Text style={st.quickBadgeText}>{savedCount}</Text>
-              </View>
-            )}
-            <Ionicons name="chevron-forward" size={15} color={Colors.muted} />
+            <Text style={st.actionLabel}>Enregistrés</Text>
+            <Text style={st.actionSub}>
+              {savedCount !== null && savedCount > 0 ? `${savedCount} favori${savedCount > 1 ? 's' : ''}` : 'Vos favoris'}
+            </Text>
           </TouchableOpacity>
-
-          <View style={st.quickSep} />
 
           {/* Mes SpotYou */}
-          <TouchableOpacity style={st.quickRow} onPress={() => router.push('/spot-me' as any)} activeOpacity={0.8} testID="my-tp-nav-btn">
-            <View style={st.quickIcon}>
-              <Ionicons name="location" size={20} color={Colors.primary} />
+          <TouchableOpacity style={st.actionCard} onPress={() => router.push('/spot-me' as any)} activeOpacity={0.8} testID="my-tp-nav-btn">
+            <View style={st.actionIconBox}>
+              <Ionicons name="location" size={22} color={Colors.primary} />
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={st.quickLabel}>Mes SpotYou</Text>
-              <View style={st.quickStats}>
-                <Text style={st.quickStatChip}>{mySpotYou.length} actif{mySpotYou.length !== 1 ? 's' : ''}</Text>
-                {(reactivatable?.spotyous?.length ?? 0) > 0 && (
-                  <Text style={[st.quickStatChip, st.quickStatChipAmber]}>
-                    {reactivatable!.spotyous.length} désactivé{reactivatable!.spotyous.length > 1 ? 's' : ''}
-                  </Text>
-                )}
-                {(joinedCount ?? 0) > 0 && (
-                  <Text style={[st.quickStatChip, st.quickStatChipBlue]}>
-                    {joinedCount} communauté{joinedCount! > 1 ? 's' : ''}
-                  </Text>
-                )}
-              </View>
+            <Text style={st.actionLabel}>Mes SpotYou</Text>
+            <View style={st.actionChips}>
+              <Text style={st.actionChip}>{mySpotYou.length} actif{mySpotYou.length !== 1 ? 's' : ''}</Text>
+              {(reactivatable?.spotyous?.length ?? 0) > 0 && (
+                <Text style={[st.actionChip, st.actionChipAmber]}>{reactivatable!.spotyous.length} désactivé{reactivatable!.spotyous.length > 1 ? 's' : ''}</Text>
+              )}
+              {(joinedCount ?? 0) > 0 && (
+                <Text style={[st.actionChip, st.actionChipBlue]}>{joinedCount} com.</Text>
+              )}
             </View>
-            <Ionicons name="chevron-forward" size={15} color={Colors.muted} />
           </TouchableOpacity>
 
-          <View style={st.quickSep} />
-
           {/* Planning */}
-          <TouchableOpacity style={st.quickRow} onPress={() => router.push('/planning' as any)} activeOpacity={0.8} testID="planning-nav-btn">
-            <View style={st.quickIcon}>
-              <Ionicons name="calendar-number" size={20} color={Colors.primary} />
+          <TouchableOpacity style={st.actionCard} onPress={() => router.push('/planning' as any)} activeOpacity={0.8} testID="planning-nav-btn">
+            <View style={st.actionIconBox}>
+              <Ionicons name="calendar-number" size={22} color={Colors.primary} />
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={st.quickLabel}>Planning</Text>
-              <Text style={st.quickSub}>Mes prochaines séances</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={15} color={Colors.muted} />
+            <Text style={st.actionLabel}>Planning</Text>
+            <Text style={st.actionSub}>Mes séances</Text>
           </TouchableOpacity>
 
         </View>
