@@ -316,7 +316,7 @@ export default function MySpotYouScreen() {
                     image_url: item.thumbnail,
                     active: false,
                   }}
-                  onNavigate={() => {}}
+                  onNavigate={id => router.push(`/spot-you/${id}` as any)}
                   onToggleGoing={() => {}}
                   togglingId={null}
                   onViewMembers={() => {}}

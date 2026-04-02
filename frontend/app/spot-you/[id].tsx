@@ -658,6 +658,31 @@ export default function SpotYouDetail() {
     );
   };
 
+  const handleReactivate = () => {
+    Alert.alert(
+      'Réactiver ce SpotYou ?',
+      point?.media_purge_scheduled_at
+        ? `"${point.title}" redeviendra visible publiquement.`
+        : `"${point?.title}" redeviendra visible publiquement.`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Réactiver', style: 'default',
+          onPress: () => {
+            setOwnerActionLoading(true);
+            api.post(`/tag-points/${id}/reactivate`, {})
+              .then(() => {
+                triggerProfileRefresh();
+                loadPoint(true);
+              })
+              .catch((e: any) => Alert.alert('Erreur', e.message))
+              .finally(() => setOwnerActionLoading(false));
+          },
+        },
+      ]
+    );
+  };
+
   const handleEdit = () => {
     if (!point) return;
     // Utiliser uniquement images[] — image_url sera supprimé
@@ -981,13 +1006,22 @@ export default function SpotYouDetail() {
       </SafeAreaView>
 
       {/* Barre d'actions propriétaire */}
-      {isOwner && (
+        {isOwner && (
         <View style={st.ownerBar} testID="owner-action-bar">
           <TouchableOpacity style={st.ownerBarBtn} onPress={handleEdit} testID="edit-btn" disabled={ownerActionLoading}>
             <Ionicons name="create-outline" size={18} color={Colors.primary} />
             <Text style={st.ownerBarBtnText}>Modifier</Text>
           </TouchableOpacity>
-          {!hasOtherParticipants ? (
+          {point?.active === false ? (
+            /* SpotYou désactivé → proposer la réactivation */
+            <>
+              <View style={st.ownerBarDivider} />
+              <TouchableOpacity style={st.ownerBarBtn} onPress={handleReactivate} testID="reactivate-btn" disabled={ownerActionLoading}>
+                <Ionicons name="refresh-circle-outline" size={18} color={Colors.primary} />
+                <Text style={[st.ownerBarBtnText, { color: Colors.primary }]}>Réactiver</Text>
+              </TouchableOpacity>
+            </>
+          ) : !hasOtherParticipants ? (
             /* Solo : désactivation autorisée */
             <>
               <View style={st.ownerBarDivider} />
@@ -1021,6 +1055,22 @@ export default function SpotYouDetail() {
         <View style={st.cancelledBanner} testID="cancelled-banner">
           <Ionicons name="close-circle" size={16} color="#fff" />
           <Text style={st.cancelledBannerTxt}>SpotYou annulé — les créneaux restent visibles dans le planning</Text>
+        </View>
+      )}
+
+      {/* Banner SpotYou désactivé — visible uniquement par l'owner */}
+      {isOwner && point?.active === false && (
+        <View style={st.deactivatedBanner} testID="deactivated-banner">
+          <View style={st.deactivatedBannerLeft}>
+            <Ionicons name="pause-circle" size={16} color="#F59E0B" />
+            <Text style={st.deactivatedBannerTxt}>SpotYou désactivé — non visible du public</Text>
+          </View>
+          {point.media_purge_scheduled_at ? (() => {
+            const days = Math.max(0, Math.ceil((new Date(point.media_purge_scheduled_at).getTime() - Date.now()) / 86400000));
+            return days <= 30 ? (
+              <Text style={st.deactivatedBannerDays}>Médias dans {days}j</Text>
+            ) : null;
+          })() : null}
         </View>
       )}
 
@@ -1848,6 +1898,16 @@ const st = StyleSheet.create({
   headerBtn: { padding: 4 },
   cancelledBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#EF4444', paddingHorizontal: Spacing.md, paddingVertical: 8 },
   cancelledBannerTxt: { flex: 1, fontSize: 12, fontWeight: '600', color: '#fff' },
+  deactivatedBanner: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    gap: 8, backgroundColor: '#2D1F00',
+    paddingHorizontal: Spacing.md, paddingVertical: 10,
+    borderBottomWidth: 1, borderBottomColor: '#F59E0B50',
+    borderLeftWidth: 3, borderLeftColor: '#F59E0B',
+  },
+  deactivatedBannerLeft: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
+  deactivatedBannerTxt: { flex: 1, fontSize: 12, fontWeight: '600', color: '#F59E0B' },
+  deactivatedBannerDays: { fontSize: 11, color: '#F59E0B', fontWeight: '700' },
   ownerBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.header, borderBottomWidth: 1, borderBottomColor: Colors.border },
   ownerBarBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10 },
   ownerBarBtnText: { fontSize: 13, fontWeight: '600', color: Colors.foreground },

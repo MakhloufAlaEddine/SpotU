@@ -32,7 +32,7 @@ TP_FIELDS = """
     tp.point_id, tp.user_id, tp.title, tp.description,
     tp.precision, tp.tag_ids, tp.domain_id, tp.active, tp.cancelled, tp.expires_at, tp.created_at, tp.updated_at,
     tp.image_url, tp.images, tp.schedule, tp.event_date, tp.event_end_date, tp.event_schedule, tp.new_date_coming,
-    tp.minimum_participants, tp.maximum_participants, tp.address,
+    tp.minimum_participants, tp.maximum_participants, tp.address, tp.media_purge_scheduled_at,
     ST_Y(tp.location::geometry) as latitude,
     ST_X(tp.location::geometry) as longitude,
     u.name as owner_name, u.picture as owner_picture, u.role as owner_role,
@@ -411,6 +411,11 @@ async def get_tag_point(point_id: str, request: Request):
             raise HTTPException(status_code=404, detail="TagPoint not found")
 
     is_owner = current_user_id is not None and row["user_id"] == current_user_id
+
+    # SpotYou désactivé → 404 pour les non-propriétaires
+    if not row["active"] and not is_owner:
+        raise HTTPException(status_code=404, detail="SpotYou non disponible")
+
     pt = build_point_response(row_to_dict(row), is_owner=is_owner)
 
     tag_ids_list = pt.get("tag_ids") or []
