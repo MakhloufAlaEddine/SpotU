@@ -31,7 +31,10 @@ export default function MySpotYouScreen() {
 
   const { isOnline } = useNetwork();
 
+  const [tab, setTab] = useState<'active' | 'deactivated'>('active');
   const [points, setPoints] = useState<any[]>([]);
+  const [deactivated, setDeactivated] = useState<any[]>([]);
+  const [reactivatingId, setReactivatingId] = useState<string | null>(null);
   const [screenState, setScreenState] = useState<'loading_initial' | 'ready_fresh' | 'ready_cached' | 'error_no_data'>('loading_initial');
   const [staleMinutes, setStaleMinutes] = useState<number | null>(null);
   const [networkFailed, setNetworkFailed] = useState(false);
@@ -61,6 +64,12 @@ export default function MySpotYouScreen() {
     const cacheKey = buildCacheKey({ path: '/tag-points/mine', userId, schemaVersion: SCHEMA_VERSION });
     const ttl = getTtl('/tag-points/mine') ?? 5 * 60_000;
 
+    // Toujours charger les désactivés en parallèle (pas de cache)
+    const fetchDeactivated = () =>
+      api.get('/users/me/reactivatable')
+        .then((d: any) => { if (d?.spotyous) setDeactivated(d.spotyous); })
+        .catch(() => {});
+
     // Étape 1 : lecture cache sur le premier chargement
     if (!isRefresh) {
       const cached = await cacheGet<any[]>(cacheKey);
@@ -69,6 +78,7 @@ export default function MySpotYouScreen() {
         const fresh = isFresh(cached);
         setScreenState(fresh ? 'ready_fresh' : 'ready_cached');
         setStaleMinutes(fresh ? null : cacheAgeMinutes(cached));
+        fetchDeactivated();
         if (fresh) return;
       }
     }
@@ -77,7 +87,10 @@ export default function MySpotYouScreen() {
 
     // Étape 2 : fetch réseau
     try {
-      const data = await api.get('/tag-points/mine');
+      const [data] = await Promise.all([
+        api.get('/tag-points/mine'),
+        fetchDeactivated(),
+      ]);
       const list = data || [];
       setPoints(list);
       setScreenState('ready_fresh');
@@ -102,6 +115,33 @@ export default function MySpotYouScreen() {
   useEffect(() => { loadPoints(false); }, [loadPoints]);
   useEffect(() => registerScreenRefresh('spot-me', () => loadPoints(true), 5), [loadPoints]);
   const onRefresh = useCallback(() => { loadPoints(true); }, [loadPoints]);
+
+  const handleReactivate = async (entity: any) => {
+    Alert.alert(
+      'Réactiver ce SpotYou ?',
+      entity.media_purged
+        ? 'Votre SpotYou sera réactivé. Les photos sont manquantes — ajoutez-en de nouvelles pour le publier.'
+        : `"${entity.title}" redeviendra visible publiquement.`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Réactiver', style: 'default',
+          onPress: async () => {
+            setReactivatingId(entity.id);
+            try {
+              await api.post(`/tag-points/${entity.id}/reactivate`, {});
+              setDeactivated(prev => prev.filter(e => e.id !== entity.id));
+              loadPoints(true);
+            } catch (e: any) {
+              Alert.alert('Erreur', e.message || 'Réactivation impossible.');
+            } finally {
+              setReactivatingId(null);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const openMembersModal = async (pointId: string, title: string) => {
     setMembersTitle(title);
@@ -166,7 +206,6 @@ export default function MySpotYouScreen() {
             ? { ...p, is_going: res.is_going, going_count: res.going_count ?? p.going_count, is_full: res.is_full || false }
             : p
         ));
-        // Invalidation ciblée après mutation de participation
         await cacheInvalidate(['/tag-points/mine', '/planning']);
       } catch (e: any) { Alert.alert('Erreur', e.message || 'Une erreur est survenue'); }
       finally { setTogglingId(null); }
@@ -176,6 +215,7 @@ export default function MySpotYouScreen() {
 
   return (
     <SafeAreaView style={st.container} edges={['top']}>
+      {/* Header */}
       <View style={st.header}>
         <TouchableOpacity onPress={() => router.back()} style={st.headerBtn} testID="back-btn">
           <Ionicons name="chevron-back" size={24} color={Colors.foreground} />
@@ -186,39 +226,140 @@ export default function MySpotYouScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Tabs */}
+      <View style={st.tabs}>
+        <TouchableOpacity
+          style={[st.tab, tab === 'active' && st.tabActive]}
+          onPress={() => setTab('active')}
+          testID="tab-active"
+        >
+          <Text style={[st.tabText, tab === 'active' && st.tabTextActive]}>Actifs</Text>
+          {points.length > 0 && (
+            <View style={[st.tabBadge, tab === 'active' && st.tabBadgeActive]}>
+              <Text style={[st.tabBadgeText, tab === 'active' && st.tabBadgeTextActive]}>{points.length}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[st.tab, tab === 'deactivated' && st.tabActive]}
+          onPress={() => setTab('deactivated')}
+          testID="tab-deactivated"
+        >
+          <Text style={[st.tabText, tab === 'deactivated' && st.tabTextActive]}>Désactivés</Text>
+          {deactivated.length > 0 && (
+            <View style={[st.tabBadge, tab === 'deactivated' ? st.tabBadgeActive : st.tabBadgeAmber]}>
+              <Text style={[st.tabBadgeText, tab === 'deactivated' && st.tabBadgeTextActive]}>{deactivated.length}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
+
       {screenState === 'ready_cached' && networkFailed && <StaleBanner staleMinutes={staleMinutes} />}
 
-      {screenState === 'loading_initial' ? (
-        <ScreenLoader />
-      ) : screenState === 'error_no_data' ? (
-        <ErrorNoData onRetry={() => loadPoints(true)} testID="spotme-error-no-data" />
-      ) : (
+      {/* Contenu onglet Actifs */}
+      {tab === 'active' && (
+        screenState === 'loading_initial' ? (
+          <ScreenLoader />
+        ) : screenState === 'error_no_data' ? (
+          <ErrorNoData onRetry={() => loadPoints(true)} testID="spotme-error-no-data" />
+        ) : (
+          <FlatList
+            data={points}
+            keyExtractor={item => item.point_id}
+            renderItem={({ item }) => (
+              <SpotYouCard
+                item={item}
+                onNavigate={id => router.push(`/spot-you/${id}` as any)}
+                onToggleGoing={toggleGoing}
+                togglingId={togglingId}
+                onViewMembers={openMembersModal}
+                testID={`my-tp-${item.point_id}`}
+                isLive
+                userLat={location.lat}
+                userLng={location.lng}
+              />
+            )}
+            contentContainerStyle={{ padding: Spacing.md, gap: 12, paddingBottom: 48 }}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+            ListEmptyComponent={
+              <View style={st.empty}>
+                <Ionicons name="location-outline" size={48} color={Colors.muted} />
+                <Text style={st.emptyTitle}>Aucun SpotMe actif</Text>
+                <Text style={st.emptyText}>Vous n'avez pas encore créé de SpotYou.</Text>
+                <TouchableOpacity style={st.createBtn} onPress={() => router.push('/(tabs)/create' as any)}>
+                  <Text style={st.createBtnText}>Créer mon premier SpotMe</Text>
+                </TouchableOpacity>
+              </View>
+            }
+          />
+        )
+      )}
+
+      {/* Contenu onglet Désactivés */}
+      {tab === 'deactivated' && (
         <FlatList
-          data={points}
-          keyExtractor={item => item.point_id}
-          renderItem={({ item }) => (
-            <SpotYouCard
-              item={item}
-              onNavigate={id => router.push(`/spot-you/${id}` as any)}
-              onToggleGoing={toggleGoing}
-              togglingId={togglingId}
-              onViewMembers={openMembersModal}
-              testID={`my-tp-${item.point_id}`}
-              isLive
-              userLat={location.lat}
-              userLng={location.lng}
-            />
-          )}
+          data={deactivated}
+          keyExtractor={item => item.id}
           contentContainerStyle={{ padding: Spacing.md, gap: 12, paddingBottom: 48 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+          renderItem={({ item }) => {
+            const days = item.days_until_media_purge;
+            const urgent = days !== null && days <= 7;
+            return (
+              <View style={st.deactivatedCard} testID={`deactivated-tp-${item.id}`}>
+                {/* Même card SpotYou — réutilisation du composant */}
+                <SpotYouCard
+                  item={{
+                    point_id: item.id,
+                    title: item.title,
+                    images: item.thumbnail ? [item.thumbnail] : [],
+                    image_url: item.thumbnail,
+                    active: false,
+                  }}
+                  onNavigate={() => {}}
+                  onToggleGoing={() => {}}
+                  togglingId={null}
+                  onViewMembers={() => {}}
+                  testID={`deactivated-card-${item.id}`}
+                  userLat={location.lat}
+                  userLng={location.lng}
+                />
+                {/* Bandeau informatif */}
+                <View style={[st.deactivatedBanner, urgent && st.deactivatedBannerUrgent]}>
+                  <View style={st.deactivatedBannerLeft}>
+                    <Ionicons
+                      name={item.media_purged ? 'image-outline' : 'pause-circle-outline'}
+                      size={14}
+                      color={urgent ? '#F59E0B' : Colors.muted}
+                    />
+                    <Text style={[st.deactivatedBannerText, urgent && st.deactivatedBannerTextUrgent]}>
+                      {item.media_purged
+                        ? 'Photos manquantes — ajoutez-en pour publier'
+                        : days !== null
+                          ? `Médias supprimés dans ${days} jour${days > 1 ? 's' : ''}`
+                          : 'Désactivé'}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={st.reactivateBtn}
+                    onPress={() => handleReactivate(item)}
+                    disabled={reactivatingId === item.id}
+                    testID={`reactivate-btn-${item.id}`}
+                  >
+                    {reactivatingId === item.id
+                      ? <ActivityIndicator size="small" color="#fff" />
+                      : <Text style={st.reactivateBtnText}>Réactiver</Text>
+                    }
+                  </TouchableOpacity>
+                </View>
+              </View>
+            );
+          }}
           ListEmptyComponent={
             <View style={st.empty}>
-              <Ionicons name="location-outline" size={48} color={Colors.muted} />
-              <Text style={st.emptyTitle}>Aucun SpotMe</Text>
-              <Text style={st.emptyText}>Vous n'avez pas encore créé de SpotYou.</Text>
-              <TouchableOpacity style={st.createBtn} onPress={() => router.push('/(tabs)/create' as any)}>
-                <Text style={st.createBtnText}>Créer mon premier SpotMe</Text>
-              </TouchableOpacity>
+              <Ionicons name="pause-circle-outline" size={48} color={Colors.muted} />
+              <Text style={st.emptyTitle}>Aucun SpotYou désactivé</Text>
+              <Text style={st.emptyText}>Vos SpotYous désactivés apparaîtront ici.</Text>
             </View>
           }
         />
@@ -332,6 +473,67 @@ const st = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.primary + '30',
   },
   coachBadgeText: { fontSize: 10, fontWeight: '600', color: Colors.primary },
+
+  // Tabs
+  tabs: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    backgroundColor: Colors.background,
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    gap: 6,
+  },
+  tabActive: {
+    borderBottomWidth: 2,
+    borderBottomColor: Colors.primary,
+  },
+  tabText: { fontSize: 14, fontWeight: '500', color: Colors.muted },
+  tabTextActive: { color: Colors.primary, fontWeight: '700' },
+  tabBadge: {
+    minWidth: 18, height: 18,
+    borderRadius: 9,
+    backgroundColor: Colors.cardElevated,
+    alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 5,
+  },
+  tabBadgeActive: { backgroundColor: Colors.primary + '20' },
+  tabBadgeAmber: { backgroundColor: '#F59E0B20' },
+  tabBadgeText: { fontSize: 10, fontWeight: '700', color: Colors.muted },
+  tabBadgeTextActive: { color: Colors.primary },
+
+  // Deactivated card
+  deactivatedCard: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: Colors.card,
+    opacity: 0.85,
+  },
+  deactivatedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: Colors.cardElevated,
+    gap: 8,
+  },
+  deactivatedBannerUrgent: { backgroundColor: '#F59E0B15' },
+  deactivatedBannerLeft: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
+  deactivatedBannerText: { fontSize: 12, color: Colors.muted, flex: 1 },
+  deactivatedBannerTextUrgent: { color: '#F59E0B' },
+  reactivateBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: Radius.full,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+  },
+  reactivateBtnText: { color: Colors.background, fontWeight: '700', fontSize: 12 },
 
   // Empty state
   empty: { alignItems: 'center', paddingTop: 80, gap: 12 },
