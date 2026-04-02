@@ -789,8 +789,28 @@ export default function SpotYouDetail() {
       refreshAllRef.current();
       if (res.is_member) loadActivity();
       await cacheInvalidate([`/tag-points/${id}`, '/tag-points', '/planning', '/conversations']);
-    } catch (e: any) { Alert.alert('Erreur', e.message); }
+    } catch (e: any) { onActionError(e); }
     finally { setRsvpLoading(false); }
+  };
+
+  // Handler d'erreur centralisé pour les actions utilisateur.
+  // Si le SpotYou a été désactivé entre-temps → alerte + refresh de la page.
+  const onActionError = (e: any) => {
+    const msg: string = e?.message || '';
+    const isGone =
+      (e?.status === 404 || e?.status === 410) &&
+      (msg.toLowerCase().includes('disponible') ||
+       msg.toLowerCase().includes('introuvable') ||
+       msg.toLowerCase().includes('désactivé'));
+    if (isGone) {
+      Alert.alert(
+        'SpotYou non disponible',
+        'Ce SpotYou a été désactivé. La page va se mettre à jour.',
+        [{ text: 'OK', onPress: () => loadPoint(true) }]
+      );
+    } else {
+      Alert.alert('Erreur', msg || 'Une erreur est survenue');
+    }
   };
 
   const toggleRSVP = () => {
@@ -848,7 +868,7 @@ export default function SpotYouDetail() {
       refreshAllRef.current();
       loadActivity();
       await cacheInvalidate([`/tag-points/${id}`, '/planning', '/tag-points/mine']);
-    } catch (e: any) { Alert.alert('Erreur', e.message); }
+    } catch (e: any) { onActionError(e); }
     finally { setGoingLoading(false); }
   };
 
@@ -910,7 +930,7 @@ export default function SpotYouDetail() {
         ? await api.delete(`/tag-points/${id}/unsave`)
         : await api.post(`/tag-points/${id}/save`, {});
       setIsSaved(res.is_saved);
-    } catch (e: any) { Alert.alert('Erreur', e.message); }
+    } catch (e: any) { onActionError(e); }
     finally { setSaveLoading(false); }
   };
 

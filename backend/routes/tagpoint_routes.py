@@ -653,6 +653,11 @@ async def save_tag_point(point_id: str, request: Request):
     user = await require_auth(request, pool)
     sid = new_id("save")
     async with pool.acquire() as conn:
+        active = await conn.fetchval(
+            "SELECT active FROM tag_points WHERE point_id = $1", point_id
+        )
+        if not active:
+            raise HTTPException(status_code=404, detail="SpotYou non disponible")
         await conn.execute(
             "INSERT INTO tag_point_saves (save_id, point_id, user_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING",
             sid, point_id, user["user_id"]
@@ -680,7 +685,12 @@ async def join_tag_point(point_id: str, request: Request):
     import asyncio
     pid = new_id("part")
     async with pool.acquire() as conn:
-        tp = await conn.fetchrow("SELECT user_id, title, images FROM tag_points WHERE point_id = $1", point_id)
+        tp = await conn.fetchrow(
+            "SELECT user_id, title, images FROM tag_points WHERE point_id = $1 AND active = TRUE",
+            point_id
+        )
+        if not tp:
+            raise HTTPException(status_code=404, detail="SpotYou non disponible")
         await conn.execute(
             "INSERT INTO spot_you_members (id, spot_you_id, user_id) VALUES ($1,$2,$3) ON CONFLICT (spot_you_id, user_id) DO NOTHING",
             pid, point_id, user["user_id"]
@@ -713,7 +723,12 @@ async def leave_tag_point(point_id: str, request: Request):
     from push_service import send_push_to_user
     import asyncio
     async with pool.acquire() as conn:
-        tp = await conn.fetchrow("SELECT user_id, title, images FROM tag_points WHERE point_id = $1", point_id)
+        tp = await conn.fetchrow(
+            "SELECT user_id, title, images FROM tag_points WHERE point_id = $1 AND active = TRUE",
+            point_id
+        )
+        if not tp:
+            raise HTTPException(status_code=404, detail="SpotYou non disponible")
         await conn.execute(
             "DELETE FROM spot_you_members WHERE spot_you_id=$1 AND user_id=$2",
             point_id, user["user_id"]
@@ -1138,10 +1153,14 @@ async def vote_tag_point(point_id: str, request: Request):
     tp_owner_id = None
     tp_title = None
     async with pool.acquire() as conn:
-        tp = await conn.fetchrow("SELECT user_id, title, images FROM tag_points WHERE point_id = $1", point_id)
-        if tp:
-            tp_owner_id = tp["user_id"]
-            tp_title = tp["title"]
+        tp = await conn.fetchrow(
+            "SELECT user_id, title, images FROM tag_points WHERE point_id = $1 AND active = TRUE",
+            point_id
+        )
+        if not tp:
+            raise HTTPException(status_code=404, detail="SpotYou non disponible")
+        tp_owner_id = tp["user_id"]
+        tp_title = tp["title"]
         existing = await conn.fetchrow(
             "SELECT vote_id FROM tag_point_votes WHERE point_id = $1 AND user_id = $2",
             point_id, user["user_id"]
