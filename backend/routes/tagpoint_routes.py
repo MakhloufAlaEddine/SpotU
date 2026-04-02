@@ -876,6 +876,8 @@ async def get_my_events(request: Request):
         d["joined_at"] = str(d.get("joined_at")) if d.get("joined_at") else None
         d.pop("sort_date", None)
         is_owner_flag = str(d.get("user_id", "")) == str(user["user_id"])
+        # Les membres peuvent participer aux séances si le SpotYou a des événements
+        d["can_participate"] = bool(d.get("event_schedule") or d.get("event_date"))
         result.append(build_point_response(d, is_owner=is_owner_flag))
     return result
 
