@@ -171,31 +171,10 @@ export function SpotYouCard({
         </View>
 
         <View style={{ flex: 1 }}>
-          {/* Titre + badge type OU bouton Rejoindre/Quitter */}
+          {/* Titre + badge type + bouton Rejoindre/Quitter */}
           <View style={sc.titleRow}>
             <Text style={sc.cardTitle} numberOfLines={2}>{item.title || 'Sans titre'}</Text>
-            {onToggleJoin ? (
-              <TouchableOpacity
-                style={[sc.joinChip, isMember && sc.leaveChip]}
-                onPress={() => onToggleJoin(item)}
-                disabled={joiningId === item.point_id}
-                testID={`join-btn-${item.point_id}`}
-              >
-                {joiningId === item.point_id
-                  ? <ActivityIndicator size="small" color={isMember ? '#EF4444' : Colors.background} style={{ width: 10, height: 10 }} />
-                  : <>
-                      <Ionicons
-                        name={isMember ? 'exit-outline' : 'person-add-outline'}
-                        size={11}
-                        color={isMember ? '#EF4444' : Colors.background}
-                      />
-                      <Text style={[sc.joinChipText, isMember && sc.leaveChipText]}>
-                        {isMember ? 'Quitter' : 'Rejoindre'}
-                      </Text>
-                    </>
-                }
-              </TouchableOpacity>
-            ) : (
+            <View style={{ alignItems: 'flex-end', gap: 4 }}>
               <View style={[sc.typeBadge, isRecurring ? sc.typeBadgeRecurring : sc.typeBadgeOnce]}>
                 <Ionicons
                   name={isRecurring ? 'repeat' : 'calendar-outline'}
@@ -206,7 +185,29 @@ export function SpotYouCard({
                   {isRecurring ? 'Récurrent' : 'Unique'}
                 </Text>
               </View>
-            )}
+              {onToggleJoin && (
+                <TouchableOpacity
+                  style={[sc.joinChip, isMember && sc.leaveChip]}
+                  onPress={() => onToggleJoin(item)}
+                  disabled={joiningId === item.point_id}
+                  testID={`join-btn-${item.point_id}`}
+                >
+                  {joiningId === item.point_id
+                    ? <ActivityIndicator size="small" color={isMember ? '#EF4444' : Colors.background} style={{ width: 10, height: 10 }} />
+                    : <>
+                        <Ionicons
+                          name={isMember ? 'exit-outline' : 'person-add-outline'}
+                          size={11}
+                          color={isMember ? '#EF4444' : Colors.background}
+                        />
+                        <Text style={[sc.joinChipText, isMember && sc.leaveChipText]}>
+                          {isMember ? 'Quitter' : 'Rejoindre'}
+                        </Text>
+                      </>
+                  }
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
 
           {/* Note */}
