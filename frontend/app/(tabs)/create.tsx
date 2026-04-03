@@ -574,7 +574,7 @@ export default function CreateSpotYouScreen() {
           <Ionicons name={step === 0 ? 'close' : 'chevron-back'} size={24} color={Colors.foreground} />
         </TouchableOpacity>
         <View style={st.headerCenter}>
-          <Text style={st.headerTitle}>{isEditMode ? 'Modifier le SpotYou' : (step < 4 ? STEPS[step].title : 'Aperçu')}</Text>
+          <Text style={st.headerTitle}>{isEditMode ? 'Modifier le SpotYou' : (step < 5 ? STEPS[step].title : 'Aperçu')}</Text>
           {step < 5 && <Text style={st.headerSub}>Étape {step + 1} / 5</Text>}
         </View>
         <TouchableOpacity onPress={resetForm} style={st.headerSideBtn} testID="reset-btn">
@@ -662,7 +662,7 @@ export default function CreateSpotYouScreen() {
             disabled={!canProceed}
             testID="next-btn"
           >
-            <Text style={st.nextBtnText}>{step === 3 ? 'Aperçu' : 'Suivant'}</Text>
+            <Text style={st.nextBtnText}>{step === 4 ? 'Aperçu' : 'Suivant'}</Text>
             <Ionicons name="arrow-forward" size={18} color={Colors.background} />
           </TouchableOpacity>
         ) : (

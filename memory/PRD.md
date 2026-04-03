@@ -39,6 +39,17 @@ Implémenter une stratégie de rétention et réactivation avancée (Soft Delete
 
 ## Implémenté ✅
 
+### Phase 1 — Règles SpotYou (2026-04-03)
+- **Migration 014** : +`visibility_type`, `join_mode`, `invite_permissions`, `max_community_members` dans `tag_points` ; +`status`, `requested_by`, `approved_by` dans `spot_you_members`
+- **Backend** : endpoint `join` avec logique complète (public→direct, private+admin_approval→pending, private+members_approval→pending+notif membres)
+- **Backend** : `GET /tag-points/{id}/join-requests`, `POST .../members/{uid}/approve`, `POST .../members/{uid}/reject`
+- **Backend** : `GET /users/me/pending-requests` (SpotYous où l'utilisateur a une demande en attente)
+- **Frontend** : Step 5 "Accès" dans `create.tsx` + composant `StepAcces.tsx`
+- **Frontend** : Section "En attente de validation" dans l'onglet Communautés (`spot-me.tsx`)
+- **Tests e2e** : 6 tests (R1→R8) + 15 tests additionnels, tous passent ✅
+- **Notifications push** : join_request → notif admin/membres ; approved/rejected → notif requester
+
+
 ### Phase 5 — Workers purge (session précédente)
 - ExpiryWorker, SpotYouNotifWorker, AdminPurgeWorker
 
