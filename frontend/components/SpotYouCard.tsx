@@ -181,7 +181,7 @@ export function SpotYouCard({
           )}
         </View>
 
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, justifyContent: 'space-between' }}>
           {/* Titre + badge type */}
           <View style={sc.titleRow}>
             <Text style={[sc.cardTitle, isDeactivated && sc.cardTitleDeactivated]} numberOfLines={1} ellipsizeMode="tail">{item.title || 'Sans titre'}</Text>
@@ -197,20 +197,22 @@ export function SpotYouCard({
             </View>
           </View>
 
-          {/* Note */}
-          {votes > 0 && (
-            <View style={sc.ratingRow}>
-              {[1, 2, 3, 4, 5].map(i => (
-                <Ionicons
-                  key={i}
-                  name={i <= Math.round(rating) ? 'star' : 'star-outline'}
-                  size={12}
-                  color={i <= Math.round(rating) ? Colors.star : Colors.muted}
-                />
-              ))}
-              <Text style={sc.ratingText}>{rating.toFixed(1)} ({votes})</Text>
-            </View>
-          )}
+          {/* Note — espace toujours réservé (minHeight), contenu affiché si votes > 0 */}
+          <View style={[sc.ratingRow, { minHeight: 18 }]}>
+            {votes > 0 && (
+              <>
+                {[1, 2, 3, 4, 5].map(i => (
+                  <Ionicons
+                    key={i}
+                    name={i <= Math.round(rating) ? 'star' : 'star-outline'}
+                    size={12}
+                    color={i <= Math.round(rating) ? Colors.star : Colors.muted}
+                  />
+                ))}
+                <Text style={sc.ratingText}>{rating.toFixed(1)} ({votes})</Text>
+              </>
+            )}
+          </View>
 
           {/* Badges : visibilité + membres + distance + rejoindre/quitter */}
           <View style={sc.metaBadgesRow}>
