@@ -6,6 +6,7 @@ import { storage } from '../lib/storage';
 import { api } from '../lib/api';
 import { setLang, Lang } from '../lib/i18n';
 import { isOfflineOrTimeout } from '../lib/network-error';
+import { removeTokenFromServer } from '../lib/push-notifications';
 
 interface User {
   user_id: string;
@@ -194,6 +195,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [processGoogleCallback]);
 
   const logout = async () => {
+    // Supprimer le push token du backend pour ne plus recevoir les notifs de cet ancien compte
+    try {
+      const pushToken = await storage.get('spotu_push_token');
+      if (pushToken) {
+        await removeTokenFromServer(pushToken);
+        await storage.remove('spotu_push_token');
+      }
+    } catch {}
     await storage.remove('spotu_token');
     await storage.remove('spotu_user');
     setToken(null);

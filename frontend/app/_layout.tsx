@@ -49,9 +49,13 @@ function NavigationGuard() {
       registerForPushNotificationsAsync().then((token) => {
         if (token) {
           pushTokenRef.current = token;
+          storage.set('spotu_push_token', token).catch(() => {});
           saveTokenToServer(token);
         }
       });
+    } else if (!user) {
+      // Réinitialiser la ref pour que le prochain compte puisse s'enregistrer
+      pushTokenRef.current = null;
     }
     const cleanup = setupNotificationResponseHandler();
     return cleanup;
