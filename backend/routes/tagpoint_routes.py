@@ -867,8 +867,8 @@ async def get_my_events(request: Request):
                 FROM tag_points tp
                 JOIN spot_you_members m ON tp.point_id = m.spot_you_id
                 LEFT JOIN users u ON tp.user_id = u.user_id
-                WHERE m.user_id = $1 AND tp.active = TRUE
-                ORDER BY sort_date DESC""",
+                WHERE m.user_id = $1
+                ORDER BY tp.active DESC, sort_date DESC""",
             user["user_id"]
         )
     result = []

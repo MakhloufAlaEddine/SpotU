@@ -182,25 +182,43 @@ export default function MySpotYouScreen() {
       return;
     }
     const alreadyMember = joined.some(j => j.point_id === item.point_id);
+    const isItemDeactivated = item.active === false;
     if (alreadyMember) {
-      setConfirmAction({
-        title: 'Quitter cette communauté ?',
-        description: `Vous quitterez «${item.title}» et vos participations futures seront annulées.`,
-        icon: 'exit-outline',
-        iconColor: '#EF4444',
-        iconBg: '#FEF2F2',
-        confirmLabel: 'Quitter la communauté',
-        confirmStyle: 'danger',
-        cancelLabel: 'Rester membre',
-        bullets: [
-          'Vos participations futures seront annulées',
-          'Vous pourrez rejoindre à nouveau plus tard',
-        ],
-      });
+      if (isItemDeactivated) {
+        setConfirmAction({
+          title: 'Quitter cette communauté désactivée ?',
+          description: `«${item.title}» est désactivé par son créateur. En quittant, vous perdrez votre place de membre.`,
+          icon: 'exit-outline',
+          iconColor: '#F59E0B',
+          iconBg: '#FFFBEB',
+          confirmLabel: 'Quitter quand même',
+          confirmStyle: 'danger',
+          cancelLabel: 'Rester membre',
+          bullets: [
+            'Le SpotYou est désactivé — aucune séance active',
+            'Vous ne pourrez pas le rejoindre à nouveau si réactivé',
+          ],
+        });
+      } else {
+        setConfirmAction({
+          title: 'Quitter cette communauté ?',
+          description: `Vous quitterez «${item.title}» et vos participations futures seront annulées.`,
+          icon: 'exit-outline',
+          iconColor: '#EF4444',
+          iconBg: '#FEF2F2',
+          confirmLabel: 'Quitter la communauté',
+          confirmStyle: 'danger',
+          cancelLabel: 'Rester membre',
+          bullets: [
+            'Vos participations futures seront annulées',
+            'Vous pourrez rejoindre à nouveau plus tard',
+          ],
+        });
+      }
       setPendingCallback(() => async () => {
         setJoiningId(item.point_id);
         try {
-          await api.delete(`/spot-you/${item.point_id}/leave`);
+          await api.delete(`/tag-points/${item.point_id}/leave`);
           setJoined(prev => prev.filter(j => j.point_id !== item.point_id));
         } catch (e: any) {
           Alert.alert('Erreur', e.message || 'Une erreur est survenue');
@@ -211,7 +229,7 @@ export default function MySpotYouScreen() {
       setConfirmVisible(true);
     } else {
       setJoiningId(item.point_id);
-      api.post(`/spot-you/${item.point_id}/join`, {})
+      api.post(`/tag-points/${item.point_id}/join`, {})
         .then((res: any) => {
           setJoined(prev => [...prev, {
             ...item,
@@ -456,18 +474,19 @@ export default function MySpotYouScreen() {
           renderItem={({ item }) => (
             <SpotYouCard
               item={item}
-              onNavigate={id => router.push(`/spot-you/${id}` as any)}
+              onNavigate={item.active !== false ? (id => router.push(`/spot-you/${id}` as any)) : () => {}}
               onToggleGoing={toggleGoing}
               togglingId={togglingId}
-              onViewMembers={openMembersModal}
+              onViewMembers={item.active !== false ? openMembersModal : undefined}
               testID={`community-card-${item.point_id}`}
-              isLive
+              isLive={item.active !== false}
               userLat={location.lat}
               userLng={location.lng}
               onToggleJoin={toggleJoin}
               joiningId={joiningId}
               isMember={true}
               isOwner={false}
+              isDeactivated={item.active === false}
             />
           )}
           ListEmptyComponent={

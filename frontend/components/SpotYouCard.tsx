@@ -96,6 +96,8 @@ export interface SpotYouCardProps {
   joiningId?: string | null;
   isMember?: boolean;
   isOwner?: boolean;
+  /** SpotYou désactivé — non cliquable, bouton Je participe grisé, seul Quitter actif */
+  isDeactivated?: boolean;
 }
 
 export function SpotYouCard({
@@ -113,6 +115,7 @@ export function SpotYouCard({
   joiningId,
   isMember = false,
   isOwner = true,
+  isDeactivated = false,
 }: SpotYouCardProps) {
   const isRecurring = !!item.event_schedule;
   const past = isPastDate(item.event_date, item.event_schedule);
@@ -145,11 +148,19 @@ export function SpotYouCard({
 
   return (
     <TouchableOpacity
-      style={sc.card}
-      onPress={() => onNavigate(item.point_id)}
-      activeOpacity={0.9}
+      style={[sc.card, isDeactivated && sc.cardDeactivated]}
+      onPress={isDeactivated ? undefined : () => onNavigate(item.point_id)}
+      activeOpacity={isDeactivated ? 1 : 0.9}
       testID={testID || `spot-card-${item.point_id}`}
     >
+      {/* Badge Désactivé — overlay haut-gauche */}
+      {isDeactivated && (
+        <View style={sc.deactivatedTopBar}>
+          <Ionicons name="pause-circle" size={12} color="#F59E0B" />
+          <Text style={sc.deactivatedBadgeText}>Ce SpotYou a été désactivé</Text>
+        </View>
+      )}
+
       {/* Header: image + titre + badge */}
       <View style={sc.cardHeader}>
         {headerAction && (
@@ -160,11 +171,11 @@ export function SpotYouCard({
             <TagImage
               uri={item.images[0]}
               domainId={item.domain_id}
-              style={sc.thumb}
+              style={[sc.thumb, isDeactivated && sc.thumbDeactivated]}
               iconSize={24}
             />
           ) : (
-            <View style={[sc.thumb, sc.thumbPlaceholder]}>
+            <View style={[sc.thumb, sc.thumbPlaceholder, isDeactivated && sc.thumbDeactivated]}>
               <Ionicons name={DOMAIN_ICONS[item.domain_id] || 'location-outline'} size={24} color={Colors.muted} />
             </View>
           )}
@@ -173,7 +184,7 @@ export function SpotYouCard({
         <View style={{ flex: 1 }}>
           {/* Titre + badge type */}
           <View style={sc.titleRow}>
-            <Text style={sc.cardTitle} numberOfLines={2}>{item.title || 'Sans titre'}</Text>
+            <Text style={[sc.cardTitle, isDeactivated && sc.cardTitleDeactivated]} numberOfLines={2}>{item.title || 'Sans titre'}</Text>
             <View style={[sc.typeBadge, isRecurring ? sc.typeBadgeRecurring : sc.typeBadgeOnce]}>
               <Ionicons
                 name={isRecurring ? 'repeat' : 'calendar-outline'}
@@ -210,15 +221,16 @@ export function SpotYouCard({
               </View>
             )}
             <TouchableOpacity
-              style={[sc.membersChip, isLive && sc.membersChipLive]}
-              onPress={handleViewMembers}
+              style={[sc.membersChip, isLive && !isDeactivated && sc.membersChipLive]}
+              onPress={isDeactivated ? undefined : handleViewMembers}
+              disabled={isDeactivated}
               testID={`members-chip-${item.point_id}`}
             >
-              {isLive ? <PulseDot /> : <Ionicons name="people-outline" size={11} color={Colors.primary} />}
-              <Text style={sc.membersChipText}>
+              {isLive && !isDeactivated ? <PulseDot /> : <Ionicons name="people-outline" size={11} color={isDeactivated ? Colors.muted : Colors.primary} />}
+              <Text style={[sc.membersChipText, isDeactivated && { color: Colors.muted }]}>
                 {Math.max(item.participants_count || 0, 1)} membre{Math.max(item.participants_count || 0, 1) > 1 ? 's' : ''}
               </Text>
-              <Ionicons name="chevron-forward" size={10} color={Colors.primary} />
+              {!isDeactivated && <Ionicons name="chevron-forward" size={10} color={Colors.primary} />}
             </TouchableOpacity>
             {dist ? (
               <View style={sc.distChip}>
@@ -254,27 +266,27 @@ export function SpotYouCard({
 
       {/* Section événement — prochaine date + bouton */}
       {(nextLabel || past) && (
-        <View style={sc.eventSection}>
+        <View style={[sc.eventSection, isDeactivated && sc.eventSectionDeactivated]}>
           <View style={sc.eventDateRow}>
-            <View style={[sc.eventIconBox, past && { backgroundColor: Colors.border + '40' }]}>
+            <View style={[sc.eventIconBox, (past || isDeactivated) && { backgroundColor: Colors.border + '40' }]}>
               <Ionicons
                 name={isRecurring ? 'repeat' : 'calendar'}
                 size={15}
-                color={past ? Colors.muted : Colors.primary}
+                color={(past || isDeactivated) ? Colors.muted : Colors.primary}
               />
             </View>
             <View style={{ flex: 1 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                <Text style={[sc.eventLabel, past && { color: Colors.muted }]}>
+                <Text style={[sc.eventLabel, (past || isDeactivated) && { color: Colors.muted }]}>
                   {past ? 'Événement passé' : 'Prochain événement'}
                 </Text>
-                {isRecurring && !past && (
+                {isRecurring && !past && !isDeactivated && (
                   <View style={sc.recurBadge}>
                     <Text style={sc.recurBadgeText}>Récurrent</Text>
                   </View>
                 )}
               </View>
-              <Text style={[sc.eventDate, past && { color: Colors.muted }]}>{nextLabel}</Text>
+              <Text style={[sc.eventDate, (past || isDeactivated) && { color: Colors.muted }]}>{nextLabel}</Text>
             </View>
           </View>
 
@@ -287,42 +299,50 @@ export function SpotYouCard({
             </View>
           ) : canParticipate ? (
             <View style={sc.actionBar}>
-              <View style={[sc.participantChip, isLive && sc.participantChipLive]}>
-                {isLive ? <PulseDot /> : <Ionicons name="people-outline" size={13} color={Colors.primary} />}
-                <Text style={sc.participantChipText}>
+              <View style={[sc.participantChip, isLive && !isDeactivated && sc.participantChipLive]}>
+                {isLive && !isDeactivated ? <PulseDot /> : <Ionicons name="people-outline" size={13} color={isDeactivated ? Colors.muted : Colors.primary} />}
+                <Text style={[sc.participantChipText, isDeactivated && { color: Colors.muted }]}>
                   {goingCount} participant{goingCount > 1 ? 's' : ''}{maxP ? ` / ${maxP}` : ''}
                 </Text>
               </View>
 
-              <TouchableOpacity
-                style={[
-                  sc.goingBtn,
-                  isGoing && sc.goingBtnActive,
-                  (isFull && !isGoing) && sc.goingBtnFull,
-                ]}
-                onPress={() => (!isFull || isGoing) ? onToggleGoing(item) : null}
-                disabled={isLoading || (isFull && !isGoing)}
-                testID={`going-btn-${item.point_id}`}
-              >
-                {isLoading
-                  ? <ActivityIndicator size="small" color={isGoing ? Colors.muted : Colors.background} />
-                  : (isFull && !isGoing)
-                    ? <>
-                        <Ionicons name="flash" size={12} color="#F59E0B" />
-                        <Text style={[sc.goingBtnText, { color: '#F59E0B' }]}>Complet</Text>
-                      </>
-                    : <>
-                        <Ionicons
-                          name={isGoing ? 'close-circle-outline' : 'add-circle-outline'}
-                          size={12}
-                          color={isGoing ? Colors.muted : Colors.background}
-                        />
-                        <Text style={[sc.goingBtnText, isGoing && sc.goingBtnCancelText]}>
-                          {isGoing ? 'Annuler' : 'Je participe'}
-                        </Text>
-                      </>
-                }
-              </TouchableOpacity>
+              {/* Bouton Je participe — grisé si désactivé */}
+              {isDeactivated ? (
+                <View style={sc.goingBtnDisabled} testID={`going-btn-disabled-${item.point_id}`}>
+                  <Ionicons name="add-circle-outline" size={12} color={Colors.muted} />
+                  <Text style={sc.goingBtnDisabledText}>Je participe</Text>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={[
+                    sc.goingBtn,
+                    isGoing && sc.goingBtnActive,
+                    (isFull && !isGoing) && sc.goingBtnFull,
+                  ]}
+                  onPress={() => (!isFull || isGoing) ? onToggleGoing(item) : null}
+                  disabled={isLoading || (isFull && !isGoing)}
+                  testID={`going-btn-${item.point_id}`}
+                >
+                  {isLoading
+                    ? <ActivityIndicator size="small" color={isGoing ? Colors.muted : Colors.background} />
+                    : (isFull && !isGoing)
+                      ? <>
+                          <Ionicons name="flash" size={12} color="#F59E0B" />
+                          <Text style={[sc.goingBtnText, { color: '#F59E0B' }]}>Complet</Text>
+                        </>
+                      : <>
+                          <Ionicons
+                            name={isGoing ? 'close-circle-outline' : 'add-circle-outline'}
+                            size={12}
+                            color={isGoing ? Colors.muted : Colors.background}
+                          />
+                          <Text style={[sc.goingBtnText, isGoing && sc.goingBtnCancelText]}>
+                            {isGoing ? 'Annuler' : 'Je participe'}
+                          </Text>
+                        </>
+                  }
+                </TouchableOpacity>
+              )}
             </View>
           ) : null}
         </View>
@@ -341,6 +361,36 @@ export const sc = StyleSheet.create({
     borderColor: Colors.border,
     overflow: 'hidden',
   },
+  // ── Désactivé — style différent ─────────────────────────────────────────
+  cardDeactivated: {
+    borderColor: '#F59E0B80',
+    borderWidth: 1.5,
+  },
+  cardTitleDeactivated: { color: Colors.muted },
+  thumbDeactivated: { opacity: 0.7 },
+  eventSectionDeactivated: { borderTopColor: '#F59E0B30' },
+  // Barre "Désactivé" en haut de la carte
+  deactivatedTopBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#F59E0B15',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F59E0B40',
+  },
+  deactivatedBadgeText: { fontSize: 11, fontWeight: '600', color: '#F59E0B', flex: 1 },
+  // Bouton Je participe grisé
+  goingBtnDisabled: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: Colors.cardElevated,
+    paddingHorizontal: 12, paddingVertical: 6,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  goingBtnDisabledText: { fontSize: 12, fontWeight: '700', color: Colors.muted },
   headerActionOverlay: {
     position: 'absolute',
     top: 8,
