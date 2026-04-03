@@ -196,7 +196,7 @@ export default function MySpotYouScreen() {
           cancelLabel: 'Rester membre',
           bullets: [
             'Le SpotYou est désactivé — aucune séance active',
-            'Vous ne pourrez pas le rejoindre à nouveau si réactivé',
+            'Vous pouvez rejoindre à nouveau ce SpotYou s\'il est réactivé',
           ],
         });
       } else {
