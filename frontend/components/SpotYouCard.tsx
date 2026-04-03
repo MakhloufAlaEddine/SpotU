@@ -184,7 +184,7 @@ export function SpotYouCard({
         <View style={{ flex: 1 }}>
           {/* Titre + badge type */}
           <View style={sc.titleRow}>
-            <Text style={[sc.cardTitle, isDeactivated && sc.cardTitleDeactivated]} numberOfLines={2}>{item.title || 'Sans titre'}</Text>
+            <Text style={[sc.cardTitle, isDeactivated && sc.cardTitleDeactivated]} numberOfLines={1} ellipsizeMode="tail">{item.title || 'Sans titre'}</Text>
             <View style={[sc.typeBadge, isRecurring ? sc.typeBadgeRecurring : sc.typeBadgeOnce]}>
               <Ionicons
                 name={isRecurring ? 'repeat' : 'calendar-outline'}
