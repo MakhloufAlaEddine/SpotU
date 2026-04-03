@@ -398,8 +398,29 @@ async def reactivate_tag_point(point_id: str, request: Request):
             point_id
         )
 
+        # Récupérer les membres à notifier (hors owner)
+        members = await conn.fetch(
+            "SELECT user_id FROM spot_you_members WHERE spot_you_id=$1 AND user_id != $2",
+            point_id, caller["user_id"]
+        )
+
+    title_str = (tp["title"] or "SpotYou")[:50]
+    from push_service import send_push_to_user
+    import asyncio
+    for m in members:
+        asyncio.create_task(send_push_to_user(
+            pool,
+            user_id=m["user_id"],
+            title="SpotYou réactivé 🎉",
+            body=f'«{title_str}» est de retour ! Rejoignez les prochaines séances.',
+            data={
+                "type": "spotyu_reactivated", "point_id": point_id,
+            },
+            notif_type="spotyu_reactivated"
+        ))
+
     media_purged = tp["media_purged"]
-    logger.info("[REACTIVATE] SpotYou %s réactivé par %s (médias_purgés=%s)", point_id, caller["user_id"], media_purged)
+    logger.info("[REACTIVATE] SpotYou %s réactivé par %s (médias_purgés=%s, membres notifiés: %d)", point_id, caller["user_id"], media_purged, len(members))
     return {
         "success":               True,
         "reactivated":           True,
