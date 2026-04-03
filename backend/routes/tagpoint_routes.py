@@ -872,6 +872,7 @@ async def get_my_events(request: Request):
             user["user_id"]
         )
     result = []
+    from routes.spot_you_routes import get_next_session_date as _get_next
     for row in rows:
         d = row_to_dict(row)
         d["joined_at"] = str(d.get("joined_at")) if d.get("joined_at") else None
@@ -879,7 +880,12 @@ async def get_my_events(request: Request):
         is_owner_flag = str(d.get("user_id", "")) == str(user["user_id"])
         # Les membres peuvent participer aux séances si le SpotYou a des événements
         d["can_participate"] = bool(d.get("event_schedule") or d.get("event_date"))
-        result.append(build_point_response(d, is_owner=is_owner_flag))
+        pt = build_point_response(d, is_owner=is_owner_flag)
+        # Calcul de la prochaine séance (même logique que /tag-points/mine)
+        if d.get("event_schedule"):
+            nd = _get_next(d)
+            pt["next_session_date"] = nd.isoformat() if nd else None
+        result.append(pt)
     return result
 
 
