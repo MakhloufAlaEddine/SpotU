@@ -320,7 +320,7 @@ async def delete_tag_point(point_id: str, request: Request):
         asyncio.create_task(send_push_to_user(
             pool, m["user_id"],
             title="SpotYou désactivé",
-            body=f'"{title_str}" a été désactivé par son créateur.',
+            body=f'"{title_str}" a été désactivé. Vous pouvez encore quitter cette communauté depuis votre onglet Communautés.',
             data={
                 "type": "spotyu_deactivated", "point_id": point_id,
                 "sender_id": caller["user_id"],
