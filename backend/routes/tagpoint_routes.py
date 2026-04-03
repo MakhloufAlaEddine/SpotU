@@ -723,12 +723,13 @@ async def leave_tag_point(point_id: str, request: Request):
     from push_service import send_push_to_user
     import asyncio
     async with pool.acquire() as conn:
+        # On autorise le leave même si le SpotYou est désactivé (active = FALSE)
         tp = await conn.fetchrow(
-            "SELECT user_id, title, images FROM tag_points WHERE point_id = $1 AND active = TRUE",
+            "SELECT user_id, title, images FROM tag_points WHERE point_id = $1",
             point_id
         )
         if not tp:
-            raise HTTPException(status_code=404, detail="SpotYou non disponible")
+            raise HTTPException(status_code=404, detail="SpotYou introuvable")
         await conn.execute(
             "DELETE FROM spot_you_members WHERE spot_you_id=$1 AND user_id=$2",
             point_id, user["user_id"]
