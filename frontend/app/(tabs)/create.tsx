@@ -11,6 +11,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system';
 import { StepLocalisation } from '../../components/StepLocalisation';
+import { StepAcces } from '../../components/StepAcces';
 import { MapViewComponent } from '../../components/MapViewComponent';
 import { MapPreview } from '../../components/MapPreview';
 import { TagImage } from '../../components/TagImage';
@@ -74,6 +75,13 @@ const STEPS = [
     tip: 'Les SpotYou récurrents fidélisent davantage de participants sur la durée. Configurez un créneau régulier pour créer une communauté.',
     tipIcon: 'trending-up-outline' as const,
   },
+  {
+    id: 5, title: 'Accès',
+    subtitle: 'Visibilité & Admission',
+    icon: 'lock-closed-outline' as const,
+    tip: 'Choisissez qui peut rejoindre votre communauté. Un SpotYou public favorise la croissance ; le mode privé permet de filtrer les membres.',
+    tipIcon: 'people-outline' as const,
+  },
 ];
 
 // ─── Quality score ──────────────────────────────────────────────────────────────
@@ -110,7 +118,7 @@ export default function CreateSpotYouScreen() {
   const isEditMode = params.editMode === 'true';
 
   // Step state
-  const [step, setStep] = useState(0); // 0-3 = steps, 4 = preview
+  const [step, setStep] = useState(0); // 0-4 = steps, 5 = preview
   const progressAnim = useRef(new Animated.Value(0)).current;
 
   // Form state
@@ -144,6 +152,10 @@ export default function CreateSpotYouScreen() {
   // Capacité
   const [minParticipants, setMinParticipants] = useState<string>('');
   const [maxParticipants, setMaxParticipants] = useState<string>('');
+  // ── Accès & Communauté (Step 5) ─────────────────────────────────────────
+  const [visibilityType, setVisibilityType] = useState<'public' | 'private'>('public');
+  const [joinMode, setJoinMode] = useState<'open' | 'admin_approval' | 'members_approval'>('open');
+  const [invitePermissions, setInvitePermissions] = useState<'admin_only' | 'members_only' | 'admin_and_members'>('admin_only');
   // Full preview modal (at root level to avoid ScrollView clipping)
   const [showFullPreview, setShowFullPreview] = useState(false);
 
@@ -376,7 +388,7 @@ export default function CreateSpotYouScreen() {
         }
       }
     }
-    if (step < 4) setStep(s => s + 1);
+    if (step < 5) setStep(s => s + 1);
   };
   const goPrev = () => { if (step > 0) setStep(s => s - 1); };
 
@@ -442,6 +454,9 @@ export default function CreateSpotYouScreen() {
           : null,
         minimum_participants: minP,
         maximum_participants: maxP,
+        visibility_type: visibilityType,
+        join_mode: visibilityType === 'private' ? joinMode : 'open',
+        invite_permissions: invitePermissions,
       };
 
       const result = isEditMode && params.pointId
@@ -520,6 +535,13 @@ export default function CreateSpotYouScreen() {
         />
       );
       case 4: return (
+        <StepAcces
+          visibilityType={visibilityType} setVisibilityType={setVisibilityType}
+          joinMode={joinMode} setJoinMode={setJoinMode}
+          invitePermissions={invitePermissions} setInvitePermissions={setInvitePermissions}
+        />
+      );
+      case 5: return (
         <StepPreview
           title={title} description={description} images={images}
           selectedTags={selectedTags} locationAddress={locationAddress}
@@ -533,7 +555,7 @@ export default function CreateSpotYouScreen() {
     }
   };
 
-  const isLastStep = step === 4;
+  const isLastStep = step === 5;
   const canProceed = step === 0 ? title.trim().length > 0 : true;
 
   return (
@@ -553,7 +575,7 @@ export default function CreateSpotYouScreen() {
         </TouchableOpacity>
         <View style={st.headerCenter}>
           <Text style={st.headerTitle}>{isEditMode ? 'Modifier le SpotYou' : (step < 4 ? STEPS[step].title : 'Aperçu')}</Text>
-          {step < 4 && <Text style={st.headerSub}>Étape {step + 1} / 4</Text>}
+          {step < 5 && <Text style={st.headerSub}>Étape {step + 1} / 5</Text>}
         </View>
         <TouchableOpacity onPress={resetForm} style={st.headerSideBtn} testID="reset-btn">
           <Ionicons name="trash-outline" size={20} color={Colors.muted} />

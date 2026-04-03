@@ -33,12 +33,13 @@ TP_FIELDS = """
     tp.precision, tp.tag_ids, tp.domain_id, tp.active, tp.cancelled, tp.expires_at, tp.created_at, tp.updated_at,
     tp.image_url, tp.images, tp.schedule, tp.event_date, tp.event_end_date, tp.event_schedule, tp.new_date_coming,
     tp.minimum_participants, tp.maximum_participants, tp.address, tp.media_purge_scheduled_at,
+    tp.visibility_type, tp.join_mode, tp.invite_permissions, tp.max_community_members,
     ST_Y(tp.location::geometry) as latitude,
     ST_X(tp.location::geometry) as longitude,
     u.name as owner_name, u.picture as owner_picture, u.role as owner_role,
     COALESCE((SELECT ROUND(AVG(v.rating)::numeric, 1) FROM tag_point_votes v WHERE v.point_id = tp.point_id), 0) as rating,
     COALESCE((SELECT COUNT(*) FROM tag_point_votes v WHERE v.point_id = tp.point_id), 0) as vote_count,
-    COALESCE((SELECT COUNT(*) FROM spot_you_members WHERE spot_you_id = tp.point_id), 0) as participants_count
+    COALESCE((SELECT COUNT(*) FROM spot_you_members WHERE spot_you_id = tp.point_id AND status = 'accepted'), 0) as participants_count
 """
 
 TP_FIELDS_SIMPLE = """
@@ -679,41 +680,271 @@ async def unsave_tag_point(point_id: str, request: Request):
 
 @router.post("/tag-points/{point_id}/join")
 async def join_tag_point(point_id: str, request: Request):
+    """
+    Rejoindre un SpotYou.
+    Règles métier :
+    - public  + open              → membre direct (status=accepted)
+    - private + open              → membre direct (status=accepted)
+    - private + admin_approval    → status=pending, notif admin
+    - private + members_approval  → status=pending, notif tous membres + admin
+    """
     pool = get_pool()
     user = await require_auth(request, pool)
     from push_service import send_push_to_user
     import asyncio
     pid = new_id("part")
+
     async with pool.acquire() as conn:
         tp = await conn.fetchrow(
-            "SELECT user_id, title, images FROM tag_points WHERE point_id = $1 AND active = TRUE",
+            """SELECT user_id, title, images, visibility_type, join_mode, max_community_members
+               FROM tag_points WHERE point_id = $1 AND active = TRUE""",
             point_id
         )
         if not tp:
             raise HTTPException(status_code=404, detail="SpotYou non disponible")
-        await conn.execute(
-            "INSERT INTO spot_you_members (id, spot_you_id, user_id) VALUES ($1,$2,$3) ON CONFLICT (spot_you_id, user_id) DO NOTHING",
-            pid, point_id, user["user_id"]
+
+        owner_id = tp["user_id"]
+        if owner_id == user["user_id"]:
+            raise HTTPException(status_code=400, detail="Vous êtes déjà le créateur de ce SpotYou.")
+
+        # Vérifier si déjà membre ou demande en cours
+        existing = await conn.fetchrow(
+            "SELECT status FROM spot_you_members WHERE spot_you_id=$1 AND user_id=$2",
+            point_id, user["user_id"]
         )
-        count = await conn.fetchval("SELECT COUNT(*) FROM spot_you_members WHERE spot_you_id=$1", point_id)
-    # Notifier le propriétaire du SpotYou (sauf si c'est lui-même)
-    if tp and tp["user_id"] != user["user_id"]:
-        content_title = tp["title"] or "SpotYou"
-        asyncio.create_task(send_push_to_user(
-            pool, tp["user_id"],
-            title="Nouveau participant",
-            body=f'{user["name"]} a rejoint votre SpotYou «{content_title}»',
-            data={
-                "type": "spotyu_join", "point_id": point_id,
+        if existing:
+            if existing["status"] == "accepted":
+                return {"success": True, "status": "accepted", "participants_count":
+                        await conn.fetchval("SELECT COUNT(*) FROM spot_you_members WHERE spot_you_id=$1 AND status='accepted'", point_id),
+                        "is_participant": True}
+            if existing["status"] == "pending":
+                return {"success": True, "status": "pending", "is_participant": False,
+                        "message": "Votre demande est déjà en attente de validation."}
+
+        # Vérifier la capacité communauté
+        max_members = tp["max_community_members"]
+        if max_members:
+            current = await conn.fetchval(
+                "SELECT COUNT(*) FROM spot_you_members WHERE spot_you_id=$1 AND status='accepted'", point_id
+            )
+            if current >= max_members:
+                raise HTTPException(status_code=409, detail="Cette communauté a atteint sa capacité maximale.")
+
+        visibility = tp["visibility_type"] or "public"
+        join_mode  = tp["join_mode"] or "open"
+        needs_approval = (visibility == "private" and join_mode in ("admin_approval", "members_approval"))
+
+        if needs_approval:
+            # Insertion avec status=pending
+            await conn.execute(
+                """INSERT INTO spot_you_members (id, spot_you_id, user_id, status, requested_by)
+                   VALUES ($1, $2, $3, 'pending', $4)
+                   ON CONFLICT (spot_you_id, user_id) DO NOTHING""",
+                pid, point_id, user["user_id"], user["user_id"]
+            )
+
+            content_title = tp["title"] or "SpotYou"
+            sender_info = {
+                "type": "join_request", "point_id": point_id,
                 "sender_id": user["user_id"], "sender_name": user.get("name", ""),
                 "sender_picture": user.get("picture") or "",
-                "action_text": "a rejoint votre SpotYou",
+                "action_text": "souhaite rejoindre votre SpotYou",
                 "content_title": content_title,
                 "image_url": _first_image(tp["images"]),
-            },
+            }
+
+            if join_mode == "admin_approval":
+                # Notifier uniquement l'admin (owner)
+                asyncio.create_task(send_push_to_user(
+                    pool, owner_id,
+                    title="Nouvelle demande d'adhésion",
+                    body=f'{user["name"]} souhaite rejoindre «{content_title}»',
+                    data=sender_info, notif_type="join_request"
+                ))
+            else:  # members_approval
+                # Notifier tous les membres acceptés (y compris l'admin)
+                member_ids = await conn.fetch(
+                    "SELECT user_id FROM spot_you_members WHERE spot_you_id=$1 AND status='accepted' AND user_id != $2",
+                    point_id, user["user_id"]
+                )
+                for m in member_ids:
+                    asyncio.create_task(send_push_to_user(
+                        pool, m["user_id"],
+                        title="Nouvelle demande d'adhésion",
+                        body=f'{user["name"]} souhaite rejoindre «{content_title}»',
+                        data=sender_info, notif_type="join_request"
+                    ))
+
+            return {"success": True, "status": "pending", "is_participant": False,
+                    "message": "Votre demande a été envoyée. En attente de validation."}
+
+        # Adhésion directe (public ou private+open)
+        await conn.execute(
+            """INSERT INTO spot_you_members (id, spot_you_id, user_id, status, requested_by)
+               VALUES ($1, $2, $3, 'accepted', $4)
+               ON CONFLICT (spot_you_id, user_id) DO NOTHING""",
+            pid, point_id, user["user_id"], user["user_id"]
+        )
+        count = await conn.fetchval(
+            "SELECT COUNT(*) FROM spot_you_members WHERE spot_you_id=$1 AND status='accepted'", point_id
+        )
+
+    # Notifier le propriétaire
+    if owner_id != user["user_id"]:
+        content_title = tp["title"] or "SpotYou"
+        asyncio.create_task(send_push_to_user(
+            pool, owner_id,
+            title="Nouveau membre",
+            body=f'{user["name"]} a rejoint votre SpotYou «{content_title}»',
+            data={"type": "spotyu_join", "point_id": point_id,
+                  "sender_id": user["user_id"], "sender_name": user.get("name", ""),
+                  "sender_picture": user.get("picture") or "",
+                  "action_text": "a rejoint votre SpotYou",
+                  "content_title": content_title,
+                  "image_url": _first_image(tp["images"])},
             notif_type="spotyu_join"
         ))
-    return {"success": True, "participants_count": count, "is_participant": True}
+    return {"success": True, "status": "accepted", "participants_count": count, "is_participant": True}
+
+
+@router.get("/tag-points/{point_id}/join-requests")
+async def get_join_requests(point_id: str, request: Request):
+    """
+    Retourne les demandes en attente (pending).
+    Accessible : admin (owner) du SpotYou + membres acceptés si join_mode=members_approval.
+    """
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    async with pool.acquire() as conn:
+        tp = await conn.fetchrow(
+            "SELECT user_id, join_mode FROM tag_points WHERE point_id=$1 AND active=TRUE",
+            point_id
+        )
+        if not tp:
+            raise HTTPException(status_code=404, detail="SpotYou introuvable")
+
+        is_owner = tp["user_id"] == user["user_id"]
+        is_member = await conn.fetchval(
+            "SELECT EXISTS(SELECT 1 FROM spot_you_members WHERE spot_you_id=$1 AND user_id=$2 AND status='accepted')",
+            point_id, user["user_id"]
+        )
+        if not is_owner and not (is_member and tp["join_mode"] == "members_approval"):
+            raise HTTPException(status_code=403, detail="Accès refusé")
+
+        rows = await conn.fetch(
+            """SELECT m.user_id, m.joined_at, u.name, u.picture, u.role
+               FROM spot_you_members m
+               JOIN users u ON u.user_id = m.user_id
+               WHERE m.spot_you_id=$1 AND m.status='pending'
+               ORDER BY m.joined_at ASC""",
+            point_id
+        )
+        return [{"user_id": r["user_id"], "name": r["name"], "picture": r["picture"],
+                 "role": r["role"], "requested_at": r["joined_at"].isoformat() if r["joined_at"] else None}
+                for r in rows]
+
+
+@router.post("/tag-points/{point_id}/members/{member_id}/approve")
+async def approve_join_request(point_id: str, member_id: str, request: Request):
+    """
+    Approuver une demande en attente.
+    - admin_approval : seul l'owner peut approuver
+    - members_approval : owner OU n'importe quel membre accepté peut approuver
+    MVP : 1 acceptation suffit.
+    """
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    from push_service import send_push_to_user
+    import asyncio
+
+    async with pool.acquire() as conn:
+        tp = await conn.fetchrow(
+            "SELECT user_id, title, images, join_mode FROM tag_points WHERE point_id=$1 AND active=TRUE",
+            point_id
+        )
+        if not tp:
+            raise HTTPException(status_code=404, detail="SpotYou introuvable")
+
+        is_owner = tp["user_id"] == user["user_id"]
+        is_member = await conn.fetchval(
+            "SELECT EXISTS(SELECT 1 FROM spot_you_members WHERE spot_you_id=$1 AND user_id=$2 AND status='accepted')",
+            point_id, user["user_id"]
+        )
+
+        join_mode = tp["join_mode"] or "open"
+        if join_mode == "admin_approval" and not is_owner:
+            raise HTTPException(status_code=403, detail="Seul l'admin peut approuver cette demande.")
+        if join_mode == "members_approval" and not is_owner and not is_member:
+            raise HTTPException(status_code=403, detail="Seul un membre peut approuver cette demande.")
+
+        pending = await conn.fetchrow(
+            "SELECT id FROM spot_you_members WHERE spot_you_id=$1 AND user_id=$2 AND status='pending'",
+            point_id, member_id
+        )
+        if not pending:
+            raise HTTPException(status_code=404, detail="Demande introuvable ou déjà traitée.")
+
+        await conn.execute(
+            """UPDATE spot_you_members
+               SET status='accepted', approved_by=$1
+               WHERE spot_you_id=$2 AND user_id=$3 AND status='pending'""",
+            user["user_id"], point_id, member_id
+        )
+        count = await conn.fetchval(
+            "SELECT COUNT(*) FROM spot_you_members WHERE spot_you_id=$1 AND status='accepted'", point_id
+        )
+
+    # Notifier le demandeur
+    content_title = tp["title"] or "SpotYou"
+    asyncio.create_task(send_push_to_user(
+        pool, member_id,
+        title="Demande acceptée !",
+        body=f'Vous êtes maintenant membre de «{content_title}».',
+        data={"type": "join_approved", "point_id": point_id, "content_title": content_title,
+              "image_url": _first_image(tp["images"])},
+        notif_type="join_approved"
+    ))
+    return {"success": True, "participants_count": count}
+
+
+@router.post("/tag-points/{point_id}/members/{member_id}/reject")
+async def reject_join_request(point_id: str, member_id: str, request: Request):
+    """
+    Refuser une demande en attente. Seul l'admin (owner) peut refuser — prioritaire et définitif.
+    """
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    from push_service import send_push_to_user
+    import asyncio
+
+    async with pool.acquire() as conn:
+        tp = await conn.fetchrow(
+            "SELECT user_id, title, images FROM tag_points WHERE point_id=$1 AND active=TRUE",
+            point_id
+        )
+        if not tp:
+            raise HTTPException(status_code=404, detail="SpotYou introuvable")
+        if tp["user_id"] != user["user_id"] and user.get("role") != "admin":
+            raise HTTPException(status_code=403, detail="Seul l'admin peut refuser une demande.")
+
+        result = await conn.execute(
+            """UPDATE spot_you_members
+               SET status='rejected', approved_by=$1
+               WHERE spot_you_id=$2 AND user_id=$3 AND status='pending'""",
+            user["user_id"], point_id, member_id
+        )
+        if result == "UPDATE 0":
+            raise HTTPException(status_code=404, detail="Demande introuvable ou déjà traitée.")
+
+    content_title = tp["title"] or "SpotYou"
+    asyncio.create_task(send_push_to_user(
+        pool, member_id,
+        title="Demande refusée",
+        body=f'Votre demande pour rejoindre «{content_title}» n\'a pas été acceptée.',
+        data={"type": "join_rejected", "point_id": point_id, "content_title": content_title},
+        notif_type="join_rejected"
+    ))
+    return {"success": True}
 
 
 @router.delete("/tag-points/{point_id}/leave")
@@ -734,7 +965,7 @@ async def leave_tag_point(point_id: str, request: Request):
             "DELETE FROM spot_you_members WHERE spot_you_id=$1 AND user_id=$2",
             point_id, user["user_id"]
         )
-        count = await conn.fetchval("SELECT COUNT(*) FROM spot_you_members WHERE spot_you_id=$1", point_id)
+        count = await conn.fetchval("SELECT COUNT(*) FROM spot_you_members WHERE spot_you_id=$1 AND status='accepted'", point_id)
     # Notifier le propriétaire du SpotYou (sauf si c'est lui-même)
     if tp and tp["user_id"] != user["user_id"]:
         content_title = tp["title"] or "SpotYou"
@@ -757,7 +988,7 @@ async def leave_tag_point(point_id: str, request: Request):
 
 @router.get("/tag-points/{point_id}/participants")
 async def get_tag_point_participants(point_id: str):
-    """Retourne la liste des participants d'un SpotYou — le propriétaire est toujours inclus en premier."""
+    """Retourne la liste des membres acceptés d'un SpotYou."""
     pool = get_pool()
     async with pool.acquire() as conn:
         rows = await conn.fetch(
@@ -766,7 +997,7 @@ async def get_tag_point_participants(point_id: str):
                FROM spot_you_members m
                JOIN users u ON m.user_id = u.user_id
                JOIN tag_points tp ON tp.point_id = m.spot_you_id
-               WHERE m.spot_you_id = $1
+               WHERE m.spot_you_id = $1 AND m.status = 'accepted'
                ORDER BY (u.user_id = tp.user_id) DESC, m.joined_at ASC""",
             point_id
         )
@@ -775,6 +1006,31 @@ async def get_tag_point_participants(point_id: str):
             for r in rows
         ]
     return result
+
+
+@router.get("/users/me/pending-requests")
+async def get_my_pending_requests(request: Request):
+    """Retourne les SpotYous où l'utilisateur a une demande en attente (status=pending)."""
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            f"""SELECT {TP_FIELDS}, m.joined_at as requested_at
+                FROM tag_points tp
+                JOIN spot_you_members m ON tp.point_id = m.spot_you_id
+                LEFT JOIN users u ON tp.user_id = u.user_id
+                WHERE m.user_id = $1 AND m.status = 'pending' AND tp.active = TRUE
+                ORDER BY m.joined_at DESC""",
+            user["user_id"]
+        )
+        result = []
+        for row in rows:
+            d = row_to_dict(row)
+            d["requested_at"] = d.pop("requested_at", None)
+            pt = build_point_response(d, is_owner=False)
+            pt["join_status"] = "pending"
+            result.append(pt)
+        return result
 
 
 @router.get("/users/me/notifications")
@@ -862,12 +1118,12 @@ async def get_my_events(request: Request):
     user = await require_auth(request, pool)
     async with pool.acquire() as conn:
         rows = await conn.fetch(
-            f"""SELECT {TP_FIELDS}, m.joined_at,
+            f"""SELECT {TP_FIELDS}, m.joined_at, m.status as member_status,
                 COALESCE(tp.event_date, tp.created_at) as sort_date
                 FROM tag_points tp
                 JOIN spot_you_members m ON tp.point_id = m.spot_you_id
                 LEFT JOIN users u ON tp.user_id = u.user_id
-                WHERE m.user_id = $1
+                WHERE m.user_id = $1 AND m.status = 'accepted'
                 ORDER BY tp.active DESC, sort_date DESC""",
             user["user_id"]
         )
@@ -1273,17 +1529,20 @@ async def create_tag_point(data: TagPointCreate, request: Request):
         await conn.execute(
             """INSERT INTO tag_points
                (point_id, user_id, title, description, location, precision, tag_ids, domain_id, active, expires_at,
-                event_date, event_end_date, event_schedule, images, minimum_participants, maximum_participants, address)
-               VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($5, $6), 4326), $7, $8, $9, TRUE, $10, $11, $12, $13, $14, $15, $16, $17)""",
+                event_date, event_end_date, event_schedule, images, minimum_participants, maximum_participants, address,
+                visibility_type, join_mode, invite_permissions, max_community_members)
+               VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($5, $6), 4326), $7, $8, $9, TRUE, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)""",
             pid, user["user_id"], data.title, data.description,
             stored_lng, stored_lat,
             data.precision, data.tag_ids, data.domain_id, expires_at,
             data.event_date, data.event_end_date, event_schedule_val, data.images or [],
             min_p, max_p, data.address,
+            data.visibility_type or 'public', data.join_mode or 'open',
+            data.invite_permissions or 'admin_only', data.max_community_members,
         )
-        # Le créateur est automatiquement membre de son SpotYou
+        # Le créateur est automatiquement membre de son SpotYou (status=accepted)
         await conn.execute(
-            "INSERT INTO spot_you_members (id, spot_you_id, user_id) VALUES ($1,$2,$3) ON CONFLICT (spot_you_id, user_id) DO NOTHING",
+            "INSERT INTO spot_you_members (id, spot_you_id, user_id, status) VALUES ($1,$2,$3,'accepted') ON CONFLICT (spot_you_id, user_id) DO NOTHING",
             part_id, pid, user["user_id"]
         )
         row = await conn.fetchrow(f"SELECT {TP_FIELDS} FROM tag_points tp LEFT JOIN users u ON tp.user_id = u.user_id WHERE tp.point_id = $1", pid)
@@ -1325,6 +1584,7 @@ async def update_tag_point(point_id: str, data: TagPointUpdate, request: Request
             """SELECT user_id, title, cancelled,
                       description, precision, tag_ids, images, domain_id,
                       active, event_date, event_end_date, event_schedule,
+                      visibility_type, join_mode, invite_permissions, max_community_members,
                       ST_Y(location::geometry) as latitude,
                       ST_X(location::geometry) as longitude
                FROM tag_points WHERE point_id = $1""", point_id

@@ -153,6 +153,11 @@ class TagPointCreate(BaseModel):
     minimum_participants: Optional[int] = None
     maximum_participants: Optional[int] = None
     address: Optional[str] = None
+    # ── Règles communauté (Phase 1) ──────────────────────────────────────────
+    visibility_type: Optional[str] = 'public'
+    join_mode: Optional[str] = 'open'
+    invite_permissions: Optional[str] = 'admin_only'
+    max_community_members: Optional[int] = None
 
     @field_validator("title")
     @classmethod
@@ -196,6 +201,11 @@ class TagPointUpdate(BaseModel):
     minimum_participants: Optional[int] = None
     maximum_participants: Optional[int] = None
     address: Optional[str] = None
+    # ── Règles communauté (Phase 1) ──────────────────────────────────────────
+    visibility_type: Optional[str] = None
+    join_mode: Optional[str] = None
+    invite_permissions: Optional[str] = None
+    max_community_members: Optional[int] = None
 
 
 # --- SERVICE ---

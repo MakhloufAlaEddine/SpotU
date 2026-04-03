@@ -35,6 +35,7 @@ export default function MySpotYouScreen() {
   const [points, setPoints] = useState<any[]>([]);
   const [deactivated, setDeactivated] = useState<any[]>([]);
   const [joined, setJoined] = useState<any[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<any[]>([]);
   const [reactivatingId, setReactivatingId] = useState<string | null>(null);
   const [screenState, setScreenState] = useState<'loading_initial' | 'ready_fresh' | 'ready_cached' | 'error_no_data'>('loading_initial');
   const [staleMinutes, setStaleMinutes] = useState<number | null>(null);
@@ -79,7 +80,7 @@ export default function MySpotYouScreen() {
         .then((d: any) => { if (d?.spotyous) setDeactivated(d.spotyous); })
         .catch(() => {});
 
-    const fetchJoined = () =>
+    const fetchJoined = () => {
       api.get('/users/me/events')
         .then((d: any) => {
           if (Array.isArray(d)) {
@@ -87,6 +88,10 @@ export default function MySpotYouScreen() {
           }
         })
         .catch(() => {});
+      api.get('/users/me/pending-requests')
+        .then((d: any) => { if (Array.isArray(d)) setPendingRequests(d); })
+        .catch(() => {});
+    };
 
     // Étape 1 : lecture cache sur le premier chargement
     if (!isRefresh) {
@@ -471,6 +476,36 @@ export default function MySpotYouScreen() {
           keyExtractor={item => item.point_id}
           contentContainerStyle={{ padding: Spacing.md, gap: 12, paddingBottom: 48 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+          ListHeaderComponent={pendingRequests.length > 0 ? (
+            <View style={st.pendingSection} testID="pending-requests-section">
+              <View style={st.pendingSectionHeader}>
+                <Ionicons name="time-outline" size={14} color="#F59E0B" />
+                <Text style={st.pendingSectionTitle}>En attente de validation ({pendingRequests.length})</Text>
+              </View>
+              {pendingRequests.map(item => (
+                <View key={item.point_id} style={st.pendingCard} testID={`pending-card-${item.point_id}`}>
+                  <View style={st.pendingCardLeft}>
+                    {item.images?.[0] ? (
+                      <Image source={{ uri: item.images[0] }} style={st.pendingThumb} />
+                    ) : (
+                      <View style={[st.pendingThumb, st.pendingThumbPlaceholder]}>
+                        <Ionicons name="location-outline" size={16} color={Colors.muted} />
+                      </View>
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <Text style={st.pendingTitle} numberOfLines={1}>{item.title}</Text>
+                      <Text style={st.pendingSubtitle}>En attente de validation</Text>
+                    </View>
+                  </View>
+                  <View style={st.pendingBadge}>
+                    <Ionicons name="hourglass-outline" size={11} color="#F59E0B" />
+                    <Text style={st.pendingBadgeText}>Pending</Text>
+                  </View>
+                </View>
+              ))}
+              <View style={st.pendingDivider} />
+            </View>
+          ) : null}
           renderItem={({ item }) => (
             <SpotYouCard
               item={item}
@@ -489,13 +524,13 @@ export default function MySpotYouScreen() {
               isDeactivated={item.active === false}
             />
           )}
-          ListEmptyComponent={
+          ListEmptyComponent={pendingRequests.length === 0 ? (
             <View style={st.empty}>
               <Ionicons name="people-outline" size={48} color={Colors.muted} />
               <Text style={st.emptyTitle}>Aucune communauté</Text>
               <Text style={st.emptyText}>Rejoignez des SpotYou pour les retrouver ici.</Text>
             </View>
-          }
+          ) : null}
         />
       )}
 
@@ -562,6 +597,33 @@ export default function MySpotYouScreen() {
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
 const st = StyleSheet.create({
+  // ── Demandes en attente ─────────────────────────────────────────────────
+  pendingSection: { marginBottom: 8 },
+  pendingSectionHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    marginBottom: 8,
+  },
+  pendingSectionTitle: { fontSize: 13, fontWeight: '700', color: '#F59E0B' },
+  pendingCard: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: Colors.card, borderRadius: Radius.md,
+    borderWidth: 1, borderColor: '#F59E0B40',
+    padding: Spacing.sm, marginBottom: 6,
+  },
+  pendingCardLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+  pendingThumb: { width: 36, height: 36, borderRadius: 8 },
+  pendingThumbPlaceholder: { backgroundColor: Colors.cardElevated, alignItems: 'center', justifyContent: 'center' },
+  pendingTitle: { fontSize: 13, fontWeight: '600', color: Colors.foreground },
+  pendingSubtitle: { fontSize: 11, color: Colors.muted, marginTop: 1 },
+  pendingBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: '#F59E0B18', borderRadius: Radius.full,
+    paddingHorizontal: 8, paddingVertical: 4,
+    borderWidth: 1, borderColor: '#F59E0B40',
+  },
+  pendingBadgeText: { fontSize: 10, fontWeight: '700', color: '#F59E0B' },
+  pendingDivider: { height: 1, backgroundColor: Colors.border, marginBottom: 12, marginTop: 4 },
+
   container: { flex: 1, backgroundColor: Colors.background },
   header: {
     flexDirection: 'row', alignItems: 'center',
