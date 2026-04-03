@@ -118,17 +118,22 @@ export function TagPickerField({
     const q = query.trim().toLowerCase();
     if (!q) return cats.filter(c => (c.tags || []).length > 0);
     return cats
-      .map(cat => ({
-        ...cat,
-        tags: (cat.tags || []).filter(t =>
-          t.label_fr.toLowerCase().includes(q) ||
-          (t.label_en ?? '').toLowerCase().includes(q) ||
-          cat.label_fr.toLowerCase().includes(q)
-        ),
-      }))
-      .filter(cat =>
-        cat.label_fr.toLowerCase().includes(q) || cat.tags.length > 0
-      );
+      .map(cat => {
+        const catNameMatches = cat.label_fr.toLowerCase().includes(q);
+        return {
+          ...cat,
+          // Si le nom de catégorie matche → afficher tous ses tags
+          // Sinon → filtrer uniquement les tags qui matchent
+          tags: catNameMatches
+            ? (cat.tags || [])
+            : (cat.tags || []).filter(t =>
+                t.label_fr.toLowerCase().includes(q) ||
+                (t.label_en ?? '').toLowerCase().includes(q)
+              ),
+        };
+      })
+      // N'afficher la catégorie que si elle a au moins 1 tag sélectionnable
+      .filter(cat => cat.tags.length > 0);
   }, [allCategories, query, filterCategoryId]);
 
   /* ── Toggle tag ─────────────────────────────────────────────────────── */
