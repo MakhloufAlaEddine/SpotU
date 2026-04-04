@@ -144,17 +144,9 @@ export function StepAcces({ visibilityType, setVisibilityType, joinMode, setJoin
         testID="invite-admin-only"
       />
       <OptionRow
-        selected={invitePermissions === 'members_only'}
-        onPress={() => setInvitePermissions('members_only')}
-        icon="people-circle-outline"
-        label="Membres uniquement"
-        description="Tous les membres peuvent inviter (sans vous)."
-        testID="invite-members-only"
-      />
-      <OptionRow
         selected={invitePermissions === 'admin_and_members'}
         onPress={() => setInvitePermissions('admin_and_members')}
-        icon="globe-outline"
+        icon="people-outline"
         label="Admin et membres"
         description="Tout le monde dans la communauté peut inviter."
         recommended
