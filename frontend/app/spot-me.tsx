@@ -36,6 +36,8 @@ export default function MySpotYouScreen() {
   const [deactivated, setDeactivated] = useState<any[]>([]);
   const [joined, setJoined] = useState<any[]>([]);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+  const [invitations, setInvitations] = useState<any[]>([]);
+  const [inviteActionId, setInviteActionId] = useState<string | null>(null);
   const [reactivatingId, setReactivatingId] = useState<string | null>(null);
   const [screenState, setScreenState] = useState<'loading_initial' | 'ready_fresh' | 'ready_cached' | 'error_no_data'>('loading_initial');
   const [staleMinutes, setStaleMinutes] = useState<number | null>(null);
@@ -90,6 +92,9 @@ export default function MySpotYouScreen() {
         .catch(() => {});
       api.get('/users/me/pending-requests')
         .then((d: any) => { if (Array.isArray(d)) setPendingRequests(d); })
+        .catch(() => {});
+      api.get('/users/me/spotyou-invitations')
+        .then((d: any) => { if (Array.isArray(d)) setInvitations(d); })
         .catch(() => {});
     };
 
@@ -350,9 +355,11 @@ export default function MySpotYouScreen() {
           testID="tab-communities"
         >
           <Text style={[st.tabText, tab === 'communities' && st.tabTextActive]}>Communautés</Text>
-          {joined.length > 0 && (
+          {(invitations.length > 0 || joined.length > 0) && (
             <View style={[st.tabBadge, tab === 'communities' && st.tabBadgeActive]}>
-              <Text style={[st.tabBadgeText, tab === 'communities' && st.tabBadgeTextActive]}>{joined.length}</Text>
+              <Text style={[st.tabBadgeText, tab === 'communities' && st.tabBadgeTextActive]}>
+                {joined.length + invitations.length}
+              </Text>
             </View>
           )}
         </TouchableOpacity>
@@ -476,35 +483,122 @@ export default function MySpotYouScreen() {
           keyExtractor={item => item.point_id}
           contentContainerStyle={{ padding: Spacing.md, gap: 12, paddingBottom: 48 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
-          ListHeaderComponent={pendingRequests.length > 0 ? (
-            <View style={st.pendingSection} testID="pending-requests-section">
-              <View style={st.pendingSectionHeader}>
-                <Ionicons name="time-outline" size={14} color="#F59E0B" />
-                <Text style={st.pendingSectionTitle}>En attente de validation ({pendingRequests.length})</Text>
-              </View>
-              {pendingRequests.map(item => (
-                <View key={item.point_id} style={st.pendingCard} testID={`pending-card-${item.point_id}`}>
-                  <View style={st.pendingCardLeft}>
-                    {item.images?.[0] ? (
-                      <Image source={{ uri: item.images[0] }} style={st.pendingThumb} />
-                    ) : (
-                      <View style={[st.pendingThumb, st.pendingThumbPlaceholder]}>
-                        <Ionicons name="location-outline" size={16} color={Colors.muted} />
+          ListHeaderComponent={(pendingRequests.length > 0 || invitations.length > 0) ? (
+            <>
+              {/* ── Section Invitations reçues ── */}
+              {invitations.length > 0 && (
+                <View style={st.pendingSection} testID="invitations-section">
+                  <View style={st.pendingSectionHeader}>
+                    <Ionicons name="mail-outline" size={14} color={Colors.primary} />
+                    <Text style={[st.pendingSectionTitle, { color: Colors.primary }]}>
+                      Invitations reçues ({invitations.length})
+                    </Text>
+                  </View>
+                  {invitations.map(item => (
+                    <View key={item.point_id} style={[st.pendingCard, { borderLeftColor: Colors.primary, borderLeftWidth: 3 }]} testID={`invitation-card-${item.point_id}`}>
+                      <View style={st.pendingCardLeft}>
+                        {item.images?.[0] ? (
+                          <Image source={{ uri: item.images[0] }} style={st.pendingThumb} />
+                        ) : (
+                          <View style={[st.pendingThumb, st.pendingThumbPlaceholder]}>
+                            <Ionicons name="location-outline" size={16} color={Colors.muted} />
+                          </View>
+                        )}
+                        <View style={{ flex: 1 }}>
+                          <Text style={st.pendingTitle} numberOfLines={1}>{item.title}</Text>
+                          {item.inviter ? (
+                            <Text style={[st.pendingSubtitle, { color: Colors.primary }]}>
+                              Invité par {item.inviter.name}
+                            </Text>
+                          ) : null}
+                          <View style={{ flexDirection: 'row', gap: 4, marginTop: 3 }}>
+                            <View style={[st.pendingBadge, { backgroundColor: item.visibility_type === 'private' ? '#6366F120' : Colors.primary + '15' }]}>
+                              <Ionicons name={item.visibility_type === 'private' ? 'lock-closed-outline' : 'globe-outline'} size={10} color={item.visibility_type === 'private' ? '#6366F1' : Colors.primary} />
+                              <Text style={[st.pendingBadgeText, { color: item.visibility_type === 'private' ? '#6366F1' : Colors.primary }]}>
+                                {item.visibility_type === 'private' ? 'Privé' : 'Public'}
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
                       </View>
-                    )}
-                    <View style={{ flex: 1 }}>
-                      <Text style={st.pendingTitle} numberOfLines={1}>{item.title}</Text>
-                      <Text style={st.pendingSubtitle}>En attente de validation</Text>
+                      <View style={{ gap: 6 }}>
+                        <TouchableOpacity
+                          style={[st.inviteActionBtn, { backgroundColor: Colors.primary }]}
+                          testID={`accept-invite-${item.point_id}`}
+                          disabled={inviteActionId === item.point_id}
+                          onPress={async () => {
+                            setInviteActionId(item.point_id);
+                            try {
+                              await api.post(`/tag-points/${item.point_id}/invitations/accept`, {});
+                              setInvitations(prev => prev.filter(i => i.point_id !== item.point_id));
+                            } catch (e: any) {
+                              console.warn('Accept error', e?.message);
+                            } finally {
+                              setInviteActionId(null);
+                            }
+                          }}
+                        >
+                          {inviteActionId === item.point_id
+                            ? <ActivityIndicator size="small" color={Colors.background} />
+                            : <Text style={st.inviteActionBtnText}>Accepter</Text>}
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[st.inviteActionBtn, { backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border }]}
+                          testID={`refuse-invite-${item.point_id}`}
+                          disabled={inviteActionId === item.point_id}
+                          onPress={async () => {
+                            setInviteActionId(item.point_id);
+                            try {
+                              await api.post(`/tag-points/${item.point_id}/invitations/refuse`, {});
+                              setInvitations(prev => prev.filter(i => i.point_id !== item.point_id));
+                            } catch (e: any) {
+                              console.warn('Refuse error', e?.message);
+                            } finally {
+                              setInviteActionId(null);
+                            }
+                          }}
+                        >
+                          <Text style={[st.inviteActionBtnText, { color: Colors.foreground }]}>Refuser</Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
-                  </View>
-                  <View style={st.pendingBadge}>
-                    <Ionicons name="hourglass-outline" size={11} color="#F59E0B" />
-                    <Text style={st.pendingBadgeText}>Pending</Text>
-                  </View>
+                  ))}
+                  <View style={st.pendingDivider} />
                 </View>
-              ))}
-              <View style={st.pendingDivider} />
-            </View>
+              )}
+
+              {/* ── Section demandes en attente ── */}
+              {pendingRequests.length > 0 && (
+                <View style={st.pendingSection} testID="pending-requests-section">
+                  <View style={st.pendingSectionHeader}>
+                    <Ionicons name="time-outline" size={14} color="#F59E0B" />
+                    <Text style={st.pendingSectionTitle}>En attente de validation ({pendingRequests.length})</Text>
+                  </View>
+                  {pendingRequests.map(item => (
+                    <View key={item.point_id} style={st.pendingCard} testID={`pending-card-${item.point_id}`}>
+                      <View style={st.pendingCardLeft}>
+                        {item.images?.[0] ? (
+                          <Image source={{ uri: item.images[0] }} style={st.pendingThumb} />
+                        ) : (
+                          <View style={[st.pendingThumb, st.pendingThumbPlaceholder]}>
+                            <Ionicons name="location-outline" size={16} color={Colors.muted} />
+                          </View>
+                        )}
+                        <View style={{ flex: 1 }}>
+                          <Text style={st.pendingTitle} numberOfLines={1}>{item.title}</Text>
+                          <Text style={st.pendingSubtitle}>En attente de validation</Text>
+                        </View>
+                      </View>
+                      <View style={st.pendingBadge}>
+                        <Ionicons name="hourglass-outline" size={11} color="#F59E0B" />
+                        <Text style={st.pendingBadgeText}>Pending</Text>
+                      </View>
+                    </View>
+                  ))}
+                  <View style={st.pendingDivider} />
+                </View>
+              )}
+            </>
           ) : null}
           renderItem={({ item }) => (
             <SpotYouCard
@@ -623,6 +717,8 @@ const st = StyleSheet.create({
   },
   pendingBadgeText: { fontSize: 10, fontWeight: '700', color: '#F59E0B' },
   pendingDivider: { height: 1, backgroundColor: Colors.border, marginBottom: 12, marginTop: 4 },
+  inviteActionBtn: { borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, alignItems: 'center', justifyContent: 'center', minWidth: 72 },
+  inviteActionBtnText: { fontSize: 12, fontWeight: '700', color: Colors.background },
 
   container: { flex: 1, backgroundColor: Colors.background },
   header: {

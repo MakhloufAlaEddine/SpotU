@@ -1,0 +1,56 @@
+{
+  "summary": "Tests complets Phase 2 SpotYou Invitations — 11/11 backend tests PASS, T10 et T11 frontend PASS. Tous les flux invitation (invite, anti-doublon, accept, refuse, list, search, permissions) sont fonctionnels.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "GET /api/users/me/spotyou-invitations",
+        "issue": "Pas de filtre AND tp.active = TRUE — les invitations pour des SpotYous désactivés/supprimés (soft delete) restent affichées. Visible dans le UI avec 7 invitations dont certaines pour des SpotYous de test désactivés.",
+        "priority": "LOW"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_016_spotyou_invitations_phase2.py",
+    "/app/test_reports/pytest/pytest_results_107.xml"
+  ],
+  "action_items": [
+    "Optional: Ajouter AND tp.active = TRUE dans la requête de get_my_invitations pour exclure les invitations de SpotYous désactivés/supprimés (amélioration UX, pas critique)"
+  ],
+  "critical_code_review_comments": [
+    "get_my_invitations (tagpoint_routes.py line 926): pas de filtre active=TRUE sur tag_points — les invitations pour des SpotYous softdeleted restent visibles dans spot-me. Fix: ajouter AND tp.active = TRUE dans le WHERE.",
+    "InviteModal.tsx line 53: recherche activée seulement dès 2 chars (text.trim().length < 2) mais backend accepte 1+ char. Minor inconsistency, pas un bug."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_016_spotyou_invitations_phase2.py"
+  ],
+  "success_rate": {
+    "backend": "100% (11/11 tests T1-T9)",
+    "frontend": "100% (T10 invite-btn visible, T11 invitations-section visible)"
+  },
+  "test_credentials": "admin@winek.app / WinekAdmin2024!, coach@winek.app / WinekCoach2024!, user@winek.app / WinekUser2024!",
+  "seed_data_creation": "SpotYous de test créés/supprimés pendant les tests. Note: des invitations orphelines (statut=invited) subsistent pour coach@winek.app suite aux tests précédents (SpotYous softdeleted mais spot_you_members records intacts).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend Phase 2 invitations: 11 tests passent à 100% (T1 admin invite, T2 admin_only 403, T3 accepted 409, T4 invited 409, T5 list invitations, T6 accept, T7 refuse, T8 search with is_social, T9 member can invite). Frontend: T10 (invite-btn dans owner bar visible à /spot-you/[id]) et T11 (invitations-section visible dans onglet Communautés de /spot-me) validés. Seul point à corriger optionnel: filtrer les invitations par SpotYous actifs dans get_my_invitations.",
+  "test_details": {
+    "T1_admin_invite_coach_200": "PASS - admin invite coach → success=True, message présent",
+    "T2_non_authorized_admin_only_403": "PASS - user non-owner sur admin_only SpotYou → 403 avec message 'Seul l'admin peut inviter'",
+    "T3_anti_doublon_accepted_409": "PASS - inviter un utilisateur déjà accepted → 409 avec message 'déjà membre'",
+    "T4_anti_doublon_invited_409": "PASS - re-inviter un utilisateur déjà invited → 409 avec message 'invitation en attente'",
+    "T5_get_my_invitations": "PASS - retourne liste avec point_id, title, join_status=invited, inviter.name",
+    "T6_accept_invitation": "PASS - accept → status=accepted, participants_count incrémenté",
+    "T7_refuse_invitation": "PASS - refuse → status=rejected, success=True",
+    "T8_user_search_is_social": "PASS - GET /users/search?q=admin retourne is_social pour utilisateurs authentifiés",
+    "T8b_user_search_unauthenticated": "PASS - recherche sans auth retourne is_social=false",
+    "T9_member_can_invite": "PASS - membre accepted sur admin_and_members SpotYou peut inviter",
+    "T2b_non_member_admin_and_members_403": "PASS - non-membre sur admin_and_members → 403",
+    "T10_frontend_invite_btn": "PASS - bouton Inviter visible dans owner bar (testID=invite-btn) sur /spot-you/[id]",
+    "T11_frontend_invitations_section": "PASS - invitations-section visible dans onglet Communautés de spot-me avec Accepter/Refuser buttons"
+  }
+}

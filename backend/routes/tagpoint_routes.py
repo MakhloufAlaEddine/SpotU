@@ -815,7 +815,255 @@ async def join_tag_point(point_id: str, request: Request):
     return {"success": True, "status": "accepted", "participants_count": count, "is_participant": True}
 
 
-@router.get("/tag-points/{point_id}/join-requests")
+# ─────────────────────────────────────────────────────────────────────────────
+# PHASE 2 — INVITATIONS
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.post("/tag-points/{point_id}/invite")
+async def invite_user_to_spotyou(point_id: str, request: Request):
+    """
+    Inviter un utilisateur existant à rejoindre un SpotYou.
+    Règles :
+    - invite_permissions='admin_only'       → seul le créateur peut inviter
+    - invite_permissions='admin_and_members'→ créateur OU membre accepté
+    - L'invité doit accepter pour rejoindre (jamais automatique)
+    - Anti-doublon : impossible d'inviter un membre accepted/pending/invited
+    - Un utilisateur rejected peut être réinvité
+    """
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    from push_service import send_push_to_user
+    import asyncio
+
+    body = await request.json()
+    invited_user_id = body.get("invited_user_id")
+    if not invited_user_id:
+        raise HTTPException(status_code=400, detail="invited_user_id requis")
+    if invited_user_id == user["user_id"]:
+        raise HTTPException(status_code=400, detail="Vous ne pouvez pas vous inviter vous-même")
+
+    async with pool.acquire() as conn:
+        # 1. SpotYou existe et est actif
+        tp = await conn.fetchrow(
+            "SELECT user_id, title, visibility_type, invite_permissions, images FROM tag_points WHERE point_id=$1 AND active=TRUE",
+            point_id
+        )
+        if not tp:
+            raise HTTPException(status_code=404, detail="SpotYou introuvable ou désactivé")
+
+        owner_id = tp["user_id"]
+        invite_perms = tp["invite_permissions"] or "admin_only"
+
+        # 2. Vérification des permissions d'invitation
+        is_caller_owner = owner_id == user["user_id"]
+        if not is_caller_owner:
+            if invite_perms == "admin_only":
+                raise HTTPException(status_code=403, detail="Seul l'admin peut inviter dans ce SpotYou")
+            # admin_and_members : caller doit être membre accepté
+            is_caller_member = await conn.fetchval(
+                "SELECT EXISTS(SELECT 1 FROM spot_you_members WHERE spot_you_id=$1 AND user_id=$2 AND status='accepted')",
+                point_id, user["user_id"]
+            )
+            if not is_caller_member:
+                raise HTTPException(status_code=403, detail="Seuls les membres acceptés peuvent inviter")
+
+        # 3. Utilisateur cible existe
+        target = await conn.fetchrow("SELECT user_id, name FROM users WHERE user_id=$1", invited_user_id)
+        if not target:
+            raise HTTPException(status_code=404, detail="Utilisateur introuvable")
+
+        # 4. Anti-doublon — vérifier statut existant
+        existing = await conn.fetchrow(
+            "SELECT status FROM spot_you_members WHERE spot_you_id=$1 AND user_id=$2",
+            point_id, invited_user_id
+        )
+        if existing:
+            if existing["status"] == "accepted":
+                raise HTTPException(status_code=409, detail="Cet utilisateur est déjà membre de ce SpotYou")
+            if existing["status"] == "pending":
+                raise HTTPException(status_code=409, detail="Cet utilisateur a déjà une demande en attente")
+            if existing["status"] == "invited":
+                raise HTTPException(status_code=409, detail="Cet utilisateur a déjà une invitation en attente")
+            # rejected → on peut réinviter : update
+            if existing["status"] == "rejected":
+                await conn.execute(
+                    """UPDATE spot_you_members
+                       SET status='invited', invited_by=$1, invited_at=NOW(), requested_by=NULL
+                       WHERE spot_you_id=$2 AND user_id=$3""",
+                    user["user_id"], point_id, invited_user_id
+                )
+        else:
+            # 5. Créer l'invitation
+            inv_id = new_id("inv")
+            await conn.execute(
+                """INSERT INTO spot_you_members (id, spot_you_id, user_id, status, invited_by, invited_at)
+                   VALUES ($1, $2, $3, 'invited', $4, NOW())""",
+                inv_id, point_id, invited_user_id, user["user_id"]
+            )
+
+    # 6. Push notification à l'invité
+    spotyou_title = tp["title"] or "un SpotYou"
+    first_image = (tp["images"] or [None])[0] if tp["images"] else None
+    asyncio.create_task(send_push_to_user(
+        pool, invited_user_id,
+        title="Invitation SpotYou",
+        body=f"Tu as été invité à rejoindre « {spotyou_title} »",
+        data={
+            "type": "spotyou_invitation",
+            "point_id": point_id,
+            "sender_id": user["user_id"],
+            "sender_name": user.get("name", ""),
+            "sender_picture": user.get("picture") or "",
+            "action_text": "t'a invité à rejoindre",
+            "content_title": spotyou_title,
+            "image_url": first_image or "",
+        },
+        notif_type="spotyou_invitation"
+    ))
+    return {"success": True, "message": f"Invitation envoyée à {target['name']}"}
+
+
+@router.get("/users/me/spotyou-invitations")
+async def get_my_invitations(request: Request):
+    """
+    Retourne toutes les invitations SpotYou reçues par l'utilisateur (status=invited).
+    """
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            f"""SELECT {TP_FIELDS},
+                       m.invited_at,
+                       m.invited_by,
+                       inviter.name   AS inviter_name,
+                       inviter.picture AS inviter_picture
+                FROM tag_points tp
+                JOIN spot_you_members m ON tp.point_id = m.spot_you_id
+                LEFT JOIN users u ON tp.user_id = u.user_id
+                LEFT JOIN users inviter ON m.invited_by = inviter.user_id
+                WHERE m.user_id = $1 AND m.status = 'invited'
+                ORDER BY m.invited_at DESC""",
+            user["user_id"]
+        )
+        result = []
+        for row in rows:
+            d = row_to_dict(row)
+            invited_at = d.pop("invited_at", None)
+            invited_by_id = d.pop("invited_by", None)
+            inviter_name = d.pop("inviter_name", None)
+            inviter_picture = d.pop("inviter_picture", None)
+            pt = build_point_response(d, is_owner=False)
+            pt["join_status"] = "invited"
+            pt["invited_at"] = str(invited_at) if invited_at else None
+            pt["inviter"] = {
+                "user_id": invited_by_id,
+                "name": inviter_name,
+                "picture": inviter_picture,
+            } if invited_by_id else None
+            result.append(pt)
+        return result
+
+
+@router.post("/tag-points/{point_id}/invitations/accept")
+async def accept_invitation(point_id: str, request: Request):
+    """
+    L'utilisateur invité accepte son invitation → status=accepted.
+    """
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    from push_service import send_push_to_user
+    import asyncio
+
+    async with pool.acquire() as conn:
+        inv = await conn.fetchrow(
+            "SELECT status, invited_by FROM spot_you_members WHERE spot_you_id=$1 AND user_id=$2",
+            point_id, user["user_id"]
+        )
+        if not inv:
+            raise HTTPException(status_code=404, detail="Invitation introuvable")
+        if inv["status"] != "invited":
+            raise HTTPException(status_code=409, detail=f"Statut actuel : {inv['status']}")
+
+        await conn.execute(
+            "UPDATE spot_you_members SET status='accepted', joined_at=NOW() WHERE spot_you_id=$1 AND user_id=$2",
+            point_id, user["user_id"]
+        )
+        count = await conn.fetchval(
+            "SELECT COUNT(*) FROM spot_you_members WHERE spot_you_id=$1 AND status='accepted'", point_id
+        )
+        tp = await conn.fetchrow("SELECT title FROM tag_points WHERE point_id=$1", point_id)
+        inviter_id = inv["invited_by"]
+
+    spotyou_title = tp["title"] if tp else "SpotYou"
+
+    # Push à l'inviteur
+    if inviter_id:
+        asyncio.create_task(send_push_to_user(
+            pool, inviter_id,
+            title="Invitation acceptée",
+            body=f"{user.get('name', 'Un utilisateur')} a rejoint « {spotyou_title} »",
+            data={
+                "type": "spotyou_invite_accepted",
+                "point_id": point_id,
+                "sender_id": user["user_id"],
+                "sender_name": user.get("name", ""),
+                "sender_picture": user.get("picture") or "",
+                "action_text": "a rejoint le SpotYou",
+                "content_title": spotyou_title,
+            },
+            notif_type="spotyou_invite_accepted"
+        ))
+    return {"success": True, "status": "accepted", "participants_count": int(count)}
+
+
+@router.post("/tag-points/{point_id}/invitations/refuse")
+async def refuse_invitation(point_id: str, request: Request):
+    """
+    L'utilisateur invité refuse son invitation → status=rejected.
+    """
+    pool = get_pool()
+    user = await require_auth(request, pool)
+    from push_service import send_push_to_user
+    import asyncio
+
+    async with pool.acquire() as conn:
+        inv = await conn.fetchrow(
+            "SELECT status, invited_by FROM spot_you_members WHERE spot_you_id=$1 AND user_id=$2",
+            point_id, user["user_id"]
+        )
+        if not inv:
+            raise HTTPException(status_code=404, detail="Invitation introuvable")
+        if inv["status"] != "invited":
+            raise HTTPException(status_code=409, detail=f"Statut actuel : {inv['status']}")
+
+        await conn.execute(
+            "UPDATE spot_you_members SET status='rejected' WHERE spot_you_id=$1 AND user_id=$2",
+            point_id, user["user_id"]
+        )
+        tp = await conn.fetchrow("SELECT title FROM tag_points WHERE point_id=$1", point_id)
+        inviter_id = inv["invited_by"]
+
+    spotyou_title = tp["title"] if tp else "SpotYou"
+
+    # Push discret à l'inviteur
+    if inviter_id:
+        asyncio.create_task(send_push_to_user(
+            pool, inviter_id,
+            title="Invitation refusée",
+            body=f"{user.get('name', 'Un utilisateur')} a refusé l'invitation à « {spotyou_title} »",
+            data={
+                "type": "spotyou_invite_refused",
+                "point_id": point_id,
+                "sender_id": user["user_id"],
+                "sender_name": user.get("name", ""),
+                "content_title": spotyou_title,
+            },
+            notif_type="spotyou_invite_refused"
+        ))
+    return {"success": True, "status": "rejected"}
+
+
+
 async def get_join_requests(point_id: str, request: Request):
     """
     Retourne les demandes en attente (pending).

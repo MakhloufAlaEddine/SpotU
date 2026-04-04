@@ -25,6 +25,7 @@ import { useNetwork } from '../../hooks/useNetwork';
 import { StaleBanner, ErrorNoData, ContentDeletedState } from '../../components/OfflineBanner';
 import { buildCacheKey, cacheGet, cacheSet, isFresh, cacheAgeMinutes, getTtl, SCHEMA_VERSION, cacheInvalidate } from '../../lib/cache';
 import { useGuardedRouter } from '../../hooks/useGuardedRouter';
+import { InviteModal } from '../../components/InviteModal';
 
 const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 const BASE_WS = BASE_URL.replace('https://', 'wss://').replace('http://', 'ws://');
@@ -392,6 +393,7 @@ export default function SpotYouDetail() {
   const [ownerActionLoading, setOwnerActionLoading] = useState(false);
   const [showExactAddress, setShowExactAddress] = useState(false);
   const [showFullDesc, setShowFullDesc] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
 
   // ── Animation pulse bouton Marketplace ───────────────────────────────────
   const marketplacePulse = useRef(new Animated.Value(1)).current;
@@ -1003,8 +1005,12 @@ export default function SpotYouDetail() {
             <Ionicons name="create-outline" size={18} color={Colors.primary} />
             <Text style={st.ownerBarBtnText}>Modifier</Text>
           </TouchableOpacity>
+          <View style={st.ownerBarDivider} />
+          <TouchableOpacity style={st.ownerBarBtn} onPress={() => setShowInviteModal(true)} testID="invite-btn" disabled={!point?.active}>
+            <Ionicons name="person-add-outline" size={18} color={Colors.primary} />
+            <Text style={st.ownerBarBtnText}>Inviter</Text>
+          </TouchableOpacity>
           {point?.active === false ? (
-            /* SpotYou désactivé → proposer la réactivation */
             <>
               <View style={st.ownerBarDivider} />
               <TouchableOpacity style={st.ownerBarBtn} onPress={handleReactivate} testID="reactivate-btn" disabled={ownerActionLoading}>
@@ -1013,7 +1019,6 @@ export default function SpotYouDetail() {
               </TouchableOpacity>
             </>
           ) : (
-            /* Solo ou avec membres : toujours proposer Désactiver */
             <>
               <View style={st.ownerBarDivider} />
               <TouchableOpacity style={[st.ownerBarBtn, { gap: 4 }]} onPress={handleDelete} testID="delete-btn" disabled={ownerActionLoading}>
@@ -1023,6 +1028,20 @@ export default function SpotYouDetail() {
             </>
           )}
         </View>
+      )}
+
+      {/* Bouton Inviter pour membres autorisés non-owner */}
+      {!isOwner && isMember && point?.invite_permissions === 'admin_and_members' && point?.active !== false && (
+        <TouchableOpacity
+          style={st.memberInviteBar}
+          onPress={() => setShowInviteModal(true)}
+          testID="member-invite-btn"
+          activeOpacity={0.75}
+        >
+          <Ionicons name="person-add-outline" size={16} color={Colors.primary} />
+          <Text style={st.memberInviteBarText}>Inviter un ami dans ce SpotYou</Text>
+          <Ionicons name="chevron-forward" size={14} color={Colors.muted} />
+        </TouchableOpacity>
       )}
 
       {/* Banner SpotYou désactivé — visible uniquement par l'owner */}
@@ -1667,6 +1686,17 @@ export default function SpotYouDetail() {
         </View>
       </Modal>
 
+      {/* Modal Invite */}
+      {point && (
+        <InviteModal
+          visible={showInviteModal}
+          onClose={() => setShowInviteModal(false)}
+          pointId={point.point_id}
+          pointTitle={point.title}
+          existingMemberIds={participants.map(p => p.user_id)}
+        />
+      )}
+
       {/* Modal Participants */}
       <Modal visible={showParticipants} animationType="slide" transparent onRequestClose={() => setShowParticipants(false)}>
         <View style={ms.overlay}>
@@ -1877,6 +1907,8 @@ const st = StyleSheet.create({
   ownerBarBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10 },
   ownerBarBtnText: { fontSize: 13, fontWeight: '600', color: Colors.foreground },
   ownerBarDivider: { width: 1, height: 20, backgroundColor: Colors.border },
+  memberInviteBar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: Spacing.md, paddingVertical: 10, backgroundColor: Colors.card, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  memberInviteBarText: { flex: 1, fontSize: 13, fontWeight: '600', color: Colors.primary },
   headerTitle: { fontSize: 18, fontWeight: '700', color: Colors.primary },
   scroll: { flex: 1, backgroundColor: Colors.background },
 

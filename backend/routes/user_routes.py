@@ -792,3 +792,61 @@ async def suggest_follows(user_id: str, request: Request, skip: int = 0, limit: 
             "limit": limit,
             "count": len(result),
         }
+
+
+
+@router.get("/search")
+async def search_users(q: str = "", request: Request = None, limit: int = 20):
+    """
+    Recherche d'utilisateurs par nom pour l'UI d'invitation SpotYou.
+    Priorité : followers/following de l'appelant, puis tous les autres.
+    Exclut : l'appelant lui-même.
+    Auth : optionnelle (résultats identiques, juste is_following manquant si anonyme).
+    """
+    from auth_utils import get_optional_auth
+    pool = get_pool()
+    me = await get_optional_auth(request, pool)
+    me_id = me["user_id"] if me else None
+
+    q = q.strip()
+    if len(q) < 1:
+        return []
+
+    async with pool.acquire() as conn:
+        # Récupérer followers + following du caller (pour le tri prioritaire)
+        if me_id:
+            social = await conn.fetch(
+                """SELECT DISTINCT user_id FROM (
+                     SELECT following_id AS user_id FROM user_follows WHERE follower_id=$1
+                     UNION
+                     SELECT follower_id  AS user_id FROM user_follows WHERE following_id=$1
+                   ) t""",
+                me_id
+            )
+            social_ids = {r["user_id"] for r in social}
+        else:
+            social_ids = set()
+
+        rows = await conn.fetch(
+            """SELECT u.user_id, u.name, u.picture, u.role
+               FROM users u
+               WHERE u.name ILIKE $1
+                 AND ($2::text IS NULL OR u.user_id != $2)
+               ORDER BY u.name
+               LIMIT $3""",
+            f"%{q}%", me_id, limit
+        )
+
+        result = []
+        for row in rows:
+            result.append({
+                "user_id": row["user_id"],
+                "name": row["name"],
+                "picture": row["picture"],
+                "role": row["role"],
+                "is_social": row["user_id"] in social_ids,
+            })
+
+        # Trier : social d'abord, puis alphabétique
+        result.sort(key=lambda x: (0 if x["is_social"] else 1, x["name"]))
+        return result
