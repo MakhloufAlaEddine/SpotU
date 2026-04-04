@@ -41,6 +41,18 @@ Implémenter une stratégie de rétention et réactivation avancée (Soft Delete
 
 ## Implémenté ✅
 
+### Phase 2 — Invitations SpotYou (2026-04-04)
+- **Migration 017** : `invited_by` (FK users) + `invited_at` (timestamp) sur `spot_you_members`
+- **Backend** : `POST /tag-points/{id}/invite` (check permissions, anti-doublon, push notif)
+- **Backend** : `GET /users/me/spotyou-invitations` (mes invitations reçues, filtrées SpotYous actifs)
+- **Backend** : `POST /tag-points/{id}/invitations/accept` → accepted + push inviteur
+- **Backend** : `POST /tag-points/{id}/invitations/refuse` → rejected + push discret
+- **Backend** : `GET /users/search?q=...` (followers/following en priorité, puis tous)
+- **Frontend** : `InviteModal.tsx` — bottom sheet recherche + sélection + envoi invitation
+- **Frontend** : `spot-you/[id].tsx` — bouton "Inviter" dans owner bar + bouton membre autorisé
+- **Frontend** : `spot-me.tsx` — section "Invitations reçues" avec Accepter/Refuser + badge compteur
+- **Tests e2e** : 11/11 PASS (`/app/backend/tests/test_016_spotyou_invitations_phase2.py`)
+
 ### Phase 1 — Règles SpotYou révisées (2026-04-04)
 - **Migration 015** : ajout du statut `'invited'` dans `spot_you_members.status` (pending | accepted | rejected | **invited**)
 - **Règle révisée** : SpotYous PRIVÉS = invitation uniquement — `POST /tag-points/{id}/join` retourne **403** si `visibility_type='private'`

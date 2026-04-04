@@ -941,7 +941,7 @@ async def get_my_invitations(request: Request):
                 JOIN spot_you_members m ON tp.point_id = m.spot_you_id
                 LEFT JOIN users u ON tp.user_id = u.user_id
                 LEFT JOIN users inviter ON m.invited_by = inviter.user_id
-                WHERE m.user_id = $1 AND m.status = 'invited'
+                WHERE m.user_id = $1 AND m.status = 'invited' AND tp.active = TRUE
                 ORDER BY m.invited_at DESC""",
             user["user_id"]
         )
