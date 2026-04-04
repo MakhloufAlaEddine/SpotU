@@ -113,7 +113,8 @@ export default function CreateSpotYouScreen() {
     editMode?: string; pointId?: string; title?: string; description?: string;
     domainId?: string; precision?: string; tagIds?: string; images?: string;
     eventDate?: string; eventEndDate?: string; eventSchedule?: string; lat?: string; lng?: string;
-    minParticipants?: string; maxParticipants?: string;
+    minParticipants?: string; maxParticipants?: string; address?: string;
+    visibilityType?: string; joinMode?: string; invitePermissions?: string;
   }>();
   const isEditMode = params.editMode === 'true';
 
@@ -199,6 +200,16 @@ export default function CreateSpotYouScreen() {
     }
     if (params.maxParticipants && params.maxParticipants !== 'undefined' && params.maxParticipants !== '0') {
       setMaxParticipants(params.maxParticipants);
+    }
+    // Règles d'accès (Step 5)
+    if (params.visibilityType === 'public' || params.visibilityType === 'private') {
+      setVisibilityType(params.visibilityType as 'public' | 'private');
+    }
+    if (params.joinMode === 'open' || params.joinMode === 'admin_approval' || params.joinMode === 'members_approval') {
+      setJoinMode(params.joinMode as 'open' | 'admin_approval' | 'members_approval');
+    }
+    if (params.invitePermissions === 'admin_only' || params.invitePermissions === 'members_only' || params.invitePermissions === 'admin_and_members') {
+      setInvitePermissions(params.invitePermissions as 'admin_only' | 'members_only' | 'admin_and_members');
     }
     // Prefer event_schedule (recurring) over event_date (once) — mutual exclusivity
     if (params.eventSchedule) {
@@ -455,7 +466,7 @@ export default function CreateSpotYouScreen() {
         minimum_participants: minP,
         maximum_participants: maxP,
         visibility_type: visibilityType,
-        join_mode: visibilityType === 'private' ? joinMode : 'open',
+        join_mode: visibilityType === 'public' ? joinMode : 'open',
         invite_permissions: invitePermissions,
       };
 

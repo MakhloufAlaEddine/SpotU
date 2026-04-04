@@ -677,6 +677,9 @@ export default function SpotYouDetail() {
         minParticipants: String(point.minimum_participants ?? ''),
         maxParticipants: String(point.maximum_participants ?? ''),
         address: point.original_address || point.address || '',
+        visibilityType: point.visibility_type || 'public',
+        joinMode: point.join_mode || 'open',
+        invitePermissions: point.invite_permissions || 'admin_and_members',
       },
     });
   };
