@@ -155,7 +155,7 @@ export default function CreateSpotYouScreen() {
   // ── Accès & Communauté (Step 5) ─────────────────────────────────────────
   const [visibilityType, setVisibilityType] = useState<'public' | 'private'>('public');
   const [joinMode, setJoinMode] = useState<'open' | 'admin_approval' | 'members_approval'>('open');
-  const [invitePermissions, setInvitePermissions] = useState<'admin_only' | 'members_only' | 'admin_and_members'>('admin_only');
+  const [invitePermissions, setInvitePermissions] = useState<'admin_only' | 'members_only' | 'admin_and_members'>('admin_and_members');
   // Full preview modal (at root level to avoid ScrollView clipping)
   const [showFullPreview, setShowFullPreview] = useState(false);
 

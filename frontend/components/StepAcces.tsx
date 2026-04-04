@@ -69,7 +69,7 @@ export function StepAcces({ visibilityType, setVisibilityType, joinMode, setJoin
 
       <OptionRow
         selected={visibilityType === 'public'}
-        onPress={() => { setVisibilityType('public'); setJoinMode('open'); }}
+        onPress={() => setVisibilityType('public')}
         icon="globe-outline"
         label="Public"
         description="Visible de tous. Favorise la croissance de votre communauté."
@@ -78,38 +78,56 @@ export function StepAcces({ visibilityType, setVisibilityType, joinMode, setJoin
       />
       <OptionRow
         selected={visibilityType === 'private'}
-        onPress={() => { setVisibilityType('private'); if (joinMode === 'open') setJoinMode('admin_approval'); }}
+        onPress={() => { setVisibilityType('private'); setJoinMode('open'); }}
         icon="lock-closed-outline"
         label="Privé"
-        description="Accès restreint — vous contrôlez qui rejoint la communauté."
+        description="Entrée uniquement sur invitation — aucune demande de rejoindre possible."
         testID="visibility-private"
       />
 
-      {/* ── Mode d'admission (seulement si privé) ── */}
-      {visibilityType === 'private' && (
+      {/* ── Mode d'entrée (uniquement si PUBLIC) ── */}
+      {visibilityType === 'public' && (
         <>
           <View style={s.divider} />
-          <Text style={s.sectionTitle}>Mode d'admission</Text>
-          <Text style={s.sectionSubtitle}>Comment les nouvelles demandes sont-elles traitées ?</Text>
+          <Text style={s.sectionTitle}>Mode d'entrée</Text>
+          <Text style={s.sectionSubtitle}>Comment les nouveaux membres rejoignent-ils la communauté ?</Text>
 
+          <OptionRow
+            selected={joinMode === 'open'}
+            onPress={() => setJoinMode('open')}
+            icon="flash-outline"
+            label="Rejoindre automatiquement"
+            description="Tout utilisateur peut rejoindre instantanément, sans validation."
+            recommended
+            testID="join-mode-open"
+          />
           <OptionRow
             selected={joinMode === 'admin_approval'}
             onPress={() => setJoinMode('admin_approval')}
             icon="shield-checkmark-outline"
-            label="Validation admin"
+            label="Approbation admin"
             description="Chaque demande doit être acceptée par vous. Contrôle total."
-            recommended
             testID="join-mode-admin"
           />
           <OptionRow
             selected={joinMode === 'members_approval'}
             onPress={() => setJoinMode('members_approval')}
             icon="people-outline"
-            label="Validation membres"
-            description="Tout membre peut accepter une demande. 1 validation suffit."
+            label="Approbation membres"
+            description="Tout membre accepté peut valider une demande. 1 validation suffit."
             testID="join-mode-members"
           />
         </>
+      )}
+
+      {/* ── Bannière info si PRIVÉ ── */}
+      {visibilityType === 'private' && (
+        <View style={s.privateInfoBox}>
+          <Ionicons name="lock-closed-outline" size={16} color={Colors.muted} />
+          <Text style={s.privateInfoText}>
+            Ce SpotYou est accessible <Text style={{ fontWeight: '700' }}>uniquement sur invitation</Text>. Les demandes de rejoindre ne sont pas possibles.
+          </Text>
+        </View>
       )}
 
       {/* ── Invitations ── */}
@@ -123,7 +141,6 @@ export function StepAcces({ visibilityType, setVisibilityType, joinMode, setJoin
         icon="person-outline"
         label="Admin uniquement"
         description="Seul vous pouvez inviter des personnes à rejoindre."
-        recommended
         testID="invite-admin-only"
       />
       <OptionRow
@@ -140,6 +157,7 @@ export function StepAcces({ visibilityType, setVisibilityType, joinMode, setJoin
         icon="globe-outline"
         label="Admin et membres"
         description="Tout le monde dans la communauté peut inviter."
+        recommended
         testID="invite-admin-and-members"
       />
 
@@ -198,4 +216,11 @@ const s = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.primary + '30',
   },
   infoText: { flex: 1, fontSize: 12, color: Colors.muted, lineHeight: 18 },
+  privateInfoBox: {
+    flexDirection: 'row', gap: 8, alignItems: 'flex-start',
+    backgroundColor: Colors.border, borderRadius: Radius.md,
+    padding: Spacing.md, marginTop: 4,
+    borderWidth: 1, borderColor: Colors.muted + '40',
+  },
+  privateInfoText: { flex: 1, fontSize: 12, color: Colors.muted, lineHeight: 18 },
 });

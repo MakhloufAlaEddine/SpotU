@@ -683,10 +683,10 @@ async def join_tag_point(point_id: str, request: Request):
     """
     Rejoindre un SpotYou.
     Règles métier :
+    - private (tout mode)         → 403 BLOQUÉ — invitation uniquement
     - public  + open              → membre direct (status=accepted)
-    - private + open              → membre direct (status=accepted)
-    - private + admin_approval    → status=pending, notif admin
-    - private + members_approval  → status=pending, notif tous membres + admin
+    - public  + admin_approval    → status=pending, notif admin
+    - public  + members_approval  → status=pending, notif tous membres + admin
     """
     pool = get_pool()
     user = await require_auth(request, pool)
@@ -721,6 +721,16 @@ async def join_tag_point(point_id: str, request: Request):
                 return {"success": True, "status": "pending", "is_participant": False,
                         "message": "Votre demande est déjà en attente de validation."}
 
+        visibility = tp["visibility_type"] or "public"
+        join_mode  = tp["join_mode"] or "open"
+
+        # RÈGLE RÉVISÉE : les SpotYous privés sont en invitation uniquement — aucune demande possible
+        if visibility == "private":
+            raise HTTPException(
+                status_code=403,
+                detail="Ce SpotYou est privé. L'accès se fait uniquement sur invitation."
+            )
+
         # Vérifier la capacité communauté
         max_members = tp["max_community_members"]
         if max_members:
@@ -730,9 +740,7 @@ async def join_tag_point(point_id: str, request: Request):
             if current >= max_members:
                 raise HTTPException(status_code=409, detail="Cette communauté a atteint sa capacité maximale.")
 
-        visibility = tp["visibility_type"] or "public"
-        join_mode  = tp["join_mode"] or "open"
-        needs_approval = (visibility == "private" and join_mode in ("admin_approval", "members_approval"))
+        needs_approval = join_mode in ("admin_approval", "members_approval")
 
         if needs_approval:
             # Insertion avec status=pending
