@@ -39,14 +39,24 @@ Implémenter une stratégie de rétention et réactivation avancée (Soft Delete
 
 ## Implémenté ✅
 
+## Implémenté ✅
+
+### Phase 1 — Règles SpotYou révisées (2026-04-04)
+- **Migration 015** : ajout du statut `'invited'` dans `spot_you_members.status` (pending | accepted | rejected | **invited**)
+- **Règle révisée** : SpotYous PRIVÉS = invitation uniquement — `POST /tag-points/{id}/join` retourne **403** si `visibility_type='private'`
+- **SpotYous PUBLICS** : toujours supportent `open`, `admin_approval`, `members_approval`
+- **Frontend StepAcces.tsx** : Public → section "Mode d'entrée" visible ; Privé → bandeau info "Accès uniquement sur invitation"
+- **create.tsx** : défaut `invitePermissions = 'admin_and_members'` (était `'admin_only'`)
+- **Tests e2e mis à jour** : R2 vérifie private → 403 (au lieu de pending), 7/7 tests passent ✅
+
 ### Phase 1 — Règles SpotYou (2026-04-03)
 - **Migration 014** : +`visibility_type`, `join_mode`, `invite_permissions`, `max_community_members` dans `tag_points` ; +`status`, `requested_by`, `approved_by` dans `spot_you_members`
-- **Backend** : endpoint `join` avec logique complète (public→direct, private+admin_approval→pending, private+members_approval→pending+notif membres)
+- **Backend** : endpoint `join` avec logique complète (public→direct, public+admin_approval→pending, public+members_approval→pending+notif membres)
 - **Backend** : `GET /tag-points/{id}/join-requests`, `POST .../members/{uid}/approve`, `POST .../members/{uid}/reject`
 - **Backend** : `GET /users/me/pending-requests` (SpotYous où l'utilisateur a une demande en attente)
 - **Frontend** : Step 5 "Accès" dans `create.tsx` + composant `StepAcces.tsx`
 - **Frontend** : Section "En attente de validation" dans l'onglet Communautés (`spot-me.tsx`)
-- **Tests e2e** : 6 tests (R1→R8) + 15 tests additionnels, tous passent ✅
+- **Tests e2e** : 7 tests (R1→R8), tous passent ✅
 - **Notifications push** : join_request → notif admin/membres ; approved/rejected → notif requester
 
 
