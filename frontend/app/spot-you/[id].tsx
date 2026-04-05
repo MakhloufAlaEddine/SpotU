@@ -397,6 +397,7 @@ export default function SpotYouDetail() {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
   const [pendingLoading, setPendingLoading] = useState(false);
+  const [conflictBanner, setConflictBanner] = useState<string | null>(null);
 
   // ── Animation pulse bouton Marketplace ───────────────────────────────────
   const marketplacePulse = useRef(new Animated.Value(1)).current;
@@ -745,11 +746,11 @@ export default function SpotYouDetail() {
       loadParticipants();
     } catch (e: any) {
       if (e.statusCode === 409) {
-        Alert.alert(
-          'Demande déjà traitée',
-          e.message || 'Cette demande a déjà été acceptée par un autre membre.',
-          [{ text: 'OK', onPress: () => { loadPendingRequests(); loadParticipants(); } }]
-        );
+        // Alert.alert est un no-op sur web — bannière inline
+        setConflictBanner(e.message || 'Cette demande a déjà été acceptée par un autre membre.');
+        setTimeout(() => setConflictBanner(null), 5000);
+        loadPendingRequests();
+        loadParticipants();
       } else {
         Alert.alert('Erreur', e.message || 'Impossible d\'accepter la demande');
       }
@@ -762,11 +763,11 @@ export default function SpotYouDetail() {
       setPendingRequests(prev => prev.filter(r => r.user_id !== memberId));
     } catch (e: any) {
       if (e.statusCode === 409) {
-        Alert.alert(
-          'Demande déjà traitée',
-          e.message || 'Cette demande a déjà été traitée par un autre membre.',
-          [{ text: 'OK', onPress: () => { loadPendingRequests(); loadParticipants(); } }]
-        );
+        // Alert.alert est un no-op sur web — bannière inline
+        setConflictBanner(e.message || 'Cette demande a déjà été traitée par un autre membre.');
+        setTimeout(() => setConflictBanner(null), 5000);
+        loadPendingRequests();
+        loadParticipants();
       } else {
         Alert.alert('Erreur', e.message || 'Impossible de refuser la demande');
       }
@@ -1860,6 +1861,21 @@ export default function SpotYouDetail() {
                 <Ionicons name="close" size={22} color={Colors.foreground} />
               </TouchableOpacity>
             </View>
+
+            {/* Bannière conflit 409 — disparaît après 5s */}
+            {conflictBanner && (
+              <View style={{
+                flexDirection: 'row', alignItems: 'center', gap: 8,
+                backgroundColor: '#FEF3C7', borderRadius: 8,
+                paddingHorizontal: 14, paddingVertical: 10,
+                marginHorizontal: 16, marginBottom: 8,
+              }} testID="conflict-banner">
+                <Ionicons name="alert-circle-outline" size={16} color="#F59E0B" />
+                <Text style={{ flex: 1, fontSize: 13, color: '#92400E', lineHeight: 18 }}>
+                  {conflictBanner}
+                </Text>
+              </View>
+            )}
             <ScrollView showsVerticalScrollIndicator={false}>
 
               {/* Section demandes en attente */}

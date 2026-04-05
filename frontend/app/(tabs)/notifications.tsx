@@ -52,6 +52,7 @@ function timeAgo(iso: string) {
 // ── Item notification ─────────────────────────────────────────────────────────
 function NotifItem({ item, onPress, onRefresh }: { item: any; onPress: () => void; onRefresh?: () => void }) {
   const [requestHandled, setRequestHandled] = useState(false);
+  const [conflictMsg, setConflictMsg] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<'approve' | 'reject' | null>(null);
   const cfg = NOTIF_CFG[item.type] || NOTIF_CFG.info;
   const hasImage = !!item.image_url;
@@ -67,13 +68,13 @@ function NotifItem({ item, onPress, onRefresh }: { item: any; onPress: () => voi
         : `/tag-points/${item.point_id}/members/${item.sender_id}/reject`;
       await api.post(endpoint, {});
       setRequestHandled(true);
+      setConflictMsg(null);
     } catch (e: any) {
       if ((e as any).statusCode === 409) {
-        Alert.alert(
-          'Demande déjà traitée',
-          e.message || 'Cette demande a déjà été traitée par un autre membre.',
-          [{ text: 'OK', onPress: () => { setRequestHandled(true); onRefresh?.(); } }]
-        );
+        // Alert.alert est un no-op sur web — on gère inline
+        setConflictMsg(e.message || 'Cette demande a déjà été traitée par un autre membre.');
+        setRequestHandled(true);
+        onRefresh?.();
       }
       // Autres erreurs ignorées silencieusement
     } finally {
@@ -167,8 +168,14 @@ function NotifItem({ item, onPress, onRefresh }: { item: any; onPress: () => voi
       )}
       {isJoinRequest && requestHandled && (
         <View style={ni.joinRequestHandled}>
-          <Ionicons name="checkmark-circle" size={13} color={Colors.primary} />
-          <Text style={ni.joinRequestHandledText}>Demande traitée</Text>
+          <Ionicons
+            name={conflictMsg ? 'alert-circle' : 'checkmark-circle'}
+            size={13}
+            color={conflictMsg ? '#F59E0B' : Colors.primary}
+          />
+          <Text style={[ni.joinRequestHandledText, conflictMsg && { color: '#F59E0B' }]}>
+            {conflictMsg ?? 'Demande traitée'}
+          </Text>
         </View>
       )}
     </View>
@@ -329,7 +336,7 @@ export default function NotificationsScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={Colors.primary} />
           }
           renderItem={({ item }) => (
-            <NotifItem item={item} onPress={() => handleNotifPress(item)} />
+            <NotifItem item={item} onPress={() => handleNotifPress(item)} onRefresh={() => load(true)} />
           )}
           ItemSeparatorComponent={() => (
             <View style={{ height: 1, backgroundColor: Colors.border, marginLeft: 74 }} />

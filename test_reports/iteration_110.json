@@ -1,0 +1,103 @@
+{
+  "summary": "Full backend + frontend testing of 409 Conflict handling for join requests. Backend: 19/21 tests pass (2 fail due to confirmed backend bug: rejected user cannot re-apply via POST /join). Frontend: 7/7 scenarios pass — notifications approve/409, owner vs non-owner Refuser button, participants modal 409 conflict-banner, cancel request flow.",
+
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /tag-points/{id}/join",
+        "issue": "When user has status='rejected', the join endpoint hits ON CONFLICT DO NOTHING (doesn't update status back to pending) BUT falsely returns {success:true, status:'pending'}. The user's status remains 'rejected' in the DB. A rejected user can NEVER re-apply via the API — they're permanently blocked unless admin manually resets their DB record.",
+        "priority": "HIGH",
+        "root_cause": "tagpoint_routes.py L746-754: after 'if existing:' block, if status is 'rejected' (not 'accepted' or 'pending'), code falls through to INSERT with ON CONFLICT (spot_you_id, user_id) DO NOTHING. The existing rejected row is NOT updated but API still returns the 'pending' success response.",
+        "fix": "Change INSERT to: ON CONFLICT (spot_you_id, user_id) DO UPDATE SET status='pending', requested_by=$4 WHERE spot_you_members.status IN ('rejected') OR add explicit handling: if existing['status'] not in ('accepted','pending'): update existing row to pending"
+      }
+    ],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_conflict_409_iter110.py",
+    "/app/test_reports/pytest/pytest_iter110_backend.xml"
+  ],
+
+  "action_items": [
+    "CRITICAL: Fix POST /tag-points/{id}/join to handle status='rejected' case — currently ON CONFLICT DO NOTHING leaves DB unchanged while API falsely returns status='pending'. Fix: use DO UPDATE SET status='pending' for rejected users.",
+    "NOTE: Review request said admin@winek.app is the owner of pt_demo001 — this is INCORRECT. Actual owner is user@winek.app (user_demo001, Thomas Dupont). admin@winek.app is just an accepted member (system admin role). This affects: (a) Refuser button in notifications (only shown to spot-you owner, not system admin), (b) isAdmin in modal (only owner)."
+  ],
+
+  "critical_code_review_comments": [
+    "tagpoint_routes.py join endpoint L718-755: Missing handling for status='rejected'. Code: if existing: if accepted: return; if pending: return; [falls through for 'rejected'] → INSERT ON CONFLICT DO NOTHING → existing rejected row unchanged → false 'pending' response returned. Fix: add 'elif status not in (accepted, pending): UPDATE status to pending' OR change INSERT to ON CONFLICT DO UPDATE SET status='pending' WHERE excluded.status != 'accepted'.",
+    "Notification field naming confusion: The backend uses 'recipient_is_admin' to mean 'recipient is the spot-you owner/creator'. This naming is misleading — a system admin (admin@winek.app) who is just a member gets recipient_is_admin=False. The field name should be 'recipient_is_owner' or the frontend should check both system role and spot-you ownership."
+  ],
+
+  "updated_files": [
+    "/app/backend/tests/test_conflict_409_iter110.py"
+  ],
+
+  "success_rate": {
+    "backend": "90% (19/21) — 2 failures due to backend bug (rejected→pending re-join)",
+    "frontend": "100% (7/7)"
+  },
+
+  "test_credentials": {
+    "spot_you_owner": "user@winek.app / WinekUser2024! (user_demo001, Thomas Dupont) — ACTUAL OWNER of pt_demo001",
+    "system_admin_member": "admin@winek.app / WinekAdmin2024! — system admin but just an accepted member of pt_demo001 (NOT owner)",
+    "pending_user": "cdurand@winek.app / WinekDemo2024! (user_demo003, Camille Durand)",
+    "rejected_user": "coach@winek.app / WinekCoach2024! (user_coach001, Sophie Martin) — status=rejected due to backend bug"
+  },
+
+  "seed_data_creation": "cdurand (user_demo003) left group and re-joined multiple times during tests. Final state after all tests: cdurand=no join_status (cancelled in test 7), coach=rejected (backend bug prevents restore to pending). For future tests: cdurand and coach both need to re-join to get pending status (coach blocked by backend bug).",
+
+  "retest_needed": true,
+
+  "main_agent_can_self_test": false,
+
+  "context_for_next_testing_agent": "409 Conflict feature tested end-to-end. All 7 frontend scenarios pass. Key finding: POST /join doesn't handle status='rejected' — rejected users can never re-apply (ON CONFLICT DO NOTHING bug). Actual owner of pt_demo001 is user@winek.app (Thomas Dupont, user_demo001), NOT admin@winek.app. admin@winek.app is just an accepted member. For frontend testing: use user@winek.app to see Refuser button in notifications and in participants modal. Current DB state: cdurand=no join_status, coach=rejected.",
+
+  "test_details": {
+    "B_get_join_requests_as_admin": "PASS",
+    "B_join_requests_fields": "PASS",
+    "B_get_join_requests_unauth_401": "PASS",
+    "B_get_join_requests_non_owner_403": "PASS",
+    "B_approve_pending_200": "PASS",
+    "B_approve_409_already_accepted": "PASS",
+    "B_approve_409_message_content": "PASS",
+    "B_approve_unauth_401": "PASS",
+    "B_reject_accepted_409": "PASS",
+    "B_reject_pending_200": "FAIL — backend bug: coach is in 'rejected' state from previous test run and ON CONFLICT DO NOTHING prevents restore to pending",
+    "B_reject_already_rejected_409": "PASS",
+    "B_reject_non_owner_403": "PASS",
+    "B_reject_unauth_401": "PASS",
+    "B_cancel_accepted_not_allowed_400": "PASS",
+    "B_cancel_pending_200": "PASS",
+    "B_after_cancel_join_status_null": "PASS",
+    "B_cancel_no_pending_404": "PASS",
+    "B_notifications_admin_has_join_notifs": "PASS",
+    "B_join_notif_has_sender_info": "PASS",
+    "B_restore_cdurand_pending": "PASS",
+    "B_restore_coach_pending": "FAIL — backend bug: ON CONFLICT DO NOTHING prevents rejected→pending",
+    "F1_notifications_approve_demande_traitee_green": "PASS",
+    "F2_notifications_409_orange_amber_message": "PASS",
+    "F3_owner_sees_refuser_button": "PASS",
+    "F3_non_owner_no_refuser_button": "PASS",
+    "F4_modal_demandes_en_attente_section": "PASS",
+    "F5_modal_approve_camille_disappears_appears_accepted": "PASS",
+    "F6_modal_409_conflict_banner_visible": "PASS",
+    "F7_cancel_button_visible_for_pending": "PASS",
+    "F7_confirm_action_modal_appears": "PASS",
+    "F7_after_confirm_rejoindre_button_shown": "PASS",
+    "F7_cancel_button_gone_after_cancel": "PASS"
+  },
+
+  "rca_of_bug": {
+    "bug": "POST /tag-points/{id}/join — rejected user cannot re-apply",
+    "reproduction": "1. Have user with status='rejected' on a members_approval SpotYou; 2. Call POST /tag-points/{id}/join; 3. API returns {success:true, status:'pending'} but DB status remains 'rejected'; 4. Verify with GET /tag-points/{id} — join_status still shows 'rejected'",
+    "root_cause": "tagpoint_routes.py L718-726: 'if existing:' block only handles 'accepted' and 'pending' statuses with early returns. Status 'rejected' falls through to the INSERT statement (L750-755) which uses ON CONFLICT (spot_you_id, user_id) DO NOTHING — since a row already exists, nothing is inserted/updated. The code then returns the 'pending' response unconditionally.",
+    "mitigation": "In tagpoint_routes.py, modify the existing check block to handle 'rejected': add explicit UPDATE to set status='pending' when existing status is 'rejected'. OR change the INSERT to: ON CONFLICT (spot_you_id, user_id) DO UPDATE SET status='pending', id=$1, requested_by=$4 WHERE spot_you_members.status = 'rejected'"
+  }
+}
