@@ -3,9 +3,9 @@
 ## Environnement de production (Supabase)
 | Rôle | Email | Mot de passe |
 |------|-------|-------------|
-| Admin | admin@winek.app | WinekAdmin2024! |
-| Coach | coach@winek.app | WinekCoach2024! |
-| Utilisateur | user@winek.app | WinekUser2024! |
+| Admin système | admin@winek.app | WinekAdmin2024! |
+| Coach / Utilisateur | coach@winek.app | WinekCoach2024! |
+| **Owner pt_demo001** (Thomas Dupont) | user@winek.app | WinekUser2024! |
 | Utilisateur 2 | mbenali@winek.app | WinekDemo2024! |
 | Utilisateur 3 | cdurand@winek.app | WinekDemo2024! |
 

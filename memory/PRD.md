@@ -39,14 +39,19 @@ Implémenter une stratégie de rétention et réactivation avancée (Soft Delete
 
 ## Implémenté ✅
 
-### Phase 3 — Gestion des Demandes d'Adhésion (Option C) (2026-04-05)
+### Phase 3 — Gestion des Demandes d'Adhésion (Option C) + Gestion Concurrence (2026-04-05)
 - **Backend** : `GET /tag-points/{id}/join-requests` — expose les demandes en attente (owner + membres si members_approval)
 - **Backend** : `DELETE /tag-points/{id}/cancel-request` — annuler sa propre demande d'adhésion (pending uniquement)
-- **Backend** : `GET /tag-points/{id}` retourne maintenant `join_status` ("accepted" | "pending" | "invited" | null) — bloque le double-envoi et affiche l'état correct
-- **Frontend** : Badge rouge sur chip "X membres" visible pour owner et membres si members_approval. Badge masqué si 0.
-- **Frontend** : Bouton "Annuler" (orange) quand `join_status=pending` au lieu de "Rejoindre". Après annulation → "Rejoindre".
-- **Frontend** : Modal Participants — section "Demandes en attente" avec boutons Accepter+Refuser (owner) ou Accepter seul (membre)
-- **Frontend** : Onglet Notifications — boutons inline "Accepter"/"Refuser" sur les notifications `join_request`
+- **Backend** : `GET /tag-points/{id}` retourne maintenant `join_status` ("accepted" | "pending" | "invited" | null)
+- **Backend** : `POST /tag-points/{id}/members/{uid}/approve` → HTTP 409 si déjà traité (gestion concurrence)
+- **Backend** : `POST /tag-points/{id}/members/{uid}/reject` → HTTP 409 si déjà traité (gestion concurrence)
+- **Correctif** : `POST /tag-points/{id}/join` — utilisateurs refusés (status='rejected') peuvent re-soumettre une demande (ON CONFLICT DO UPDATE WHERE status='rejected')
+- **Correctif** : `POST /tag-points/{id}/join` — utilisateurs invités (status='invited') retournent un message clair au lieu de créer une demande parasite
+- **Frontend** : Badge rouge sur chip "X membres" visible pour owner et membres si members_approval
+- **Frontend** : Bouton "Annuler" (orange) quand `join_status=pending` au lieu de "Rejoindre". Après annulation → "Rejoindre"
+- **Frontend** : Modal Participants — bannière ambre (`conflict-banner`) visible 5s si deux admins acceptent/refusent en simultané + refresh automatique
+- **Frontend** : Onglet Notifications — boutons inline "Accepter"/"Refuser". En cas de 409 (conflit) : message inline ambre + refresh automatique de la liste (`onRefresh` passé correctement)
+- **Frontend** : `Alert.alert` (no-op sur web) remplacé par gestion inline pour les erreurs 409
 - **Correctif** : `_fetch_is_participant` filtre sur `status='accepted'`
 - **DB** : Enregistrement de conversation orpheline `conv_ed6d1a80279b` supprimé
 

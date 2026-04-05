@@ -723,6 +723,10 @@ async def join_tag_point(point_id: str, request: Request):
             if existing["status"] == "pending":
                 return {"success": True, "status": "pending", "is_participant": False,
                         "message": "Votre demande est déjà en attente de validation."}
+            if existing["status"] == "invited":
+                # L'accès invitation se fait via /invitations/accept — ne pas écraser
+                return {"success": True, "status": "invited", "is_participant": False,
+                        "message": "Vous avez une invitation en attente. Acceptez-la depuis vos notifications."}
 
         visibility = tp["visibility_type"] or "public"
         join_mode  = tp["join_mode"] or "open"
@@ -746,11 +750,14 @@ async def join_tag_point(point_id: str, request: Request):
         needs_approval = join_mode in ("admin_approval", "members_approval")
 
         if needs_approval:
-            # Insertion avec status=pending
+            # Insertion/réactivation avec status=pending
+            # ON CONFLICT DO UPDATE gère le cas rejected → permet de re-soumettre une demande
             await conn.execute(
                 """INSERT INTO spot_you_members (id, spot_you_id, user_id, status, requested_by)
                    VALUES ($1, $2, $3, 'pending', $4)
-                   ON CONFLICT (spot_you_id, user_id) DO NOTHING""",
+                   ON CONFLICT (spot_you_id, user_id) DO UPDATE
+                   SET status = 'pending', requested_by = EXCLUDED.requested_by
+                   WHERE spot_you_members.status = 'rejected'""",
                 pid, point_id, user["user_id"], user["user_id"]
             )
 
@@ -796,7 +803,9 @@ async def join_tag_point(point_id: str, request: Request):
         await conn.execute(
             """INSERT INTO spot_you_members (id, spot_you_id, user_id, status, requested_by)
                VALUES ($1, $2, $3, 'accepted', $4)
-               ON CONFLICT (spot_you_id, user_id) DO NOTHING""",
+               ON CONFLICT (spot_you_id, user_id) DO UPDATE
+               SET status = 'accepted', requested_by = EXCLUDED.requested_by
+               WHERE spot_you_members.status = 'rejected'""",
             pid, point_id, user["user_id"], user["user_id"]
         )
         count = await conn.fetchval(
