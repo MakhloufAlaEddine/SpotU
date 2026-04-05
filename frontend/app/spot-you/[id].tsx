@@ -849,6 +849,24 @@ export default function SpotYouDetail() {
     }
   };
 
+  const confirmCancelRequest = () => {
+    showConfirm({
+      title: 'Annuler votre demande ?',
+      description: `Vous êtes sur le point d'annuler votre demande pour rejoindre «${point?.title ?? 'ce SpotYou'}».`,
+      icon: 'time-outline',
+      iconColor: '#F59E0B',
+      iconBg: '#FEF3C7',
+      confirmLabel: 'Annuler la demande',
+      confirmStyle: 'danger',
+      cancelLabel: 'Garder',
+      bullets: [
+        'Votre demande sera définitivement retirée',
+        'Vous pourrez soumettre une nouvelle demande à tout moment',
+        'L\'administrateur ne recevra aucune notification',
+      ],
+    }, handleCancelRequest);
+  };
+
   // Handler d'erreur centralisé pour les actions utilisateur.
   // Si le SpotYou a été désactivé entre-temps → alerte + refresh de la page.
   const onActionError = (e: any) => {
@@ -1234,7 +1252,7 @@ export default function SpotYouDetail() {
                     isMember && st.joinBtnCompactActive,
                     joinStatus === 'pending' && st.joinBtnCompactPending,
                   ]}
-                  onPress={joinStatus === 'pending' ? handleCancelRequest : toggleRSVP}
+                  onPress={joinStatus === 'pending' ? confirmCancelRequest : toggleRSVP}
                   disabled={rsvpLoading}
                   testID={joinStatus === 'pending' ? 'cancel-request-button' : 'rsvp-button'}
                 >
