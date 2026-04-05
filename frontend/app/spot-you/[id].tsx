@@ -532,6 +532,7 @@ export default function SpotYouDetail() {
       setIsParticipant(data.is_participant || data.is_member || false);
       setIsMember(data.is_member || data.is_participant || false);
       setCanParticipate(data.can_participate ?? false);
+      setJoinStatus(data.join_status || null);
       setIsGoing(data.is_going || false);
       setGoingCount(data.going_count ?? 0);
       setMaxParticipants(data.maximum_participants ?? null);
@@ -786,6 +787,11 @@ export default function SpotYouDetail() {
 
   const doRSVP = async () => {
     if (!user) { Alert.alert('Connexion requise', 'Connectez-vous pour participer.'); return; }
+    // Bloquer une deuxième demande si déjà en attente
+    if (joinStatus === 'pending') {
+      Alert.alert('Demande en attente', 'Votre demande est déjà en cours de validation. Utilisez le bouton "Annuler" pour la retirer.');
+      return;
+    }
     setRsvpLoading(true);
     try {
       if (isMember) {
@@ -823,6 +829,24 @@ export default function SpotYouDetail() {
       await cacheInvalidate([`/tag-points/${id}`, '/tag-points', '/planning', '/conversations']);
     } catch (e: any) { onActionError(e); }
     finally { setRsvpLoading(false); }
+  };
+
+  // Annuler sa propre demande d'adhésion en attente
+  const handleCancelRequest = async () => {
+    if (!user) return;
+    setRsvpLoading(true);
+    try {
+      await api.delete(`/tag-points/${id}/cancel-request`);
+      setJoinStatus(null);
+      setIsMember(false);
+      setIsParticipant(false);
+      // Rafraîchir le badge de l'admin (sa demande disparaît de la liste)
+      loadPendingRequests();
+    } catch (e: any) {
+      Alert.alert('Erreur', e.message || 'Impossible d\'annuler la demande');
+    } finally {
+      setRsvpLoading(false);
+    }
   };
 
   // Handler d'erreur centralisé pour les actions utilisateur.
@@ -1205,23 +1229,32 @@ export default function SpotYouDetail() {
                   </View>
                 )}
                 <TouchableOpacity
-                  style={[st.joinBtnCompact, isMember && st.joinBtnCompactActive]}
-                  onPress={toggleRSVP}
+                  style={[
+                    st.joinBtnCompact,
+                    isMember && st.joinBtnCompactActive,
+                    joinStatus === 'pending' && st.joinBtnCompactPending,
+                  ]}
+                  onPress={joinStatus === 'pending' ? handleCancelRequest : toggleRSVP}
                   disabled={rsvpLoading}
-                  testID="rsvp-button"
+                  testID={joinStatus === 'pending' ? 'cancel-request-button' : 'rsvp-button'}
                 >
                   {rsvpLoading
-                    ? <ActivityIndicator color={isMember ? Colors.muted : Colors.background} size="small" />
-                    : <>
-                        <Ionicons
-                          name={isMember ? 'exit-outline' : 'people-outline'}
-                          size={14}
-                          color={isMember ? Colors.muted : Colors.background}
-                        />
-                        <Text style={[st.joinBtnCompactText, isMember && st.joinBtnCompactLeaveText]}>
-                          {isMember ? 'Quitter' : 'Rejoindre'}
-                        </Text>
-                      </>
+                    ? <ActivityIndicator color={joinStatus === 'pending' ? '#F59E0B' : (isMember ? Colors.muted : Colors.background)} size="small" />
+                    : joinStatus === 'pending'
+                      ? <>
+                          <Ionicons name="time-outline" size={14} color="#F59E0B" />
+                          <Text style={[st.joinBtnCompactText, { color: '#F59E0B' }]}>Annuler</Text>
+                        </>
+                      : <>
+                          <Ionicons
+                            name={isMember ? 'exit-outline' : 'people-outline'}
+                            size={14}
+                            color={isMember ? Colors.muted : Colors.background}
+                          />
+                          <Text style={[st.joinBtnCompactText, isMember && st.joinBtnCompactLeaveText]}>
+                            {isMember ? 'Quitter' : 'Rejoindre'}
+                          </Text>
+                        </>
                   }
                 </TouchableOpacity>
               </View>
@@ -2138,6 +2171,7 @@ const st = StyleSheet.create({
   goingCountInline: { fontSize: 11, color: Colors.primary, fontWeight: '600', marginTop: 3 },
   // Bouton Rejoindre compact (dans la ligne rating)
   joinBtnCompact: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.primary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: Radius.full },
+  joinBtnCompactPending: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: '#F59E0B' },
   joinBtnCompactActive: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: Colors.border },
   joinBtnCompactText: { fontSize: 12, fontWeight: '700', color: Colors.background },
   joinBtnCompactLeaveText: { color: Colors.muted },

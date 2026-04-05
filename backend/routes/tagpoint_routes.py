@@ -495,11 +495,12 @@ async def get_tag_point(point_id: str, request: Request):
             uid = user["user_id"]
 
             async def _fetch_is_participant(c):
-                return bool(await c.fetchval(
-                    "SELECT EXISTS(SELECT 1 FROM spot_you_members "
-                    "WHERE spot_you_id=$1 AND user_id=$2 AND status='accepted')",
+                row = await c.fetchrow(
+                    "SELECT status FROM spot_you_members "
+                    "WHERE spot_you_id=$1 AND user_id=$2",
                     point_id, uid,
-                ))
+                )
+                return row["status"] if row else None
 
             async def _fetch_is_going(c):
                 if not next_date:
@@ -520,14 +521,16 @@ async def get_tag_point(point_id: str, request: Request):
                     point_id, uid,
                 ))
 
-            is_participant, is_going, is_saved = await asyncio.gather(
+            member_status, is_going, is_saved = await asyncio.gather(
                 _q(_fetch_is_participant),
                 _q(_fetch_is_going),
                 _q(_fetch_is_saved),
             )
+            is_participant = member_status == "accepted"
             pt["is_participant"] = is_participant
             pt["is_member"] = is_participant
             pt["can_participate"] = is_participant
+            pt["join_status"] = member_status  # "accepted" | "pending" | "invited" | None
             pt["is_going"] = is_going
             pt["is_saved"] = is_saved
 
@@ -813,6 +816,31 @@ async def join_tag_point(point_id: str, request: Request):
             notif_type="spotyu_join"
         ))
     return {"success": True, "status": "accepted", "participants_count": count, "is_participant": True}
+
+
+@router.delete("/tag-points/{point_id}/cancel-request")
+async def cancel_join_request(point_id: str, request: Request):
+    """
+    Annuler sa propre demande d'adhésion (status=pending uniquement).
+    Impossible d'annuler une demande déjà acceptée ou refusée.
+    """
+    pool = get_pool()
+    user = await require_auth(request, pool)
+
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT status FROM spot_you_members WHERE spot_you_id=$1 AND user_id=$2",
+            point_id, user["user_id"]
+        )
+        if not row:
+            raise HTTPException(status_code=404, detail="Aucune demande trouvée pour ce SpotYou")
+        if row["status"] != "pending":
+            raise HTTPException(status_code=400, detail="Impossible d'annuler une demande déjà traitée")
+        await conn.execute(
+            "DELETE FROM spot_you_members WHERE spot_you_id=$1 AND user_id=$2 AND status='pending'",
+            point_id, user["user_id"]
+        )
+    return {"success": True, "message": "Demande annulée"}
 
 
 # ─────────────────────────────────────────────────────────────────────────────

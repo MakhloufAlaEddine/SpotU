@@ -41,10 +41,13 @@ Implémenter une stratégie de rétention et réactivation avancée (Soft Delete
 
 ### Phase 3 — Gestion des Demandes d'Adhésion (Option C) (2026-04-05)
 - **Backend** : `GET /tag-points/{id}/join-requests` — expose les demandes en attente (owner + membres si members_approval)
-- **Frontend** : Badge rouge sur chip "X membres" visible pour owner (toujours) et membres acceptés si join_mode=members_approval. Badge masqué si 0 demandes.
+- **Backend** : `DELETE /tag-points/{id}/cancel-request` — annuler sa propre demande d'adhésion (pending uniquement)
+- **Backend** : `GET /tag-points/{id}` retourne maintenant `join_status` ("accepted" | "pending" | "invited" | null) — bloque le double-envoi et affiche l'état correct
+- **Frontend** : Badge rouge sur chip "X membres" visible pour owner et membres si members_approval. Badge masqué si 0.
+- **Frontend** : Bouton "Annuler" (orange) quand `join_status=pending` au lieu de "Rejoindre". Après annulation → "Rejoindre".
 - **Frontend** : Modal Participants — section "Demandes en attente" avec boutons Accepter+Refuser (owner) ou Accepter seul (membre)
-- **Frontend** : Onglet Notifications — boutons inline "Accepter"/"Refuser" directement sur les notifications de type `join_request`
-- **Correctif** : `_fetch_is_participant` filtre maintenant correctement sur `status='accepted'` (corrige bug où les membres invités/pending avaient les droits de membres complets)
+- **Frontend** : Onglet Notifications — boutons inline "Accepter"/"Refuser" sur les notifications `join_request`
+- **Correctif** : `_fetch_is_participant` filtre sur `status='accepted'`
 - **DB** : Enregistrement de conversation orpheline `conv_ed6d1a80279b` supprimé
 
 ## Implémenté ✅
