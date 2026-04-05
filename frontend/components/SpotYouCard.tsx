@@ -222,6 +222,18 @@ export function SpotYouCard({
                 <Text style={sc.badgeText}>Masqué</Text>
               </View>
             )}
+            {/* Badge Public / Privé */}
+            {item.visibility_type === 'private' ? (
+              <View style={[sc.visibilityBadge, sc.visibilityBadgePrivate]} testID={`badge-private-${item.point_id}`}>
+                <Ionicons name="lock-closed-outline" size={10} color="#6366F1" />
+                <Text style={[sc.visibilityBadgeText, { color: '#6366F1' }]}>Privé</Text>
+              </View>
+            ) : (
+              <View style={[sc.visibilityBadge, sc.visibilityBadgePublic]} testID={`badge-public-${item.point_id}`}>
+                <Ionicons name="globe-outline" size={10} color={Colors.primary} />
+                <Text style={[sc.visibilityBadgeText, { color: Colors.primary }]}>Public</Text>
+              </View>
+            )}
             <TouchableOpacity
               style={[sc.membersChip, isLive && !isDeactivated && sc.membersChipLive]}
               onPress={isDeactivated ? undefined : handleViewMembers}
@@ -431,6 +443,10 @@ export const sc = StyleSheet.create({
     paddingHorizontal: 5, paddingVertical: 2,
   },
   badgeText: { fontSize: 10, color: Colors.muted },
+  visibilityBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 5, paddingVertical: 2, borderRadius: 8 },
+  visibilityBadgePublic: { backgroundColor: Colors.primary + '15' },
+  visibilityBadgePrivate: { backgroundColor: '#6366F115' },
+  visibilityBadgeText: { fontSize: 10, fontWeight: '600' },
 
   membersChip: {
     flexDirection: 'row', alignItems: 'center', gap: 3,

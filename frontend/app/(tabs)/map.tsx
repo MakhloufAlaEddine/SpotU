@@ -335,6 +335,20 @@ function RecentRow({ point, userLat, userLng, onPress, liveCount }: { point: any
           {tag && point.owner && <View style={recSt.sep} />}
           {point.owner && <Text style={recSt.owner} numberOfLines={1}>{point.owner.name}</Text>}
         </View>
+        {/* Badge Public / Privé */}
+        <View style={{ flexDirection: 'row', marginTop: 3 }}>
+          {point.visibility_type === 'private' ? (
+            <View style={recSt.visiBadge}>
+              <Ionicons name="lock-closed-outline" size={9} color="#6366F1" />
+              <Text style={[recSt.visiBadgeText, { color: '#6366F1' }]}>Privé</Text>
+            </View>
+          ) : (
+            <View style={[recSt.visiBadge, recSt.visiBadgePublic]}>
+              <Ionicons name="globe-outline" size={9} color={Colors.primary} />
+              <Text style={[recSt.visiBadgeText, { color: Colors.primary }]}>Public</Text>
+            </View>
+          )}
+        </View>
       </View>
       {/* Right: dist + votes */}
       <View style={recSt.right}>
@@ -364,6 +378,9 @@ const recSt = StyleSheet.create({
   dist: { fontSize: 12, fontWeight: '700', color: Colors.primary },
   voteRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   votes: { fontSize: 11, fontWeight: '700' },
+  visiBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 5, paddingVertical: 2, borderRadius: 8, backgroundColor: '#6366F115' },
+  visiBadgePublic: { backgroundColor: Colors.primary + '15' },
+  visiBadgeText: { fontSize: 10, fontWeight: '600' },
 });
 
 // ── Main Screen ──────────────────────────────────────────────

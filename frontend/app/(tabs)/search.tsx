@@ -60,9 +60,9 @@ function StarRating({ rating = 0 }: { rating?: number }) {
 }
 
 // ─── Result Item ──────────────────────────────────────────────────────────────
-function ResultItem({ image, title, author, distance, rating = 0, onPress, isService = false, price }:
+function ResultItem({ image, title, author, distance, rating = 0, onPress, isService = false, price, visibilityType }:
   { image?: string; title: string; author: string; distance: string; rating?: number;
-    onPress: () => void; isService?: boolean; price?: number }) {
+    onPress: () => void; isService?: boolean; price?: number; visibilityType?: string }) {
   const accent = isService ? SERVICE_ORANGE : Colors.primary;
   return (
     <TouchableOpacity
@@ -82,9 +82,25 @@ function ResultItem({ image, title, author, distance, rating = 0, onPress, isSer
       <View style={itemSt.content}>
         <Text style={itemSt.title} numberOfLines={1}>{title}</Text>
         <Text style={itemSt.author} numberOfLines={1}>{author}</Text>
-        {isService && price != null
-          ? <Text style={[itemSt.distance, { color: SERVICE_ORANGE }]}>À partir de {price}€</Text>
-          : <Text style={itemSt.distance}>{distance}</Text>}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+          {!isService && (
+            visibilityType === 'private' ? (
+              <View style={itemSt.visiBadge}>
+                <Ionicons name="lock-closed-outline" size={9} color="#6366F1" />
+                <Text style={[itemSt.visiBadgeText, { color: '#6366F1' }]}>Privé</Text>
+              </View>
+            ) : (
+              <View style={[itemSt.visiBadge, itemSt.visiBadgePublic]}>
+                <Ionicons name="globe-outline" size={9} color={Colors.primary} />
+                <Text style={[itemSt.visiBadgeText, { color: Colors.primary }]}>Public</Text>
+              </View>
+            )
+          )}
+          {isService && price != null
+            ? <Text style={[itemSt.distance, { color: SERVICE_ORANGE }]}>À partir de {price}€</Text>
+            : !isService ? <Text style={itemSt.distance}>{distance}</Text> : null}
+          {isService && <Text style={itemSt.distance}>{distance}</Text>}
+        </View>
       </View>
       <View style={itemSt.right}>
         {!isService && <StarRating rating={rating} />}
@@ -109,9 +125,12 @@ const itemSt = StyleSheet.create({
   content: { flex: 1, justifyContent: 'center' },
   title: { fontSize: 15, fontWeight: '600', color: Colors.foreground },
   author: { fontSize: 13, color: Colors.muted, marginTop: 2 },
-  distance: { fontSize: 13, fontWeight: '600', color: Colors.foreground, marginTop: 4 },
+  distance: { fontSize: 13, fontWeight: '600', color: Colors.foreground, marginTop: 0 },
   right: { alignItems: 'flex-end', justifyContent: 'center', gap: 8 },
   viewText: { fontSize: 13, color: Colors.muted },
+  visiBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 5, paddingVertical: 2, borderRadius: 8, backgroundColor: '#6366F115' },
+  visiBadgePublic: { backgroundColor: Colors.primary + '15' },
+  visiBadgeText: { fontSize: 10, fontWeight: '600' },
 });
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
@@ -482,6 +501,7 @@ export default function SearchScreen() {
                     author={item.owner?.name || 'Anonyme'}
                     distance={getDistance(item)}
                     rating={item.rating || 0}
+                    visibilityType={item.visibility_type}
                     onPress={() => router.push(`/spot-you/${item.point_id}`)}
                   />
                 );
