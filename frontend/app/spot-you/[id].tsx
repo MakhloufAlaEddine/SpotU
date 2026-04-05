@@ -376,6 +376,7 @@ export default function SpotYouDetail() {
   const [ratingDist, setRatingDist] = useState<Record<string, number>>({});
   const [isParticipant, setIsParticipant] = useState(false);
   const [isMember, setIsMember] = useState(false);
+  const [joinStatus, setJoinStatus] = useState<'accepted' | 'pending' | 'invited' | null>(null);
   const [canParticipate, setCanParticipate] = useState(false);
   const [isGoing, setIsGoing] = useState(false);
   const [goingCount, setGoingCount] = useState(0);
@@ -750,17 +751,38 @@ export default function SpotYouDetail() {
     if (!user) { Alert.alert('Connexion requise', 'Connectez-vous pour participer.'); return; }
     setRsvpLoading(true);
     try {
-      const res = isMember
-        ? await api.delete(`/spot-you/${id}/leave`)
-        : await api.post(`/spot-you/${id}/join`, {});
-      // Optimistic : met à jour l'état de membership immédiatement
-      setIsMember(res.is_member);
-      setIsParticipant(res.is_member);
-      setCanParticipate(res.is_member);
-      if (!res.is_member) setIsGoing(false);
-      // Refresh complet — source de vérité unique
+      if (isMember) {
+        // Quitter
+        const res = await api.delete(`/spot-you/${id}/leave`);
+        setIsMember(false);
+        setIsParticipant(false);
+        setCanParticipate(false);
+        setIsGoing(false);
+      } else {
+        // Rejoindre — utilise la route Phase 1 avec logique d'approbation
+        const res = await api.post(`/tag-points/${id}/join`, {});
+
+        if (res.status === 'pending') {
+          // Demande en attente de validation
+          setJoinStatus('pending');
+          Alert.alert(
+            'Demande envoyée',
+            res.message || 'Votre demande est en attente de validation par les membres.'
+          );
+          return; // Pas de refresh complet nécessaire
+        }
+
+        if (res.status === 'accepted') {
+          setIsMember(true);
+          setIsParticipant(res.is_participant ?? true);
+          setCanParticipate(res.is_participant ?? true);
+          refreshAllRef.current();
+          loadActivity();
+          await cacheInvalidate([`/tag-points/${id}`, '/tag-points', '/planning', '/conversations']);
+        }
+        return;
+      }
       refreshAllRef.current();
-      if (res.is_member) loadActivity();
       await cacheInvalidate([`/tag-points/${id}`, '/tag-points', '/planning', '/conversations']);
     } catch (e: any) { onActionError(e); }
     finally { setRsvpLoading(false); }
