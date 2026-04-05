@@ -471,7 +471,7 @@ async def get_tag_point(point_id: str, request: Request):
 
     async def _fetch_member_count(c):
         return await c.fetchval(
-            "SELECT COUNT(*) FROM spot_you_members WHERE spot_you_id=$1", point_id
+            "SELECT COUNT(*) FROM spot_you_members WHERE spot_you_id=$1 AND status='accepted'", point_id
         ) or 0
 
     tags_rows, vote_stats, dist_rows, member_count = await asyncio.gather(
