@@ -765,12 +765,13 @@ async def join_tag_point(point_id: str, request: Request):
             }
 
             if join_mode == "admin_approval":
-                # Notifier uniquement l'admin (owner)
+                # Notifier uniquement l'admin (owner) — il a le droit de refuser
                 asyncio.create_task(send_push_to_user(
                     pool, owner_id,
                     title="Nouvelle demande d'adhésion",
                     body=f'{user["name"]} souhaite rejoindre «{content_title}»',
-                    data=sender_info, notif_type="join_request"
+                    data={**sender_info, "recipient_is_owner": True},
+                    notif_type="join_request"
                 ))
             else:  # members_approval
                 # Notifier tous les membres acceptés (y compris l'admin)
@@ -779,11 +780,13 @@ async def join_tag_point(point_id: str, request: Request):
                     point_id, user["user_id"]
                 )
                 for m in member_ids:
+                    is_owner_recipient = (m["user_id"] == owner_id)
                     asyncio.create_task(send_push_to_user(
                         pool, m["user_id"],
                         title="Nouvelle demande d'adhésion",
                         body=f'{user["name"]} souhaite rejoindre «{content_title}»',
-                        data=sender_info, notif_type="join_request"
+                        data={**sender_info, "recipient_is_owner": is_owner_recipient},
+                        notif_type="join_request"
                     ))
 
             return {"success": True, "status": "pending", "is_participant": False,

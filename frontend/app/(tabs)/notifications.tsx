@@ -57,6 +57,7 @@ function NotifItem({ item, onPress }: { item: any; onPress: () => void }) {
   const hasImage = !!item.image_url;
   const hasSender = !!item.sender_name;
   const isJoinRequest = item.type === 'join_request' && !!item.sender_id && !!item.point_id;
+  const canReject = isJoinRequest && item.recipient_is_owner === true;
 
   const handleJoinAction = async (action: 'approve' | 'reject') => {
     setActionLoading(action);
@@ -140,16 +141,18 @@ function NotifItem({ item, onPress }: { item: any; onPress: () => void }) {
               ? <ActivityIndicator size="small" color="#fff" />
               : <Text style={ni.acceptBtnText}>Accepter</Text>}
           </TouchableOpacity>
-          <TouchableOpacity
-            style={ni.refuseBtn}
-            onPress={() => handleJoinAction('reject')}
-            disabled={!!actionLoading}
-            testID={`reject-request-${item.id}`}
-          >
-            {actionLoading === 'reject'
-              ? <ActivityIndicator size="small" color={Colors.muted} />
-              : <Text style={ni.refuseBtnText}>Refuser</Text>}
-          </TouchableOpacity>
+          {canReject && (
+            <TouchableOpacity
+              style={ni.refuseBtn}
+              onPress={() => handleJoinAction('reject')}
+              disabled={!!actionLoading}
+              testID={`reject-request-${item.id}`}
+            >
+              {actionLoading === 'reject'
+                ? <ActivityIndicator size="small" color={Colors.muted} />
+                : <Text style={ni.refuseBtnText}>Refuser</Text>}
+            </TouchableOpacity>
+          )}
         </View>
       )}
       {isJoinRequest && requestHandled && (
@@ -197,6 +200,7 @@ export default function NotificationsScreen() {
       action_text: d.action_text || n.body || '',
       content_title: d.content_title || '',
       point_id: d.point_id || '',
+      recipient_is_owner: d.recipient_is_owner === true,
       time: n.created_at || new Date().toISOString(),
       action: d.type === 'chat_message' && d.conversationId ? `/chat/${d.conversationId}` : action,
       read: n.read,
