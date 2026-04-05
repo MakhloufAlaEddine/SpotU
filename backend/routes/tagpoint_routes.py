@@ -1166,11 +1166,16 @@ async def approve_join_request(point_id: str, member_id: str, request: Request):
             raise HTTPException(status_code=403, detail="Seul un membre peut approuver cette demande.")
 
         pending = await conn.fetchrow(
-            "SELECT id FROM spot_you_members WHERE spot_you_id=$1 AND user_id=$2 AND status='pending'",
+            "SELECT id, status FROM spot_you_members WHERE spot_you_id=$1 AND user_id=$2",
             point_id, member_id
         )
         if not pending:
-            raise HTTPException(status_code=404, detail="Demande introuvable ou déjà traitée.")
+            raise HTTPException(status_code=404, detail="Aucune demande trouvée pour cet utilisateur.")
+        if pending["status"] != "pending":
+            if pending["status"] == "accepted":
+                raise HTTPException(status_code=409, detail="Cette demande a déjà été acceptée par un autre membre.")
+            else:
+                raise HTTPException(status_code=409, detail="Cette demande a déjà été traitée.")
 
         await conn.execute(
             """UPDATE spot_you_members
@@ -1214,6 +1219,18 @@ async def reject_join_request(point_id: str, member_id: str, request: Request):
             raise HTTPException(status_code=404, detail="SpotYou introuvable")
         if tp["user_id"] != user["user_id"] and user.get("role") != "admin":
             raise HTTPException(status_code=403, detail="Seul l'admin peut refuser une demande.")
+
+        current = await conn.fetchrow(
+            "SELECT status FROM spot_you_members WHERE spot_you_id=$1 AND user_id=$2",
+            point_id, member_id
+        )
+        if not current:
+            raise HTTPException(status_code=404, detail="Aucune demande trouvée pour cet utilisateur.")
+        if current["status"] != "pending":
+            if current["status"] == "accepted":
+                raise HTTPException(status_code=409, detail="Cette demande a déjà été acceptée. Impossible de la refuser.")
+            else:
+                raise HTTPException(status_code=409, detail="Cette demande a déjà été traitée.")
 
         result = await conn.execute(
             """UPDATE spot_you_members

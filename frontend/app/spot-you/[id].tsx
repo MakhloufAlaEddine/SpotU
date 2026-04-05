@@ -744,7 +744,15 @@ export default function SpotYouDetail() {
       setParticipantsCount(prev => prev + 1);
       loadParticipants();
     } catch (e: any) {
-      Alert.alert('Erreur', e.message || 'Impossible d\'accepter la demande');
+      if (e.statusCode === 409) {
+        Alert.alert(
+          'Demande déjà traitée',
+          e.message || 'Cette demande a déjà été acceptée par un autre membre.',
+          [{ text: 'OK', onPress: () => { loadPendingRequests(); loadParticipants(); } }]
+        );
+      } else {
+        Alert.alert('Erreur', e.message || 'Impossible d\'accepter la demande');
+      }
     }
   };
 
@@ -753,7 +761,15 @@ export default function SpotYouDetail() {
       await api.post(`/tag-points/${id}/members/${memberId}/reject`, {});
       setPendingRequests(prev => prev.filter(r => r.user_id !== memberId));
     } catch (e: any) {
-      Alert.alert('Erreur', e.message || 'Impossible de refuser la demande');
+      if (e.statusCode === 409) {
+        Alert.alert(
+          'Demande déjà traitée',
+          e.message || 'Cette demande a déjà été traitée par un autre membre.',
+          [{ text: 'OK', onPress: () => { loadPendingRequests(); loadParticipants(); } }]
+        );
+      } else {
+        Alert.alert('Erreur', e.message || 'Impossible de refuser la demande');
+      }
     }
   };
 

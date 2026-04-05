@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  RefreshControl, Image, ActivityIndicator,
+  RefreshControl, Image, ActivityIndicator, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
@@ -50,7 +50,7 @@ function timeAgo(iso: string) {
 }
 
 // ── Item notification ─────────────────────────────────────────────────────────
-function NotifItem({ item, onPress }: { item: any; onPress: () => void }) {
+function NotifItem({ item, onPress, onRefresh }: { item: any; onPress: () => void; onRefresh?: () => void }) {
   const [requestHandled, setRequestHandled] = useState(false);
   const [actionLoading, setActionLoading] = useState<'approve' | 'reject' | null>(null);
   const cfg = NOTIF_CFG[item.type] || NOTIF_CFG.info;
@@ -67,8 +67,18 @@ function NotifItem({ item, onPress }: { item: any; onPress: () => void }) {
         : `/tag-points/${item.point_id}/members/${item.sender_id}/reject`;
       await api.post(endpoint, {});
       setRequestHandled(true);
-    } catch {}
-    finally { setActionLoading(null); }
+    } catch (e: any) {
+      if ((e as any).statusCode === 409) {
+        Alert.alert(
+          'Demande déjà traitée',
+          e.message || 'Cette demande a déjà été traitée par un autre membre.',
+          [{ text: 'OK', onPress: () => { setRequestHandled(true); onRefresh?.(); } }]
+        );
+      }
+      // Autres erreurs ignorées silencieusement
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   return (
