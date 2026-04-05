@@ -1064,6 +1064,7 @@ async def refuse_invitation(point_id: str, request: Request):
 
 
 
+@router.get("/tag-points/{point_id}/join-requests")
 async def get_join_requests(point_id: str, request: Request):
     """
     Retourne les demandes en attente (pending).

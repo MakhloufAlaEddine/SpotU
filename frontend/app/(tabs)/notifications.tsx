@@ -29,6 +29,10 @@ const NOTIF_CFG: Record<string, { icon: any; color: string; bg: string; label: s
   spotyu_deactivated:{ icon: 'pause-circle-outline',       color: '#F59E0B',       bg: '#F59E0B1A',             label: 'SpotYou désactivé' },
   spotyu_updated:    { icon: 'create-outline',             color: '#F59E0B',       bg: '#F59E0B1A',             label: 'SpotYou mis à jour' },
   profile_review:    { icon: 'star-half-outline',          color: '#8B5CF6',       bg: '#8B5CF61A',             label: 'Évaluation profil' },
+  join_request:      { icon: 'person-add-outline',         color: '#6366F1',       bg: '#6366F11A',             label: 'Demande d\'adhésion' },
+  join_approved:     { icon: 'checkmark-circle-outline',   color: '#10B981',       bg: '#10B9811A',             label: 'Demande acceptée' },
+  join_rejected:     { icon: 'close-circle-outline',       color: '#EF4444',       bg: '#EF44441A',             label: 'Demande refusée' },
+  spotyou_invite:    { icon: 'mail-outline',               color: '#6366F1',       bg: '#6366F11A',             label: 'Invitation SpotYou' },
   info:              { icon: 'information-circle-outline', color: Colors.muted,    bg: Colors.card,             label: 'Info' },
 };
 
@@ -47,65 +51,114 @@ function timeAgo(iso: string) {
 
 // ── Item notification ─────────────────────────────────────────────────────────
 function NotifItem({ item, onPress }: { item: any; onPress: () => void }) {
+  const [requestHandled, setRequestHandled] = useState(false);
+  const [actionLoading, setActionLoading] = useState<'approve' | 'reject' | null>(null);
   const cfg = NOTIF_CFG[item.type] || NOTIF_CFG.info;
   const hasImage = !!item.image_url;
   const hasSender = !!item.sender_name;
+  const isJoinRequest = item.type === 'join_request' && !!item.sender_id && !!item.point_id;
+
+  const handleJoinAction = async (action: 'approve' | 'reject') => {
+    setActionLoading(action);
+    try {
+      const endpoint = action === 'approve'
+        ? `/tag-points/${item.point_id}/members/${item.sender_id}/approve`
+        : `/tag-points/${item.point_id}/members/${item.sender_id}/reject`;
+      await api.post(endpoint, {});
+      setRequestHandled(true);
+    } catch {}
+    finally { setActionLoading(null); }
+  };
 
   return (
-    <TouchableOpacity
-      style={[ni.row, !item.read && ni.rowUnread]}
-      onPress={onPress}
-      activeOpacity={0.75}
-      testID={`notif-${item.id}`}
-    >
-      {/* Avatar: SpotYou image > Sender avatar > icon */}
-      {hasImage ? (
-        <View style={ni.avatarWrap}>
-          <Image source={{ uri: item.image_url }} style={ni.avatar} />
-          <View style={[ni.typeBadge, { backgroundColor: cfg.color }]}>
-            <Ionicons name={cfg.icon} size={9} color="#fff" />
+    <View style={!item.read ? ni.containerUnread : undefined}>
+      <TouchableOpacity
+        style={ni.row}
+        onPress={onPress}
+        activeOpacity={0.75}
+        testID={`notif-${item.id}`}
+      >
+        {/* Avatar: SpotYou image > Sender avatar > icon */}
+        {hasImage ? (
+          <View style={ni.avatarWrap}>
+            <Image source={{ uri: item.image_url }} style={ni.avatar} />
+            <View style={[ni.typeBadge, { backgroundColor: cfg.color }]}>
+              <Ionicons name={cfg.icon} size={9} color="#fff" />
+            </View>
           </View>
-        </View>
-      ) : hasSender ? (
-        <View style={ni.avatarWrap}>
-          <UserAvatar uri={item.sender_picture} name={item.sender_name} size={46} bgColor={cfg.bg} color={cfg.color} />
-          <View style={[ni.typeBadge, { backgroundColor: cfg.color }]}>
-            <Ionicons name={cfg.icon} size={9} color="#fff" />
+        ) : hasSender ? (
+          <View style={ni.avatarWrap}>
+            <UserAvatar uri={item.sender_picture} name={item.sender_name} size={46} bgColor={cfg.bg} color={cfg.color} />
+            <View style={[ni.typeBadge, { backgroundColor: cfg.color }]}>
+              <Ionicons name={cfg.icon} size={9} color="#fff" />
+            </View>
           </View>
+        ) : (
+          <View style={[ni.iconBox, { backgroundColor: cfg.bg }]}>
+            <Ionicons name={cfg.icon} size={22} color={cfg.color} />
+          </View>
+        )}
+
+        {/* Contenu */}
+        <View style={ni.content}>
+          <View style={ni.topRow}>
+            <View style={{ flex: 1 }}>
+              {hasSender ? (
+                <Text style={ni.senderName} numberOfLines={1}>{item.sender_name}</Text>
+              ) : (
+                <Text style={[ni.senderName, { color: Colors.foreground }]} numberOfLines={1}>
+                  {NOTIF_CFG[item.type]?.label || 'Notification'}
+                </Text>
+              )}
+            </View>
+            <Text style={ni.time}>{timeAgo(item.time)}</Text>
+          </View>
+
+          {/* Action + contenu concerné */}
+          <Text style={ni.action} numberOfLines={2}>
+            {hasSender ? item.action_text : item.action_text || item.subtitle}
+            {item.content_title ? (
+              <Text style={ni.contentTitle}> «{item.content_title}»</Text>
+            ) : null}
+          </Text>
         </View>
-      ) : (
-        <View style={[ni.iconBox, { backgroundColor: cfg.bg }]}>
-          <Ionicons name={cfg.icon} size={22} color={cfg.color} />
+
+        {!item.read && <View style={ni.dot} />}
+        <Ionicons name="chevron-forward" size={14} color={Colors.muted} style={{ marginLeft: 4 }} />
+      </TouchableOpacity>
+
+      {/* Boutons rapides — demandes d'adhésion */}
+      {isJoinRequest && !requestHandled && (
+        <View style={ni.joinRequestActions}>
+          <TouchableOpacity
+            style={ni.acceptBtn}
+            onPress={() => handleJoinAction('approve')}
+            disabled={!!actionLoading}
+            testID={`approve-request-${item.id}`}
+          >
+            {actionLoading === 'approve'
+              ? <ActivityIndicator size="small" color="#fff" />
+              : <Text style={ni.acceptBtnText}>Accepter</Text>}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={ni.refuseBtn}
+            onPress={() => handleJoinAction('reject')}
+            disabled={!!actionLoading}
+            testID={`reject-request-${item.id}`}
+          >
+            {actionLoading === 'reject'
+              ? <ActivityIndicator size="small" color={Colors.muted} />
+              : <Text style={ni.refuseBtnText}>Refuser</Text>}
+          </TouchableOpacity>
         </View>
       )}
-
-      {/* Contenu */}
-      <View style={ni.content}>
-        <View style={ni.topRow}>
-          <View style={{ flex: 1 }}>
-            {hasSender ? (
-              <Text style={ni.senderName} numberOfLines={1}>{item.sender_name}</Text>
-            ) : (
-              <Text style={[ni.senderName, { color: Colors.foreground }]} numberOfLines={1}>
-                {NOTIF_CFG[item.type]?.label || 'Notification'}
-              </Text>
-            )}
-          </View>
-          <Text style={ni.time}>{timeAgo(item.time)}</Text>
+      {isJoinRequest && requestHandled && (
+        <View style={ni.joinRequestHandled}>
+          <Ionicons name="checkmark-circle" size={13} color={Colors.primary} />
+          <Text style={ni.joinRequestHandledText}>Demande traitée</Text>
         </View>
-
-        {/* Action + contenu concerné */}
-        <Text style={ni.action} numberOfLines={2}>
-          {hasSender ? item.action_text : item.action_text || item.subtitle}
-          {item.content_title ? (
-            <Text style={ni.contentTitle}> «{item.content_title}»</Text>
-          ) : null}
-        </Text>
-      </View>
-
-      {!item.read && <View style={ni.dot} />}
-      <Ionicons name="chevron-forward" size={14} color={Colors.muted} style={{ marginLeft: 4 }} />
-    </TouchableOpacity>
+      )}
+    </View>
   );
 }
 
@@ -139,9 +192,11 @@ export default function NotificationsScreen() {
       type: d.type === 'chat_message' ? 'chat_message' : (n.type || d.type || 'info'),
       sender_name: d.sender_name || n.title || '',
       sender_picture: d.sender_picture || '',
+      sender_id: d.sender_id || '',
       image_url: d.image_url || '',
       action_text: d.action_text || n.body || '',
       content_title: d.content_title || '',
+      point_id: d.point_id || '',
       time: n.created_at || new Date().toISOString(),
       action: d.type === 'chat_message' && d.conversationId ? `/chat/${d.conversationId}` : action,
       read: n.read,
@@ -274,6 +329,7 @@ export default function NotificationsScreen() {
 const ni = StyleSheet.create({
   row:          { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 10 },
   rowUnread:    { backgroundColor: Colors.primary + '08' },
+  containerUnread: { backgroundColor: Colors.primary + '08' },
 
   // Icône système
   iconBox:      { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
@@ -295,6 +351,15 @@ const ni = StyleSheet.create({
 
   // Indicateur non lu
   dot:          { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.primary, flexShrink: 0 },
+
+  // Boutons rapides demande d'adhésion
+  joinRequestActions: { flexDirection: 'row', gap: 8, paddingHorizontal: 74, paddingBottom: 12 },
+  acceptBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, backgroundColor: '#10B981', borderRadius: 20, paddingHorizontal: 18, paddingVertical: 7, minWidth: 90 },
+  acceptBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
+  refuseBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, borderRadius: 20, paddingHorizontal: 18, paddingVertical: 7, borderWidth: 1, borderColor: Colors.border, minWidth: 90 },
+  refuseBtnText: { fontSize: 13, fontWeight: '700', color: Colors.foreground },
+  joinRequestHandled: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 74, paddingBottom: 12 },
+  joinRequestHandledText: { fontSize: 12, color: Colors.primary, fontWeight: '600', fontStyle: 'italic' },
 });
 
 const s = StyleSheet.create({

@@ -395,6 +395,8 @@ export default function SpotYouDetail() {
   const [showExactAddress, setShowExactAddress] = useState(false);
   const [showFullDesc, setShowFullDesc] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+  const [pendingLoading, setPendingLoading] = useState(false);
 
   // ── Animation pulse bouton Marketplace ───────────────────────────────────
   const marketplacePulse = useRef(new Animated.Value(1)).current;
@@ -428,6 +430,7 @@ export default function SpotYouDetail() {
       refreshDebounceRef.current = setTimeout(() => {
         loadPoint(true);
         loadParticipants();
+        loadPendingRequests();
         loadGoingList();
       }, 200);
     };
@@ -438,7 +441,7 @@ export default function SpotYouDetail() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await Promise.all([loadPoint(true), loadParticipants(), loadGoingList(), loadVotes()]);
+      await Promise.all([loadPoint(true), loadParticipants(), loadPendingRequests(), loadGoingList(), loadVotes()]);
     } finally {
       setRefreshing(false);
     }
@@ -512,7 +515,7 @@ export default function SpotYouDetail() {
 
   // Chargement initial (premier montage uniquement)
   useEffect(() => {
-    if (id) { loadPoint(); loadVotes(); loadParticipants(); loadGoingList(); if (user) loadMyVote(); }
+    if (id) { loadPoint(); loadVotes(); loadParticipants(); loadPendingRequests(); loadGoingList(); if (user) loadMyVote(); }
   }, [id, user]);
 
   const loadPoint = async (isRefresh = false) => {
@@ -717,6 +720,40 @@ export default function SpotYouDetail() {
       setGoingCount(list.length); // sync le compteur affiché avec la liste réelle
     } catch {}
     finally { setGoingListLoading(false); }
+  };
+
+  const loadPendingRequests = async () => {
+    if (!user) return;
+    setPendingLoading(true);
+    try {
+      const data = await api.get(`/tag-points/${id}/join-requests`);
+      setPendingRequests(Array.isArray(data) ? data : []);
+    } catch {
+      // 403 = pas de permission, ignorer silencieusement
+      setPendingRequests([]);
+    } finally {
+      setPendingLoading(false);
+    }
+  };
+
+  const handleApproveRequest = async (memberId: string) => {
+    try {
+      await api.post(`/tag-points/${id}/members/${memberId}/approve`, {});
+      setPendingRequests(prev => prev.filter(r => r.user_id !== memberId));
+      setParticipantsCount(prev => prev + 1);
+      loadParticipants();
+    } catch (e: any) {
+      Alert.alert('Erreur', e.message || 'Impossible d\'accepter la demande');
+    }
+  };
+
+  const handleRejectRequest = async (memberId: string) => {
+    try {
+      await api.post(`/tag-points/${id}/members/${memberId}/reject`, {});
+      setPendingRequests(prev => prev.filter(r => r.user_id !== memberId));
+    } catch (e: any) {
+      Alert.alert('Erreur', e.message || 'Impossible de refuser la demande');
+    }
   };
 
   const openVoteModal = () => {
@@ -992,6 +1029,7 @@ export default function SpotYouDetail() {
   const distanceStr = (lat != null && lng != null)
     ? formatDistance(haversineDistance(location.lat, location.lng, lat, lng)) : '---';
   const isOwner = !!(user && point.owner && user.user_id === point.owner.user_id);
+  const canManageRequests = isOwner || (isMember && point?.join_mode === 'members_approval');
   // Participants autres que le créateur
   const hasOtherParticipants = participants.some(p => !p.is_creator);
 
@@ -1124,33 +1162,47 @@ export default function SpotYouDetail() {
 
             {/* Chip membres pour le propriétaire — toujours visible */}
             {isOwner && (
-              <TouchableOpacity
-                onPress={() => setShowParticipants(true)}
-                testID="owner-members-count"
-                style={st.membersChipInline}
-              >
-                <Ionicons name="people-outline" size={12} color={Colors.muted} />
-                <Text style={st.membersChipInlineText}>
-                  {Math.max(participantsCount, 1)} membre{Math.max(participantsCount, 1) > 1 ? 's' : ''}
-                </Text>
-                <Ionicons name="chevron-forward" size={10} color={Colors.muted} />
-              </TouchableOpacity>
+              <View style={{ position: 'relative' }}>
+                <TouchableOpacity
+                  onPress={() => { setShowParticipants(true); loadPendingRequests(); }}
+                  testID="owner-members-count"
+                  style={st.membersChipInline}
+                >
+                  <Ionicons name="people-outline" size={12} color={Colors.muted} />
+                  <Text style={st.membersChipInlineText}>
+                    {Math.max(participantsCount, 1)} membre{Math.max(participantsCount, 1) > 1 ? 's' : ''}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={10} color={Colors.muted} />
+                </TouchableOpacity>
+                {pendingRequests.length > 0 && (
+                  <View style={st.pendingBadge} testID="pending-badge-owner">
+                    <Text style={st.pendingBadgeText}>{pendingRequests.length}</Text>
+                  </View>
+                )}
+              </View>
             )}
 
             {/* Rejoindre + membres — récurrents ET date unique (passés ou futurs) */}
             {!isOwner && (!!point.event_schedule || !!point.event_date) && (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
-                {participantsCount > 0 && (
-                  <TouchableOpacity
-                    onPress={() => setShowParticipants(true)}
-                    testID="members-count-inline"
-                    style={st.membersChipInline}
-                  >
-                    <Ionicons name="people-outline" size={12} color={Colors.muted} />
-                    <Text style={st.membersChipInlineText}>
-                      {participantsCount}
-                    </Text>
-                  </TouchableOpacity>
+                {(participantsCount > 0 || canManageRequests) && (
+                  <View style={{ position: 'relative' }}>
+                    <TouchableOpacity
+                      onPress={() => { setShowParticipants(true); loadPendingRequests(); }}
+                      testID="members-count-inline"
+                      style={st.membersChipInline}
+                    >
+                      <Ionicons name="people-outline" size={12} color={Colors.muted} />
+                      <Text style={st.membersChipInlineText}>
+                        {Math.max(participantsCount, 1)}
+                      </Text>
+                    </TouchableOpacity>
+                    {canManageRequests && pendingRequests.length > 0 && (
+                      <View style={st.pendingBadge} testID="pending-badge-member">
+                        <Text style={st.pendingBadgeText}>{pendingRequests.length}</Text>
+                      </View>
+                    )}
+                  </View>
                 )}
                 <TouchableOpacity
                   style={[st.joinBtnCompact, isMember && st.joinBtnCompactActive]}
@@ -1723,16 +1775,83 @@ export default function SpotYouDetail() {
       <Modal visible={showParticipants} animationType="slide" transparent onRequestClose={() => setShowParticipants(false)}>
         <View style={ms.overlay}>
           <TouchableOpacity style={ms.backdrop} activeOpacity={1} onPress={() => setShowParticipants(false)} />
-          <View style={[ms.sheet, { maxHeight: '75%' }]}>
+          <View style={[ms.sheet, { maxHeight: '80%' }]}>
             <View style={ms.header}>
-              <Text style={ms.title}>
-                {participants.length} membre{participants.length > 1 ? 's' : ''}
-              </Text>
+              <View>
+                <Text style={ms.title}>
+                  {participants.length} membre{participants.length > 1 ? 's' : ''}
+                </Text>
+                {canManageRequests && pendingRequests.length > 0 && (
+                  <Text style={{ fontSize: 12, color: '#EF4444', fontWeight: '600', marginTop: 2 }}>
+                    {pendingRequests.length} demande{pendingRequests.length > 1 ? 's' : ''} en attente
+                  </Text>
+                )}
+              </View>
               <TouchableOpacity onPress={() => setShowParticipants(false)} testID="close-participants-modal">
                 <Ionicons name="close" size={22} color={Colors.foreground} />
               </TouchableOpacity>
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
+
+              {/* Section demandes en attente */}
+              {canManageRequests && pendingRequests.length > 0 && (
+                <View>
+                  <View style={ps.sectionHeader}>
+                    <Ionicons name="time-outline" size={14} color="#EF4444" />
+                    <Text style={ps.sectionHeaderText}>Demandes en attente</Text>
+                    <View style={ps.pendingCountBadge}>
+                      <Text style={ps.pendingCountBadgeText}>{pendingRequests.length}</Text>
+                    </View>
+                  </View>
+                  {pendingLoading ? (
+                    <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: 12 }} />
+                  ) : (
+                    pendingRequests.map(req => (
+                      <View key={req.user_id} style={ps.requestRow} testID={`pending-request-${req.user_id}`}>
+                        <View style={ps.avatar}>
+                          {req.picture
+                            ? <Image source={{ uri: req.picture }} style={{ width: '100%', height: '100%' }} />
+                            : <Text style={ps.avatarLetter}>{req.name?.charAt(0)?.toUpperCase() || '?'}</Text>
+                          }
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={ps.name} numberOfLines={1}>{req.name}</Text>
+                          {req.requested_at && (
+                            <Text style={ps.requestedAt}>
+                              {new Date(req.requested_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                            </Text>
+                          )}
+                        </View>
+                        <View style={ps.requestActions}>
+                          <TouchableOpacity
+                            style={ps.approveBtn}
+                            onPress={() => handleApproveRequest(req.user_id)}
+                            testID={`approve-request-${req.user_id}`}
+                          >
+                            <Ionicons name="checkmark" size={12} color="#fff" />
+                            <Text style={ps.approveBtnText}>Accepter</Text>
+                          </TouchableOpacity>
+                          {isOwner && (
+                            <TouchableOpacity
+                              style={ps.rejectBtn}
+                              onPress={() => handleRejectRequest(req.user_id)}
+                              testID={`reject-request-${req.user_id}`}
+                            >
+                              <Ionicons name="close" size={12} color="#EF4444" />
+                              <Text style={ps.rejectBtnText}>Refuser</Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      </View>
+                    ))
+                  )}
+                  <View style={ps.sectionDivider} />
+                  {participants.length > 0 && (
+                    <Text style={ps.membresTitle}>Membres acceptés</Text>
+                  )}
+                </View>
+              )}
+
               {participantsLoading
                 ? <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: 24 }} />
                 : participants.map((p) => {
@@ -2025,6 +2144,16 @@ const st = StyleSheet.create({
   // Chip membres inline
   membersChipInline: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: Colors.card, borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: Colors.border },
   membersChipInlineText: { fontSize: 11, color: Colors.muted, fontWeight: '600' },
+  // Badge rouge — demandes en attente
+  pendingBadge: {
+    position: 'absolute', top: -5, right: -5,
+    minWidth: 16, height: 16, borderRadius: 8,
+    backgroundColor: '#EF4444',
+    alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 3,
+    borderWidth: 1.5, borderColor: Colors.background,
+  },
+  pendingBadgeText: { fontSize: 9, fontWeight: '800', color: '#fff' },
   // Boutons de communication (Message + Groupe)
   chatRow: { flexDirection: 'row', gap: Spacing.sm, paddingHorizontal: Spacing.md, marginBottom: Spacing.sm },
   chatBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: Colors.card, paddingVertical: 9, borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.border },
@@ -2110,4 +2239,18 @@ const ps = StyleSheet.create({
   badgeOrganizerTxt: { fontSize: 10, fontWeight: '700', color: '#F59E0B' },
   badgeCoach: { backgroundColor: Colors.primary + '22', borderRadius: Radius.full, paddingHorizontal: 7, paddingVertical: 3, borderWidth: 1, borderColor: Colors.primary + '44' },
   badgeCoachTxt: { fontSize: 10, fontWeight: '700', color: Colors.primary },
+  // Demandes en attente
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 10 },
+  sectionHeaderText: { fontSize: 12, fontWeight: '800', color: '#EF4444', flex: 1, textTransform: 'uppercase', letterSpacing: 0.4 },
+  pendingCountBadge: { backgroundColor: '#EF4444', borderRadius: 8, minWidth: 18, height: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  pendingCountBadgeText: { fontSize: 10, fontWeight: '800', color: '#fff' },
+  requestRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.border + '60' },
+  requestedAt: { fontSize: 11, color: Colors.muted, marginTop: 2 },
+  requestActions: { flexDirection: 'row', gap: 6, alignItems: 'center', flexShrink: 0 },
+  approveBtn: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#10B981', borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 5 },
+  approveBtnText: { fontSize: 11, fontWeight: '700', color: '#fff' },
+  rejectBtn: { flexDirection: 'row', alignItems: 'center', gap: 3, borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: '#EF4444' },
+  rejectBtnText: { fontSize: 11, fontWeight: '700', color: '#EF4444' },
+  sectionDivider: { height: 1, backgroundColor: Colors.border, marginVertical: 12 },
+  membresTitle: { fontSize: 11, fontWeight: '800', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4 },
 });
