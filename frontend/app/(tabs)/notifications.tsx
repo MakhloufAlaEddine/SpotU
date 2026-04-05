@@ -57,7 +57,7 @@ function NotifItem({ item, onPress }: { item: any; onPress: () => void }) {
   const hasImage = !!item.image_url;
   const hasSender = !!item.sender_name;
   const isJoinRequest = item.type === 'join_request' && !!item.sender_id && !!item.point_id;
-  const canReject = isJoinRequest && item.recipient_is_owner === true;
+  const canReject = isJoinRequest && item.recipient_is_admin === true;
 
   const handleJoinAction = async (action: 'approve' | 'reject') => {
     setActionLoading(action);
@@ -201,6 +201,7 @@ export default function NotificationsScreen() {
       content_title: d.content_title || '',
       point_id: d.point_id || '',
       recipient_is_owner: d.recipient_is_owner === true,
+      recipient_is_admin: d.recipient_is_admin === true,
       time: n.created_at || new Date().toISOString(),
       action: d.type === 'chat_message' && d.conversationId ? `/chat/${d.conversationId}` : action,
       read: n.read,

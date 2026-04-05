@@ -785,7 +785,7 @@ async def join_tag_point(point_id: str, request: Request):
                         pool, m["user_id"],
                         title="Nouvelle demande d'adhésion",
                         body=f'{user["name"]} souhaite rejoindre «{content_title}»',
-                        data={**sender_info, "recipient_is_owner": is_owner_recipient},
+                        data={**sender_info, "recipient_is_admin": is_owner_recipient},
                         notif_type="join_request"
                     ))
 

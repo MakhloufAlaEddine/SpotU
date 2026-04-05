@@ -1071,7 +1071,9 @@ export default function SpotYouDetail() {
   const distanceStr = (lat != null && lng != null)
     ? formatDistance(haversineDistance(location.lat, location.lng, lat, lng)) : '---';
   const isOwner = !!(user && point.owner && user.user_id === point.owner.user_id);
-  const canManageRequests = isOwner || (isMember && point?.join_mode === 'members_approval');
+  // isAdmin = isOwner pour l'instant (évolutif : plusieurs admins à venir)
+  const isAdmin = isOwner;
+  const canManageRequests = isAdmin || (isMember && point?.join_mode === 'members_approval');
   // Participants autres que le créateur
   const hasOtherParticipants = participants.some(p => !p.is_creator);
 
@@ -1882,7 +1884,7 @@ export default function SpotYouDetail() {
                             <Ionicons name="checkmark" size={12} color="#fff" />
                             <Text style={ps.approveBtnText}>Accepter</Text>
                           </TouchableOpacity>
-                          {isOwner && (
+                          {isAdmin && (
                             <TouchableOpacity
                               style={ps.rejectBtn}
                               onPress={() => handleRejectRequest(req.user_id)}
