@@ -39,6 +39,14 @@ Implémenter une stratégie de rétention et réactivation avancée (Soft Delete
 
 ## Implémenté ✅
 
+### Phase 3 — Gestion des Demandes d'Adhésion (Option C) (2026-04-05)
+- **Backend** : `GET /tag-points/{id}/join-requests` — expose les demandes en attente (owner + membres si members_approval)
+- **Frontend** : Badge rouge sur chip "X membres" visible pour owner (toujours) et membres acceptés si join_mode=members_approval. Badge masqué si 0 demandes.
+- **Frontend** : Modal Participants — section "Demandes en attente" avec boutons Accepter+Refuser (owner) ou Accepter seul (membre)
+- **Frontend** : Onglet Notifications — boutons inline "Accepter"/"Refuser" directement sur les notifications de type `join_request`
+- **Correctif** : `_fetch_is_participant` filtre maintenant correctement sur `status='accepted'` (corrige bug où les membres invités/pending avaient les droits de membres complets)
+- **DB** : Enregistrement de conversation orpheline `conv_ed6d1a80279b` supprimé
+
 ## Implémenté ✅
 
 ### Phase 2 — Invitations SpotYou (2026-04-04)

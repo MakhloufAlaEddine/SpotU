@@ -497,7 +497,7 @@ async def get_tag_point(point_id: str, request: Request):
             async def _fetch_is_participant(c):
                 return bool(await c.fetchval(
                     "SELECT EXISTS(SELECT 1 FROM spot_you_members "
-                    "WHERE spot_you_id=$1 AND user_id=$2)",
+                    "WHERE spot_you_id=$1 AND user_id=$2 AND status='accepted')",
                     point_id, uid,
                 ))
 

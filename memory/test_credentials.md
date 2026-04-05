@@ -51,5 +51,8 @@ https://spotme-ui-polish.preview.emergentagent.com
 ## Données de test (seed)
 - 4 domaines (sport, bien-être, arts, tech)
 - 5 produits marketplace seed (rental)
-- 3 utilisateurs: admin, coach, user
+- 3 utilisateurs principaux: admin, coach, user_demo001 (owner de pt_demo001)
+- pt_demo001 "HIIT morning — Parc de Sceaux" : join_mode=members_approval, visibility=public
+- user_demo003 (cdurand@winek.app) a status=pending sur pt_demo001 (pour test badge/modal)
+- user_demo002 (mbenali@winek.app) a status=invited sur pt_demo001
 - 3 services demo avec créneaux et localisation
