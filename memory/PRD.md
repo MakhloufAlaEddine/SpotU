@@ -55,6 +55,15 @@ Implémenter une stratégie de rétention et réactivation avancée (Soft Delete
 - **Correctif** : `_fetch_is_participant` filtre sur `status='accepted'`
 - **DB** : Enregistrement de conversation orpheline `conv_ed6d1a80279b` supprimé
 
+
+### Phase 4 — Visibilité des SpotYous Privés (2026-04-11)
+- **Backend `home_routes.py`** : Ajout de `tp.visibility_type` dans SELECT du feed accueil — badge cadenas fonctionnel sur les cartes accueil
+- **Frontend `[id].tsx`** : Bandeau indigo "SpotYou privé — accès sur invitation uniquement" (`testID='private-banner'`) pour les non-membres
+- **Frontend `[id].tsx`** : Bouton désactivé "Accès sur invitation" (`testID='invitation-only-btn'`) remplace "Rejoindre" pour non-membres de SpotYous privés
+- **Frontend `[id].tsx`** : Membres existants conservent leur bouton "Quitter" normal
+- **Tests** : Backend 14/14 PASS, Frontend 6/7 PASS (1 skipped — pas de seed membre)
+
+
 ## Implémenté ✅
 
 ### Phase 2 — Invitations SpotYou (2026-04-04)

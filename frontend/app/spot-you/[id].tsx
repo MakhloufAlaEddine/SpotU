@@ -2249,8 +2249,8 @@ const st = StyleSheet.create({
   // Bouton invitation uniquement (SpotYou privé, non-membre)
   joinBtnInviteOnly: { backgroundColor: '#6366F110', borderWidth: 1.5, borderColor: '#6366F140' },
   // Banner SpotYou privé
-  privateBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: Spacing.md, paddingVertical: 9, backgroundColor: '#6366F108', borderBottomWidth: 1, borderBottomColor: '#6366F120' },
-  privateBannerTxt: { fontSize: 13, color: '#6366F1', fontWeight: '500', flex: 1 },
+  privateBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: Spacing.md, paddingVertical: 9, backgroundColor: '#6366F118', borderBottomWidth: 1, borderBottomColor: '#6366F130' },
+  privateBannerTxt: { fontSize: 13, color: '#6366F1', fontWeight: '600', flex: 1 },
   // Chip membres inline
   membersChipInline: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: Colors.card, borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: Colors.border },
   membersChipInlineText: { fontSize: 11, color: Colors.muted, fontWeight: '600' },
