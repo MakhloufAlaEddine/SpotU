@@ -227,6 +227,7 @@ async def home_feed(
                     tp.point_id, tp.user_id, tp.title, tp.description,
                     tp.precision, tp.tag_ids, tp.domain_id, tp.active,
                     tp.cancelled, tp.image_url, tp.images,
+                    tp.visibility_type,
                     tp.schedule, tp.event_date, tp.event_end_date,
                     tp.minimum_participants, tp.maximum_participants,
                     ST_Y(tp.location::geometry) AS latitude,
