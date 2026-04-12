@@ -4,6 +4,8 @@ import {
   Platform, ScrollView, ActivityIndicator, Alert, Pressable, Image,
   TextInput, Animated, Dimensions,
 } from 'react-native';
+import { AuthErrorModal } from '../../components/AuthErrorModal';
+import { messageForAuthScreen } from '../../lib/network-error';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
@@ -51,6 +53,7 @@ export default function RegisterScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [errorDialog, setErrorDialog] = useState<{ title: string; message: string } | null>(null);
 
   const logoAnim = useRef(new Animated.Value(0)).current;
   const formAnim = useRef(new Animated.Value(0)).current;
@@ -74,8 +77,11 @@ export default function RegisterScreen() {
     try {
       await register(email.trim(), password, name.trim(), lang);
       // NavigationGuard handles redirect to /onboarding
-    } catch (err: any) {
-      Alert.alert(t('error'), err.message || "Erreur lors de l'inscription");
+    } catch (err: unknown) {
+      setErrorDialog({
+        title: t('error'),
+        message: messageForAuthScreen(err, "Erreur lors de l'inscription"),
+      });
     } finally {
       setLoading(false);
     }
@@ -86,8 +92,8 @@ export default function RegisterScreen() {
     try {
       await loginWithGoogle();
       // NavigationGuard handles redirect to /onboarding
-    } catch (err: any) {
-      Alert.alert(t('error'), 'Connexion Google annulee');
+    } catch {
+      setErrorDialog({ title: t('error'), message: 'Connexion Google annulée' });
     } finally {
       setLoading(false);
     }
@@ -97,6 +103,12 @@ export default function RegisterScreen() {
 
   return (
     <View style={s.root}>
+      <AuthErrorModal
+        visible={errorDialog !== null}
+        title={errorDialog?.title ?? ''}
+        message={errorDialog?.message ?? ''}
+        onClose={() => setErrorDialog(null)}
+      />
       <View style={s.gradientTop} />
       <View style={s.gradientGlow} />
       <SafeAreaView style={s.safe}>

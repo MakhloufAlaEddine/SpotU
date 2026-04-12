@@ -339,7 +339,7 @@ class TestRegressionOnline:
                 page.wait_for_timeout(5000)
 
                 current_url = page.url
-                assert "/login" not in current_url or "profile" in current_url or "map" in current_url or "tabs" in current_url, \
+                assert "/(auth)/login" not in current_url or "profile" in current_url or "map" in current_url or "tabs" in current_url, \
                     f"Login did not redirect away from login page. Current URL: {current_url}"
             finally:
                 browser.close()

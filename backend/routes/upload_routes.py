@@ -20,7 +20,8 @@ from database import get_pool
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-UPLOADS_DIR = Path("/app/backend/uploads")
+_BACKEND_ROOT = Path(__file__).resolve().parent.parent
+UPLOADS_DIR = _BACKEND_ROOT / "uploads"
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 _UPLOADS_DIR_RESOLVED = UPLOADS_DIR.resolve()
 

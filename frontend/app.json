@@ -23,7 +23,8 @@
         "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.winek.app"
+      "package": "com.winek.app",
+      "usesCleartextTraffic": true
     },
     "web": {
       "bundler": "metro",
@@ -32,6 +33,13 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
       "expo-dev-client",
       [
         "expo-notifications",

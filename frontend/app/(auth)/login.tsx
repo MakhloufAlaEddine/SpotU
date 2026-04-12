@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, KeyboardAvoidingView,
-  Platform, ScrollView, ActivityIndicator, Alert, Pressable, Image,
+  Platform, ScrollView, ActivityIndicator, Pressable, Image,
   TextInput, Animated, Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,6 +10,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/LanguageContext';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { useGuardedRouter } from '../../hooks/useGuardedRouter';
+import { AuthErrorModal } from '../../components/AuthErrorModal';
+import { messageForAuthScreen } from '../../lib/network-error';
 
 const { width } = Dimensions.get('window');
 
@@ -79,6 +81,7 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [errorDialog, setErrorDialog] = useState<{ title: string; message: string } | null>(null);
 
   // Entrance animations
   const logoAnim = useRef(new Animated.Value(0)).current;
@@ -96,8 +99,11 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       await login(email.trim(), password);
-    } catch (err: any) {
-      Alert.alert(t('error'), err.message || 'Erreur de connexion');
+    } catch (err: unknown) {
+      setErrorDialog({
+        title: t('error'),
+        message: messageForAuthScreen(err, 'Erreur de connexion'),
+      });
     } finally {
       setLoading(false);
     }
@@ -110,8 +116,8 @@ export default function LoginScreen() {
       if (Platform.OS !== 'web') {
         router.replace('/(tabs)/map');
       }
-    } catch (err: any) {
-      Alert.alert(t('error'), 'Connexion Google annulée');
+    } catch {
+      setErrorDialog({ title: t('error'), message: 'Connexion Google annulée' });
     } finally {
       setLoading(false);
     }
@@ -121,6 +127,12 @@ export default function LoginScreen() {
 
   return (
     <View style={s.root}>
+      <AuthErrorModal
+        visible={errorDialog !== null}
+        title={errorDialog?.title ?? ''}
+        message={errorDialog?.message ?? ''}
+        onClose={() => setErrorDialog(null)}
+      />
       {/* Subtle gradient overlay */}
       <View style={s.gradientTop} />
       <View style={s.gradientGlow} />

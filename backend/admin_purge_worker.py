@@ -108,7 +108,7 @@ async def _delete_single_file(url: str) -> tuple[bool, str | None]:
         # ── Fichier local filesystem ─────────────────────────────────────────
         if "/api/uploads/" in url:
             from pathlib import Path
-            uploads_dir = Path("/app/backend/uploads").resolve()
+            uploads_dir = (Path(__file__).resolve().parent / "uploads").resolve()
             filename = url.split("/api/uploads/")[-1].split("?")[0]
             try:
                 filepath = (uploads_dir / filename).resolve()

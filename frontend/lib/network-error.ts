@@ -86,3 +86,20 @@ export function userFacingMessage(err: AppNetworkError): string {
     default:              return 'Une erreur inattendue est survenue.';
   }
 }
+
+/** Texte pour les écrans login / inscription : garde le détail serveur ou config quand il est utile. */
+export function messageForAuthScreen(err: unknown, fallback: string): string {
+  if (err instanceof AppNetworkError) {
+    switch (err.type) {
+      case 'offline':
+      case 'timeout':
+      case 'server_error':
+        return userFacingMessage(err);
+      default:
+        return (err.message && err.message.trim()) ? err.message : userFacingMessage(err);
+    }
+  }
+  const m = (err as Error)?.message;
+  if (m && String(m).trim()) return String(m);
+  return fallback;
+}
