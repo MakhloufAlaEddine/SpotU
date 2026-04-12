@@ -160,6 +160,7 @@ Implémenter une stratégie de rétention et réactivation avancée (Soft Delete
   - `ENDPOINTS_RECONCILIATION.md`, `ENDPOINTS_CANONICAL_LIST.md`, `ENDPOINTS_MISSING_FROM_PREVIOUS_DOC.md`
   - `ROUTE_COLLISIONS_AND_AMBIGUITIES.md`, `RECOMMENDED_CANONICAL_SCOPE.md`
 - Réconciliation complète : 174 routes actives (171 HTTP + 3 WS), 2 collisions réelles, 3 double-décorateurs, 5 exclusions
+- **Arbitrage final** : 3 fichiers créés — `ARBITRAGE_DECISIONS.md` (13 décisions), `MIGRATION_INTERFACE_CONTRACT.md` (176 endpoints v1), `OPTIONAL_VALIDATION_CHECKLIST.md` (12 blocs de validation)
 
 ---
 
