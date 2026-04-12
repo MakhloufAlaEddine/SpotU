@@ -152,6 +152,17 @@ Implémenter une stratégie de rétention et réactivation avancée (Soft Delete
 
 ---
 
+### Phase H — Documentation migration Java/Spring Boot (2026-04-12)
+- Analyse exhaustive du backend FastAPI Python : 183 décorateurs détectés (179 dans `routes/*.py` + 4 dans `server.py`)
+- Création de 13 fichiers Markdown dans `/app/docs/migration/` :
+  - `BACKEND_OVERVIEW.md`, `DB_MAP.md`, `ENDPOINTS_INVENTORY.md`, `BUSINESS_RULES_EXTRACT.md`
+  - `ASYNC_AND_SIDE_EFFECTS.md`, `EXTERNAL_INTEGRATIONS.md`, `MIGRATION_RISKS.md`, `MIGRATION_SLICES_PROPOSAL.md`
+  - `ENDPOINTS_RECONCILIATION.md`, `ENDPOINTS_CANONICAL_LIST.md`, `ENDPOINTS_MISSING_FROM_PREVIOUS_DOC.md`
+  - `ROUTE_COLLISIONS_AND_AMBIGUITIES.md`, `RECOMMENDED_CANONICAL_SCOPE.md`
+- Réconciliation complète : 174 routes actives (171 HTTP + 3 WS), 2 collisions réelles, 3 double-décorateurs, 5 exclusions
+
+---
+
 ## Backlog (priorité décroissante)
 
 ### P1 — En attente
