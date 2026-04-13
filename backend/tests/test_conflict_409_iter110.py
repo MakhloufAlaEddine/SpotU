@@ -14,7 +14,7 @@ import os
 BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "").rstrip("/")
 if not BASE_URL:
     # Fallback from frontend .env
-    BASE_URL = "https://spotme-ui-polish.preview.emergentagent.com"
+    BASE_URL = "https://api-slice-preview.preview.emergentagent.com"
 
 POINT_ID = "pt_demo001"
 CDURAND_ID = "user_demo003"

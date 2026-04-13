@@ -1,118 +1,116 @@
-<analysis>**original_problem_statement**: Global performance audit and optimization of the application (completed). Clean up test data polluting production Supabase. UI/UX enhancement: Do not display the stale cache banner (StaleBanner) when loading cached data *unless* the network refresh fails. New issue: Fix the chat list displaying raw SpotYou IDs (e.g., ) instead of titles for deleted/missing SpotYous. PRODUCT REQUIREMENTS: 1. Maintain identical JSON response structures during backend optimizations. 2. Remove test data from production. 3. Update the frontend UI to hide the stale cache banner during successful background refreshes. 4. Display human-readable text for orphaned conversations.
+<analysis>**original_problem_statement**: Produce exhaustive, highly accurate documentation to prepare for a progressive backend migration from Python FastAPI to Java/Spring Boot. The user strictly requested NO code migration, NO refactoring, and NO changes to business rules. The objective is purely to generate Markdown reference files for a future Cursor implementation. The current focus is preparing detailed migration slices progressively.
 
 **User's preferred language**: French (FR). (INSTRUCT next agent: You MUST automatically detect the user's primary language from their messages inside the <trajectory> tag and INSTRUCT next agent to respond in the **French** language only).
 
 **what currently exists?** 
-A React Native (Expo Web) + FastAPI + Supabase full-stack app. The  UI bug has been fully resolved across all 5 affected screens (including restoring accidentally deleted states in ). The backend  endpoint was updated to dynamically fetch correct titles via a  on . The frontend  component now safely falls back to displaying SpotYou supprimé if a raw ID pattern () is detected due to a deleted SpotYou.
+The Python backend is fully functional and untouched. An extensive suite of migration documentation has been generated in  (~25 files), covering backend overview, DB mapping, endpoint reconciliation, arbitration decisions, and a final Source of Truth. Slice 01 (config endpoints) and Slice 02 () documentation are completely finished.
 
 **Last working item**: 
-    - Last item agent was working: Investigating why  appeared in the chat list. The agent identified it as a deleted SpotYou whose raw ID was cached in the  table. The agent applied fixes to the backend and frontend to handle this gracefully, and just asked the user if they want to physically delete this orphaned conversation () from the database.
-    - Status: USER VERIFICATION PENDING
-    - Agent Testing Done: Y
-    - Which testing method agent to use? manual testing by curl and checking Expo logs.
-    - User Testing Done: N
+    - Last item agent was working: Concluding the Slice 02 documentation. The agent reviewed the generated Slice 02 files, updated , and called the  tool to provide the user with the requested ultra short summary containing the endpoint, auth type, tables, top 3 traps, and confidence level.
+    - Status: NONE (Waiting for user prompt)
+    - Agent Testing Done: N/A (Documentation task)
+    - Which testing method agent to use? NA
+    - User Testing Done: N/A
 
 **All Pending/In progress Issue list**: 
-  Issue 1: 🔴 [P0] Clean up orphaned conversation record (Pending User Decision)
-     - Attempted fixes: The UI and API now gracefully handle deleted SpotYous by showing SpotYou supprimé, but the orphaned record ( linked to ) remains in the database.
-     - Next debug checklist: Read the user's pending reply. If they say yes (delete it), execute a SQL query via python to . If they say no (keep it), simply acknowledge and move to the next P1 task.
-     - Why fix this issue and what will be achieved with the fix? DB cleanliness and removing dead data.
-     - Status: USER VERIFICATION PENDING
-     - Is recurring issue? N
-     - Should Test frontend/backend/both after fix? backend (via curl to check it's gone).
-     - Blocked on other issue: None
+  *None.*
 
 **In progress Task List**: 
   *None.*
 
 **Upcoming and Future Tasks**
     Upcoming Tasks:
-    - 🟡 (P1) **Buyer-Side Reservation/Purchase UI**: Implement the interactive frontend flow where a buyer selects a duration/quantity (Rental) or just quantity (Sale) on the product page, calculating the total price dynamically before triggering checkout.
-    - 🟡 (P1) **SpotYou Timeslot Selection**: During reservation of a per session rental product, force the buyer to select a specific SpotYou and an available timeslot.
+    - 🔴 (P0) **Prepare Slice 03 Migration Documentation**: The user is moving sequentially slice by slice. Await their next prompt defining the scope for Slice 03, then proceed to document it using the established 7-file structure.
+    - 🟡 (P1) **Restore Admin Workers Tab (Frontend)**: The  UI component was lost in a previous fork. The user specifically instructed the agent **Ne fais rien maintenant** (Do nothing for now). *DO NOT start this task until the user explicitly requests it.*
     
     Future Tasks:
-    - 🟢 (P2) **Restore P2 Test Coverage**: Rewrite  (Rule 3: leave community cancels future participation).
-    - 🟢 (P2) **Image Quality Validation System**: Client-side utility for SpotYou/Product image uploads (Resolution, Size, Ratio, Brightness scoring) before upload.
-    - 🟢 (P3) Refactor  into smaller components.
+    - 🟢 (P2) **Buyer-Side Reservation/Purchase UI**: Interactive frontend flow for rental/sale selection (On hold).
+    - 🟢 (P2) **SpotYou Timeslot Selection**: Force buyers to select specific SpotYou timeslots (On hold).
+    - 🟢 (P2) **Image Quality Validation System**: Client-side utility for SpotYou/Product image uploads.
 
 **Completed work in this session**
-- Fixed  display logic across , , , , and  by properly wrapping in  condition. (DONE)
-- Restored accidentally removed  and  states in  preventing potential crashes. (DONE)
-- Updated  () with  to dynamically fetch titles. (DONE)
-- Updated  () to display SpotYou supprimé instead of raw IDs () for deleted contexts. (DONE)
+- Verified the creation of the 7 Markdown files for Slice 02 () in . (DONE)
+- Updated  to reflect the completion of Slice 02. (DONE)
+- Formatted and delivered the requested ultra short summary via the  tool. (DONE)
 
 **Earlier issues found/mentioned but not fixed**
    *None*
 
 **Known issue recurrence from previous fork**
-  - Issue recurrence in previous fork:  and  (Ngrok session limit).
-  - Recurrence count: Very High
-  - Status: IN PROGRESS (Use stable external preview URL  instead of relying on the Expo Go tunnel proxy for testing).
+  - Issue recurrence in previous fork:  in Expo logs.
+  - Recurrence count: High
+  - Status: IN PROGRESS (Expo tunnel frequently restarts/timeouts. Ignore standard ngrok errors in bash logs, the backend is accessible via ).
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-- **Supabase Latency**: Application uses  heavily for performance.
-- **Data Fallbacks**: When dealing with deleted related entities (like a SpotYou attached to a Conversation), the system must fallback gracefully without crashing or showing internal database IDs to users.
+- **Documentation Over Implementation**: The primary objective is mapping Python logic (DB queries, JWT decoding, edge cases) into strict instructions for a future Java/Spring Boot implementation managed by another tool/agent.
 
 **key DB schema**
-  - : linked to  via .
+  - : Core table analyzed for Slice 02.
+  - , : Analyzed for Slice 01.
 
 **changes in tech stack**
   - None.
 
 **All files of reference** 
-  - , , , ,  (Modified)
-  -  (Modified)
-  -  (Updated)
+  -  (Updated in this session)
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
 
 **Areas that need refactoring**: 
-  -  (Requested by user as a P3 future task to break down into smaller components).
+  - None. The user strictly forbade refactoring or code migration at this stage.
 
 **key api endpoints**
-  - 
+  -  (Slice 01)
+  -  (Slice 01)
+  -  (Slice 02)
 
 **Critical Info for New Agent** 
 - **Language**: You MUST respond to the user in **French**.
-- **Pending Ask Human**: The previous agent asked the user if they want to permanently delete the orphaned conversation () from the database or just keep the visual SpotYou supprimé fix. Await their response and execute accordingly.
-- **Expo Logs**: Whenever you modify the frontend, check  to ensure no syntax errors crash the bundler.
+- **Current Task Restrictions**: DO NOT write any Java code. DO NOT modify any Python code. Your only job is to create markdown documentation files in  based on live code auditing.
+- **Pending Task Hold**: The user mentioned the missing Workers UI tab but explicitly said Ne fais rien maintenant. Do not attempt to fix or rebuild the Admin Workers tab until explicitly asked.
+- **Workflow**: Wait for the user to specify which endpoints make up Slice 03 before beginning the next documentation batch.
 
 **documents and test reports created in this job** 
-  - 
+  -  (Updated)
+  -  (Reviewed)
 
 **Last 10 User Messages and any pending HUMAN messages** 
-  1. **User**: Continue avec Action immédiate requise
-  2. **Assistant**: Investigated frontend state mismatch, found missing  conditions and accidentally deleted state in . Fixed all.
-  3. **Assistant**: Checked logs, took screenshot, verified everything worked, updated PRD, finished task.
-  4. **User**: Uploaded image showing  in the chat list and asked C’est quoi ce pt_demo009 ?
-  5. **Assistant**: Investigated  and . Realized it was an orphaned conversation whose SpotYou was deleted. Applied backend  and frontend  fallback logic.
-  - **PENDING HUMAN MESSAGE**: Yes. The agent ended by asking the user: Voulez-vous aussi supprimer cette conversation orpheline de la base de données ?... Ou la garder avec le label SpotYou supprimé suffit ? Wait for their decision before acting.
+  1. **User**: Requested Slice 02 migration docs for  with 7 specific files and a final summary.
+  2. **Assistant**: Analyzed files, updated , and called the  tool to deliver the ultra short summary for Slice 02.
+  - **PENDING HUMAN MESSAGE**: Wait for the user to provide the next instruction/scope for Slice 03.
 
 **Project Health Check:**
-  - Code: UI state bug fixed. Fallback for deleted SpotYou conversations implemented.
-  - Infrastructure: Ngrok tunnels occasionally timeout on the frontend server (use the stable proxy URL). 
+  - Code: Stable (Read-only mode).
+  - Infrastructure: Normal (Ngrok throws standard warnings in background, which can be ignored).
 
 **3rd Party Integrations** 
-  - Supabase (Prod DB)
-  - Stripe (Payments) — requires User API Key
-  - Cloudflare R2 (Image Uploads)
-  - Expo Push Notifications
+  - Supabase (PostgreSQL)
+  - Stripe (Payments)
+  - Cloudflare R2 (Storage)
 
 **Testing status**
-  - Testing agent used after significant changes: NO
+  - Testing agent used after significant changes: N/A
   - Troubleshoot agent used after agent stuck in loop: NO
-  - Test files created: None.
-  - Known regressions: None.
+  - Test files created: None
+  - Known regressions: None
 
 **Credentials to test flow:**
   - Check .
 
 **What agent forgot to execute**
-  - Nothing was forgotten, the agent successfully investigated the new image provided by the user and asked for a decision on data cleanup.
+  - Nothing. The agent successfully finalized the documentation and output the requested summary.
 
 **Debugging checklist for current issue**
-    Issue: Execute user decision on orphaned conversation.
-
-    Action if User says Yes (Delete):
-    </analysis>
+    Issue: Awaiting next user instruction (Slice 03)
+    
+    Next Action: 
+    - Read the user's next message to understand the scope of Slice 03.
+    - Follow the exact same 7-file documentation structure used for Slice 01 and Slice 02 to document the newly requested endpoints.</analysis>

@@ -13,7 +13,7 @@ import uuid
 from datetime import datetime, timezone, timedelta
 from unittest.mock import patch, MagicMock, AsyncMock
 
-BASE_URL = os.environ.get("TEST_BASE_URL", "https://spotme-ui-polish.preview.emergentagent.com")
+BASE_URL = os.environ.get("TEST_BASE_URL", "https://api-slice-preview.preview.emergentagent.com")
 DB_URL   = os.environ.get("DATABASE_URL", "")
 
 ADMIN_CREDS = {"email": "admin@winek.app",    "password": "WinekAdmin2024!"}
@@ -310,7 +310,7 @@ class TestPurgeReal:
             # Fichier local inexistant (ne lance pas d'exception grâce à missing_ok)
             row_id = await _insert_pfd_row(
                 conn,
-                "https://spotme-ui-polish.preview.emergentagent.com/api/uploads/img_nonexistent_file.jpg",
+                "https://api-slice-preview.preview.emergentagent.com/api/uploads/img_nonexistent_file.jpg",
                 scheduled_before_days=35
             )
             row_ids.append(row_id)
@@ -347,7 +347,7 @@ class TestPurgeReal:
         try:
             row_id = await _insert_pfd_row(
                 conn,
-                "https://spotme-ui-polish.preview.emergentagent.com/api/uploads/img_idempotent.jpg",
+                "https://api-slice-preview.preview.emergentagent.com/api/uploads/img_idempotent.jpg",
                 scheduled_before_days=35
             )
             row_ids.append(row_id)
@@ -417,7 +417,7 @@ class TestPurgeReal:
         try:
             row_id = await _insert_pfd_row(
                 conn,
-                "https://spotme-ui-polish.preview.emergentagent.com/api/uploads/img_attempt_count.jpg",
+                "https://api-slice-preview.preview.emergentagent.com/api/uploads/img_attempt_count.jpg",
                 scheduled_before_days=35
             )
             row_ids.append(row_id)
@@ -459,7 +459,7 @@ class TestPurgeReal:
         try:
             row_id = await _insert_pfd_row(
                 conn,
-                "https://spotme-ui-polish.preview.emergentagent.com/api/uploads/img_fresh.jpg",
+                "https://api-slice-preview.preview.emergentagent.com/api/uploads/img_fresh.jpg",
                 scheduled_before_days=5  # trop récent
             )
             row_ids.append(row_id)

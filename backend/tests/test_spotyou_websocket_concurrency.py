@@ -21,7 +21,7 @@ import time
 # ─── Configuration ─────────────────────────────────────────────────────────────
 # Dérivé depuis la variable d'environnement ou valeur de fallback
 _BASE_HTTPS = os.environ.get("EXPO_PUBLIC_BACKEND_URL",
-               "https://spotme-ui-polish.preview.emergentagent.com").rstrip("/")
+               "https://api-slice-preview.preview.emergentagent.com").rstrip("/")
 API_BASE = f"{_BASE_HTTPS}/api"
 # WebSocket : remplace 'https' → 'wss'
 WS_BASE  = _BASE_HTTPS.replace("https://", "wss://").replace("http://", "ws://") + "/api"

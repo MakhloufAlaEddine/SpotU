@@ -163,6 +163,7 @@ Implémenter une stratégie de rétention et réactivation avancée (Soft Delete
 - **Arbitrage final** : 3 fichiers créés — `ARBITRAGE_DECISIONS.md` (13 décisions), `MIGRATION_INTERFACE_CONTRACT.md` (176 endpoints v1), `OPTIONAL_VALIDATION_CHECKLIST.md` (12 blocs de validation)
 - **Slice 01** : 6 fichiers de cadrage créés dans `/app/docs/migration/SLICE_01_*.md` pour `GET /api/config/booking` + `GET /api/config/commission` (scope, contrats API, mapping DB, règles métier, cas de tests, notes Cursor)
 - **Slice 02** : 7 fichiers de cadrage créés dans `/app/docs/migration/SLICE_02_*.md` pour `GET /api/auth/me` (scope, contrat API, flux auth, mapping DB, règles métier BR-01→BR-10, cas de tests, notes Cursor). Vérifié sur token JWT live : claim `user_id` custom (pas `sub`), HS256, TTL 7j, 18 colonnes USER_FIELDS, fallback cookie `winek_token`, 0 vérification de statut utilisateur. Niveau de confiance global : CERTAIN (95%).
+- **Slice 03** : 6 fichiers de cadrage créés dans `/app/docs/migration/SLICE_03_*.md` pour `GET /api/users/profile` (cible Java : `GET /api/users/me`). 23 champs de réponse = 18 USER_FIELDS (Slice 02) + `avg_rating`, `review_count`, `iban`, `bic`, `iban_name`. 3 requêtes DB (users × 2 + reviews × 1). Règle critique : `avg_rating = null` si 0 reviews (pas `0.0`). Niveau de risque : FAIBLE. Généré le 2026-02-XX.
 
 ---
 

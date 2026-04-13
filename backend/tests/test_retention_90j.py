@@ -18,7 +18,7 @@ import asyncio
 import os
 from datetime import datetime, timezone, timedelta
 
-BASE_URL = os.environ.get("TEST_BASE_URL", "https://spotme-ui-polish.preview.emergentagent.com")
+BASE_URL = os.environ.get("TEST_BASE_URL", "https://api-slice-preview.preview.emergentagent.com")
 TIMEOUT = 30
 
 COACH_CREDS = {"email": "coach@winek.app", "password": "WinekCoach2024!"}
