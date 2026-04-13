@@ -15,7 +15,7 @@ import httpx
 import pytest
 import json
 
-BASE_URL = "https://api-slice-preview.preview.emergentagent.com/api"
+BASE_URL = "https://async-workers.preview.emergentagent.com/api"
 
 ADMIN    = {"email": "admin@winek.app",   "password": "WinekAdmin2024!"}
 COACH    = {"email": "coach@winek.app",   "password": "WinekCoach2024!"}

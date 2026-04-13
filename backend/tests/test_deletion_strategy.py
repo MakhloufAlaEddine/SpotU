@@ -17,7 +17,7 @@ import asyncpg
 import os
 from datetime import datetime, timezone
 
-BASE_URL = os.environ.get("TEST_BASE_URL", "https://api-slice-preview.preview.emergentagent.com")
+BASE_URL = os.environ.get("TEST_BASE_URL", "https://async-workers.preview.emergentagent.com")
 DB_URL   = os.environ.get("DATABASE_URL", "")  # Requis pour tests DB directs
 
 ADMIN_CREDS = {"email": "admin@winek.app",    "password": "WinekAdmin2024!"}

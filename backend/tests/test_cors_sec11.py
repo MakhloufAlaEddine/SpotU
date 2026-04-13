@@ -23,7 +23,7 @@ import pytest
 API_URL = "http://localhost:8001"
 
 # Origines définies dans .env ALLOWED_ORIGINS
-ALLOWED_ORIGIN  = "https://api-slice-preview.preview.emergentagent.com"
+ALLOWED_ORIGIN  = "https://async-workers.preview.emergentagent.com"
 DEV_ORIGIN      = "http://localhost:3000"
 EVIL_ORIGIN     = "https://evil.com"
 

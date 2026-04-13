@@ -1,12 +1,12 @@
 <analysis>**original_problem_statement**: Produce exhaustive, highly accurate documentation to prepare for a progressive backend migration from Python FastAPI to Java/Spring Boot. The user strictly requested NO code migration, NO refactoring, and NO changes to business rules. The objective is purely to generate Markdown reference files for a future Cursor implementation. The current focus is preparing detailed migration slices progressively.
 
-**User's preferred language**: French (FR). (INSTRUCT next agent: You MUST automatically detect the user's primary language from their messages inside the <trajectory> tag and INSTRUCT next agent to respond in the **French** language only).
+**User's preferred language**: French (FR) (INSTRUCT NEXT AGENT: You MUST automatically detect the user's primary language from their messages inside the <trajectory> tag and INSTRUCT next agent to respond in the **French** language only).
 
 **what currently exists?** 
-The Python backend is fully functional and untouched. An extensive suite of migration documentation has been generated in  (~25 files), covering backend overview, DB mapping, endpoint reconciliation, arbitration decisions, and a final Source of Truth. Slice 01 (config endpoints) and Slice 02 () documentation are completely finished.
+A massive suite of migration documentation has been successfully generated in . In this session, the agent finalized documentation for Slice 17 (Stripe Checkout Session) and fully analyzed, selected, and generated documentation for Slice 18 ( - handling automatic booking/payment expiration). The Python backend remains fully functional and completely untouched, as per strict rules.
 
 **Last working item**: 
-    - Last item agent was working: Concluding the Slice 02 documentation. The agent reviewed the generated Slice 02 files, updated , and called the  tool to provide the user with the requested ultra short summary containing the endpoint, auth type, tables, top 3 traps, and confidence level.
+    - Last item agent was working: Fulfilling the user's request to identify and document the most critical async worker for Slice 18. The agent successfully audited the Python workers, selected , generated the 6 required Markdown files (), updated , and provided the final summary via the  tool.
     - Status: NONE (Waiting for user prompt)
     - Agent Testing Done: N/A (Documentation task)
     - Which testing method agent to use? NA
@@ -20,18 +20,20 @@ The Python backend is fully functional and untouched. An extensive suite of migr
 
 **Upcoming and Future Tasks**
     Upcoming Tasks:
-    - 🔴 (P0) **Prepare Slice 03 Migration Documentation**: The user is moving sequentially slice by slice. Await their next prompt defining the scope for Slice 03, then proceed to document it using the established 7-file structure.
+    - 🔴 (P0) **Prepare Slice 19+ Migration Documentation**: Wait for the user's next prompt defining the scope for Slice 19 (likely remaining workers, Stripe subscriptions, or refund workflows), then proceed to document it using the established 6-file structure.
     - 🟡 (P1) **Restore Admin Workers Tab (Frontend)**: The  UI component was lost in a previous fork. The user specifically instructed the agent **Ne fais rien maintenant** (Do nothing for now). *DO NOT start this task until the user explicitly requests it.*
     
     Future Tasks:
     - 🟢 (P2) **Buyer-Side Reservation/Purchase UI**: Interactive frontend flow for rental/sale selection (On hold).
     - 🟢 (P2) **SpotYou Timeslot Selection**: Force buyers to select specific SpotYou timeslots (On hold).
     - 🟢 (P2) **Image Quality Validation System**: Client-side utility for SpotYou/Product image uploads.
+    - **Backend Migration Backlog**: Complex refund multi-branches, workers expiry, WebSockets métier, admin payments/bookings complet.
 
 **Completed work in this session**
-- Verified the creation of the 7 Markdown files for Slice 02 () in . (DONE)
-- Updated  to reflect the completion of Slice 02. (DONE)
-- Formatted and delivered the requested ultra short summary via the  tool. (DONE)
+- Slice 17 docs finalized and PRD updated (DONE)
+- Python worker codebase audited to select the most critical worker for Slice 18 ( selected) (DONE)
+- Slice 18 docs generated ( 6 files created) (DONE)
+-  updated with Slice 18 completion and  tool called (DONE)
 
 **Earlier issues found/mentioned but not fixed**
    *None*
@@ -45,47 +47,48 @@ The Python backend is fully functional and untouched. An extensive suite of migr
 
 
 **Key Technical Concepts**
-- **Documentation Over Implementation**: The primary objective is mapping Python logic (DB queries, JWT decoding, edge cases) into strict instructions for a future Java/Spring Boot implementation managed by another tool/agent.
+- **Documentation Over Implementation**: The primary objective is mapping Python logic (DB queries, background task scheduling, transactional locks) into strict instructions for a future Java/Spring Boot implementation managed by another tool/agent. *DO NOT WRITE JAVA CODE. DO NOT MODIFY PYTHON CODE.*
 
 **key DB schema**
-  - : Core table analyzed for Slice 02.
-  - , : Analyzed for Slice 01.
+  - , , : Core tables analyzed for Slice 18  locking and status updates.
 
 **changes in tech stack**
   - None.
 
 **All files of reference** 
-  -  (Updated in this session)
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
+  -  (Updated progressively)
+  -  (Created in this session)
+  -  (Created in this session)
+  -  (Created in this session)
+  -  (Created in this session)
+  -  (Created in this session)
+  -  (Created in this session)
+  -  (Source code reference)
 
 **Areas that need refactoring**: 
   - None. The user strictly forbade refactoring or code migration at this stage.
 
 **key api endpoints**
-  -  (Slice 01)
-  -  (Slice 01)
-  -  (Slice 02)
+  - Background async loop:  every 60 seconds (Slice 18 scope).
 
 **Critical Info for New Agent** 
 - **Language**: You MUST respond to the user in **French**.
 - **Current Task Restrictions**: DO NOT write any Java code. DO NOT modify any Python code. Your only job is to create markdown documentation files in  based on live code auditing.
-- **Pending Task Hold**: The user mentioned the missing Workers UI tab but explicitly said Ne fais rien maintenant. Do not attempt to fix or rebuild the Admin Workers tab until explicitly asked.
-- **Workflow**: Wait for the user to specify which endpoints make up Slice 03 before beginning the next documentation batch.
+- **Immediate Action**: Wait for the user to specify which workflow makes up Slice 19 before beginning the next documentation batch.
 
 **documents and test reports created in this job** 
   -  (Updated)
-  -  (Reviewed)
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
 
 **Last 10 User Messages and any pending HUMAN messages** 
-  1. **User**: Requested Slice 02 migration docs for  with 7 specific files and a final summary.
-  2. **Assistant**: Analyzed files, updated , and called the  tool to deliver the ultra short summary for Slice 02.
-  - **PENDING HUMAN MESSAGE**: Wait for the user to provide the next instruction/scope for Slice 03.
+  - User requested: finalisation de la Slice 17 (Completed)
+  - User requested: New mission to prepare Slice 18 async/workers, instructing the agent to select the most logical worker that closes the booking/payment cycle and generate 6 specific MD files. (Completed)
+  - **PENDING HUMAN MESSAGE**: None waiting from the user. The agent successfully finished Slice 18. Await instructions for Slice 19.
 
 **Project Health Check:**
   - Code: Stable (Read-only mode).
@@ -106,11 +109,11 @@ The Python backend is fully functional and untouched. An extensive suite of migr
   - Check .
 
 **What agent forgot to execute**
-  - Nothing. The agent successfully finalized the documentation and output the requested summary.
+  - Nothing.
 
 **Debugging checklist for current issue**
-    Issue: Awaiting next user instruction (Slice 03)
+    Issue: Awaiting next user instruction (Slice 19)
     
     Next Action: 
-    - Read the user's next message to understand the scope of Slice 03.
-    - Follow the exact same 7-file documentation structure used for Slice 01 and Slice 02 to document the newly requested endpoints.</analysis>
+    - Read the user's next message to understand the scope of Slice 19.
+    - Follow the exact same 6-file documentation structure used for Slice 18 to document the newly requested flows.</analysis>

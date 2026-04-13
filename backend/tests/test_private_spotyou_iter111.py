@@ -10,7 +10,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://api-slice-preview.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://async-workers.preview.emergentagent.com").rstrip("/")
 
 PRIVATE_SPOT_ID = "pt_e8e4497fed69"
 OWNER_EMAIL = "coach@winek.app"
