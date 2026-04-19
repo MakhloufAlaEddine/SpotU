@@ -325,7 +325,7 @@ agent_communication:
       - Coach: coach@winek.app / WinekCoach2024!
       - User: user@winek.app / WinekUser2024!
       
-      FRONTEND URL: https://async-workers.preview.emergentagent.com
-      BACKEND URL: https://async-workers.preview.emergentagent.com/api
+      FRONTEND URL: https://java-spring-guide-1.preview.emergentagent.com
+      BACKEND URL: https://java-spring-guide-1.preview.emergentagent.com/api
       
       Test all high priority features. Note: Stripe payment test not critical for MVP verification.

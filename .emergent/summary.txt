@@ -1,13 +1,13 @@
-<analysis>**original_problem_statement**: Produce exhaustive, highly accurate documentation to prepare for a progressive backend migration from Python FastAPI to Java/Spring Boot. The user strictly requested NO code migration, NO refactoring, and NO changes to business rules. The objective is purely to generate Markdown reference files for a future Cursor implementation. The current focus is preparing detailed migration slices progressively.
+<analysis>**original_problem_statement**: Produce exhaustive, highly accurate documentation to prepare for a progressive backend migration from Python FastAPI to Java/Spring Boot. The user strictly requested NO code migration, NO refactoring, and NO changes to business rules. The objective is purely to generate Markdown reference files for a future Cursor implementation. The current focus is preparing detailed migration slices progressively to eventually allow the frontend to run 100% on the Java backend without Python dependencies.
 
 **User's preferred language**: French (FR) (INSTRUCT NEXT AGENT: You MUST automatically detect the user's primary language from their messages inside the <trajectory> tag and INSTRUCT next agent to respond in the **French** language only).
 
 **what currently exists?** 
-A massive suite of migration documentation has been successfully generated in . In this session, the agent finalized documentation for Slice 17 (Stripe Checkout Session) and fully analyzed, selected, and generated documentation for Slice 18 ( - handling automatic booking/payment expiration). The Python backend remains fully functional and completely untouched, as per strict rules.
+A massive suite of migration documentation is actively being generated in . In this session, the agent successfully verified the 6 standard Markdown documents for Slice 28 (SpotYou CRUD operations), updated the  to reflect this completion, and successfully finished the task. The Python backend remains fully functional and completely untouched, as per strict rules.
 
 **Last working item**: 
-    - Last item agent was working: Fulfilling the user's request to identify and document the most critical async worker for Slice 18. The agent successfully audited the Python workers, selected , generated the 6 required Markdown files (), updated , and provided the final summary via the  tool.
-    - Status: NONE (Waiting for user prompt)
+    - Last item agent was working: Wrapping up and concluding Slice 28 documentation by validating the generated files and updating .
+    - Status: NONE (Task is complete; waiting for user's next instruction for Slice 29).
     - Agent Testing Done: N/A (Documentation task)
     - Which testing method agent to use? NA
     - User Testing Done: N/A
@@ -20,63 +20,39 @@ A massive suite of migration documentation has been successfully generated in . 
 
 **Upcoming and Future Tasks**
     Upcoming Tasks:
-    - 🔴 (P0) **Prepare Slice 19+ Migration Documentation**: Wait for the user's next prompt defining the scope for Slice 19 (likely remaining workers, Stripe subscriptions, or refund workflows), then proceed to document it using the established 6-file structure.
-    - 🟡 (P1) **Restore Admin Workers Tab (Frontend)**: The  UI component was lost in a previous fork. The user specifically instructed the agent **Ne fais rien maintenant** (Do nothing for now). *DO NOT start this task until the user explicitly requests it.*
+    - 🔴 (P0) **Prepare Slice 29+ Migration Documentation**: Wait for the user's next prompt defining the exact scope for Slice 29 (suggested to bundle remaining SpotYou writes: vote/attendance/delete), then document it using the established 6-file structure. Follow the order defined in the  document created in earlier sessions.
     
     Future Tasks:
+    - 🟡 (P1) **Restore Admin Workers Tab (Frontend)**: The  UI component was lost in a previous fork. The user specifically instructed the agent **Ne fais rien maintenant** (Do nothing for now). *DO NOT start this task until the user explicitly requests it.*
     - 🟢 (P2) **Buyer-Side Reservation/Purchase UI**: Interactive frontend flow for rental/sale selection (On hold).
     - 🟢 (P2) **SpotYou Timeslot Selection**: Force buyers to select specific SpotYou timeslots (On hold).
-    - 🟢 (P2) **Image Quality Validation System**: Client-side utility for SpotYou/Product image uploads.
-    - **Backend Migration Backlog**: Complex refund multi-branches, workers expiry, WebSockets métier, admin payments/bookings complet.
+    - 🟢 (P2) **Image Quality Validation System**: Client-side utility for SpotYou/Product image uploads (On hold).
 
 **Completed work in this session**
-- Slice 17 docs finalized and PRD updated (DONE)
-- Python worker codebase audited to select the most critical worker for Slice 18 ( selected) (DONE)
-- Slice 18 docs generated ( 6 files created) (DONE)
--  updated with Slice 18 completion and  tool called (DONE)
+- Slice 28 docs verified () (DONE)
+-  updated with Slice 28 completion (DONE)
 
 **Earlier issues found/mentioned but not fixed**
    *None*
 
 **Known issue recurrence from previous fork**
-  - Issue recurrence in previous fork:  in Expo logs.
+  - Issue recurrence in previous fork:  or  in Expo logs.
   - Recurrence count: High
-  - Status: IN PROGRESS (Expo tunnel frequently restarts/timeouts. Ignore standard ngrok errors in bash logs, the backend is accessible via ).
+  - Status: IN PROGRESS (Expo tunnel frequently restarts/timeouts. Ignore standard ngrok errors in bash logs, the backend is accessible via  or the platform routing).
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-- **Documentation Over Implementation**: The primary objective is mapping Python logic (DB queries, background task scheduling, transactional locks) into strict instructions for a future Java/Spring Boot implementation managed by another tool/agent. *DO NOT WRITE JAVA CODE. DO NOT MODIFY PYTHON CODE.*
+- **Documentation Over Implementation**: The primary objective is mapping Python logic (DB queries, background task scheduling, transactional locks) into strict markdown instructions for a future Java/Spring Boot implementation managed by another tool/agent. *DO NOT WRITE JAVA CODE. DO NOT MODIFY PYTHON CODE.*
 
 **key DB schema**
-  - , , : Core tables analyzed for Slice 18  locking and status updates.
+  - , , , : Core tables analyzed heavily in recent slices for SpotYou logic.
 
 **changes in tech stack**
   - None.
 
 **All files of reference** 
-  -  (Updated progressively)
-  -  (Created in this session)
-  -  (Created in this session)
-  -  (Created in this session)
-  -  (Created in this session)
-  -  (Created in this session)
-  -  (Created in this session)
-  -  (Source code reference)
-
-**Areas that need refactoring**: 
-  - None. The user strictly forbade refactoring or code migration at this stage.
-
-**key api endpoints**
-  - Background async loop:  every 60 seconds (Slice 18 scope).
-
-**Critical Info for New Agent** 
-- **Language**: You MUST respond to the user in **French**.
-- **Current Task Restrictions**: DO NOT write any Java code. DO NOT modify any Python code. Your only job is to create markdown documentation files in  based on live code auditing.
-- **Immediate Action**: Wait for the user to specify which workflow makes up Slice 19 before beginning the next documentation batch.
-
-**documents and test reports created in this job** 
   -  (Updated)
   - 
   - 
@@ -85,10 +61,24 @@ A massive suite of migration documentation has been successfully generated in . 
   - 
   - 
 
+**Areas that need refactoring**: 
+  - None. The user strictly forbade refactoring or code migration at this stage.
+
+**key api endpoints**
+  - , ,  (Slice 28 scope).
+
+**Critical Info for New Agent** 
+- **Language**: You MUST respond to the user in **French**.
+- **Current Task Restrictions**: DO NOT write any Java code. DO NOT modify any Python code. Your only job is to create markdown documentation files in  based on live code auditing.
+- **Immediate Action**: Await the user's next instruction regarding the scope of Slice 29, then propose a plan using the  tool to generate the 6 standard markdown files for it.
+
+**documents and test reports created in this job** 
+  -  (6 files total)
+  -  (Updated)
+
 **Last 10 User Messages and any pending HUMAN messages** 
-  - User requested: finalisation de la Slice 17 (Completed)
-  - User requested: New mission to prepare Slice 18 async/workers, instructing the agent to select the most logical worker that closes the booking/payment cycle and generate 6 specific MD files. (Completed)
-  - **PENDING HUMAN MESSAGE**: None waiting from the user. The agent successfully finished Slice 18. Await instructions for Slice 19.
+  - User requested: continue slice 28 (Completed)
+  - **PENDING HUMAN MESSAGE**: None waiting from the user. You should greet the user, confirm Slice 28 is fully saved, and ask if they are ready to proceed with Slice 29 (potentially bundling the remaining SpotYou write endpoints).
 
 **Project Health Check:**
   - Code: Stable (Read-only mode).
@@ -109,11 +99,11 @@ A massive suite of migration documentation has been successfully generated in . 
   - Check .
 
 **What agent forgot to execute**
-  - Nothing.
+  - Nothing. The agent successfully wrapped up the pending task.
 
 **Debugging checklist for current issue**
-    Issue: Awaiting next user instruction (Slice 19)
+    Issue: Waiting for the next slice prompt.
     
     Next Action: 
-    - Read the user's next message to understand the scope of Slice 19.
-    - Follow the exact same 6-file documentation structure used for Slice 18 to document the newly requested flows.</analysis>
+    - Await user input for Slice 29.
+    - Do not make codebase modifications. Focus strictly on documentation.</analysis>
