@@ -192,6 +192,17 @@ Implémenter une stratégie de rétention et réactivation avancée (Soft Delete
 
 ---
 
+### Migration Java — Slice 30 (2026-04-20)
+- **Livrables** : 6 fichiers Markdown générés dans `/app/docs/migration/` pour la slice `Booking Create + Pay (parcours acheteur core)`
+  - `SLICE_30_SCOPE.md`, `SLICE_30_API_CONTRACTS.md`, `SLICE_30_DB_MAPPING.md`,
+    `SLICE_30_BUSINESS_RULES.md`, `SLICE_30_TEST_CASES.md`, `SLICE_30_CURSOR_IMPLEMENTATION_NOTES.md`
+- **Flow couvert** : `POST /bookings/price-preview` + `POST /bookings/request` (+ alias `POST /bookings`) + `POST /bookings/{id}/pay` — 3 endpoints, `booking_routes.py:115–382, 558–670`
+- **Débloque le cutover acheteur** : sans ce trio, pas de parcours réserver-payer possible en Java
+- **Patterns neufs documentés** : pricing_engine centralisé, lock `FOR UPDATE NOWAIT`, intégration Stripe Checkout Session, triple idempotence
+- **Aucune modif de code Python** (mode documentation-only strict)
+
+---
+
 ### Migration Java — Slice 29 (2026-04-20)
 - **Livrables** : 6 fichiers Markdown générés dans `/app/docs/migration/` pour la slice `SpotYou Soft-Delete + Reactivate`
   - `SLICE_29_SCOPE.md`, `SLICE_29_API_CONTRACTS.md`, `SLICE_29_DB_MAPPING.md`,
