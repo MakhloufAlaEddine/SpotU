@@ -192,6 +192,17 @@ Implémenter une stratégie de rétention et réactivation avancée (Soft Delete
 
 ---
 
+### Migration Java — Slice 31 (2026-04-20)
+- **Livrables** : 6 fichiers Markdown générés dans `/app/docs/migration/` pour la slice `Checkout Status (retour Stripe + confirmation front)`
+  - `SLICE_31_SCOPE.md`, `SLICE_31_API_CONTRACTS.md`, `SLICE_31_DB_MAPPING.md`,
+    `SLICE_31_BUSINESS_RULES.md`, `SLICE_31_TEST_CASES.md`, `SLICE_31_CURSOR_IMPLEMENTATION_NOTES.md`
+- **Flow couvert** : `GET /api/payments/checkout/status/{session_id}` — 1 endpoint, `payment_routes.py:195–351`
+- **Ferme le parcours acheteur front** : appelé par le front après redirect Stripe, fait un upsert best-effort (indépendant du webhook)
+- **Patterns neufs documentés** : auth OPTIONNELLE via try/except, lookup dual session OR payment_intent, push SYNC (pas fire-and-forget), fallback "unknown" silencieux si Stripe down
+- **Aucune modif de code Python** (mode documentation-only strict)
+
+---
+
 ### Migration Java — Slice 30 (2026-04-20)
 - **Livrables** : 6 fichiers Markdown générés dans `/app/docs/migration/` pour la slice `Booking Create + Pay (parcours acheteur core)`
   - `SLICE_30_SCOPE.md`, `SLICE_30_API_CONTRACTS.md`, `SLICE_30_DB_MAPPING.md`,
