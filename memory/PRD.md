@@ -192,6 +192,17 @@ Implémenter une stratégie de rétention et réactivation avancée (Soft Delete
 
 ---
 
+### Migration Java — Slice 29 (2026-04-20)
+- **Livrables** : 6 fichiers Markdown générés dans `/app/docs/migration/` pour la slice `SpotYou Soft-Delete + Reactivate`
+  - `SLICE_29_SCOPE.md`, `SLICE_29_API_CONTRACTS.md`, `SLICE_29_DB_MAPPING.md`,
+    `SLICE_29_BUSINESS_RULES.md`, `SLICE_29_TEST_CASES.md`, `SLICE_29_CURSOR_IMPLEMENTATION_NOTES.md`
+- **Flow couvert** : `DELETE /api/tag-points/{id}` + `POST /api/tag-points/{id}/reactivate` (2 endpoints, `deletion_routes.py:260–431`)
+- **Ferme le CRUD SpotYou** initié en Slice 28 (create/update/new-date) — cycle de vie owner complet
+- **Pattern introduit** : rétention 90j + `pending_file_deletions` + workers différés (réutilisable pour Services/Products)
+- **Aucune modif de code Python** (mode documentation-only strict)
+
+---
+
 ## Backlog (priorité décroissante)
 
 ### P1 — En attente
