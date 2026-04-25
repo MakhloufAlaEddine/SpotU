@@ -192,6 +192,17 @@ Implémenter une stratégie de rétention et réactivation avancée (Soft Delete
 
 ---
 
+### Migration Java — Slice 32 (2026-04-25)
+- **Livrables** : 6 fichiers Markdown générés dans `/app/docs/migration/` pour la slice `Webhook Stripe Infrastructure`
+  - `SLICE_32_SCOPE.md`, `SLICE_32_API_CONTRACTS.md`, `SLICE_32_DB_MAPPING.md`,
+    `SLICE_32_BUSINESS_RULES.md`, `SLICE_32_TEST_CASES.md`, `SLICE_32_CURSOR_IMPLEMENTATION_NOTES.md`
+- **Flow couvert** : `POST /api/webhook/stripe` — 1 endpoint, `payment_routes.py:356–405` + `webhook_handlers.py:80–117, 979–1071` + `stripe_service.py:242–248`
+- **Périmètre exact** : signature HMAC + raw body + idempotence (`stripe_webhook_events`) + dispatcher squelette avec **handlers STUB vides** (sets `_PAYMENT_EVENTS / _CHARGE_EVENTS / _SUBSCRIPTION_EVENTS` initialisés à `set()`)
+- **HORS périmètre** : `_handle_payment_event` (S33), `_handle_charge_event` (S34), `_handle_subscription_event` (S35), `_resolve_payment_id` (S33)
+- **Aucune modif de code Python** (mode documentation-only strict)
+
+---
+
 ### Migration Java — Slice 31 (2026-04-20)
 - **Livrables** : 6 fichiers Markdown générés dans `/app/docs/migration/` pour la slice `Checkout Status (retour Stripe + confirmation front)`
   - `SLICE_31_SCOPE.md`, `SLICE_31_API_CONTRACTS.md`, `SLICE_31_DB_MAPPING.md`,
