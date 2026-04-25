@@ -192,6 +192,20 @@ Implémenter une stratégie de rétention et réactivation avancée (Soft Delete
 
 ---
 
+### Migration Java — Slice 34 (2026-04-25)
+- **Livrables** : 6 fichiers Markdown générés dans `/app/docs/migration/` pour la slice `Payment Reads (consultation user-scope)`
+  - `SLICE_34_SCOPE.md`, `SLICE_34_API_CONTRACTS.md`, `SLICE_34_DB_MAPPING.md`,
+    `SLICE_34_BUSINESS_RULES.md` (15 règles BR-34.01 à BR-34.15), `SLICE_34_TEST_CASES.md` (24 cas T34-01 à T34-24 + 3 régressions + 4 robustesse), `SLICE_34_CURSOR_IMPLEMENTATION_NOTES.md`
+- **Flow couvert** : 2 endpoints — `GET /api/payments/me` (liste payer/receiver + JOIN names + ORDER created_at DESC) + `GET /api/payments/{payment_id}` (détail + permissions 3-OR `payer || receiver || admin`)
+- **Fichiers Python** : `routes/payment_routes.py:32–80`, `auth_utils.py:71–83`, `database.py:53–69`
+- **Tables** : READ uniquement `payments` (SELECT *), `users` (LEFT JOIN). Pas d'écriture.
+- **Choix slice** : la plus **petite + utile au front** parmi les candidats (refunds = encore webhook = S35 ; chat/WS = trop gros). Ferme le parcours buyer en lecture (créer S30 → payer S30 → status S31 → webhook S32-33 → **consulter S34**).
+- **Top 3 pièges** : (1) permissions 3-OR `/payments/{id}` à porter strictement, (2) auth dual Bearer/cookie `winek_token`, (3) `SELECT *` complet (toutes colonnes incluant `stripe_*`, `metadata`, `idempotency_key`)
+- **Asymétries préservées** : `/me` JOIN names mais pas `/{id}`, ordre `404 avant 403`, format datetime `+00:00` pas `Z`, pas de pagination, snake_case
+- **Aucune modif de code Python** (mode documentation-only strict)
+
+---
+
 ### Migration Java — Slice 33 (2026-04-25)
 - **Livrables** : 6 fichiers Markdown générés dans `/app/docs/migration/` pour la slice `Webhook Stripe Payment Handlers`
   - `SLICE_33_SCOPE.md` (146 l), `SLICE_33_API_CONTRACTS.md` (316 l), `SLICE_33_DB_MAPPING.md` (283 l),
