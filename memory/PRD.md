@@ -192,6 +192,20 @@ Implémenter une stratégie de rétention et réactivation avancée (Soft Delete
 
 ---
 
+### Migration Java — Slice 35 (2026-04-25)
+- **Livrables** : 6 fichiers Markdown générés dans `/app/docs/migration/` pour la slice `Webhook Stripe Charge/Refund Handlers`
+  - `SLICE_35_SCOPE.md`, `SLICE_35_API_CONTRACTS.md`, `SLICE_35_DB_MAPPING.md`,
+    `SLICE_35_BUSINESS_RULES.md` (15 règles BR-35.01 à BR-35.15), `SLICE_35_TEST_CASES.md` (30 cas T35-01 à T35-30 + 3 régressions S32/S33/S34), `SLICE_35_CURSOR_IMPLEMENTATION_NOTES.md`
+- **Flow couvert** : 2 events Stripe — `charge.refunded` (full → status=refunded / partial → status=partially_refunded + notif payer) + `refund.updated` (Phase 1 edge case full-refund avec early return + Phase 2 sync simple `refund_status`, **aucune notif**)
+- **Activations sur S32-S33** : populate `_CHARGE_EVENTS = {charge.refunded, refund.updated}` + activer la branche `if event_type in _CHARGE_EVENTS` du dispatcher + porter `_handle_charge_event` (458–582)
+- **Tables touchées** : WRITE `payments` (status, refund_amount, refund_status, stripe_charge_id COALESCE), `notifications` (1 notif charge.refunded payer) — READ `payments` (payer_user_id, payer_total_amount edge case, lookup par stripe_charge_id) — **PAS** d'écriture sur `bookings` (asymétrie volontaire vs S33)
+- **HORS périmètre** : `_handle_subscription_event` (subscriptions → S36+), `charge.dispute.*` (compat stricte, non présents Python)
+- **Top 3 pièges** : (1) conversion centimes→euros via `BigDecimal.divide(100, 2, HALF_UP)`, (2) full vs partial via boolean `obj.refunded` (PAS comparaison montants), (3) `refund.updated` Phase 1 avec early return si payment_id résolu via charge_id ET amount==total (tolérance 0.02 strict `<`)
+- **Asymétries préservées** : pas de notif sur `refund.updated`, pas d'UPDATE bookings, COALESCE stripe_charge_id, format `%.2f` Locale.ROOT (point décimal), libellés notif full/partial distincts
+- **Aucune modif de code Python** (mode documentation-only strict)
+
+---
+
 ### Migration Java — Slice 34 (2026-04-25)
 - **Livrables** : 6 fichiers Markdown générés dans `/app/docs/migration/` pour la slice `Payment Reads (consultation user-scope)`
   - `SLICE_34_SCOPE.md`, `SLICE_34_API_CONTRACTS.md`, `SLICE_34_DB_MAPPING.md`,
