@@ -192,6 +192,20 @@ Implémenter une stratégie de rétention et réactivation avancée (Soft Delete
 
 ---
 
+### Migration Java — Slice 33 (2026-04-25)
+- **Livrables** : 6 fichiers Markdown générés dans `/app/docs/migration/` pour la slice `Webhook Stripe Payment Handlers`
+  - `SLICE_33_SCOPE.md` (146 l), `SLICE_33_API_CONTRACTS.md` (316 l), `SLICE_33_DB_MAPPING.md` (283 l),
+    `SLICE_33_BUSINESS_RULES.md` (568 l, 19 règles BR-33.01 à BR-33.19), `SLICE_33_TEST_CASES.md` (496 l, 42 cas T33-01 à T33-42), `SLICE_33_CURSOR_IMPLEMENTATION_NOTES.md` (602 l)
+- **Flow couvert** : 5 events Stripe paiement — `checkout.session.completed` (mode=payment, 3 sous-branches A/B/C), `payment_intent.amount_capturable_updated`, `payment_intent.succeeded` (avec/sans `latest_charge`), `payment_intent.payment_failed`, `payment_intent.canceled`
+- **Activations sur S32** : populate `_PAYMENT_EVENTS` (5 events) + activer la branche `if event_type in _PAYMENT_EVENTS` du dispatcher + porter `_handle_payment_event` (185–453) + porter `_resolve_payment_id` complet (122–180, 4 stratégies de lookup)
+- **Tables touchées** : WRITE `payments` (status, stripe_charge_id), `bookings` (status, payment_status), `notifications` (via `store_notification`) — READ `payments` (payer/receiver, lookups), `bookings` (status guard), `services` (title JOIN)
+- **HORS périmètre** : `_handle_charge_event` (refunds → S34), `_handle_subscription_event` (subscriptions → S35)
+- **Asymétries critiques documentées** : Branch A vs C guards différents (Branch A inclut `'cancelled'` dans NOT IN), libellés notifs différents ("À bientôt !" Branch A only, "capturé" PI succeeded vs "reçu" CSC paid), `payment_intent.canceled` AUCUNE notif (booking déjà notifié), `payment_intent.payment_failed` notif **payer** seul
+- **Top piège** : émettre la notification UNIQUEMENT si `rows_updated > 0` (sinon doublons à chaque retry Stripe)
+- **Aucune modif de code Python** (mode documentation-only strict)
+
+---
+
 ### Migration Java — Slice 32 (2026-04-25)
 - **Livrables** : 6 fichiers Markdown générés dans `/app/docs/migration/` pour la slice `Webhook Stripe Infrastructure`
   - `SLICE_32_SCOPE.md`, `SLICE_32_API_CONTRACTS.md`, `SLICE_32_DB_MAPPING.md`,
