@@ -192,6 +192,22 @@ Implémenter une stratégie de rétention et réactivation avancée (Soft Delete
 
 ---
 
+### Migration Java — Slice 36 (2026-04-26) — AUDIT + RÉGRESSION
+- **Constat majeur** : les 3 endpoints booking read sont **déjà couverts par Slice 11** (datée 2026-02-XX). Audit du code Python `routes/booking_routes.py:1035–1110` confirme **aucune divergence** : BOOKING_FIELDS identique (22 colonnes), JOINs identiques (services/users/service_slots), permissions 4-OR identiques, aliases dual identiques.
+- **Livrables** : 6 fichiers Markdown générés dans `/app/docs/migration/SLICE_36_*.md` orientés **audit + régression** (pas de re-port de S11)
+  - `SLICE_36_SCOPE.md` — confirmation couverture S11 + roadmap booking writes (S37+)
+  - `SLICE_36_API_CONTRACTS.md` — projection asymétrique entre les 3 endpoints, 8 régressions à valider
+  - `SLICE_36_DB_MAPPING.md` — vérification que S30/S31/S33/S35 n'ont pas cassé S11 + asymétrie volontaire S35 (booking inchangé après refund)
+  - `SLICE_36_BUSINESS_RULES.md` — 13 règles BR-36.01 à BR-36.13 axées asymétries préservées
+  - `SLICE_36_TEST_CASES.md` — **20 cas de régression T36-01 à T36-20** (S30/S31/S33/S35 → /me, /received, /{id}) en complément des nominaux S11
+  - `SLICE_36_CURSOR_IMPLEMENTATION_NOTES.md` — patch de régression Spring Boot (réutilise `AuthService` + `ObjectMapper` S34), 12 pièges, 10 critères Done
+- **Recommandation forte** : la VRAIE prochaine slice utile au front = **booking writes** (S37 preview, S38 request, S39 cancel). S36 = audit uniquement.
+- **Tables touchées** : aucune écriture (S36 = lecture seule, identique S11).
+- **Top 3 pièges identifiés** : (1) permissions **4-OR** (vs S34 3-OR) — ne pas oublier `coach_id` et `user_id` legacy, (2) aliases dual routing, (3) **NE PAS** ajouter de JOIN `payments` "pour optimiser" — booking reads doivent rester sans `refund_amount` (compat stricte ; le front fait 2 appels distincts).
+- **Aucune modif de code Python** (mode documentation-only strict)
+
+---
+
 ### Migration Java — Slice 35 (2026-04-25)
 - **Livrables** : 6 fichiers Markdown générés dans `/app/docs/migration/` pour la slice `Webhook Stripe Charge/Refund Handlers`
   - `SLICE_35_SCOPE.md`, `SLICE_35_API_CONTRACTS.md`, `SLICE_35_DB_MAPPING.md`,
