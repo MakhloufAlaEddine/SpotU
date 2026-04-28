@@ -192,6 +192,22 @@ Implémenter une stratégie de rétention et réactivation avancée (Soft Delete
 
 ---
 
+### Migration Java — Slice 38 (2026-04-28) — Marketplace Products (lecture publique)
+- **Livrables** : 6 fichiers Markdown générés dans `/app/docs/migration/SLICE_38_*.md` (1818 lignes au total)
+  - `SLICE_38_SCOPE.md` (133 l), `SLICE_38_API_CONTRACTS.md` (245 l), `SLICE_38_DB_MAPPING.md` (271 l), `SLICE_38_BUSINESS_RULES.md` (413 l, 18 règles BR-38.01 à BR-38.18), `SLICE_38_TEST_CASES.md` (306 l, 32 cas T38-01 à T38-32), `SLICE_38_CURSOR_IMPLEMENTATION_NOTES.md` (450 l)
+- **Endpoint couvert** : `GET /api/marketplace/products` — **PREMIER endpoint PUBLIC migré** (pas de `require_auth`, `permitAll` Spring Security). Source : `routes/marketplace_routes.py:1–267`.
+- **Périmètre fonctionnel** : mélange produits (`marketplace_products` `status='active'`) + services (`services` `active=TRUE`, uniquement si tags fournis), enrichis (distance Haversine, badges owner/other, `seller_stats` ratings + counts), tri owner-first puis `created_at DESC`. Branchement par paramètres `tag_ids` / `spotyou_id` (4 modes : feed brut, filtre tags, lookup SpotYou, hybride).
+- **Tables lues (5)** : `marketplace_products`, `services`, `tag_points` (lookup SpotYou), `users` (JOIN seller, name/picture), `service_ratings` + `marketplace_product_ratings` (seller_stats). **AUCUNE écriture, AUCUN Stripe**.
+- **18 règles métier (BR-38.01 → BR-38.18)** : public/permitAll, visibilité status/active, branchement tag_ids vs spotyou_id, lookup `tag_points` résout tags+owner+GPS, filtre PostgreSQL **`&&`** (array overlap products) vs **`?|`** (JSONB services), `filter_requested && tags vides → []`, owner_id depuis SpotYou (pas user courant), Haversine côté Java (pas PostGIS), badges owner/other par `seller_id == owner_id`, seller_stats agrégés, parallélisme `asyncio.gather` → `CompletableFuture`, sort owner-first stable, LIMIT 20 produits / 20 services, JSONB tags double parsing.
+- **32 cas de test T38-01 à T38-32** : nominaux feed/tag_ids/spotyou_id/hybride, edge cases (tags vides, SpotYou inexistant, seller anonyme), régressions (status='draft' filtré, active=FALSE filtré, distance NULL si pas de GPS).
+- **Top 3 pièges identifiés** : (1) opérateur PostgreSQL **`?|`** sur JSONB tags services nécessite cast `::text[]` paramétré JDBC (Spring `NamedParameterJdbcTemplate` + `PgArray`), (2) Haversine côté Java en `BigDecimal` + `Math.toRadians` (pas `ST_Distance` ici, contrairement à S25/S26), (3) `asyncio.gather` 3 queries parallèles (products + services + seller_stats) → `CompletableFuture.allOf` ou exécution séquentielle Spring (mesurer avant d'optimiser).
+- **Asymétries préservées** : (a) services UNIQUEMENT si `tag_ids` fournis (pas de services en mode feed brut), (b) **AUCUN endpoint détail** `GET /products/{id}` côté public en Python — ne PAS l'inventer en Java, (c) seller_stats inclut ratings agrégés mais PAS la liste des avis individuels.
+- **Niveau de risque** : MOYEN-ÉLEVÉ (filtres JSONB `?|`, parallélisme, premier endpoint public Spring Security).
+- **Roadmap S39 suggérée** : 🔴 **Marketplace writes** (`POST /products` création — `product_creation_routes.py:1–567`) OU **booking writes** (`POST /bookings/{id}/cancel` lignes 754–983) — au choix de l'utilisateur.
+- **Aucune modif de code Python** (mode documentation-only strict).
+
+---
+
 ### Migration Java — Slice 37 (2026-04-28) — AUDIT NO-OP
 - **Constat majeur** : `POST /api/bookings/price-preview` (lignes 115–158) est **déjà couvert intégralement par Slice 30**. Vérification ligne-à-ligne : 0 divergence (auth, body, SELECT services active=TRUE, pricing_engine, response 9 champs).
 - **Documents S30 couvrant price-preview** : SCOPE (Endpoint #1), API_CONTRACTS (section "Endpoint 1"), BUSINESS_RULES, DB_MAPPING, TEST_CASES (cas PRV-XX), CURSOR_IMPLEMENTATION_NOTES (`@PostMapping("/price-preview")`)
