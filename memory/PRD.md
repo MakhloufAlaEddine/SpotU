@@ -192,6 +192,16 @@ Implémenter une stratégie de rétention et réactivation avancée (Soft Delete
 
 ---
 
+### Migration Java — Slice 37 (2026-04-28) — AUDIT NO-OP
+- **Constat majeur** : `POST /api/bookings/price-preview` (lignes 115–158) est **déjà couvert intégralement par Slice 30**. Vérification ligne-à-ligne : 0 divergence (auth, body, SELECT services active=TRUE, pricing_engine, response 9 champs).
+- **Documents S30 couvrant price-preview** : SCOPE (Endpoint #1), API_CONTRACTS (section "Endpoint 1"), BUSINESS_RULES, DB_MAPPING, TEST_CASES (cas PRV-XX), CURSOR_IMPLEMENTATION_NOTES (`@PostMapping("/price-preview")`)
+- **Livrables S37** : 6 fichiers Markdown courts orientés AUDIT no-op + recommandation roadmap (`SLICE_37_*.md`)
+- **Décision recommandée** : **NE RIEN FAIRE sur price-preview**. S37 = audit no-op pur. Re-router l'effort vers la VRAIE prochaine slice manquante.
+- **Prochaine vraie slice recommandée** : 🔴 **S38 — `POST /bookings/{id}/cancel`** (lignes 754–983). Justifications : (1) action courante du buyer côté UI, (2) ferme la boucle parcours buyer (créer S30 → consulter S11/S34 → cancel S38 → refund S35 déjà migré), (3) pas de nouvelle infra webhook (S35 reçoit déjà le `charge.refunded` déclenché par cancel), (4) débloque l'autonomie buyer côté Java.
+- **Aucune modif de code Python** (mode documentation-only strict)
+
+---
+
 ### Migration Java — Slice 36 (2026-04-26) — AUDIT + RÉGRESSION
 - **Constat majeur** : les 3 endpoints booking read sont **déjà couverts par Slice 11** (datée 2026-02-XX). Audit du code Python `routes/booking_routes.py:1035–1110` confirme **aucune divergence** : BOOKING_FIELDS identique (22 colonnes), JOINs identiques (services/users/service_slots), permissions 4-OR identiques, aliases dual identiques.
 - **Livrables** : 6 fichiers Markdown générés dans `/app/docs/migration/SLICE_36_*.md` orientés **audit + régression** (pas de re-port de S11)
