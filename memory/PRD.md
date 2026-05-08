@@ -192,6 +192,32 @@ Implémenter une stratégie de rétention et réactivation avancée (Soft Delete
 
 ---
 
+### Migration Java — Slice 42 (2026-04-30) — Services Coach LECTURES (5 endpoints)
+- **Livrables** : 6 fichiers Markdown générés dans `/app/docs/migration/SLICE_42_*.md` couvrant le bloc lectures Services.
+  - `SLICE_42_SCOPE.md`, `SLICE_42_API_CONTRACTS.md`, `SLICE_42_DB_MAPPING.md`, `SLICE_42_BUSINESS_RULES.md` (18 règles BR-42.01 à BR-42.18), `SLICE_42_TEST_CASES.md` (~67 cas T42-SRC/MIN/SAV/DEA/DET/INT/EDGE), `SLICE_42_CURSOR_IMPLEMENTATION_NOTES.md`
+- **5 endpoints couverts** (`routes/service_routes.py:1–754`) :
+  - `GET /api/services` (search PostGIS public, auto-exclusion services personnels si JWT, LIMIT 100) — 352-413
+  - `GET /api/services/mine` (coach dashboard, 7 queries // batch enrich avec slots+packages) — 416-427
+  - `GET /api/services/saved` (format plat distinct via `json_build_object`+`json_agg` SQL inline) — 645-684
+  - `GET /api/services/deactivated` (lifecycle service supprimé + calcul `days_until_media_purge`) — 687-715
+  - `GET /api/services/{service_id}` (`get_optional_auth` + détection `is_owner` coach OR admin) — 718-753
+- **Tables touchées (9 lecture seule)** : `services`, `service_locations` (PostGIS ST_X/ST_Y), `service_slots` (filtre futurs + NOT EXISTS bookings), `service_packages`, `service_saves`, `users` (coach JOIN), `reviews` (AVG/COUNT GROUP BY), `tags` (lookup), `bookings` (sub-query NOT EXISTS).
+- **Auth** : 2 endpoints publics (`search`, `detail`), 3 authenticated (`mine`, `saved`, `deactivated`). Aucun n'exige role coach. `is_owner` détecté applicativement (coach OR admin).
+- **18 règles métier** : auth différenciée, auto-exclusion services personnels search (try/catch silencieux), LIMIT 100 hardcodé, filtres dynamiques composables, **filtre slots futurs concaténation `(slot_date || ' ' || start_time)::timestamp` + NOT EXISTS bookings 4 statuts**, helper `_mask_address` (precision exact/100m/1000m + skip country names FR), `is_owner` (coach OR admin) detail, suppression `original_address`/`original_description` non-owner detail, search vue light (`slots:[]`, `packages:[]`, `is_owner:false` toujours), saved format plat distinct (DTO séparé, pas tag_ids/tags/slots/packages), `available_slots` count saved sans NOT EXISTS booking (asymétrie compat), `days_until_media_purge` UTC-aware avec `max(0, days)`, detail SANS filtre `active`/`deleted_at` (compat permissive), `_fetch_pkg_slots` séquentiel post-packages, `images`/`tag_ids` parsing dual jsonb/text fallback.
+- **~67 cas de test T42-XX-NN** : SRC 17, MIN 10, SAV 9, DEA 9, DET 9, INT 7, EDGE 10. Régressions S11 (booking detail consomme `/services/{id}`), S25 (home feed cohérent), S37 (price-preview package lookup), S38 (catalogue marketplace cohérent).
+- **Top 3 pièges identifiés** :
+  1. **Ambiguïté `WHERE sl.service_id = service_id`** (l. 385) — le `service_id` non préfixé est interprété par PostgreSQL comme la colonne outer query `services.service_id` (corrélation). Java DOIT qualifier explicitement `services.service_id` pour éviter ambiguïté + valider plan d'exécution PostgreSQL.
+  2. **Cast string `(slot_date || ' ' || start_time)::timestamp > NOW()::timestamp`** + **`slot_date >= TO_CHAR(NOW(), 'YYYY-MM-DD')`** (saved) — préserver SQL exact, **NE PAS optimiser** en `slot_date::date` ni `CURRENT_DATE`. Sous-requêtes `json_build_object`/`json_agg` (saved) → mapping Jackson dans row mapper Java (string JSON retourné par PostgreSQL).
+  3. **Format réponse asymétrique 5 endpoints** — search (light, slots/packages vides toujours) vs mine (owner complet) vs saved (format PLAT distinct sans tag_ids/tags/slots/packages, latitude/longitude flat) vs deactivated (lifecycle minimal + days_until_media_purge) vs detail (mêmes données que mine mais avec is_owner conditionnel). 5 DTO Java distincts requis. NE PAS factoriser.
+- **Asymétries préservées** : LIMIT 100 hardcodé, auto-exclusion silencieuse JWT KO, slots vue light search (`slots:[], packages:[], is_owner:false` toujours), saved format plat (5 champs en moins vs mine), available_slots saved sans NOT EXISTS booking (vs mine avec), detail sans filtre lifecycle (consultable même si deleted), 404 detail format `{"detail": "Service not found"}` (HTTPException Spring 6).
+- **Niveau de risque** : ÉLEVÉ (PostGIS + 7 queries // batch enrich + SQL string concat + dual parsing jsonb/text + 5 DTO distincts + cast string-timestamp).
+- **Justification du choix** : suite logique débloquant **5 écrans front simultanément** (Search / Coach Dashboard / Saved / Deactivated / Service Detail). **`GET /services/{id}` est la dépendance critique de S11 booking detail** — sans S42 le booking est aveugle. Pattern enrich `_batch_enrich_*` mis en place sera **réutilisé tel quel par S43+ writes** (qui retournent le service enrichi via le même service).
+- **HORS scope (volontairement reporté)** : POST/PUT/DELETE/reactivate/save/unsave services → **S43** (R2 upload + PostGIS write + flag normalization). Service slots writes → S44. Service packages writes → S45. Helpers `_get_booking_flags` et `_normalize_booking_config` → S43.
+- **Roadmap S43 suggérée** : 🔴 **Services CRUD writes** (create/update/delete/reactivate + save/unsave) — ferme la boucle authoring services côté coach.
+- **Aucune modif de code Python** (mode documentation-only strict).
+
+---
+
 ### Audit final pré-cutover (2026-04-30) — 5 livrables consolidés
 - **Livrables** : 5 documents générés dans `/app/docs/migration/` :
   - `FINAL_CUTOVER_GAPS.md` — endpoints non migrés / migrés avec écart / non utilisés / critiques manquants (~48 endpoints non migrés sur 128)
