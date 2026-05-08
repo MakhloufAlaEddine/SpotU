@@ -192,6 +192,28 @@ Implémenter une stratégie de rétention et réactivation avancée (Soft Delete
 
 ---
 
+### Audit final pré-cutover (2026-04-30) — 5 livrables consolidés
+- **Livrables** : 5 documents générés dans `/app/docs/migration/` :
+  - `FINAL_CUTOVER_GAPS.md` — endpoints non migrés / migrés avec écart / non utilisés / critiques manquants (~48 endpoints non migrés sur 128)
+  - `FRONT_API_COVERAGE.md` — couverture par domaine : 5/12 ✅ OK (Auth, Booking, Payments, Subscriptions, Marketplace), 3/12 🟡 PARTIEL (Users, SpotYou, Admin), 4/12 🔴 MANQUANT (Chat, Adresses, Notifications/Agenda, Services coach)
+  - `BLOCKERS_BEFORE_FRONT_SWITCH.md` — 10 P0 (~12-18 j), 9 P1 (~10-14 j), 6 P2 (~3 j)
+  - `TECHNICAL_HARDENING_CHECKLIST.md` — env vars, Stripe, R2, PostGIS, CORS, workers, logs, monitoring, DB migrations
+  - `RECOMMENDED_NEXT_STEPS.md` — 5 phases (~4-8 semaines selon ressources)
+- **Méthodologie** : grep `lib/api.ts` + ~80 chemins front détectés vs 128 endpoints Python détectés vs slices S10–S41 PRD.
+- **Couverture finale** : ~62% endpoints, ~70% pondérée par usage front, **5/12 domaines complets**.
+- **Top 5 blockers restants** :
+  1. 🔴 **Chat domaine entier non migré** (4 REST + 1 WS) — écran tab principal KO
+  2. 🔴 **Services coach domaine entier non migré** (11 endpoints) — booking S11-S15 inopérants en cascade
+  3. 🔴 **Slice 12 (booking create) à AUDITER d'urgence** — possible gap caché dans la PRD
+  4. 🔴 **Notifications inbox + Agenda + planning-events** non migrés (5 endpoints) — front utilise massivement
+  5. 🔴 **JWT_SECRET partagé Python/Java** non vérifié — risque invalidation tous les tokens au cutover
+- **Découverte critique** : `image_urls` est `jsonb` (confirmé S41 `jsonb_array_length`) — à reporter rétroactivement S39/S40.
+- **GO / NO-GO** : ❌ **NO-GO actuel** — 10 P0 bloquants. Cutover possible après 4-8 semaines de travail (Phase 1 doc + Phase 2 impl Cursor + Phase 3 hardening + Phase 4 tests E2E + Phase 5 cutover progressif Remote Config).
+- **Stratégie recommandée** : cutover progressif Remote Config (5% → 25% → 100%) par domaine, avec rollback OTA Expo prêt.
+- **Aucune modif de code Python** (mode documentation-only strict).
+
+---
+
 ### Migration Java — Slice 41 (2026-04-30) — Marketplace Admin moderation (pending/approve/reject + reminder worker)
 - **Livrables** : 6 fichiers Markdown générés dans `/app/docs/migration/SLICE_41_*.md` couvrant le bloc admin marketplace.
   - `SLICE_41_SCOPE.md`, `SLICE_41_API_CONTRACTS.md`, `SLICE_41_DB_MAPPING.md`, `SLICE_41_BUSINESS_RULES.md` (21 règles BR-41.01 à BR-41.21), `SLICE_41_TEST_CASES.md` (~92 cas T41-PND/DET/APP/REJ/WRK/INT/EDGE), `SLICE_41_CURSOR_IMPLEMENTATION_NOTES.md`
