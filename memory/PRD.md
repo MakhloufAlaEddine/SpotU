@@ -192,6 +192,30 @@ Implémenter une stratégie de rétention et réactivation avancée (Soft Delete
 
 ---
 
+### Migration Java — Slice 47 (2026-05-08) — Notifications inbox in-app (3 endpoints, 1 table)
+- **Livrables** : 6 fichiers Markdown générés dans `/app/docs/migration/SLICE_47_*.md`
+  - `SLICE_47_SCOPE.md`, `SLICE_47_API_CONTRACTS.md`, `SLICE_47_DB_MAPPING.md`, `SLICE_47_BUSINESS_RULES.md` (15 règles BR-47.01 à BR-47.15, 10 asymétries Python à conserver), `SLICE_47_TEST_CASES.md` (~35 cas TC-S47-1.x à 5.x), `SLICE_47_CURSOR_IMPLEMENTATION_NOTES.md` (14 pièges)
+- **3 endpoints couverts** (`tagpoint_routes.py:1350–1425`) :
+  - `GET /api/users/me/notifications?limit=50` (max 200) — list inbox ordre `created_at DESC`, LEFT JOIN users via `data->>'sender_id'` pour override `sender_picture` actuelle
+  - `PATCH /api/users/me/notifications/{notif_id}/read` — mark single read (silent si pas owner), retourne `{success, unread_notif: count recalculé}`
+  - `PATCH /api/users/me/notifications/read-all` — mark all read, retourne `{success}` strict (pas de `unread_notif`, asymétrie volontaire)
+- **Table touchée (1)** : `notifications` (SELECT/UPDATE only — PK `notif_id`, FK CASCADE `users`, index optimal `(user_id, created_at DESC)`). En lecture : `users` (LEFT JOIN pour `sender_current_picture`).
+- **Top 3 pièges identifiés** :
+  1. **Override `data.sender_picture` conditionnel `IS NOT NULL`** — la photo actuelle écrase la stockée **uniquement** si le sender a encore une photo en DB. Si compte supprimé OU photo NULL ⇒ photo historique conservée. Iso strict.
+  2. **Asymétrie réponses PATCH** — `markRead` retourne `unread_notif:N` recalculé, mais `markAllRead` retourne `{success:true}` SANS count (et broadcast WS hardcode `count:0` sans SELECT). Volontaire à conserver (BR-47.10).
+  3. **PATCH silent si pas owner** — UPDATE `WHERE notif_id=? AND user_id=?` ⇒ 0 ligne affectée mais réponse 200 quand même + COUNT recalculé. Ne PAS retourner 404 (BR-47.08).
+- **Asymétries préservées (10)** : mark-single retourne count vs mark-all sans count ; mark-all broadcast count=0 hardcodé ; PATCH silent si pas owner ; override `sender_picture` conditionnel ; parsing `data` dual (string/dict/null/malformé → fallback `{}`) ; pagination LIMIT seul (pas d'offset/cursor) ; aucun filtre API (pas de `?type=...&unread_only=...`) ; endpoints regroupés dans `tagpoint_routes.py` côté Python ; aucun endpoint DELETE notif ; aucun endpoint GET unread-count standalone (uniquement via WS ou `unread_notif` du PATCH single).
+- **Dépendance WS deferred** : `notif_manager.notify(user_id, payload)` (chat_manager Python) appelé après PATCH single + read-all. **Fire-and-forget** — la réponse HTTP n'en dépend pas. À implémenter côté Java comme **stub no-op** (`NotifBroadcaster.notify`) jusqu'à la slice Chat/WebSocket.
+- **JSONB `data` parsing dual** : try `json.loads` avec fallback `{}` si null, string vide, ou JSON malformé. À reproduire strictement côté Java avec `JsonNode` + `ObjectNode` mutable pour l'override.
+- **Pagination LIMIT seul** : default 50, range `[1, 200]` Pydantic `Query(50, ge=1, le=200)`. Pas d'offset, pas de cursor, pas de total_count. Iso strict.
+- **Pas d'INSERT côté S47** : les writers de notifs restent côté Python (`media_notif_worker`, `spot_you_notif_worker`, `admin_product_reminder_worker`, `webhook_handlers`, `push_service`, endpoints booking/payments/services). Migration des writers slice par slice par domaine, hors scope S47.
+- **Niveau de risque** : 🟢 **FAIBLE-MOYEN** — schéma simple, JOIN JSONB extraction, parsing dual, asymétries de réponse strictes, WS broadcast à stub.
+- **Justification du choix** : bloc le plus utile au front (cloche notifications visible sur tous les écrans connectés). Self-contained (3 endpoints, 1 table, dépendance WS stubable). Petite slice (~80 lignes Python) idéale après Services Coach S42–S46 et avant les gros blocs Chat/WS et Agenda. Débloque l'inbox côté Java tout en laissant les writers Python alimenter la table partagée.
+- **HORS scope** : `GET /users/me/planning-events` + `GET /users/me/events` → **S48 (Planning/Agenda)**. `GET /users/me/activity-feed` → **S49 (Activity Feed social)**. `POST/DELETE /push-token` → slice push tokens dédiée. `WebSocket /ws/notifications` → **bloc Chat/WS** (gros, séparé). DELETE notif et GET unread-count standalone → **N'EXISTENT PAS, ne pas inventer**.
+- **Aucune modif de code Python** (mode documentation-only strict).
+
+---
+
 ### Migration Java — Slice 46 (2026-05-08) — Services Coach SAVE/UNSAVE (favoris) (2 endpoints, 1 table)
 - **Livrables** : 6 fichiers Markdown générés dans `/app/docs/migration/SLICE_46_*.md`
   - `SLICE_46_SCOPE.md`, `SLICE_46_API_CONTRACTS.md`, `SLICE_46_DB_MAPPING.md`, `SLICE_46_BUSINESS_RULES.md` (12 règles BR-46.01 à BR-46.12, 10 asymétries Python à conserver), `SLICE_46_TEST_CASES.md` (~25 cas TC-S46-1.x à 4.x), `SLICE_46_CURSOR_IMPLEMENTATION_NOTES.md` (14 pièges)
