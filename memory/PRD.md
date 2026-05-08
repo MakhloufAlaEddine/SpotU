@@ -66,6 +66,31 @@ Implémenter une stratégie de rétention et réactivation avancée (Soft Delete
 
 ## Implémenté ✅
 
+### Migration Java — Slice 48 (2026-05-08) — Chat & WebSockets (REST + temps réel)
+- **Livrables** : 6 fichiers Markdown générés dans `/app/docs/migration/SLICE_48_*.md` (3 228 lignes total) couvrant l'intégralité du domaine Chat & WebSockets.
+  - `SLICE_48_SCOPE.md` (231 l), `SLICE_48_API_CONTRACTS.md` (737 l), `SLICE_48_DB_MAPPING.md` (530 l), `SLICE_48_BUSINESS_RULES.md` (420 l, 70 règles BR-48.01 à BR-48.70), `SLICE_48_TEST_CASES.md` (545 l, ~99 cas T48-XX-NN), `SLICE_48_CURSOR_IMPLEMENTATION_NOTES.md` (765 l)
+- **Périmètre couvert** : 6 endpoints HTTP + 3 endpoints WebSocket + ConnectionManager process-local
+  - **REST chat** (`chat_routes.py:227–448`) : `POST /api/conversations`, `GET /api/conversations`, `GET /api/conversations/{id}/messages`, `PUT /api/conversations/{id}/read`
+  - **REST chat lifecycle** (`deletion_routes.py:436–517`) : `DELETE /api/messages/{id}` (soft-delete + broadcast `message_deleted`), `PATCH /api/conversations/{id}/leave` (status='left' + auto-archive si plus aucun actif)
+  - **WebSocket** (`chat_routes.py:459–714`) : `WS /api/ws/chat/{conv_id}` (bi-dir, anti-spam 500ms+8KB, codes 4001/4003/4009), `WS /api/ws/notifications` (init unread_total+unread_notif, server→client), `WS /api/ws/spot-you/{point_id}` (server→client, lecture publique sans check membership)
+  - **ConnectionManager** (`chat_manager.py:1–89`) : 3 instances `manager` / `notif_manager` / `spotyou_manager` — process-local in-memory `Dict[str, List[WebSocket]]`
+- **Tables touchées** : R/W `conversations`, `conversation_participants`, `messages` — Lectures jointes `tag_points`, `services`, `users`, `spot_you_members`, `notifications`. AUCUNE écriture sur les tables externes.
+- **Auth** : JWT obligatoire sur tous les endpoints. WS handshake = premier frame JSON `{token}` dans 5s (token JAMAIS dans URL — [SEC-14]). WS chat = check `status='active'` ; WS notif = filtrage par user_id JWT ; WS spot-you = lecture publique (aucun check membership).
+- **Top 3 pièges identifiés** :
+  1. **Handshake WS custom** — `accept()` AVANT auth + premier frame JSON `{token}` dans 5s sinon close `4001`. Spring/JSR-356 par défaut authentifient au handshake HTTP — désactiver. Codes de close exacts `4001`/`4003`/`4009` (le front teste dessus). Anti-spam silent (rejet par `continue`, pas close) sur fréquence ; close `4009` uniquement pour taille.
+  2. **Anti-N+1 enrichissement `_batch_enrich_conversations`** — 5 queries parallèles `asyncio.gather` → `CompletableFuture.allOf` (sans batch : 4 queries × N convs ≈ 849ms/conv documenté en commentaire l. 73). Critique pour la perf utilisateurs >50 convs.
+  3. **Codes de close + anti-spam silencieux** — `len(content.encode("utf-8"))` mesure des **octets** (pas chars). `removeIf(s -> s == ws)` (identité, pas equals — BR-48.63). `session.sendMessage` PAS thread-safe → `synchronized(ws)` dans broadcast. Compteur anti-spam local par session (BR-48.46) — pas global.
+- **Asymétries préservées** : (a) WS spot-you ouvert à tout authentifié sans check membership, (b) `tagpoint_private`/`service` INSERT participants sans `status` (utilise DEFAULT DDL) vs `tagpoint_group` qui INSERT explicitement `status='active'`, (c) `created_by` = creator pour group / caller pour private/service, (d) `_get_unread_total` inclut messages des convs soft-deleted (BR-48.68 — anomalie acceptée), (e) DELETE message ordre des gardes 404 → already_deleted (200) → 403, (f) PATCH leave **PAS** de broadcast WS (à NE PAS inventer), (g) error code asymétrique GET messages 403 vs PATCH leave 404 pour non-participant, (h) push notif chat `store=False` (PAS de row dans `notifications`).
+- **Anomalies compat documentées** : (1) cache `_context_deleted` stale pendant la session WS (envoi reste autorisé jusqu'au reconnect), (2) `_get_unread_total` global toutes convs confondues incluant soft-deleted, (3) anti-spam local par session WS (un user avec 2 sessions peut bypass), (4) WS spot-you sans check membership (volontaire), (5) PATCH leave aucun broadcast (front ne reçoit pas de signal).
+- **Niveau de risque** : MOYEN-ÉLEVÉ (3 WS protocol custom + 5 queries parallèles batch + codes de close exacts + thread-safety registry + 70 règles métier).
+- **HORS scope (volontairement reporté)** : `POST /api/push-token`, `DELETE /api/push-token` → slice « Push tokens » dédiée ; `send_push_to_user` (FCM/APNS/retries) → slice « Push notifications » ; producteurs WS (notif_manager.notify depuis S47/push, spotyou_manager.broadcast depuis SpotYou writes déjà migrés) → exposer 3 façades publiques `chatRegistry.broadcast / notifRegistry.notify / spotyouRegistry.broadcast` réutilisables par les autres slices ; pas de typing/présence/réactions/attachments (n'existent pas en Python — NE PAS inventer).
+- **Limitations connues** : (1) process-local registry sans Redis pub/sub → multi-instance Java NE diffusera PAS les broadcasts entre nœuds (iso Python actuel single-instance — slice future si scale-out), (2) pas de retry/ack côté WS (client doit re-fetcher), (3) pas de pagination GET /conversations (risque users >100 convs).
+- **Bloc Chat COMPLET après S48** : 6 HTTP + 3 WS + 1 manager = domaine entièrement fermé en une slice indivisible (les 3 WS partagent `chat_manager.py`). Couverture front : tab principal "Chat", cloche notifs S47 temps réel, compteurs SpotYou temps réel.
+- **Roadmap suggérée S49** : 🔴 **Push notifications** (`POST /api/push-token` + `DELETE /api/push-token` + `push_service.py:send_push_to_user`) — débloque le push FCM/APNS post-S48, ferme la couverture notification de bout en bout.
+- **Aucune modif de code Python** (mode documentation-only strict)
+
+---
+
 ### Phase 2 — Invitations SpotYou (2026-04-04)
 - **Migration 017** : `invited_by` (FK users) + `invited_at` (timestamp) sur `spot_you_members`
 - **Backend** : `POST /tag-points/{id}/invite` (check permissions, anti-doublon, push notif)
