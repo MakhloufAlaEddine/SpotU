@@ -192,6 +192,30 @@ Implémenter une stratégie de rétention et réactivation avancée (Soft Delete
 
 ---
 
+### Migration Java — Slice 43 (2026-05-08) — Services Coach CRUD principal (5 endpoints write)
+- **Livrables** : 6 fichiers Markdown générés dans `/app/docs/migration/SLICE_43_*.md`
+  - `SLICE_43_SCOPE.md`, `SLICE_43_API_CONTRACTS.md`, `SLICE_43_DB_MAPPING.md`, `SLICE_43_BUSINESS_RULES.md` (12 sections, ~30 règles), `SLICE_43_TEST_CASES.md` (~50 cas TC-1.x à TC-6.x), `SLICE_43_CURSOR_IMPLEMENTATION_NOTES.md`
+- **5 endpoints couverts** (`routes/service_routes.py:756–1104`) :
+  - `POST /api/services` — create (coach/admin), 1 INSERT services + N INSERT service_locations PostGIS, normalisation booking via `app_config`
+  - `PUT/PATCH /api/services/{id}` — même handler, whitelist scalar + JSONB cast `::jsonb` + replace destructif locations + **suppression IMMÉDIATE images retirées** (`delete_upload_files` sync R2/FS)
+  - `DELETE /api/services/{id}` — soft delete : `active=FALSE`, `deleted_at`, `media_purge_scheduled_at = NOW()+90j`, INSERT pending_file_deletions (×img), UPDATE conversations context_deleted, **garde 409 bookings actifs** (sauf admin)
+  - `POST /api/services/{id}/reactivate` — réactivation < 90j (full restore) ou ≥ 90j (`media_purged=TRUE` → `requires_media_reupload:true`), DELETE pending_file_deletions pending, UPDATE conversations
+- **Tables touchées (8)** : `services` (INSERT/UPDATE), `service_locations` (PostGIS write `ST_SetSRID(ST_MakePoint(lng,lat),4326)`), `pending_file_deletions` (INSERT lifecycle / DELETE reactivate), `conversations` (UPDATE context_deleted), `app_config` (SELECT flags), `bookings` (SELECT garde COUNT statuts actifs), `service_slots` / `service_packages` (deferred S44/S45).
+- **Découpage strict** : slots[] et packages[] **acceptés** au contrat API mais **persistance reportée S44/S45**. Save/unsave **exclus** (slice favoris dédiée). Locations conservées car indissociables masquage adresse S42.
+- **Top 3 pièges identifiés** :
+  1. **`images=null` vs `images=[]` vs liste** — None=keep / [] = wipe sync R2 / liste = diff + suppression sync des retirées. À reproduire **strictement** côté Java (Optional/JsonNullable, ne jamais convertir null→[] au binding).
+  2. **Asymétrie purge médias** — UPDATE images = suppression **synchrone immédiate** R2/FS via `delete_upload_files` ; DELETE service = programmation **différée 90j** via `pending_file_deletions`. Deux comportements pour le même type de fichier.
+  3. **Defaults booking POST vs PUT divergents** — POST `mode='manual_approval'` / `payLater=true` / `expiry=1440` ; PUT `mode='instant_booking'` / `payLater=false` / `expiry=1440`. **Asymétrie volontaire** à conserver. ServiceCreate Pydantic n'expose PAS booking_approval_mode (lu via `getattr` avec defaults), à exposer côté DTO Java.
+- **Asymétries préservées** : whitelist scalar PUT (sans `coach_id`/`address`), pas de validation `title≥5/images≤5/price≥0` sur PUT (alors que POST oui), `media_purged` ne repasse jamais à FALSE après reactivate, `pay_later_expiration_minutes` jamais NULL en DB (`or 1440`), conversations matching uniquement par `context_id` sans filtre `context_type`, messages erreur mixtes français (REACTIVATE) / anglais (UPDATE/DELETE).
+- **Recommandation Java au-delà de l'iso-Python** : imposer `@Transactional` sur les 4 méthodes service (Python n'a aucune transaction explicite — amélioration de robustesse sans impact métier, à documenter en Javadoc).
+- **Garde DELETE bookings actifs** : statuts bloquants `IN ('pending','accepted','awaiting_payment','confirmed')`, message FR avec compteur exact. Admin **bypass** la garde.
+- **Niveau de risque** : MOYEN-ÉLEVÉ — PostGIS write + JSONB cast dynamique + diff images sync + lifecycle 90j + normalisation booking flags + 5 messages erreur exacts (FR/EN mixés).
+- **Justification du choix** : débloque le **dashboard coach complet** (créer/éditer/supprimer/réactiver service) — sans S43 le coach reste captif du Python. Découpage propre slots/packages → S44/S45 préserve un PR Java de taille raisonnable. Réutilise `_enrich_service` mapper de S42 et worker `pending_file_deletions` de S40.
+- **HORS scope (volontairement reporté)** : `service_slots` writes (recurring/single/availability + days_of_week + location_index + raw_schedule) → **S44**. `service_packages` writes (+ DaySlotPayload nested + calcul prix dérivé) → **S45**. `POST /save` + `DELETE /unsave` → **slice favoris**. Notifications, audit log, réindexation : hors scope global.
+- **Aucune modif de code Python** (mode documentation-only strict).
+
+---
+
 ### Migration Java — Slice 42 (2026-04-30) — Services Coach LECTURES (5 endpoints)
 - **Livrables** : 6 fichiers Markdown générés dans `/app/docs/migration/SLICE_42_*.md` couvrant le bloc lectures Services.
   - `SLICE_42_SCOPE.md`, `SLICE_42_API_CONTRACTS.md`, `SLICE_42_DB_MAPPING.md`, `SLICE_42_BUSINESS_RULES.md` (18 règles BR-42.01 à BR-42.18), `SLICE_42_TEST_CASES.md` (~67 cas T42-SRC/MIN/SAV/DEA/DET/INT/EDGE), `SLICE_42_CURSOR_IMPLEMENTATION_NOTES.md`
