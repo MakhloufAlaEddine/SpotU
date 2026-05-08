@@ -192,6 +192,29 @@ Implémenter une stratégie de rétention et réactivation avancée (Soft Delete
 
 ---
 
+### Migration Java — Slice 44 (2026-05-08) — Services Coach SLOTS / Disponibilités (0 nouvel endpoint, 1 sous-domaine)
+- **Livrables** : 6 fichiers Markdown générés dans `/app/docs/migration/SLICE_44_*.md`
+  - `SLICE_44_SCOPE.md`, `SLICE_44_API_CONTRACTS.md`, `SLICE_44_DB_MAPPING.md`, `SLICE_44_BUSINESS_RULES.md` (18 règles BR-44.01 à BR-44.18, 10 asymétries Python à conserver), `SLICE_44_TEST_CASES.md` (~35 cas TC-S44-1.x à 6.x), `SLICE_44_CURSOR_IMPLEMENTATION_NOTES.md` (14 pièges)
+- **CONSTAT FACTUEL** : aucun endpoint slot/availability dédié n'existe en Python. La persistance des slots passe **uniquement** via les endpoints S43 (`POST/PUT/PATCH /api/services`). S44 documente la logique de persistance reportée en S43, sans nouvelle route HTTP.
+- **Sous-domaines couverts** (`service_routes.py:826–842`, `949–977`) :
+  - **Création slots** sur POST /services : INSERT × N dans `service_slots` (legacy `data.slots[]`, `package_id=NULL`).
+  - **Replace slots** sur PUT/PATCH : tri-état strict `null=keep` / `[]=wipe (DELETE total)` / `[…]=replace (DELETE + INSERT × N)`.
+  - **Lecture** déjà migrée S42 (helper `_get_service_slots`).
+- **Tables touchées (1 write S44)** : `service_slots` (INSERT/DELETE only). En référence : `bookings` (FOR UPDATE NOWAIT lecture S30), `service_locations` (résolution `location_index` S43).
+- **3 slot_types supportés en write** : `recurring` (jour récurrent + `days_of_week`), `single` (date unique + `slot_date`), `availability` (plage récurrente). Slot_type `specific` apparaît dans booking_routes mais jamais créé en write — ne PAS l'introduire.
+- **Top 3 pièges identifiés** :
+  1. **Cascade FK `service_locations` ON DELETE SET NULL orpheline les slots conservés** — un PUT replace de `data.locations` sans toucher `data.slots` rend tous les slots existants `location_id=NULL`. Iso Python à conserver.
+  2. **Replace truncate global sans garde booking actif** — `DELETE FROM service_slots WHERE service_id` supprime TOUS les slots y compris ceux référencés par des bookings actifs (`status IN pending/accepted/awaiting_payment/confirmed`). Le booking devient orphelin (`bookings.slot_id` pas en FK stricte). NE PAS ajouter de garde côté Java (BR-44.14).
+  3. **Resolution `location_index` avec fallback silencieux** — index hors borne ou null ⇒ `loc_ids[0]` ou `NULL` sans erreur. Sur PUT : utiliser `new_loc_ids` si `data.locations is not None`, sinon SELECT existantes ORDER BY `created_at`. Avec `data.locations=[]` et `data.slots=[…]` ⇒ tous les slots créés ont `location_id=NULL`.
+- **Asymétries préservées (10)** : `raw_schedule` accepté par DTO mais jamais persisté ; `location_id` direct ignoré (seul `location_index` compte en write) ; aucune validation format `start_time`/`end_time`/`slot_date` (strings libres) ; aucune validation `start_time < end_time` ; aucune validation `slot_date` futur (filtre lecture s'en charge) ; aucune validation chevauchement slots ; CHECK CONSTRAINT DB `day_of_week BETWEEN 0 AND 6` (sur legacy uniquement, pas `days_of_week`) ; `slot_status` jamais explicite à l'INSERT (DEFAULT `'available'`) ; `day_of_week` legacy auto-rempli `days[0] if days else NULL` ; replace truncate global même slots de packages (asymétrie S45).
+- **State machine `slot_status`** documentée en référence (déjà migrée S30 + expiry_worker) : `available → pending|reserved → booked → completed`, retours `→ available` sur cancel/refuse/refund/expiry. Mutations exclusivement sur slots `single`/`specific`. Aucune duplication dans S44.
+- **Niveau de risque** : MOYEN-ÉLEVÉ — tri-état `null/[]/list` critique + cascade FK SET NULL + JSONB cast `days_of_week::jsonb` + replace destructif sans garde booking + résolution `location_index` silencieuse + asymétrie `raw_schedule`/`location_id` direct.
+- **Justification du choix** : sans S44 les services créés en Java seraient **inchargeables** (pas de slot inséré ⇒ pas de réservation possible). Complète parfaitement S43 (DTO `ServiceSlotItemDto` déjà accepté, traitement passe stub→fonctionnel). Zéro nouveau endpoint, zéro nouveau DTO HTTP. Réutilisation maximale `ServicesCoachService` Java.
+- **HORS scope (volontairement reporté)** : slots de packages (`package_id NOT NULL`, même table mais cycle de vie d'un package) → **S45**. Endpoints standalone slots (`POST/PUT/DELETE /slots/...`) → **N'EXISTENT PAS, ne pas inventer**. State machine `slot_status` → S30 déjà migrée. Worker expiry → déjà migré. Read helper → S42 déjà migré. Validation format/chevauchement → ne PAS ajouter (parité Python permissive).
+- **Aucune modif de code Python** (mode documentation-only strict).
+
+---
+
 ### Migration Java — Slice 43 (2026-05-08) — Services Coach CRUD principal (5 endpoints write)
 - **Livrables** : 6 fichiers Markdown générés dans `/app/docs/migration/SLICE_43_*.md`
   - `SLICE_43_SCOPE.md`, `SLICE_43_API_CONTRACTS.md`, `SLICE_43_DB_MAPPING.md`, `SLICE_43_BUSINESS_RULES.md` (12 sections, ~30 règles), `SLICE_43_TEST_CASES.md` (~50 cas TC-1.x à TC-6.x), `SLICE_43_CURSOR_IMPLEMENTATION_NOTES.md`
