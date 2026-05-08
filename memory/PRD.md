@@ -192,6 +192,29 @@ Implémenter une stratégie de rétention et réactivation avancée (Soft Delete
 
 ---
 
+### Migration Java — Slice 46 (2026-05-08) — Services Coach SAVE/UNSAVE (favoris) (2 endpoints, 1 table)
+- **Livrables** : 6 fichiers Markdown générés dans `/app/docs/migration/SLICE_46_*.md`
+  - `SLICE_46_SCOPE.md`, `SLICE_46_API_CONTRACTS.md`, `SLICE_46_DB_MAPPING.md`, `SLICE_46_BUSINESS_RULES.md` (12 règles BR-46.01 à BR-46.12, 10 asymétries Python à conserver), `SLICE_46_TEST_CASES.md` (~25 cas TC-S46-1.x à 4.x), `SLICE_46_CURSOR_IMPLEMENTATION_NOTES.md` (14 pièges)
+- **2 endpoints couverts** (`service_routes.py:1107–1132`) :
+  - `POST /api/services/{service_id}/save` (l. 1107–1120) — auth JWT, check `active=TRUE`, INSERT `service_saves` ON CONFLICT DO NOTHING
+  - `DELETE /api/services/{service_id}/unsave` (l. 1123–1132) — auth JWT, DELETE silent (idempotent, pas de 404)
+- **⚠️ ASYMÉTRIE D'URL critique** : POST utilise `/save`, DELETE utilise `/unsave` (chemins **non-symétriques**). À reproduire strictement côté Java (Javadoc obligatoire).
+- **Table touchée (1)** : `service_saves` (PK `save_id`, UNIQUE `(service_id, user_id)`, FK CASCADE `services` + `users`, `saved_at` DEFAULT NOW). En lecture : `services` (`SELECT 1 ... WHERE active=TRUE`).
+- **Top 3 pièges identifiés** :
+  1. **Chemin DELETE = `/unsave`** (pas `/save` symétrique) — risque de tentation de "fixer" l'asymétrie côté Java. NE PAS le faire (BR-46.04).
+  2. **POST 404 si `active=FALSE`** mais **DELETE silent** (pas de check `active`) — asymétrie volontaire : on ne peut sauvegarder que de l'actif, mais on peut purger même les services désactivés (cleanup user). NE PAS ajouter de filtre `active=TRUE` côté DELETE.
+  3. **Idempotence ON CONFLICT DO NOTHING** + **`saved_at` jamais updaté** en cas de re-save — la première date de save est préservée. UTILISER directement la syntaxe SQL native PostgreSQL (pas SELECT+INSERT séparés).
+- **Asymétries préservées (10)** : path DELETE `/unsave` ; POST 404 vs DELETE silent ; ON CONFLICT DO NOTHING sans target ; `saved_at` non updaté ; `save_id` perdu en cas de conflict ; DELETE silent même si service inexistant ; pas de transaction explicite ; pas de notification/audit ; `is_saved` logique (POST=true, DELETE=false) pas un re-read ; aucun rate-limit.
+- **Auth** : JWT requis sur les 2 endpoints. **Aucune restriction de rôle** — un user, coach (même owner), ou admin peuvent tous save/unsave. `user_id` extrait du JWT.
+- **FK & cascades** : `services → service_saves` `ON DELETE CASCADE` (hard delete), `users → service_saves` `ON DELETE CASCADE`. Soft delete S43 ne déclenche **pas** la cascade (favoris conservés en DB mais masqués par `GET /services/saved` filtre `active=TRUE`).
+- **Concurrence** : pas de lock. ON CONFLICT DO NOTHING gère naturellement les POST simultanés (1 seule ligne effective).
+- **Niveau de risque** : 🟢 **FAIBLE** — petite slice ciblée, 25 lignes Python, 1 SQL atomique par endpoint, pas de PostGIS, pas de paiements, pas de transactions complexes.
+- **Justification du choix** : petite slice ciblée idéale **avant** de passer aux gros blocs Chat/Agenda. Complète proprement le domaine Services Coach (S42→S46). Aucune dépendance bloquante (S42 + auth JWT déjà mergées). Risque minimal.
+- **HORS scope** : `GET /services/saved` (lecture, déjà S42). Save/unsave SpotYou (S27 déjà migré). Save/unsave Marketplace products (à confirmer si existant). Notifications, audit, compteur public. Mutualisation cross-domaines.
+- **Aucune modif de code Python** (mode documentation-only strict).
+
+---
+
 ### Migration Java — Slice 45 (2026-05-08) — Services Coach PACKAGES (0 nouvel endpoint, write-only POST)
 - **Livrables** : 6 fichiers Markdown générés dans `/app/docs/migration/SLICE_45_*.md`
   - `SLICE_45_SCOPE.md`, `SLICE_45_API_CONTRACTS.md`, `SLICE_45_DB_MAPPING.md`, `SLICE_45_BUSINESS_RULES.md` (18 règles BR-45.01 à BR-45.18, 10 asymétries Python à conserver), `SLICE_45_TEST_CASES.md` (~30 cas TC-S45-1.x à 6.x), `SLICE_45_CURSOR_IMPLEMENTATION_NOTES.md` (15 pièges)
