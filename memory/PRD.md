@@ -192,6 +192,30 @@ Implémenter une stratégie de rétention et réactivation avancée (Soft Delete
 
 ---
 
+### Migration Java — Slice 40 (2026-04-30) — Marketplace Lifecycle seller (DELETE + Reactivate + MediaPurgeWorker)
+- **Livrables** : 6 fichiers Markdown générés dans `/app/docs/migration/SLICE_40_*.md` couvrant le triptyque lifecycle seller.
+  - `SLICE_40_SCOPE.md`, `SLICE_40_API_CONTRACTS.md`, `SLICE_40_DB_MAPPING.md`, `SLICE_40_BUSINESS_RULES.md` (17 règles BR-40.01 à BR-40.17), `SLICE_40_TEST_CASES.md` (~68 cas T40-DEL/REA/WRK/INT/EDGE), `SLICE_40_CURSOR_IMPLEMENTATION_NOTES.md`
+- **2 endpoints + 1 worker couverts** (`routes/product_creation_routes.py:459–556` + `media_purge_worker.py:1–127`) :
+  - `DELETE /api/products/{id}` (soft-delete owner-only, planification purge T+90j) — 459–503
+  - `POST /api/products/{id}/reactivate` (restauration owner OU admin, 2 modes médias intacts/purgés) — 507–556
+  - `MediaPurgeWorker` Spring `@Scheduled(fixedDelay=3600000)` — partagé 4 entités, S40 active uniquement marketplace_products
+- **Path réel confirmé** : `/api/products/{id}` et `/api/products/{id}/reactivate` (PAS `/api/marketplace/products/{...}`) — cohérent avec S39.
+- **Tables touchées (2)** : `marketplace_products` (UPDATE soft-delete / restauration / marquage purge — 9 colonnes lifecycle) — `pending_file_deletions` (INSERT par image avec `entity_type='product'` + DELETE annulation purge `status='pending'`).
+- **17 règles métier** : auth obligatoire, DELETE owner-only sans bypass admin (anti-énumération 404), DELETE soft + planification J+90j (`now()+timedelta(days=90)`), DELETE 1 INSERT par image (`entity_type='product'`, ON CONFLICT DO NOTHING), Reactivate owner OU admin (404→409→403 ordre exact), Reactivate annule pending purges (status=pending only), Reactivate force `status='active'` peu importe statut antérieur (anomalie compat draft/pending_review→active), Reactivate **NE reset PAS `media_purged`** (dicte `requires_media_reupload`), Reactivate ne purge pas image_urls orphelines (front gère 404), idempotence asymétrique (2e DELETE→404, 2e Reactivate→409), worker cadence 3600s + idempotence triple (`media_purged=FALSE` + `status='deleted'` + `reactivated_at < deleted_at OR NULL`), worker partagé 4 entités via SQL dynamique, worker délégation `run_purge` try/catch silencieux.
+- **~68 cas de test T40-XX-NN** : DEL 19, REA 22, WRK 11, INT 8, EDGE 8. Régressions S38 (catalogue exclut deleted) + S39 (mine exclut deleted) + S23 (auth).
+- **Top 3 pièges identifiés** :
+  1. **Format JSON erreur asymétrique** : DELETE renvoie `{"error": "..."}` (`JSONResponse`) tandis que Reactivate renvoie `{"detail": "..."}` (`HTTPException`). Java DOIT préserver les 2 mécanismes distincts (clé `error` vs `detail`) — le front teste sur cette divergence.
+  2. **`image_urls` parsing dual `text[]` vs string JSON legacy** + **`cover_image_url` non purgée si hors `image_urls[]`** + **DDL `pending_file_deletions` ON CONFLICT sans UNIQUE explicite** — auditer DDL Supabase EXACTE avant repo (3 incertitudes schéma).
+  3. **Idempotence triple worker** (`media_purged=FALSE` AND `status='deleted'` AND `(reactivated_at IS NULL OR reactivated_at < deleted_at)`) — la comparaison `<` strict permet le re-traitement après cycle DELETE→REACTIVATE→DELETE ; condition critique à porter exactement (la mauvaise version causerait soit double-purge soit zombie rows).
+- **Asymétries préservées** : DELETE owner-only / Reactivate owner+admin, formats JSON erreur divergents, codes HTTP idempotence (404 vs 409), `media_purged` non reset par Reactivate, status auto-active à reactivate (court-circuite modération `pending_review`), worker `entity_type` polymorphe sans FK SQL.
+- **Anomalies compat documentées** : status restauré toujours = `'active'` (perte du statut antérieur draft/pending_review/rejected), cover_image_url orpheline non planifiée pour purge, image_urls orphelines après purge T+90 (front doit gérer 404), 4 transactions Python fragmentées sur 4 connexions distinctes (Java fusionne en 1 `@Transactional`).
+- **Niveau de risque** : MOYEN-ÉLEVÉ (worker scheduler asyncio→Spring, `text[]` vs `jsonb` à confirmer, idempotence triple, permissions asymétriques, SQL dynamique worker multi-entités).
+- **HORS scope (volontairement reporté)** : `admin_purge_worker.run_purge` (suppression physique R2 + state machine pending_file_deletions complete) → slice infra dédiée (S40-bis) ; `media_notif_worker` (notif seller T+83j) → slice notif différée ; lifecycle `tag_points`/`services`/`users` → S42+ ; admin produits → S41 ; **Achat/checkout produit n'existe pas en Python (audit confirmé) — rien à migrer.**
+- **Roadmap S41 suggérée** : 🔴 **Admin produits** (`admin_product_routes.py` — endpoints `/admin/products/pending`, `approve`, `reject`) — débloque la modération côté Java une fois le seller workflow complet (S39+S40).
+- **Aucune modif de code Python** (mode documentation-only strict).
+
+---
+
 ### Migration Java — Slice 39 (2026-04-29) — Marketplace Création produit (writes seller)
 - **Livrables** : 6 fichiers Markdown générés dans `/app/docs/migration/SLICE_39_*.md` couvrant le triptyque seller authoring.
   - `SLICE_39_SCOPE.md`, `SLICE_39_API_CONTRACTS.md`, `SLICE_39_DB_MAPPING.md`, `SLICE_39_BUSINESS_RULES.md` (18 règles BR-39.01 à BR-39.18), `SLICE_39_TEST_CASES.md` (65+ cas T39-XX-NN), `SLICE_39_CURSOR_IMPLEMENTATION_NOTES.md`
