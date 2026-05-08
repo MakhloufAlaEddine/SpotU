@@ -192,6 +192,31 @@ Implémenter une stratégie de rétention et réactivation avancée (Soft Delete
 
 ---
 
+### Migration Java — Slice 45 (2026-05-08) — Services Coach PACKAGES (0 nouvel endpoint, write-only POST)
+- **Livrables** : 6 fichiers Markdown générés dans `/app/docs/migration/SLICE_45_*.md`
+  - `SLICE_45_SCOPE.md`, `SLICE_45_API_CONTRACTS.md`, `SLICE_45_DB_MAPPING.md`, `SLICE_45_BUSINESS_RULES.md` (18 règles BR-45.01 à BR-45.18, 10 asymétries Python à conserver), `SLICE_45_TEST_CASES.md` (~30 cas TC-S45-1.x à 6.x), `SLICE_45_CURSOR_IMPLEMENTATION_NOTES.md` (15 pièges)
+- **CONSTAT FACTUEL DOUBLE** :
+  1. Aucun endpoint package dédié n'existe en Python.
+  2. **`ServiceUpdate` Pydantic n'expose PAS le champ `packages`** ⇒ aucun chemin update/delete/replace possible. Pour modifier les packages, le coach doit DELETE puis recréer le service. **Asymétrie produit volontaire** à reproduire à l'identique (DTO Java sans `packages`).
+- **Sous-domaine couvert** (`service_routes.py:794–811, 763–767`) :
+  - Création packages **uniquement via `POST /api/services`** : INSERT × N dans `service_packages` + INSERT × M dans `service_slots` avec `package_id` set et `slot_type='single'` literal.
+  - Calcul `services.price = data.price` sinon `min(packages.price)` sinon `0.0` (jamais recalculé après création).
+- **Tables touchées (1 write S45)** : `service_packages` (INSERT only). En référence : `service_slots` (INSERT slots de packages avec `package_id`+`slot_type='single'`), `services` (price calculé).
+- **Top 3 pièges identifiés** :
+  1. **Asymétrie ServiceUpdate sans packages** — le DTO Java NE DOIT PAS exposer `packages`. Si le client envoie le champ au PUT, il doit être ignoré silencieusement (`@JsonIgnoreProperties(ignoreUnknown=true)`). Tentation forte d'ajouter ce champ = régression de parité.
+  2. **Replace global slots S44 efface aussi slots de packages** (BR-44.09 + BR-45.13) — `PUT /services {slots:[]}` exécute `DELETE FROM service_slots WHERE service_id` sans filtre `package_id`. Les packages subsistent **vides de slots**. NE PAS filtrer côté Java.
+  3. **`slot_type='single'` literal hardcodé** + **slots de packages sans `location_id`** (toujours NULL) — colonnes `days_of_week`/`day_of_week`/`raw_schedule`/`location_id`/`slot_status` jamais spécifiées à l'INSERT (DEFAULT DB). Reproduire les literals SQL exactement.
+- **Asymétries préservées (10)** : pas de `packages` dans `ServiceUpdate` (asymétrie majeure) ; replace global slots efface slots de packages ; `slot_type='single'` literal ; slots de packages `location_id=NULL` toujours ; pas de `updated_at` sur `service_packages` ; pas de validation `price >= 0` package-level (vs service.price oui) ; pas de validation `duration_min > 0` ni `max_participants > 0` ; pas de validation format date/time ; pas d'unicité `(service_id, type_id)` ; `service.price` figé après création (jamais recalculé depuis packages).
+- **FK & cascades** : `service_packages.service_id → services` `ON DELETE CASCADE` (mais soft delete S43 NE déclenche pas) ; `service_slots.package_id → service_packages` `ON DELETE SET NULL`.
+- **Précision NUMERIC(10,2)** sur `service_packages.price` : utiliser `BigDecimal` côté Java (pas `Double`).
+- **Niveau de risque** : MOYEN — asymétrie PUT volontaire critique + replace global slots impactant + literal SQL `'single'` + BigDecimal precision + ordre INSERT strict (packages → slots de packages, FK).
+- **Justification du choix** : finalise le domaine Services Coach Writes côté Java. Avec S43+S44+S45 mergées, **100% des endpoints services peuvent switcher vers Java en production**. Réutilisation maximale `ServicesCoachService.create()` Java. Zéro nouveau endpoint, zéro nouveau DTO HTTP. Préserve l'asymétrie produit Python (pas d'edit packages) sans introduire de régression.
+- **HORS scope** : endpoints standalone packages (`POST/PUT/DELETE /packages/...`) → **N'EXISTENT PAS, ne pas inventer**. Update via `PUT /services` → asymétrie volontaire à conserver. Lecture (`_get_service_packages`, `_fetch_packages` batch) → **S42 déjà migrée**. Pricing engine consommant `service_packages.price` → **S30/S37 déjà migrées**. Validation format/unicité/price>=0 → ne PAS ajouter (parité Python permissive).
+- **Note de cutover front** : avec S45 mergée, le domaine Services Coach est **entièrement migré** côté Java côté écriture. Reste hors-domaine : `save/unsave` (slice favoris mineure) et UI buyer-side reservation (P2 backlog).
+- **Aucune modif de code Python** (mode documentation-only strict).
+
+---
+
 ### Migration Java — Slice 44 (2026-05-08) — Services Coach SLOTS / Disponibilités (0 nouvel endpoint, 1 sous-domaine)
 - **Livrables** : 6 fichiers Markdown générés dans `/app/docs/migration/SLICE_44_*.md`
   - `SLICE_44_SCOPE.md`, `SLICE_44_API_CONTRACTS.md`, `SLICE_44_DB_MAPPING.md`, `SLICE_44_BUSINESS_RULES.md` (18 règles BR-44.01 à BR-44.18, 10 asymétries Python à conserver), `SLICE_44_TEST_CASES.md` (~35 cas TC-S44-1.x à 6.x), `SLICE_44_CURSOR_IMPLEMENTATION_NOTES.md` (14 pièges)
