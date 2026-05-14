@@ -14,6 +14,42 @@ const ORANGE = '#FF9500';
 const ORANGE_DIM = 'rgba(255,149,0,0.12)';
 const ORANGE_BORDER = 'rgba(255,149,0,0.18)';
 
+/** Première URL exploitable (string ou objet { url | uri | image_url | src }). */
+function firstServiceImageUri(svc: any): string | null {
+  const raw = svc?.images;
+  let list: unknown[] = [];
+  if (Array.isArray(raw)) {
+    list = raw;
+  } else if (typeof raw === 'string') {
+    const s = raw.trim();
+    if (!s) return null;
+    try {
+      const parsed = JSON.parse(s);
+      list = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return looksLikeUrl(s) ? s : null;
+    }
+  } else {
+    return null;
+  }
+  for (const img of list) {
+    if (typeof img === 'string') {
+      const t = img.trim();
+      if (t && looksLikeUrl(t)) return t;
+    }
+    if (img && typeof img === 'object') {
+      const u = (img as any).url || (img as any).uri || (img as any).image_url || (img as any).src;
+      if (typeof u === 'string' && u.trim() && looksLikeUrl(u.trim())) return u.trim();
+    }
+  }
+  return null;
+}
+
+function looksLikeUrl(s: string): boolean {
+  const t = s.toLowerCase();
+  return t.startsWith('http://') || t.startsWith('https://') || t.startsWith('file://');
+}
+
 interface Props {
   services: any[];
   me: any;
@@ -45,10 +81,7 @@ export function ProfileServicesCarousel({ services, me, profileUserId, onNavigat
         scrollEventThrottle={16}
       >
         {services.map((svc: any) => {
-          const rawImages = svc.images;
-          const parsedImages = Array.isArray(rawImages) ? rawImages
-            : (typeof rawImages === 'string' ? JSON.parse(rawImages || '[]') : []);
-          const svcImage = parsedImages[0] || null;
+          const svcImage = firstServiceImageUri(svc);
           return (
             <TouchableOpacity key={svc.service_id}
               style={[st.serviceCard, { width: CARD_WIDTH }]}

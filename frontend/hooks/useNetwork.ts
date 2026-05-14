@@ -6,7 +6,7 @@
  *   (les écrans prioritaires se rechargent en premier)
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import NetInfo from '@react-native-community/netinfo';
 
 export type NetworkStatus = 'online' | 'offline' | 'weak';
@@ -42,6 +42,32 @@ async function triggerProgressiveRefresh(): Promise<void> {
   }
 }
 
+/**
+ * Android renvoie souvent `isInternetReachable: false` sur Wi‑Fi / LAN dev alors que
+ * l’API répond. On ne s’en sert pas pour l’UI (ni hors ligne ni « connexion faible »).
+ */
+function netInfoToConnectedAndStatus(state: {
+  isConnected: boolean | null;
+  details?: { effectiveType?: string };
+}): { connected: boolean; nextStatus: NetworkStatus } {
+  if (state.isConnected === false) {
+    return { connected: false, nextStatus: 'offline' };
+  }
+  if (state.isConnected !== true) {
+    // null au démarrage : ne pas forcer « hors ligne »
+    return { connected: true, nextStatus: 'online' };
+  }
+
+  const effectiveType = state.details?.effectiveType;
+  if (effectiveType === '2g' || effectiveType === 'slow-2g') {
+    return { connected: true, nextStatus: 'weak' };
+  }
+  // isInternetReachable === false : souvent un faux négatif (LAN dev, pare-feu).
+  // Ne pas afficher weak/offline — les écrans signaleront une vraie erreur API.
+
+  return { connected: true, nextStatus: 'online' };
+}
+
 // ── Hook ─────────────────────────────────────────────────────────────────────
 export function useNetwork(): NetworkState {
   const [status, setStatus] = useState<NetworkStatus>('online');
@@ -52,22 +78,14 @@ export function useNetwork(): NetworkState {
   useEffect(() => {
     // Vérification initiale
     NetInfo.fetch().then(state => {
-      const connected = !!state.isConnected && state.isInternetReachable !== false;
-      if (!connected) {
-        setStatus('offline');
-        prevOfflineRef.current = true;
-      }
+      const { connected, nextStatus } = netInfoToConnectedAndStatus(state);
+      setStatus(nextStatus);
+      if (!connected) prevOfflineRef.current = true;
     });
 
     const unsub = NetInfo.addEventListener(state => {
-      const connected = !!state.isConnected && state.isInternetReachable !== false;
-      const effectiveType = (state as any).details?.effectiveType as string | undefined;
-
-      let next: NetworkStatus = 'online';
-      if (!connected) next = 'offline';
-      else if (effectiveType === '2g' || effectiveType === 'slow-2g') next = 'weak';
-
-      setStatus(next);
+      const { connected, nextStatus } = netInfoToConnectedAndStatus(state);
+      setStatus(nextStatus);
 
       // Retour réseau : signaler + déclencher refresh progressif
       if (prevOfflineRef.current && connected) {

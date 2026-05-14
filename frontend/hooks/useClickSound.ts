@@ -6,31 +6,45 @@
  *
  * - Le son est déchargé automatiquement au démontage (pas de fuite mémoire).
  * - Si le son ou le haptic échoue, l'action principale n'est PAS bloquée.
- * - Utilise expo-av pour le son (<120 ms) et expo-haptics pour le retour
- *   tactile léger.
+ * - expo-av est chargé en **lazy** dans useEffect : un `import` en tête de fichier
+ *   provoque « Cannot find native module 'ExponentAV' » sur certains Expo Go
+ *   (SDK désaligné, New Architecture, etc.) et fait planter tout l’écran.
  */
 
 import { useEffect, useRef, useCallback } from 'react';
-import { Audio } from 'expo-av';
 import * as Haptics from 'expo-haptics';
 import { Platform } from 'react-native';
 
 const CLICK_SOUND = require('../assets/sounds/click.wav');
 
-export function useClickSound() {
-  const soundRef = useRef<Audio.Sound | null>(null);
+type SoundLike = {
+  unloadAsync: () => Promise<void>;
+  setPositionAsync: (positionMillis: number) => Promise<void>;
+  playAsync: () => Promise<void>;
+};
 
-  // Chargement unique au montage
+export function useClickSound() {
+  const soundRef = useRef<SoundLike | null>(null);
+
   useEffect(() => {
     let mounted = true;
+    let Audio: typeof import('expo-av').Audio | null = null;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      Audio = require('expo-av').Audio;
+    } catch {
+      return () => {
+        mounted = false;
+      };
+    }
 
     (async () => {
       try {
-        await Audio.setAudioModeAsync({
-          playsInSilentModeIOS: false,   // respecte le mode silencieux iOS
+        await Audio!.setAudioModeAsync({
+          playsInSilentModeIOS: false,
           allowsRecordingIOS: false,
         });
-        const { sound } = await Audio.Sound.createAsync(CLICK_SOUND, {
+        const { sound } = await Audio!.Sound.createAsync(CLICK_SOUND, {
           volume: 0.5,
           shouldPlay: false,
         });
@@ -49,12 +63,10 @@ export function useClickSound() {
 
   /** Joue le clic sonore + haptic léger. Ne bloque jamais l'appelant. */
   const playClickSound = useCallback(async () => {
-    // Haptic en premier (synchrone natif, rapide)
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     }
 
-    // Son : rembobiner au début puis lancer
     if (soundRef.current) {
       try {
         await soundRef.current.setPositionAsync(0);

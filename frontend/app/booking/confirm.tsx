@@ -13,6 +13,18 @@ import { useBookingConfig } from '../../lib/useBookingConfig';
 import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 
 const ORANGE = '#FF9500';
+
+function firstImageUri(images: unknown): string | undefined {
+  if (!Array.isArray(images)) return undefined;
+  for (const img of images) {
+    if (typeof img === 'string' && img.trim()) return img.trim();
+    if (img && typeof img === 'object') {
+      const candidate = (img as any).url || (img as any).uri || (img as any).image_url;
+      if (typeof candidate === 'string' && candidate.trim()) return candidate.trim();
+    }
+  }
+  return undefined;
+}
 const ORANGE_LIGHT = 'rgba(255,149,0,0.12)';
 const BLUE  = '#0A84FF';
 const BLUE_LIGHT = 'rgba(10,132,255,0.10)';
@@ -296,8 +308,8 @@ export default function BookingConfirmScreen() {
           {/* Service info */}
           {service && (
             <View style={s.serviceCard}>
-              {service.images?.[0] && (
-                <TagImage uri={service.images[0]} domainId="dom_service" style={s.serviceImg} iconSize={24} />
+              {firstImageUri(service.images) && (
+                <TagImage uri={firstImageUri(service.images)!} domainId="dom_service" style={s.serviceImg} iconSize={24} />
               )}
               <View style={s.serviceInfo}>
                 <Text style={s.serviceTitle}>{service.title}</Text>

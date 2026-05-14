@@ -174,15 +174,17 @@ const cst = StyleSheet.create({
 interface ErrorNoDataProps {
   onRetry: () => void;
   onBack?: () => void;
+  /** Titre court (ex. « Pas de connexion » vs « Serveur indisponible »). */
+  title?: string;
   message?: string;
   testID?: string;
 }
 
-export function ErrorNoData({ onRetry, onBack, message, testID }: ErrorNoDataProps) {
+export function ErrorNoData({ onRetry, onBack, title, message, testID }: ErrorNoDataProps) {
   return (
     <View style={est.wrap} testID={testID || 'error-no-data'}>
       <Ionicons name="wifi-outline" size={64} color="rgba(255,255,255,0.35)" />
-      <Text style={est.title}>Pas de connexion</Text>
+      <Text style={est.title}>{title || 'Pas de connexion'}</Text>
       <Text style={est.sub}>{message || 'Vérifiez votre réseau et réessayez.'}</Text>
       <TouchableOpacity style={est.btn} onPress={onRetry} testID="retry-btn">
         <Ionicons name="refresh-outline" size={15} color="#0D1117" />

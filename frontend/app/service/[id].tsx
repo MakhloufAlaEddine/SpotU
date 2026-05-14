@@ -19,7 +19,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useLocation } from '../../context/LocationContext';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { useGuardedRouter } from '../../hooks/useGuardedRouter';
-import { classifyFetchError, isOfflineOrTimeout } from '../../lib/network-error';
+import { AppNetworkError, classifyFetchError, isOfflineOrTimeout, isServerError, userFacingMessage } from '../../lib/network-error';
 import { ErrorNoData, ContentDeletedState } from '../../components/OfflineBanner';
 import { haversineDistance, formatDistance } from '../../utils/distance';
 import { ServicePlaceholder } from '../../components/ServicePlaceholder';
@@ -34,6 +34,22 @@ const MONTHS_LONG = ['janvier','février','mars','avril','mai','juin','juillet',
 const PRECISION_LABEL: Record<string, string> = { exact: 'Lieu exact', '100m': 'Zone approximative', '1000m': 'Quartier' };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+function normalizeImageUris(images: unknown): string[] {
+  if (!Array.isArray(images)) return [];
+  const out: string[] = [];
+  for (const img of images) {
+    if (typeof img === 'string' && img.trim()) {
+      out.push(img.trim());
+      continue;
+    }
+    if (img && typeof img === 'object') {
+      const candidate = (img as any).url || (img as any).uri || (img as any).image_url;
+      if (typeof candidate === 'string' && candidate.trim()) out.push(candidate.trim());
+    }
+  }
+  return out;
+}
+
 function getNextOccurrence(slot: any): string {
   if (slot.slot_type === 'single' && slot.slot_date) {
     const d = new Date(slot.slot_date + 'T' + slot.start_time);
@@ -83,6 +99,7 @@ export default function ServiceDetailScreen() {
   const [service, setService] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isNetworkError, setIsNetworkError] = useState(false);
+  const [loadErrorDetail, setLoadErrorDetail] = useState<string | undefined>(undefined);
   const [isContentNotFound, setIsContentNotFound] = useState(false);
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
@@ -151,6 +168,7 @@ export default function ServiceDetailScreen() {
 
   const loadService = async () => {
     setIsNetworkError(false);
+    setLoadErrorDetail(undefined);
     try {
       const data = await api.get(`/services/${id}`);
       setService(data);
@@ -163,11 +181,15 @@ export default function ServiceDetailScreen() {
       }
     } catch (e: any) {
       const classified = classifyFetchError(e);
-      const status = e?.statusCode ?? e?.status ?? 0;
+      const status =
+        classified instanceof AppNetworkError
+          ? classified.statusCode
+          : (e?.statusCode ?? e?.status ?? 0);
       if (status === 404 || status === 410) {
         setIsContentNotFound(true);
-      } else if (isOfflineOrTimeout(classified)) {
+      } else if (isOfflineOrTimeout(classified) || isServerError(classified)) {
         setIsNetworkError(true);
+        setLoadErrorDetail(userFacingMessage(classified));
       }
     } finally {
       setLoading(false);
@@ -242,12 +264,14 @@ export default function ServiceDetailScreen() {
       );
     }
     if (isNetworkError) {
+      const isServer = loadErrorDetail?.includes('serveur');
       return (
         <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
           <ErrorNoData
             onRetry={() => { setLoading(true); loadService(); }}
             onBack={goBack}
-            message="Impossible de charger le service. Vérifiez votre connexion réseau."
+            title={isServer ? 'Service temporairement indisponible' : undefined}
+            message={loadErrorDetail || 'Impossible de charger le service. Vérifiez votre connexion réseau.'}
             testID="service-offline-error"
           />
         </SafeAreaView>
@@ -305,8 +329,19 @@ export default function ServiceDetailScreen() {
       >
 
         {/* ── Carrousel photos ─────────────────────────────────────────────── */}
-        {Array.isArray(service.images) && service.images.length > 0 ? (() => {
-          const imgs: string[] = service.images;
+        {(() => {
+          const imgs = normalizeImageUris(service.images);
+          if (imgs.length === 0) {
+            return (
+              <ServicePlaceholder
+                domainId={service.domain_id}
+                tags={service.tags}
+                size="lg"
+                showHint={service.coach_id === user?.user_id}
+                style={{ marginBottom: 8 }}
+              />
+            );
+          }
           return (
             <View style={s.carousel} testID="photo-carousel">
               <FlatList
@@ -343,15 +378,7 @@ export default function ServiceDetailScreen() {
               </View>
             </View>
           );
-        })() : (
-          <ServicePlaceholder
-            domainId={service.domain_id}
-            tags={service.tags}
-            size="lg"
-            showHint={service.coach_id === user?.user_id}
-            style={{ marginBottom: 8 }}
-          />
-        )}
+        })()}
 
         {/* ── Hero ─────────────────────────────────────────────────────────── */}
         <View style={s.hero}>

@@ -44,6 +44,11 @@ export function isOfflineOrTimeout(err: unknown): boolean {
   return false;
 }
 
+/** Erreur 5xx ou indisponibilité serveur (ex. maintenance, base indisponible). */
+export function isServerError(err: unknown): boolean {
+  return err instanceof AppNetworkError && err.type === 'server_error';
+}
+
 /** Crée l'AppNetworkError appropriée à partir d'un code HTTP. */
 export function classifyHttpError(status: number, detail?: string): AppNetworkError {
   if (status === 401) return new AppNetworkError('auth_error', detail || 'Non authentifié', status);

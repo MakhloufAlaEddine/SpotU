@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import { api } from '../../lib/api';
+import { AppNetworkError, classifyFetchError, userFacingMessage } from '../../lib/network-error';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { useLocation } from '../../context/LocationContext';
 import { haversineDistance, formatDistance } from '../../utils/distance';
@@ -57,6 +58,18 @@ function StarRating({ rating = 0 }: { rating?: number }) {
       ))}
     </View>
   );
+}
+
+function firstImageUri(images: unknown): string | undefined {
+  if (!Array.isArray(images)) return undefined;
+  for (const img of images) {
+    if (typeof img === 'string' && img.trim()) return img.trim();
+    if (img && typeof img === 'object') {
+      const candidate = (img as any).url || (img as any).uri || (img as any).image_url;
+      if (typeof candidate === 'string' && candidate.trim()) return candidate.trim();
+    }
+  }
+  return undefined;
 }
 
 // ─── Result Item ──────────────────────────────────────────────────────────────
@@ -142,6 +155,8 @@ export default function SearchScreen() {
   const [services, setServices] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  /** Erreur API (ex. 503 sur /services) — sans ça, .catch(() => []) masque tout et affiche « aucun résultat ». */
+  const [searchError, setSearchError] = useState<string | null>(null);
   const { location } = useLocation();
 
   // Vue : liste ou carte
@@ -238,7 +253,10 @@ export default function SearchScreen() {
       });
     };
     const filteredSpotYou = filterByTags(SpotYou, pt => pt.tag_ids || []);
-    const filteredServices = filterByTags(services, svc => svc.tag_ids || []);
+    const filteredServices = filterByTags(
+      services,
+      svc => (Array.isArray(svc.tag_ids) ? svc.tag_ids : []),
+    );
     const mixed = [
       ...filteredServices.map(s => ({ ...s, _type: 'service' as const })),
       ...filteredSpotYou.map(p => ({ ...p, _type: 'spotyou' as const })),
@@ -303,6 +321,15 @@ export default function SearchScreen() {
       {viewMode === 'map' ? (
         /* ─── VUE CARTE ─────────────────────────────────────── */
         <View style={{ flex: 1 }}>
+          {searchError ? (
+            <View style={[styles.searchErrorBanner, { marginTop: Spacing.xs }]} testID="search-api-error-banner-map">
+              <Ionicons name="cloud-offline-outline" size={18} color="#B45309" />
+              <Text style={styles.searchErrorText}>{searchError}</Text>
+              <TouchableOpacity onPress={() => doSearch()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Text style={styles.searchErrorRetry}>Réessayer</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
           {/* Barre de filtres compacte */}
           <View style={styles.tagInputRow}>
             <View style={{ flex: 1 }}>
@@ -358,9 +385,9 @@ export default function SearchScreen() {
                 else router.push(`/spot-you/${item.point_id}`);
               }}
             >
-              {selectedMapItem.images?.[0] || selectedMapItem.locations?.[0] ? (
+              {firstImageUri(selectedMapItem.images) || selectedMapItem.locations?.[0] ? (
                 <Image
-                  source={{ uri: selectedMapItem.images?.[0] }}
+                  source={{ uri: firstImageUri(selectedMapItem.images) }}
                   style={mapCardSt.img}
                   resizeMode="cover"
                 />
@@ -397,6 +424,15 @@ export default function SearchScreen() {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); invalidateTagCache(); await doSearch(); setRefreshing(false); }} tintColor={Colors.primary} />}
       >
+        {searchError ? (
+          <View style={styles.searchErrorBanner} testID="search-api-error-banner">
+            <Ionicons name="cloud-offline-outline" size={18} color="#B45309" />
+            <Text style={styles.searchErrorText}>{searchError}</Text>
+            <TouchableOpacity onPress={() => doSearch()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={styles.searchErrorRetry}>Réessayer</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
         {/* Tag search row */}
         <View style={styles.tagInputRow}>
           <View style={{ flex: 1 }}>
@@ -484,7 +520,7 @@ export default function SearchScreen() {
                     <ResultItem
                       key={'svc_' + item.service_id}
                       isService
-                      image={item.images?.[0]}
+                      image={firstImageUri(item.images)}
                       title={item.title || 'Sans titre'}
                       author={item.coach?.name || 'Coach'}
                       distance={getServiceDistance(item)}
@@ -496,7 +532,7 @@ export default function SearchScreen() {
                 return (
                   <ResultItem
                     key={item.point_id}
-                    image={item.images?.[0]}
+                    image={firstImageUri(item.images)}
                     title={item.title || 'Sans titre'}
                     author={item.owner?.name || 'Anonyme'}
                     distance={getDistance(item)}
@@ -523,6 +559,21 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 17, fontWeight: '600', color: Colors.primary },
   headerAction: { padding: 4 },
   content: { flex: 1, backgroundColor: Colors.background },
+  searchErrorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.xs,
+    padding: Spacing.md,
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.35)',
+  },
+  searchErrorText: { flex: 1, fontSize: 13, color: Colors.foreground, lineHeight: 18 },
+  searchErrorRetry: { fontSize: 13, fontWeight: '700', color: Colors.primary },
 
   tagInputRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.sm, gap: Spacing.md },
   tagBtn: {

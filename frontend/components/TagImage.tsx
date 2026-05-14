@@ -2,7 +2,7 @@
  * TagImage — Image with colored placeholder showing domain icon while loading.
  * Used in: SpotYouCard, HeroCard, RecentRow, ServiceCard, detail pages.
  */
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, Image, Animated, StyleSheet, ImageStyle, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -54,7 +54,14 @@ export function TagImage({
   fill = false,
 }: TagImageProps) {
   const [loaded, setLoaded] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    setLoaded(false);
+    setLoadFailed(false);
+    opacity.setValue(0);
+  }, [uri, opacity]);
 
   const bg = placeholderColor || DOMAIN_COLORS[domainId || ''] || '#1A3A3A';
   const icon = placeholderIcon || DOMAIN_ICONS[domainId || ''] || 'location-outline';
@@ -73,7 +80,7 @@ export function TagImage({
   return (
     <View style={[containerStyle, { overflow: 'hidden' }]}>
       {/* Colored placeholder — always rendered, hidden behind image once loaded */}
-      {!loaded && (
+      {(!loaded || loadFailed) && (
         <View style={[StyleSheet.absoluteFillObject, st.placeholder, { backgroundColor: bg }]}>
           <Ionicons name={icon} size={iconSize} color="rgba(255,255,255,0.25)" />
         </View>
@@ -81,9 +88,10 @@ export function TagImage({
       {/* Actual image — fades in on load */}
       <Animated.Image
         source={{ uri }}
-        style={[StyleSheet.absoluteFillObject, { opacity }]}
+        style={[StyleSheet.absoluteFillObject, { opacity: loadFailed ? 0 : opacity }]}
         resizeMode="cover"
         onLoad={onLoad}
+        onError={() => setLoadFailed(true)}
       />
     </View>
   );

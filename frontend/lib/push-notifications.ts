@@ -22,11 +22,34 @@ Notifications.setNotificationHandler({
   }),
 });
 
+function skipPushToken(): boolean {
+  const v = process.env.EXPO_PUBLIC_SKIP_PUSH_TOKEN;
+  return v === '1' || v === 'true' || v === 'yes';
+}
+
+function isFcmNotConfiguredError(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : String(e);
+  return (
+    msg.includes('FirebaseApp') ||
+    msg.includes('fcm-credentials') ||
+    msg.includes('Default FirebaseApp is not initialized')
+  );
+}
+
 /**
  * Demande la permission et récupère le token Expo Push.
  * Retourne null si la permission est refusée ou si ce n'est pas un device physique.
+ *
+ * Sur **Android**, Expo s’appuie sur **FCM** (Google) uniquement pour le **token push**,
+ * même si ton app n’utilise pas Firebase ailleurs. Sans `google-services.json` /
+ * credentials EAS, le token échoue — ce n’est **pas** lié à la connexion API (REST).
+ * En dev : `EXPO_PUBLIC_SKIP_PUSH_TOKEN=1` dans `.env` pour ne pas tenter l’enregistrement.
  */
 export async function registerForPushNotificationsAsync(): Promise<string | null> {
+  if (skipPushToken()) {
+    return null;
+  }
+
   if (!Device.isDevice) {
     console.warn('[Push] Notifications non disponibles sur simulateur');
     return null;
@@ -68,7 +91,15 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
 
     return tokenData.data;
   } catch (e) {
-    console.warn('[Push] Impossible de récupérer le token:', e);
+    if (isFcmNotConfiguredError(e)) {
+      console.warn(
+        '[Push] Android : FCM non initialisé (normal si tu n’as pas configuré les credentials Expo pour les push). ' +
+          'Les appels API (REST/WebSocket) ne passent pas par là. ' +
+          'Option : EXPO_PUBLIC_SKIP_PUSH_TOKEN=1 dans .env, ou https://docs.expo.dev/push-notifications/fcm-credentials/'
+      );
+    } else {
+      console.warn('[Push] Impossible de récupérer le token:', e);
+    }
     return null;
   }
 }
