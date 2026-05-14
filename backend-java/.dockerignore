@@ -1,0 +1,22 @@
+# Build Maven local
+target/
+
+# Secrets et env local
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+
+# VCS
+.git/
+.gitignore
+
+# Autres artefacts
+node_modules/
+*.iml
+.idea/
+.vscode/
+.DS_Store

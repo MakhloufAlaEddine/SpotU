@@ -1,0 +1,67 @@
+groups:
+  - name: spotu-backend-java-critical
+    rules:
+      - alert: SpotuApiHigh5xxRate
+        expr: |
+          (
+            sum(rate(http_server_requests_seconds_count{application="spotu-api",status=~"5.."}[5m]))
+            /
+            clamp_min(sum(rate(http_server_requests_seconds_count{application="spotu-api"}[5m])), 1)
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "5xx rate eleve sur spotu-api"
+          description: "Le taux 5xx depasse 5% depuis 5 minutes."
+
+      - alert: SpotuHighLatencyP99
+        expr: |
+          histogram_quantile(
+            0.99,
+            sum(rate(http_server_requests_seconds_bucket{application="spotu-api"}[10m])) by (le)
+          ) > 1.5
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Latence p99 elevee"
+          description: "La latence p99 depasse 1.5s depuis 10 minutes."
+
+      - alert: SpotuDbPoolContention
+        expr: hikaricp_connections_pending{application="spotu-api"} > 5
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Contention pool DB"
+          description: "Le nombre de connexions DB en attente reste > 5."
+
+      - alert: SpotuWsSessionsDrop
+        expr: |
+          (
+            avg_over_time(spotu_ws_active_sessions{application="spotu-api"}[10m])
+            -
+            spotu_ws_active_sessions{application="spotu-api"}
+          ) > 50
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Chute brutale sessions WS"
+          description: "Le nombre de sessions WS chute fortement."
+
+      - alert: SpotuPushFailuresHigh
+        expr: |
+          (
+            clamp_min(delta(spotu_push_expo_failed_total{application="spotu-api"}[15m]), 0)
+            /
+            clamp_min(delta(spotu_push_expo_attempted_total{application="spotu-api"}[15m]), 1)
+          ) > 0.25
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Echecs Expo push eleves"
+          description: "Le taux d'echec push Expo depasse 25% sur 15 minutes."
+

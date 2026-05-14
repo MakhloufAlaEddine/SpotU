@@ -1,0 +1,15 @@
+ALTER TABLE services
+    ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS deleted_by TEXT,
+    ADD COLUMN IF NOT EXISTS media_purge_scheduled_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS media_purge_notified_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS media_purged BOOLEAN DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS media_purged_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS reactivated_at TIMESTAMPTZ;
+
+CREATE TABLE IF NOT EXISTS service_saves (
+    save_id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    service_id TEXT NOT NULL,
+    saved_at TIMESTAMPTZ DEFAULT NOW()
+);

@@ -1,0 +1,53 @@
+app:
+  jwt:
+    secret: "unit-test-jwt-secret-32-bytes-lo!"
+  auth-rate-limit:
+    testing-bypass: true
+  ws:
+    allowed-origins: "http://allowed-origin.test,http://localhost:3000"
+    cluster:
+      enabled: false
+      provider: noop
+      instance-id: test-node
+  push:
+    expo-enabled: false
+  stripe:
+    webhook-secret: "whsec_test_secret"
+
+stripe:
+  api-key: ""
+  api-base-override: ""
+
+expiry:
+  worker:
+    enabled: false
+    interval:
+      secs: 60
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:spotutest;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  flyway:
+    enabled: false
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:test-schema-config.sql,classpath:test-schema-users.sql
+      data-locations: classpath:test-data-config.sql,classpath:test-data-users.sql
+
+logging:
+  level:
+    root: WARN
+    com.spotu: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  health:
+    redis:
+      enabled: false

@@ -1,0 +1,21 @@
+# Profil local : PostgreSQL sur la machine (Docker ou install native).
+# Exemple : docker run -e POSTGRES_PASSWORD=spotu -e POSTGRES_USER=spotu -e POSTGRES_DB=spotu -p 5432:5432 postgres:16
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/spotu
+    username: spotu
+    password: spotu
+
+management:
+  endpoint:
+    health:
+      show-details: always
+
+app:
+  observability:
+    prometheus-public-endpoint: true
+
+logging:
+  level:
+    com.spotu: DEBUG

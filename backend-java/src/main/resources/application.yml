@@ -1,0 +1,101 @@
+spring:
+  config:
+    import:
+      - optional:file:.env[.properties]
+  application:
+    name: spotu-api
+  autoconfigure:
+    exclude:
+      # Évite le mot de passe généré inutile (auth métier à venir).
+      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+  datasource:
+    url: ${DATABASE_JDBC_URL:jdbc:${DATABASE_URL:postgresql://localhost:5432/spotu}}
+    username: ${DATABASE_USER:spotu}
+    password: ${DATABASE_PASSWORD:spotu}
+    hikari:
+      maximum-pool-size: ${DATABASE_POOL_MAX:10}
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  servlet:
+    multipart:
+      max-file-size: 15MB
+      max-request-size: 15MB
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when_authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      slo:
+        http.server.requests: 100ms,250ms,500ms,1s,2s
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+  health:
+    db:
+      enabled: true
+
+server:
+  port: ${SERVER_PORT:8080}
+
+app:
+  observability:
+    prometheus-public-endpoint: ${APP_OBSERVABILITY_PROMETHEUS_PUBLIC_ENDPOINT:false}
+  jwt:
+    secret: ${JWT_SECRET:}
+  cors:
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:${ALLOWED_ORIGINS:http://localhost:3000,http://localhost:19006,http://localhost:8081}}
+  ws:
+    allowed-origins: ${APP_WS_ALLOWED_ORIGINS:${ALLOWED_ORIGINS:http://localhost:3000,http://localhost:19006,http://localhost:8081}}
+    cluster:
+      enabled: ${APP_WS_CLUSTER_ENABLED:false}
+      provider: ${APP_WS_CLUSTER_PROVIDER:noop}
+      instance-id: ${APP_WS_CLUSTER_INSTANCE_ID:${HOSTNAME:spotu-ws}}
+  push:
+    expo-enabled: ${EXPO_PUSH_ENABLED:true}
+    expo-endpoint: ${EXPO_PUSH_ENDPOINT:https://exp.host/--/api/v2/push/send}
+  stripe:
+    webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+  uploads:
+    local-dir: ${UPLOADS_DIR:/app/backend/uploads}
+
+r2:
+  access-key-id: ${R2_ACCESS_KEY_ID:}
+  secret-access-key: ${R2_SECRET_ACCESS_KEY:}
+  endpoint: ${R2_ENDPOINT:}
+  bucket-name: ${R2_BUCKET_NAME:}
+  public-url: ${R2_PUBLIC_URL:}
+
+stripe:
+  api-key: ${STRIPE_API_KEY:}
+  api-base-override: ${STRIPE_API_BASE_OVERRIDE:}
+
+expiry:
+  worker:
+    enabled: ${EXPIRY_WORKER_ENABLED:true}
+    interval:
+      secs: ${EXPIRY_WORKER_INTERVAL_SECS:60}
+
+logging:
+  level:
+    root: INFO
+    com.spotu: DEBUG

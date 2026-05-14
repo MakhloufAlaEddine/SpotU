@@ -1,0 +1,22 @@
+# SpotU API — déploiement dev simple (Hetzner / Docker).
+# Postgres = Supabase (externe). Pas de Redis : cluster WS reste noop par défaut.
+#
+# Prérequis : copier .env.example vers .env et renseigner les secrets.
+#   cp .env.example .env
+
+services:
+  spotu-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: spotu-api:local
+    container_name: spotu-api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      # Surcharges possibles sans toucher au .env
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      SERVER_PORT: ${SERVER_PORT:-8080}

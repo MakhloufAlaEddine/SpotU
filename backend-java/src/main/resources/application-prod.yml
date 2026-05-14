@@ -1,0 +1,15 @@
+# Production : pas de détails health exposés ; logs JSON via logback-spring.xml (profil prod).
+
+management:
+  endpoint:
+    health:
+      show-details: never
+
+app:
+  observability:
+    prometheus-public-endpoint: false
+
+logging:
+  level:
+    root: WARN
+    com.spotu: INFO

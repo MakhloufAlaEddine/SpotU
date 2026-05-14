@@ -1,0 +1,20 @@
+# Profil dev (CI / environnement partagé) — surcharger via variables d’environnement.
+
+spring:
+  datasource:
+    url: ${DATABASE_JDBC_URL:jdbc:${DATABASE_URL}}
+    username: ${DATABASE_USER}
+    password: ${DATABASE_PASSWORD}
+
+management:
+  endpoint:
+    health:
+      show-details: when_authorized
+
+app:
+  observability:
+    prometheus-public-endpoint: true
+
+logging:
+  level:
+    com.spotu: INFO
