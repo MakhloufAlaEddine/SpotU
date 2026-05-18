@@ -1,0 +1,25 @@
+{
+  "name": "spotu",
+  "private": true,
+  "scripts": {
+    "predev": "bash scripts/ensure-dev-env.sh",
+    "dev": "concurrently -k -n api,expo -c blue,magenta \"npm run dev:api\" \"npm run dev:expo\"",
+    "dev:api": "bash scripts/free-api-port.sh && bash -c 'cd backend && exec ../.venv/bin/python -m uvicorn server:app --host \"${BACKEND_HOST:-0.0.0.0}\" --port \"${BACKEND_PORT:-8001}\" --reload'",
+    "dev:expo": "bash -c 'cd frontend && exec npx expo start'",
+    "dev:web": "bash scripts/ensure-dev-env.sh && concurrently -k -n api,web -c blue,green \"npm run dev:api\" \"npm run dev:expo:web\"",
+    "dev:expo:web": "bash -c 'cd frontend && exec npx expo start --web'",
+    "dev:ios": "bash scripts/ensure-dev-env.sh && concurrently -k -n api,ios -c blue,cyan \"npm run dev:api\" \"npm run dev:expo:ios\"",
+    "dev:expo:ios": "bash -c 'cd frontend && exec npx expo run:ios'",
+    "dev:ios:metro": "bash scripts/ensure-dev-env.sh && concurrently -k -n api,ios -c blue,cyan \"npm run dev:api\" \"npm run dev:expo:ios:metro\"",
+    "dev:expo:ios:metro": "bash -c 'cd frontend && exec npx expo start --ios'",
+    "dev:android": "bash scripts/dev-android.sh",
+    "dev:expo:android": "bash -c 'source scripts/android-env.sh; cd frontend && exec npx expo run:android'",
+    "dev:android:metro": "bash scripts/dev-android-metro.sh",
+    "dev:expo:android:metro": "bash -c 'cd frontend && exec npx expo start --android'",
+    "native:ios": "bash scripts/ensure-dev-env.sh && bash -c 'cd frontend && exec npx expo run:ios'",
+    "native:android": "bash scripts/native-android.sh"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
