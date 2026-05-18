@@ -8,6 +8,7 @@ import com.spotu.error.ApiConflictException;
 import com.spotu.error.ApiForbiddenException;
 import com.spotu.error.ApiGoneException;
 import com.spotu.error.ApiNotFoundException;
+import com.spotu.common.JdbcSqlDialect;
 import com.spotu.modules.auth.dto.CurrentUserDto;
 import com.spotu.modules.auth.service.AuthMeService;
 import com.spotu.modules.auth.support.PythonIsoTimestamps;
@@ -58,6 +59,7 @@ public class BookingBuyerService {
     private final StripeCheckoutService stripeCheckoutService;
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
+    private final JdbcSqlDialect jdbcSqlDialect;
 
     public BookingBuyerService(
             AuthMeService authMeService,
@@ -66,7 +68,8 @@ public class BookingBuyerService {
             TransactionTemplate transactionTemplate,
             StripeCheckoutService stripeCheckoutService,
             JdbcTemplate jdbcTemplate,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            JdbcSqlDialect jdbcSqlDialect
     ) {
         this.authMeService = authMeService;
         this.repository = repository;
@@ -75,6 +78,7 @@ public class BookingBuyerService {
         this.stripeCheckoutService = stripeCheckoutService;
         this.jdbcTemplate = jdbcTemplate;
         this.objectMapper = objectMapper;
+        this.jdbcSqlDialect = jdbcSqlDialect;
     }
 
     public Map<String, Object> previewPrice(HttpServletRequest request, Map<String, Object> body) {
@@ -404,10 +408,8 @@ public class BookingBuyerService {
         data.put("sender_name", senderName == null ? "" : senderName);
 
         try {
-            jdbcTemplate.update("""
-                    INSERT INTO notifications (notif_id, user_id, type, title, body, data)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    """,
+            jdbcTemplate.update(
+                    jdbcSqlDialect.notificationInsertSql(),
                     "ntf_" + EmergentIds.newId("").replace("_", "").substring(0, 12),
                     receiverUserId,
                     "new_booking",

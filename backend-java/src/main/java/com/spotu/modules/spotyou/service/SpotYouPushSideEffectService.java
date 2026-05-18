@@ -2,6 +2,7 @@ package com.spotu.modules.spotyou.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.spotu.common.JdbcSqlDialect;
 import com.spotu.modules.push.infra.PushTokenRepository;
 import com.spotu.modules.push.service.ExpoPushClient;
 import org.slf4j.Logger;
@@ -25,6 +26,7 @@ public class SpotYouPushSideEffectService {
 
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
+    private final JdbcSqlDialect jdbcSqlDialect;
     private final PushTokenRepository pushTokenRepository;
     private final ExpoPushClient expoPushClient;
     private final LongAdder attempted = new LongAdder();
@@ -36,11 +38,13 @@ public class SpotYouPushSideEffectService {
     public SpotYouPushSideEffectService(
             JdbcTemplate jdbcTemplate,
             ObjectMapper objectMapper,
+            JdbcSqlDialect jdbcSqlDialect,
             PushTokenRepository pushTokenRepository,
             ExpoPushClient expoPushClient
     ) {
         this.jdbcTemplate = jdbcTemplate;
         this.objectMapper = objectMapper;
+        this.jdbcSqlDialect = jdbcSqlDialect;
         this.pushTokenRepository = pushTokenRepository;
         this.expoPushClient = expoPushClient;
     }
@@ -57,10 +61,7 @@ public class SpotYouPushSideEffectService {
             String notifId = "notif_" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 16);
             String dataJson = data == null || data.isEmpty() ? "{}" : objectMapper.writeValueAsString(data);
             jdbcTemplate.update(
-                    """
-                            INSERT INTO notifications (notif_id, user_id, type, title, body, data)
-                            VALUES (?, ?, ?, ?, ?, ?)
-                            """,
+                    jdbcSqlDialect.notificationInsertSql(),
                     notifId, recipientUserId, notifType, title, body, dataJson
             );
             List<String> tokens = pushTokenRepository.findActiveExpoTokensByUserId(recipientUserId);

@@ -1,5 +1,6 @@
 package com.spotu.modules.payments.infra;
 
+import com.spotu.common.JdbcSqlDialect;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -16,9 +17,11 @@ import java.util.UUID;
 public class SubscriptionWebhookRepository {
 
     private final JdbcTemplate jdbcTemplate;
+    private final JdbcSqlDialect jdbcSqlDialect;
 
-    public SubscriptionWebhookRepository(JdbcTemplate jdbcTemplate) {
+    public SubscriptionWebhookRepository(JdbcTemplate jdbcTemplate, JdbcSqlDialect jdbcSqlDialect) {
         this.jdbcTemplate = jdbcTemplate;
+        this.jdbcSqlDialect = jdbcSqlDialect;
     }
 
     public Optional<String> findSubscriptionIdByStripeSubscriptionId(String stripeSubscriptionId) {
@@ -166,10 +169,7 @@ public class SubscriptionWebhookRepository {
 
     public void insertNotification(String userId, String type, String title, String body, String dataJson) {
         jdbcTemplate.update(
-                """
-                        INSERT INTO notifications (notif_id, user_id, type, title, body, data)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                        """,
+                jdbcSqlDialect.notificationInsertSql(),
                 newNotifId(),
                 userId,
                 type,

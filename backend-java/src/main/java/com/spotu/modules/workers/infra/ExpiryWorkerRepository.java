@@ -1,5 +1,6 @@
 package com.spotu.modules.workers.infra;
 
+import com.spotu.common.JdbcSqlDialect;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -10,9 +11,11 @@ import java.util.UUID;
 public class ExpiryWorkerRepository {
 
     private final JdbcTemplate jdbcTemplate;
+    private final JdbcSqlDialect jdbcSqlDialect;
 
-    public ExpiryWorkerRepository(JdbcTemplate jdbcTemplate) {
+    public ExpiryWorkerRepository(JdbcTemplate jdbcTemplate, JdbcSqlDialect jdbcSqlDialect) {
         this.jdbcTemplate = jdbcTemplate;
+        this.jdbcSqlDialect = jdbcSqlDialect;
     }
 
     public List<ExpiredBookingRow> findExpiredBatchLocked(int batchSize) {
@@ -86,10 +89,9 @@ public class ExpiryWorkerRepository {
     }
 
     public void insertNotification(String userId, String type, String title, String body, String dataJson) {
-        jdbcTemplate.update("""
-                INSERT INTO notifications (notif_id, user_id, type, title, body, data)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """, newNotifId(), userId, type, title, body, dataJson);
+        jdbcTemplate.update(
+                jdbcSqlDialect.notificationInsertSql(),
+                newNotifId(), userId, type, title, body, dataJson);
     }
 
     private String newNotifId() {

@@ -35,6 +35,21 @@ class AdminProductReminderSchedulerTest {
         );
         assertEquals(1, reminded);
         assertTrue(notifCount >= 1);
+
+        String sampleData = jdbcTemplate.queryForObject(
+                """
+                SELECT data FROM notifications
+                WHERE type = 'admin_product_reminder'
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                String.class
+        );
+        org.junit.jupiter.api.Assertions.assertNotNull(sampleData);
+        org.junit.jupiter.api.Assertions.assertTrue(
+                sampleData.contains("prod_s41_pending_old") || sampleData.contains("\"product_id\""),
+                "data JSON doit référencer le produit : " + sampleData
+        );
     }
 
     @Test

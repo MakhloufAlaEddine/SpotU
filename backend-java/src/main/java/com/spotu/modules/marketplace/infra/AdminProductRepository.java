@@ -2,6 +2,7 @@ package com.spotu.modules.marketplace.infra;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.spotu.common.JdbcSqlDialect;
 import com.spotu.modules.auth.support.PythonIsoTimestamps;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -21,15 +22,18 @@ public class AdminProductRepository {
 
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
+    private final JdbcSqlDialect jdbcSqlDialect;
     private final String jdbcUrl;
 
     public AdminProductRepository(
             JdbcTemplate jdbcTemplate,
             ObjectMapper objectMapper,
+            JdbcSqlDialect jdbcSqlDialect,
             @Value("${spring.datasource.url:}") String jdbcUrl
     ) {
         this.jdbcTemplate = jdbcTemplate;
         this.objectMapper = objectMapper;
+        this.jdbcSqlDialect = jdbcSqlDialect;
         this.jdbcUrl = jdbcUrl == null ? "" : jdbcUrl;
     }
 
@@ -193,10 +197,7 @@ public class AdminProductRepository {
 
     public void insertNotification(String userId, String type, String title, String body, Map<String, Object> data) {
         jdbcTemplate.update(
-                """
-                        INSERT INTO notifications (notif_id, user_id, type, title, body, data)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                        """,
+                jdbcSqlDialect.notificationInsertSql(),
                 "notif_" + UUID.randomUUID().toString().replace("-", ""),
                 userId,
                 type,
