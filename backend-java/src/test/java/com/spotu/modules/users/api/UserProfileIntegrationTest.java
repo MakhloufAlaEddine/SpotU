@@ -9,6 +9,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
@@ -96,6 +97,40 @@ class UserProfileIntegrationTest {
                 .andExpect(jsonPath("$.activities[2].user_id", is("user_admin001")))
                 .andExpect(jsonPath("$.activities[2].action_text", is("a rejoint")))
                 .andExpect(jsonPath("$.activities[2].session_date", nullValue()));
+    }
+
+    @Test
+    void reactivatable_nominal_returnsStructureWithDeletedSpotYou() throws Exception {
+        mockMvc.perform(get("/api/users/me/reactivatable")
+                        .header("Authorization", "Bearer " + TestJwtTokens.validCoachToken())
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.spotyous").isArray())
+                .andExpect(jsonPath("$.services").isArray())
+                .andExpect(jsonPath("$.products").isArray())
+                .andExpect(jsonPath("$.spotyous[0].id", is("tp_s29_deleted_pending")))
+                .andExpect(jsonPath("$.spotyous[0].type", is("spotyou")))
+                .andExpect(jsonPath("$.spotyous[0].days_until_media_purge").exists());
+    }
+
+    @Test
+    void myEvents_nominal_returnsAcceptedMemberships() throws Exception {
+        mockMvc.perform(get("/api/users/me/events")
+                        .header("Authorization", "Bearer " + TestJwtTokens.validCoachToken())
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[*].point_id", hasItem("tp_001")))
+                .andExpect(jsonPath("$[0].is_owner", is(true)))
+                .andExpect(jsonPath("$[0].joined_at").exists());
+    }
+
+    @Test
+    void reactivatable_and_events_withoutToken_return401() throws Exception {
+        mockMvc.perform(get("/api/users/me/reactivatable").accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/users/me/events").accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

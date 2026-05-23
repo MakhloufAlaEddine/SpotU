@@ -208,6 +208,19 @@ public class TagPointReadRepository {
                 """, List.of(userId));
     }
 
+    /** Aligné {@code GET /users/me/events} — membres acceptés uniquement. */
+    public List<Map<String, Object>> findMemberEvents(String userId) {
+        return selectWithTpFields("""
+                , m.joined_at,
+                 COALESCE(tp.event_date, tp.created_at) AS sort_date
+                 FROM tag_points tp
+                 JOIN spot_you_members m ON tp.point_id = m.spot_you_id
+                 LEFT JOIN users u ON tp.user_id = u.user_id
+                 WHERE m.user_id = ? AND m.status = 'accepted'
+                 ORDER BY tp.active DESC, sort_date DESC
+                """, List.of(userId));
+    }
+
     public List<Map<String, Object>> findPendingRequests(String userId) {
         return selectWithTpFields("""
                 , m.joined_at AS requested_at

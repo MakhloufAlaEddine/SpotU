@@ -176,6 +176,37 @@ public class TagPointReadService {
     }
 
     @Transactional(readOnly = true)
+    public List<Map<String, Object>> myEvents(HttpServletRequest request) {
+        CurrentUserDto user = authMeService.requireCurrentUser(request);
+        String userId = user.userId();
+        List<Map<String, Object>> rows = repository.findMemberEvents(userId);
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Map<String, Object> row : rows) {
+            Map<String, Object> copy = new LinkedHashMap<>(row);
+            Object joinedAt = copy.remove("joined_at");
+            copy.remove("sort_date");
+            boolean isOwner = userId.equals(String.valueOf(copy.get("user_id")));
+            Map<String, Object> pt = TagPointResponseBuilder.buildPointResponse(copy, isOwner, objectMapper);
+            pt.put("joined_at", formatJoinedAt(joinedAt));
+            boolean canParticipate = copy.get("event_schedule") != null || copy.get("event_date") != null;
+            pt.put("can_participate", canParticipate);
+            if (copy.get("event_schedule") != null) {
+                LocalDate nd = nextSessionDateCalculator.computeFromPointMap(pt);
+                pt.put("next_session_date", nd == null ? null : nd.toString());
+            }
+            result.add(pt);
+        }
+        return result;
+    }
+
+    private static String formatJoinedAt(Object joinedAt) {
+        if (joinedAt == null) {
+            return null;
+        }
+        return String.valueOf(joinedAt);
+    }
+
+    @Transactional(readOnly = true)
     public List<Map<String, Object>> saved(HttpServletRequest request) {
         CurrentUserDto user = authMeService.requireCurrentUser(request);
         String userId = user.userId();

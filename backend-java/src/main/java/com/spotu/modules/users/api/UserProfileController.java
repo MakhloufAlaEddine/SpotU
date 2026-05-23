@@ -4,6 +4,7 @@ import com.spotu.modules.spotyou.service.SpotYouMembershipService;
 import com.spotu.modules.spotyou.service.TagPointReadService;
 import com.spotu.modules.users.dto.UserProfileDto;
 import com.spotu.modules.users.service.ActivityFeedService;
+import com.spotu.modules.users.service.ReactivatableService;
 import com.spotu.modules.users.service.UserProfileService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,17 +20,20 @@ public class UserProfileController {
 
     private final UserProfileService userProfileService;
     private final ActivityFeedService activityFeedService;
+    private final ReactivatableService reactivatableService;
     private final TagPointReadService tagPointReadService;
     private final SpotYouMembershipService spotYouMembershipService;
 
     public UserProfileController(
             UserProfileService userProfileService,
             ActivityFeedService activityFeedService,
+            ReactivatableService reactivatableService,
             TagPointReadService tagPointReadService,
             SpotYouMembershipService spotYouMembershipService
     ) {
         this.userProfileService = userProfileService;
         this.activityFeedService = activityFeedService;
+        this.reactivatableService = reactivatableService;
         this.tagPointReadService = tagPointReadService;
         this.spotYouMembershipService = spotYouMembershipService;
     }
@@ -57,5 +61,15 @@ public class UserProfileController {
     @GetMapping("/me/activity-feed")
     public Map<String, List<Map<String, Object>>> activityFeed(HttpServletRequest request) {
         return activityFeedService.getActivityFeed(request);
+    }
+
+    @GetMapping("/me/reactivatable")
+    public Map<String, Object> reactivatable(HttpServletRequest request) {
+        return reactivatableService.getReactivatable(request);
+    }
+
+    @GetMapping("/me/events")
+    public List<Map<String, Object>> myEvents(HttpServletRequest request) {
+        return tagPointReadService.myEvents(request);
     }
 }
