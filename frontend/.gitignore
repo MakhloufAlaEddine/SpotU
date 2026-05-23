@@ -19,6 +19,7 @@ expo-env.d.ts
 *.mobileprovision
 
 # Metro
+.metro-cache/
 .metro-health-check*
 
 # debug
