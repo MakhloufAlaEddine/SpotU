@@ -9,6 +9,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -76,6 +77,32 @@ class UserProfileIntegrationTest {
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.detail", is("User not found")));
+    }
+
+    @Test
+    void activityFeed_nominal_returnsGoingAndJoinedActivities() throws Exception {
+        mockMvc.perform(get("/api/users/me/activity-feed")
+                        .header("Authorization", "Bearer " + TestJwtTokens.validCoachToken())
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.activities", hasSize(3)))
+                .andExpect(jsonPath("$.activities[0].type", is("going")))
+                .andExpect(jsonPath("$.activities[0].user_id", is("user_admin001")))
+                .andExpect(jsonPath("$.activities[0].action_text", is("vient jeudi")))
+                .andExpect(jsonPath("$.activities[0].spot_you_title", is("Running matinal")))
+                .andExpect(jsonPath("$.activities[1].type", is("going")))
+                .andExpect(jsonPath("$.activities[1].user_id", is("user_demo001")))
+                .andExpect(jsonPath("$.activities[2].type", is("joined")))
+                .andExpect(jsonPath("$.activities[2].user_id", is("user_admin001")))
+                .andExpect(jsonPath("$.activities[2].action_text", is("a rejoint")))
+                .andExpect(jsonPath("$.activities[2].session_date", nullValue()));
+    }
+
+    @Test
+    void activityFeed_withoutToken_returns401() throws Exception {
+        mockMvc.perform(get("/api/users/me/activity-feed").accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.detail", is("Not authenticated")));
     }
 
     @Test

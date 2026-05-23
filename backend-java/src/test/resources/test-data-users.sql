@@ -573,7 +573,7 @@ INSERT INTO tag_points (
 
 INSERT INTO spot_you_members (id, spot_you_id, user_id, status, joined_at) VALUES
 ('syp_001', 'tp_001', 'user_demo001', 'accepted', TIMESTAMP WITH TIME ZONE '2026-04-05 10:00:00+00:00'),
-('syp_002', 'tp_001', 'user_admin001', 'accepted', TIMESTAMP WITH TIME ZONE '2026-04-05 11:00:00+00:00'),
+('syp_002', 'tp_001', 'user_admin001', 'accepted', TIMESTAMP WITH TIME ZONE '2026-05-20 11:00:00+00:00'),
 ('syp_pending_zoe', 'tp_002', 'user_zoe001', 'pending', TIMESTAMP WITH TIME ZONE '2026-04-06 12:00:00+00:00');
 
 INSERT INTO tag_points (
@@ -688,9 +688,9 @@ INSERT INTO pending_file_deletions (file_url, entity_type, entity_id, scheduled_
 INSERT INTO tag_point_saves (save_id, point_id, user_id, saved_at) VALUES
 ('save_zoe_tp001', 'tp_001', 'user_zoe001', TIMESTAMP WITH TIME ZONE '2026-04-08 09:00:00+00:00');
 
-INSERT INTO spot_you_attendance (id, spot_you_id, user_id, session_date, status) VALUES
-('att_001', 'tp_001', 'user_demo001', DATE '2099-01-01', 'going'),
-('att_002', 'tp_001', 'user_admin001', DATE '2099-01-01', 'going');
+INSERT INTO spot_you_attendance (id, spot_you_id, user_id, session_date, status, created_at) VALUES
+('att_001', 'tp_001', 'user_demo001', DATE '2099-01-01', 'going', TIMESTAMP WITH TIME ZONE '2026-05-22 08:00:00+00:00'),
+('att_002', 'tp_001', 'user_admin001', DATE '2099-01-01', 'going', TIMESTAMP WITH TIME ZONE '2026-05-22 09:00:00+00:00');
 
 INSERT INTO tag_point_votes (id, point_id, rating) VALUES
 ('tpv_001', 'tp_001', 5),

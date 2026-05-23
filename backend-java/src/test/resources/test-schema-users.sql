@@ -395,7 +395,8 @@ CREATE TABLE IF NOT EXISTS spot_you_attendance (
     spot_you_id      VARCHAR(255) NOT NULL,
     user_id          VARCHAR(255) NOT NULL,
     session_date     DATE,
-    status           VARCHAR(50) NOT NULL
+    status           VARCHAR(50) NOT NULL,
+    created_at       TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS tag_point_votes (
