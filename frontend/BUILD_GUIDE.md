@@ -1,5 +1,7 @@
 # Guide EAS Build — SpotU
 
+> **App sur téléphone (sans Expo Go, sans Metro)** : voir **[DEVICE_BUILDS.md](./DEVICE_BUILDS.md)** (profil `preview`, APK Android, iOS ad hoc / TestFlight).
+
 ## Prérequis
 - Node.js ≥ 18 installé sur votre machine
 - eas-cli installé : `npm install -g eas-cli`

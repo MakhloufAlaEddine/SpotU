@@ -13,6 +13,7 @@ import { UserAvatar } from '../../components/UserAvatar';
 import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 import { classifyFetchError, isOfflineOrTimeout } from '../../lib/network-error';
 import { ErrorNoData } from '../../components/OfflineBanner';
+import { getWebLocation } from '../../lib/web-location';
 
 // ── Countdown hook (expiration paiement) ──
 function useExpired(expiresAt: string | null | undefined): { expired: boolean; countdown: string | null } {
@@ -226,7 +227,7 @@ export default function BookingDetailScreen() {
   const handlePay = async () => {
     setPaying(true);
     try {
-      const originUrl = typeof window !== 'undefined' ? window.location.origin : '';
+      const originUrl = getWebLocation()?.origin ?? '';
       const res = await api.post<{ url: string; session_id: string }>(`/bookings/${id}/pay`, { origin_url: originUrl });
       checkoutSessionRef.current = res.session_id;
       paymentPendingRef.current = true;

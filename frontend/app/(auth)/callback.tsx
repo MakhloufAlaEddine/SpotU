@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, ActivityIndicator, Text, StyleSheet } from 'react-native';
-;
 import { useAuth } from '../../context/AuthContext';
+import { getWebLocation } from '../../lib/web-location';
 import { Colors, Spacing } from '../../constants/Colors';
 import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 
@@ -16,10 +16,11 @@ export default function AuthCallback() {
 
     let sessionId: string | null = null;
 
-    if (typeof window !== 'undefined') {
-      const hash = window.location.hash || '';
+    const loc = getWebLocation();
+    if (loc) {
+      const hash = loc.hash || '';
       const hashMatch = hash.match(/session_id=([^&]+)/);
-      const search = window.location.search || '';
+      const search = loc.search || '';
       const queryMatch = search.match(/[?&]session_id=([^&]+)/);
 
       const raw = hashMatch?.[1] || queryMatch?.[1] || null;
@@ -46,7 +47,7 @@ export default function AuthCallback() {
         // Redirect to backend 302 endpoint which returns exp:// deep link
         // This is reliable in SFSafariViewController (JS exp:// redirects are blocked)
         const backendUrl = `/api/auth/native-callback?exp_callback=${encodeURIComponent(expCallback)}&session_id=${encodeURIComponent(sessionId)}`;
-        window.location.href = backendUrl;
+        loc.href = backendUrl;
         return;
       }
     }

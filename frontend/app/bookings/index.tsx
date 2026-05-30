@@ -19,6 +19,7 @@ import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { ScreenLoader } from '../../components/ScreenLoader';
 import { EmptyState } from '../../components/EmptyState';
 import { useGuardedRouter } from '../../hooks/useGuardedRouter';
+import { getWebLocation } from '../../lib/web-location';
 
 // ── Statuts booking ────────────────────────────────────────────────────────────
 
@@ -209,7 +210,7 @@ export default function MyBookingsScreen() {
   const handlePay = async (booking: any) => {
     setPaying(booking.booking_id);
     try {
-      const originUrl = typeof window !== 'undefined' ? window.location.origin : '';
+      const originUrl = getWebLocation()?.origin ?? '';
       const res = await api.post<{ url: string; session_id: string }>(
         `/bookings/${booking.booking_id}/pay`,
         { origin_url: originUrl },

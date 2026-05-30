@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
 import { Colors, Radius } from '../../constants/Colors';
 import { useGuardedRouter } from '../../hooks/useGuardedRouter';
+import { getWebLocation } from '../../lib/web-location';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -250,15 +251,14 @@ export default function SubscriptionsScreen() {
   const handleSubscribe = async (planId: string) => {
     setSubscribing(planId);
     try {
-      const originUrl = typeof window !== 'undefined'
-        ? window.location.origin
-        : process.env.EXPO_PUBLIC_BACKEND_URL || '';
+      const loc = getWebLocation();
+      const originUrl = loc?.origin ?? (process.env.EXPO_PUBLIC_BACKEND_URL || '');
       const res = await api.post<{ url: string; session_id: string }>('/subscriptions/subscribe', {
         plan_id: planId,
         origin_url: originUrl,
       });
-      if (typeof window !== 'undefined') {
-        window.location.assign(res.url);
+      if (loc) {
+        loc.assign(res.url);
       } else {
         await Linking.openURL(res.url);
       }

@@ -1,12 +1,14 @@
 {
   "cli": {
     "version": ">= 16.0.0",
-    "requireCommit": false
+    "requireCommit": false,
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "channel": "development",
       "android": {
         "buildType": "apk",
         "withoutCredentials": true
@@ -15,22 +17,39 @@
         "simulator": true
       },
       "env": {
-        "ENVIRONMENT": "development"
+        "ENVIRONMENT": "development",
+        "EXPO_PUBLIC_BACKEND_URL": "http://178.105.95.184:8080",
+        "EXPO_PUBLIC_SKIP_PUSH_TOKEN": "1"
       }
     },
     "preview": {
       "distribution": "internal",
+      "channel": "preview",
+      "env": {
+        "ENVIRONMENT": "preview",
+        "EXPO_PUBLIC_BACKEND_URL": "http://178.105.95.184:8080",
+        "EXPO_PUBLIC_SKIP_PUSH_TOKEN": "1",
+        "EAS_BUILD_PROFILE": "preview"
+      },
       "android": {
         "buildType": "apk"
       },
       "ios": {
+        "simulator": false,
         "buildConfiguration": "Release"
-      },
-      "env": {
-        "ENVIRONMENT": "preview"
       }
     },
+    "preview-testflight": {
+      "extends": "preview",
+      "distribution": "store",
+      "ios": {
+        "simulator": false,
+        "buildConfiguration": "Release"
+      },
+      "channel": "preview-testflight"
+    },
     "production": {
+      "channel": "production",
       "android": {
         "buildType": "app-bundle"
       },
@@ -43,6 +62,11 @@
     }
   },
   "submit": {
+    "preview-testflight": {
+      "ios": {
+        "appleId": "makhlouf.aladin@live.fr"
+      }
+    },
     "production": {
       "ios": {
         "appleId": "makhlouf.aladin@live.fr"

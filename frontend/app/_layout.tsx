@@ -10,6 +10,7 @@ import { storage } from '../lib/storage';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import {
+  ensureNotificationHandler,
   registerForPushNotificationsAsync,
   saveTokenToServer,
   setupNotificationResponseHandler,
@@ -42,6 +43,10 @@ function NavigationGuard() {
   useEffect(() => {
     const timer = setTimeout(() => setSplashReady(true), 1800);
     return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    ensureNotificationHandler();
   }, []);
 
   // Enregistrement push notifications après connexion

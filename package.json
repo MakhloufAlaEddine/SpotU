@@ -17,7 +17,13 @@
     "dev:android:metro": "bash scripts/dev-android-metro.sh",
     "dev:expo:android:metro": "bash -c 'cd frontend && exec npx expo start --android'",
     "native:ios": "bash scripts/ensure-dev-env.sh && bash -c 'cd frontend && exec npx expo run:ios'",
-    "native:android": "bash scripts/native-android.sh"
+    "native:android": "bash scripts/native-android.sh",
+    "ship:front": "bash scripts/ship/ship-front.sh",
+    "ship:back": "bash scripts/ship/ship-back.sh",
+    "ship:all": "bash scripts/ship/ship-all.sh",
+    "ship:smart": "bash scripts/ship/ship-smart.sh",
+    "build:preview:android": "bash scripts/ship/build-preview-android.sh",
+    "build:preview:ios": "bash scripts/ship/build-preview-ios.sh"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

@@ -7,6 +7,7 @@ import { api } from '../lib/api';
 import { setLang, Lang } from '../lib/i18n';
 import { isOfflineOrTimeout } from '../lib/network-error';
 import { removeTokenFromServer } from '../lib/push-notifications';
+import { getWebLocation } from '../lib/web-location';
 
 interface User {
   user_id: string;
@@ -92,12 +93,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // CRITICAL: If returning from OAuth callback, skip the /me check.
     // AuthCallback will exchange the session_id and establish the session first.
     // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
-    if (typeof window !== 'undefined') {
-      const inHash = window.location.hash?.includes('session_id=');
-      const inSearch = window.location.search?.includes('session_id=');
+    const loc = getWebLocation();
+    if (loc) {
+      const inHash = loc.hash?.includes('session_id=');
+      const inSearch = loc.search?.includes('session_id=');
       // Only skip auth check on the OAuth callback page, not on other pages
       // (e.g. /payment-success also uses session_id but needs normal auth check)
-      const isCallbackPage = window.location.pathname?.includes('/callback');
+      const isCallbackPage = loc.pathname?.includes('/callback');
       if ((inHash || inSearch) && isCallbackPage) {
         setLoading(false);
         return;
@@ -136,10 +138,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const loginWithGoogle = useCallback(async () => {
-    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+    const loc = getWebLocation();
+    if (Platform.OS === 'web' && loc && typeof document !== 'undefined') {
       // Web : utiliser un élément <a> natif
       // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
-      const redirectUrl = window.location.origin + '/(auth)/callback';
+      const redirectUrl = loc.origin + '/(auth)/callback';
       const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
       const a = document.createElement('a');
       a.href = authUrl;

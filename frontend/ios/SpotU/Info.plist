@@ -28,7 +28,7 @@
         <key>CFBundleURLSchemes</key>
         <array>
           <string>spotu</string>
-          <string>com.winek.app</string>
+          <string>com.winek.mobile</string>
         </array>
       </dict>
       <dict>

@@ -11,6 +11,7 @@ import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { TagImage } from '../../components/TagImage';
 import { useBookingConfig } from '../../lib/useBookingConfig';
 import { useGuardedRouter } from '../../hooks/useGuardedRouter';
+import { getWebLocation } from '../../lib/web-location';
 
 const ORANGE = '#FF9500';
 
@@ -136,7 +137,7 @@ export default function BookingConfirmScreen() {
       setBooking(result);
 
       // 2. Obtenir l'URL Stripe Checkout (sécurisé pour React Native et Web)
-      const originUrl = (typeof window !== 'undefined' && window.location?.origin) ? window.location.origin : '';
+      const originUrl = getWebLocation()?.origin ?? '';
       const payRes = await api.post<{ url: string; session_id: string }>(
         `/bookings/${result.booking_id}/pay`,
         { origin_url: originUrl },
@@ -247,7 +248,7 @@ export default function BookingConfirmScreen() {
     if (!booking?.booking_id) return;
     setPayState('opening');
     try {
-      const originUrl = typeof window !== 'undefined' ? window.location.origin : '';
+      const originUrl = getWebLocation()?.origin ?? '';
       const res = await api.post<{ url: string; session_id: string }>(
         `/bookings/${booking.booking_id}/pay`,
         { origin_url: originUrl },

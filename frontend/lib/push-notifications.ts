@@ -13,14 +13,20 @@ import { router } from 'expo-router';
 import { api } from './api';
 import { guardedNavigate } from './navGuard';
 
-// Configuration globale du comportement des notifications reçues en avant-plan
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+let notificationHandlerInstalled = false;
+
+/** À appeler une fois au démarrage (évite crash natif au import sur APK sans FCM). */
+export function ensureNotificationHandler(): void {
+  if (notificationHandlerInstalled || skipPushToken()) return;
+  notificationHandlerInstalled = true;
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
+  });
+}
 
 function skipPushToken(): boolean {
   const v = process.env.EXPO_PUBLIC_SKIP_PUSH_TOKEN;
