@@ -10,6 +10,12 @@ Scripts à lancer **depuis la racine du dépôt** (`spotU/`).
 | `npm run ship:smart` | Détecte les changements locaux et choisit l’action |
 | `npm run build:preview:android` | Build EAS APK preview (`com.winek.app`) |
 | `npm run build:preview:ios` | Build EAS iOS preview (`com.winek.mobile`) |
+| `npm run start:back` | Démarrer le backend sur Hetzner (`docker compose up -d`) |
+| `npm run stop:back` | Arrêter le backend (`docker compose down`) |
+| `npm run restart:back` | Redémarrer le service `spotu-api` |
+| `npm run status:back` | Statut des conteneurs (`docker compose ps`) |
+| `npm run logs:back` | Logs en direct du service `spotu-api` |
+| `npm run health:back` | Vérifier `/api/readiness` |
 
 ---
 
@@ -81,6 +87,37 @@ npm run ship:back
    docker compose up -d spotu-api
    ```
 3. **Local** : `curl $BACKEND_READINESS_URL` (12 tentatives × 5 s)
+
+---
+
+## 2b. Gestion backend à distance (Hetzner)
+
+Prérequis : `scripts/ship/deploy.env` avec `HETZNER_SSH` et `HETZNER_APP_DIR`.
+
+Exemple :
+
+```bash
+HETZNER_SSH=root@178.105.95.184
+HETZNER_APP_DIR=/opt/spotu/SpotU/backend-java
+```
+
+| Commande | Action SSH |
+|----------|------------|
+| `npm run start:back` | `docker compose up -d` |
+| `npm run stop:back` | `docker compose down` |
+| `npm run restart:back` | `docker compose restart spotu-api` |
+| `npm run status:back` | `docker compose ps` |
+| `npm run logs:back` | `docker compose logs -f spotu-api` |
+| `npm run health:back` | `curl $BACKEND_READINESS_URL` (local) |
+
+```bash
+npm run start:back
+npm run stop:back
+npm run restart:back
+npm run status:back
+npm run logs:back      # Ctrl+C pour quitter
+npm run health:back
+```
 
 ---
 
@@ -162,5 +199,11 @@ scripts/ship/
   ship-smart.sh
   build-preview-android.sh
   build-preview-ios.sh
+  start-back.sh
+  stop-back.sh
+  restart-back.sh
+  status-back.sh
+  logs-back.sh
+  health-back.sh
   deploy.env.example
 ```

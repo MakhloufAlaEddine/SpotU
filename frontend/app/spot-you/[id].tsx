@@ -1044,7 +1044,7 @@ export default function SpotYouDetail() {
     try {
       const conv = await getOrCreateConversation('tagpoint_private', id as string);
       router.push(`/chat/${conv.conversation_id}` as any);
-    } catch { Alert.alert('Erreur', 'Impossible d\'ouvrir la conversation'); }
+    } catch (e: any) { onActionError(e); }
     finally { setChatLoading(false); }
   };
 
@@ -1054,7 +1054,7 @@ export default function SpotYouDetail() {
     try {
       const conv = await getOrCreateConversation('tagpoint_group', id as string);
       router.push(`/chat/${conv.conversation_id}` as any);
-    } catch { Alert.alert('Erreur', 'Impossible d\'ouvrir le groupe'); }
+    } catch (e: any) { onActionError(e); }
     finally { setChatLoading(false); }
   };
 

@@ -1,5 +1,6 @@
 package com.spotu.modules.chat.infra;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -98,25 +99,53 @@ public class ChatRepository {
     }
 
     public void upsertParticipantActive(String convId, String userId) {
-        jdbcTemplate.update(
+        int updated = jdbcTemplate.update(
                 """
-                MERGE INTO conversation_participants (conversation_id, user_id, status, joined_at, last_read_at)
-                KEY(conversation_id, user_id)
-                VALUES (?, ?, 'active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                UPDATE conversation_participants
+                SET status = 'active', last_read_at = CURRENT_TIMESTAMP
+                WHERE conversation_id = ? AND user_id = ?
                 """,
                 convId, userId
         );
+        if (updated > 0) {
+            return;
+        }
+        try {
+            jdbcTemplate.update(
+                    """
+                    INSERT INTO conversation_participants (conversation_id, user_id, status, joined_at, last_read_at)
+                    VALUES (?, ?, 'active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    """,
+                    convId, userId
+            );
+        } catch (DataIntegrityViolationException ignored) {
+            jdbcTemplate.update(
+                    """
+                    UPDATE conversation_participants
+                    SET status = 'active', last_read_at = CURRENT_TIMESTAMP
+                    WHERE conversation_id = ? AND user_id = ?
+                    """,
+                    convId, userId
+            );
+        }
     }
 
+    /** Insère un participant si absent (PostgreSQL + H2, sans MERGE / ON CONFLICT dialect-specific). */
     public void insertParticipantDefaultStatus(String convId, String userId) {
-        jdbcTemplate.update(
-                """
-                MERGE INTO conversation_participants (conversation_id, user_id, joined_at, last_read_at)
-                KEY(conversation_id, user_id)
-                VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                """,
-                convId, userId
-        );
+        if (isParticipantAnyStatus(convId, userId)) {
+            return;
+        }
+        try {
+            jdbcTemplate.update(
+                    """
+                    INSERT INTO conversation_participants (conversation_id, user_id, joined_at, last_read_at)
+                    VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    """,
+                    convId, userId
+            );
+        } catch (DataIntegrityViolationException ignored) {
+            // concurrence : participant déjà présent
+        }
     }
 
     public Optional<Map<String, Object>> getConversationMeta(String convId) {

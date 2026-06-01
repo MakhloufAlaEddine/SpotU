@@ -77,3 +77,33 @@ require_git_repo() {
   git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
     || die "Ce dossier n’est pas un dépôt git : $ROOT"
 }
+
+require_deploy_config() {
+  if [[ ! -f "$DEPLOY_ENV_FILE" ]]; then
+    die "Fichier absent : $DEPLOY_ENV_FILE — copie scripts/ship/deploy.env.example vers scripts/ship/deploy.env"
+  fi
+  load_deploy_env
+  require_cmd ssh
+
+  local missing=()
+  [[ -z "${HETZNER_SSH:-}" ]] && missing+=("HETZNER_SSH")
+  [[ -z "${HETZNER_APP_DIR:-}" ]] && missing+=("HETZNER_APP_DIR")
+
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    err "Configuration incomplète dans $DEPLOY_ENV_FILE"
+    for v in "${missing[@]}"; do
+      echo "  - $v" >&2
+    done
+    exit 1
+  fi
+}
+
+# Exécute une commande docker compose sur le serveur Hetzner.
+remote_compose() {
+  local compose_file="${HETZNER_COMPOSE_FILE:-docker-compose.yml}"
+  ssh "$HETZNER_SSH" "set -euo pipefail; cd $(printf '%q' "$HETZNER_APP_DIR"); docker compose -f $(printf '%q' "$compose_file") $*"
+}
+
+backend_readiness_url() {
+  echo "${BACKEND_READINESS_URL:-${SPOTU_BACKEND_READINESS_URL:-http://178.105.95.184:8080/api/readiness}}"
+}

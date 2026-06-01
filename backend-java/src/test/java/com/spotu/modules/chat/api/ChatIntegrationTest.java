@@ -66,6 +66,26 @@ class ChatIntegrationTest {
     }
 
     @Test
+    void createTagpointPrivate_createsConversationWithOwnerAndCaller() throws Exception {
+        String payload = objectMapper.writeValueAsString(Map.of("type", "tagpoint_private", "context_id", "tp_001"));
+        mockMvc.perform(post("/api/conversations")
+                        .contentType("application/json")
+                        .content(payload)
+                        .header("Authorization", "Bearer " + TestJwtTokens.validZoeToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.type", is("tagpoint_private")))
+                .andExpect(jsonPath("$.context_id", is("tp_001")));
+
+        Integer participants = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM conversation_participants cp " +
+                        "JOIN conversations c ON c.conversation_id = cp.conversation_id " +
+                        "WHERE c.type = 'tagpoint_private' AND c.context_id = 'tp_001'",
+                Integer.class
+        );
+        org.junit.jupiter.api.Assertions.assertEquals(2, participants);
+    }
+
+    @Test
     void createTagpointGroup_forbiddenWhenNotMember() throws Exception {
         String payload = objectMapper.writeValueAsString(Map.of("type", "tagpoint_group", "context_id", "tp_001"));
         mockMvc.perform(post("/api/conversations")

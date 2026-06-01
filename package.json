@@ -23,7 +23,13 @@
     "ship:all": "bash scripts/ship/ship-all.sh",
     "ship:smart": "bash scripts/ship/ship-smart.sh",
     "build:preview:android": "bash scripts/ship/build-preview-android.sh",
-    "build:preview:ios": "bash scripts/ship/build-preview-ios.sh"
+    "build:preview:ios": "bash scripts/ship/build-preview-ios.sh",
+    "start:back": "bash scripts/ship/start-back.sh",
+    "stop:back": "bash scripts/ship/stop-back.sh",
+    "restart:back": "bash scripts/ship/restart-back.sh",
+    "status:back": "bash scripts/ship/status-back.sh",
+    "logs:back": "bash scripts/ship/logs-back.sh",
+    "health:back": "bash scripts/ship/health-back.sh"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
