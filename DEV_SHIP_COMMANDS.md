@@ -31,7 +31,15 @@ npm run ship:front
 2. `git push`
 3. `eas update --channel preview` dans `frontend/`
 
-**Après publication OTA** : fermer complètement l’app sur iOS/Android, puis la rouvrir (parfois 2 fois).
+**Après publication OTA** (build **preview EAS** installé sur le téléphone, pas `npx expo run:ios`) :
+
+1. Fermer complètement l’app
+2. Rouvrir (téléchargement OTA en arrière-plan)
+3. Fermer à nouveau, rouvrir (JS mis à jour)
+
+> **Important** : les builds preview créés *avant* la réactivation d’expo-updates ignorent l’OTA. Dans ce cas : `npm run build:preview:ios` (ou Android) une fois, puis `ship:front` fonctionnera.
+
+> **Dev Metro** (`npm run dev:ios`) : `ship:front` ne met pas à jour l’app — recharge via Metro (`r`).
 
 Variables utiles :
 

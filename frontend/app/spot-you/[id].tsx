@@ -813,7 +813,7 @@ export default function SpotYouDetail() {
     try {
       if (isMember) {
         // Quitter
-        const res = await api.delete(`/spot-you/${id}/leave`);
+        const res = await api.delete(`/tag-points/${id}/leave`);
         setIsMember(false);
         setIsParticipant(false);
         setCanParticipate(false);

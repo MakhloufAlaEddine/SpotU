@@ -34,18 +34,16 @@ module.exports = ({ config }) => {
       // Requis pour appeler l'API Hetzner en HTTP depuis un APK preview.
       usesCleartextTraffic: allowHttp,
     },
-    // Preview/production : pas de check OTA au lancement (évite crash si aucun eas update publié).
-    // Réactiver plus tard avec enabled:true + eas update après premier build stable.
-    updates: projectId && !isStandalone
+    // OTA : fallbackToCacheTimeout 0 = démarrage immédiat avec le bundle embarqué,
+    // téléchargement en arrière-plan, application au prochain lancement.
+    updates: projectId
       ? {
           enabled: true,
           url: `https://u.expo.dev/${projectId}`,
-          checkAutomatically: useDevClient ? 'ON_LOAD' : 'ON_ERROR_RECOVERY',
+          checkAutomatically: 'ON_LOAD',
           fallbackToCacheTimeout: 0,
         }
-      : isStandalone
-        ? { enabled: false }
-        : undefined,
+      : undefined,
     // Bare workflow (dossiers android/ + ios/) : chaîne obligatoire, pas { policy: "appVersion" }.
     runtimeVersion: config.version || '1.0.0',
     extra: {

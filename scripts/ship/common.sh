@@ -48,9 +48,15 @@ print_ota_instructions() {
   echo
   ok "Mise à jour OTA publiée sur le channel « ${EAS_CHANNEL} »."
   echo
-  echo "  Sur iOS et Android (build preview installé) :"
-  echo "    1. Fermer complètement l’app SpotU (swipe / multitâche)"
-  echo "    2. Rouvrir l’app (parfois 2 lancements nécessaires)"
+  echo "  Prérequis : build preview installé depuis EAS (pas Expo Go / pas npx expo run:ios)."
+  echo "  Si l’OTA ne s’applique jamais : refais un build natif preview (OTA était désactivé avant)."
+  echo
+  echo "  Sur iPhone / Android (APK ou IPA preview) :"
+  echo "    1. Fermer complètement l’app (multitâche)"
+  echo "    2. Rouvrir → téléchargement OTA en arrière-plan"
+  echo "    3. Fermer à nouveau, rouvrir → nouveau JS actif"
+  echo
+  echo "  Dev local (Metro) : ship:front ne change rien — utilise le reload Metro (r)."
   echo
 }
 
