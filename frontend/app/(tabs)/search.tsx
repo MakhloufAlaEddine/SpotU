@@ -72,6 +72,24 @@ function firstImageUri(images: unknown): string | undefined {
   return undefined;
 }
 
+/** tag_ids peut être un tableau, une chaîne JSON ou absent selon la source API. */
+function normalizeTagIds(tagIds: unknown): string[] {
+  if (Array.isArray(tagIds)) {
+    return tagIds.filter((t): t is string => typeof t === 'string' && t.length > 0);
+  }
+  if (typeof tagIds === 'string' && tagIds.trim()) {
+    try {
+      const parsed = JSON.parse(tagIds);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((t): t is string => typeof t === 'string' && t.length > 0);
+      }
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 // ─── Result Item ──────────────────────────────────────────────────────────────
 function ResultItem({ image, title, author, distance, rating = 0, onPress, isService = false, price, visibilityType }:
   { image?: string; title: string; author: string; distance: string; rating?: number;
@@ -252,11 +270,8 @@ export default function SearchScreen() {
           : expandedTags.some(t => itemTags.includes(t));
       });
     };
-    const filteredSpotYou = filterByTags(SpotYou, pt => pt.tag_ids || []);
-    const filteredServices = filterByTags(
-      services,
-      svc => (Array.isArray(svc.tag_ids) ? svc.tag_ids : []),
-    );
+    const filteredSpotYou = filterByTags(SpotYou, pt => normalizeTagIds(pt.tag_ids));
+    const filteredServices = filterByTags(services, svc => normalizeTagIds(svc.tag_ids));
     const mixed = [
       ...filteredServices.map(s => ({ ...s, _type: 'service' as const })),
       ...filteredSpotYou.map(p => ({ ...p, _type: 'spotyou' as const })),
