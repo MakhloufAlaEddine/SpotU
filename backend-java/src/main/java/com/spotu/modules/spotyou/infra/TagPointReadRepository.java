@@ -7,11 +7,13 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.sql.ResultSetMetaData;
+import java.sql.Date;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Repository
@@ -257,6 +259,81 @@ public class TagPointReadRepository {
                  WHERE tp.point_id = ?
                 """, List.of(pointId));
         return rows.isEmpty() ? Optional.empty() : Optional.of(rows.get(0));
+    }
+
+    public Optional<Map<String, Object>> findActivePointForGoing(String pointId) {
+        List<Map<String, Object>> rows = queryForListOfMaps("""
+                SELECT point_id, user_id, event_date, event_schedule, maximum_participants
+                FROM tag_points
+                WHERE point_id = ? AND active = TRUE
+                """, List.of(pointId));
+        return rows.isEmpty() ? Optional.empty() : Optional.of(rows.get(0));
+    }
+
+    public boolean hasMembershipAnyStatus(String pointId, String userId) {
+        Integer n = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM spot_you_members WHERE spot_you_id = ? AND user_id = ?",
+                Integer.class,
+                pointId, userId
+        );
+        return n != null && n > 0;
+    }
+
+    public int countMembersAnyStatus(String pointId) {
+        Integer n = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM spot_you_members WHERE spot_you_id = ?",
+                Integer.class,
+                pointId
+        );
+        return n == null ? 0 : n;
+    }
+
+    public int updateAttendanceToGoing(String pointId, String userId, Date sessionDate) {
+        return jdbcTemplate.update(
+                """
+                UPDATE spot_you_attendance
+                SET status = 'going'
+                WHERE spot_you_id = ? AND user_id = ? AND session_date = ?
+                """,
+                pointId, userId, sessionDate
+        );
+    }
+
+    public void insertAttendanceGoing(String pointId, String userId, Date sessionDate) {
+        jdbcTemplate.update(
+                """
+                INSERT INTO spot_you_attendance (id, spot_you_id, user_id, session_date, status)
+                VALUES (?, ?, ?, ?, 'going')
+                """,
+                "att_" + UUID.randomUUID().toString().replace("-", ""),
+                pointId, userId, sessionDate
+        );
+    }
+
+    public void deleteAttendanceForSession(String pointId, String userId, Date sessionDate) {
+        jdbcTemplate.update(
+                """
+                DELETE FROM spot_you_attendance
+                WHERE spot_you_id = ? AND user_id = ? AND session_date = ?
+                """,
+                pointId, userId, sessionDate
+        );
+    }
+
+    public List<Map<String, Object>> listGoingUsersForSession(String pointId, Date sessionDate) {
+        return queryForListOfMaps(
+                """
+                SELECT u.user_id, u.name, u.picture, u.role,
+                       a.created_at AS registered_at
+                FROM spot_you_attendance a
+                JOIN users u ON a.user_id = u.user_id
+                WHERE a.spot_you_id = ?
+                  AND a.session_date = ?
+                  AND a.status = 'going'
+                ORDER BY a.created_at ASC
+                """,
+                List.of(pointId, sessionDate)
+        );
     }
 
     public List<Map<String, Object>> findSimilar(String pointId, String currentUserId) {

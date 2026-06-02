@@ -1,6 +1,8 @@
 package com.spotu.modules.spotyou.service;
 
 import com.spotu.error.ApiNotFoundException;
+import com.spotu.error.ApiBadRequestException;
+import com.spotu.error.ApiForbiddenException;
 import com.spotu.modules.auth.dto.CurrentUserDto;
 import com.spotu.modules.auth.service.AuthMeService;
 import com.spotu.modules.auth.service.JwtService;
@@ -16,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Timestamp;
+import java.sql.Date;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -462,5 +465,102 @@ public class TagPointReadService {
         body.put("is_community_member", repository.isCommunityMember(userId));
         body.put("has_participation", repository.hasGoingParticipation(userId));
         return body;
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getGoingForNextSession(String pointId) {
+        Map<String, Object> point = repository.findActivePointForGoing(pointId)
+                .orElseThrow(() -> new ApiNotFoundException("SpotYou introuvable"));
+        LocalDate nextDate = nextSessionDateCalculator.computeFromPointMap(point);
+        if (nextDate == null) {
+            return Map.of("session_date", null, "going", List.of());
+        }
+        List<Map<String, Object>> rows = repository.listGoingUsersForSession(pointId, Date.valueOf(nextDate));
+        List<Map<String, Object>> going = new ArrayList<>();
+        for (Map<String, Object> r : rows) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("user_id", r.get("user_id"));
+            m.put("name", r.get("name"));
+            m.put("picture", r.get("picture"));
+            m.put("role", r.get("role"));
+            m.put("registered_at", toIsoOrNull(r.get("registered_at")));
+            going.add(m);
+        }
+        return Map.of("session_date", nextDate.toString(), "going", going);
+    }
+
+    @Transactional
+    public Map<String, Object> markGoing(String pointId, HttpServletRequest request) {
+        CurrentUserDto user = authMeService.requireCurrentUser(request);
+        String userId = user.userId();
+        Map<String, Object> point = repository.findActivePointForGoing(pointId)
+                .orElseThrow(() -> new ApiNotFoundException("SpotYou introuvable"));
+
+        if (!repository.hasMembershipAnyStatus(pointId, userId)) {
+            throw new ApiForbiddenException("Vous devez rejoindre ce SpotYou avant de pouvoir participer à une séance");
+        }
+
+        LocalDate nextDate = nextSessionDateCalculator.computeFromPointMap(point);
+        if (nextDate == null) {
+            throw new ApiBadRequestException("Pas de prochaine séance trouvée");
+        }
+        Date nextSqlDate = Date.valueOf(nextDate);
+        Object maxObj = point.get("maximum_participants");
+        Integer max = maxObj instanceof Number n ? n.intValue() : null;
+
+        boolean alreadyGoing = repository.existsGoingForUserSession(pointId, userId, nextSqlDate);
+        if (!alreadyGoing && max != null) {
+            int goingCount = repository.countGoingForSession(pointId, nextSqlDate);
+            if (goingCount >= max) {
+                throw new ApiBadRequestException("Capacité maximale atteinte pour cette séance");
+            }
+        }
+
+        int updated = repository.updateAttendanceToGoing(pointId, userId, nextSqlDate);
+        if (updated == 0) {
+            repository.insertAttendanceGoing(pointId, userId, nextSqlDate);
+        }
+
+        int goingCountFinal = repository.countGoingForSession(pointId, nextSqlDate);
+        int membersCountFinal = repository.countMembersAnyStatus(pointId);
+        boolean isFull = max != null && goingCountFinal >= max;
+
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("success", true);
+        out.put("is_going", true);
+        out.put("is_member", true);
+        out.put("going_count", goingCountFinal);
+        out.put("participants_count", membersCountFinal);
+        out.put("session_date", nextDate.toString());
+        out.put("is_full", isFull);
+        return out;
+    }
+
+    @Transactional
+    public Map<String, Object> unmarkGoing(String pointId, HttpServletRequest request) {
+        CurrentUserDto user = authMeService.requireCurrentUser(request);
+        String userId = user.userId();
+        Map<String, Object> point = repository.findActivePointForGoing(pointId)
+                .orElseThrow(() -> new ApiNotFoundException("SpotYou introuvable"));
+
+        LocalDate nextDate = nextSessionDateCalculator.computeFromPointMap(point);
+        int goingCountFinal = 0;
+        boolean isFull = false;
+        if (nextDate != null) {
+            Date nextSqlDate = Date.valueOf(nextDate);
+            repository.deleteAttendanceForSession(pointId, userId, nextSqlDate);
+            goingCountFinal = repository.countGoingForSession(pointId, nextSqlDate);
+            Object maxObj = point.get("maximum_participants");
+            Integer max = maxObj instanceof Number n ? n.intValue() : null;
+            isFull = max != null && goingCountFinal >= max;
+        }
+
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("success", true);
+        out.put("is_going", false);
+        out.put("going_count", goingCountFinal);
+        out.put("is_full", isFull);
+        out.put("session_date", nextDate == null ? null : nextDate.toString());
+        return out;
     }
 }
