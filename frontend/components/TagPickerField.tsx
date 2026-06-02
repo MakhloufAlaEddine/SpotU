@@ -51,6 +51,8 @@ interface TagPickerFieldProps {
   onTagsLoaded?:    (tags: { tag_id: string; label_fr: string; label_en?: string; category_id: string; category_name?: string }[]) => void;
   /** Callback appelé quand le domaine sélectionné change (showDomains uniquement) */
   onDomainChange?:  (domainId: string) => void;
+  /** Domaine initial (utile en mode édition). */
+  initialDomainId?: string | null;
 }
 
 export function TagPickerField({
@@ -58,6 +60,7 @@ export function TagPickerField({
   filterCategoryId, showDomains = false,
   maxSelect, accentColor = '#3B82F6',
   label, hint, required, onTagsLoaded, onDomainChange,
+  initialDomainId = null,
 }: TagPickerFieldProps) {
   const [allCategories, setAllCategories] = useState<CategoryItem[]>([]);
   const [domains,       setDomains]       = useState<DomainItem[]>([]);
@@ -98,12 +101,15 @@ export function TagPickerField({
         );
         setDomains(sorted);
         if (!domainId && sorted.length > 0) {
-          setDomainId(sorted[0].domain_id);
-          onDomainChange?.(sorted[0].domain_id);
+          const wanted = initialDomainId && sorted.some(d => d.domain_id === initialDomainId)
+            ? initialDomainId
+            : sorted[0].domain_id;
+          setDomainId(wanted);
+          onDomainChange?.(wanted);
         }
       })
       .catch(() => {});
-  }, [showDomains]);
+  }, [showDomains, initialDomainId]);
 
   /* ── Filtrage dans le modal ──────────────────────────────────────────── */
   const filteredCategories = useMemo(() => {

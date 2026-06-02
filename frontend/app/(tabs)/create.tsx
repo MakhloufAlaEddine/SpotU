@@ -173,13 +173,25 @@ export default function CreateSpotYouScreen() {
   // Pre-fill form in edit mode
   useEffect(() => {
     if (!isEditMode) return;
+    if (params.domainId) {
+      setSelectedDomainId(params.domainId);
+    }
     if (params.title) setTitle(params.title);
     if (params.description) setDescription(params.description);
     if (params.precision) setPrecision(params.precision as any);
     if (params.images) { try { setImages(JSON.parse(params.images)); } catch {} }
     // Set tags directement en mode édition
     if (params.tagIds) {
-      try { setSelectedTagIds(JSON.parse(params.tagIds)); } catch {}
+      try {
+        const parsed = JSON.parse(params.tagIds);
+        if (Array.isArray(parsed)) {
+          setSelectedTagIds(parsed.filter((t: unknown): t is string => typeof t === 'string' && t.length > 0));
+        } else if (typeof parsed === 'string' && parsed.trim()) {
+          setSelectedTagIds(parsed.split(',').map(s => s.trim()).filter(Boolean));
+        }
+      } catch {
+        setSelectedTagIds(params.tagIds.split(',').map(s => s.trim()).filter(Boolean));
+      }
     }
     // Restore location (after domainId to avoid GPS override)
     if (params.lat && params.lng) {
@@ -1067,6 +1079,7 @@ function StepContenu({ description, setDescription, selectedTagIds, onChangeTagI
       <TagPickerField
         entityType="spotyou"
         showDomains
+        initialDomainId={selectedDomainId}
         selectedTagIds={selectedTagIds}
         onChangeTagIds={onChangeTagIds}
         onTagsLoaded={onTagsLoaded}
