@@ -101,6 +101,12 @@ public class NotificationsService {
             }
         }
         if (raw instanceof Map<?, ?> m) {
+            // PostgreSQL JSONB via JDBC peut arriver comme {"type":"jsonb","value":"{...}"}.
+            Object t = m.get("type");
+            Object v = m.get("value");
+            if (v instanceof String s && ("jsonb".equals(String.valueOf(t)) || "json".equals(String.valueOf(t)))) {
+                return parseData(s);
+            }
             return new LinkedHashMap<>(objectMapper.convertValue(m, MAP_TYPE));
         }
         try {
