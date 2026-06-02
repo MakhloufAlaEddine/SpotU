@@ -28,6 +28,28 @@ interface TagItem     { tag_id: string; label_fr: string; label_en?: string }
 interface CategoryItem { category_id: string; label_fr: string; label_en?: string; domain_id?: string; tags: TagItem[] }
 interface DomainItem   { domain_id: string; label_fr?: string; name?: string; color?: string }
 
+const flattenTags = (cats: CategoryItem[]) =>
+  cats.flatMap(cat =>
+    (cat.tags || []).map(t => ({ ...t, category_id: cat.category_id, category_name: cat.label_fr }))
+  );
+
+const mergeCategories = (base: CategoryItem[], extra: CategoryItem[]): CategoryItem[] => {
+  const byId = new Map<string, CategoryItem>();
+  base.forEach(cat => byId.set(cat.category_id, { ...cat, tags: [...(cat.tags || [])] }));
+  extra.forEach(cat => {
+    const current = byId.get(cat.category_id);
+    if (!current) {
+      byId.set(cat.category_id, { ...cat, tags: [...(cat.tags || [])] });
+      return;
+    }
+    const seen = new Set((current.tags || []).map(t => t.tag_id));
+    (cat.tags || []).forEach(t => {
+      if (!seen.has(t.tag_id)) current.tags.push(t);
+    });
+  });
+  return Array.from(byId.values());
+};
+
 /* ── Couleurs par catégorie (déterministe) ──────────────────────────────── */
 const CAT_PALETTE = [
   '#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6',
@@ -80,16 +102,37 @@ export function TagPickerField({
     api.get(url)
       .then((data: CategoryItem[]) => {
         const cats = data || [];
-        setAllCategories(cats);
-        onTagsLoaded?.(
-          cats.flatMap(cat =>
-            (cat.tags || []).map(t => ({ ...t, category_id: cat.category_id, category_name: cat.label_fr }))
-          )
+        const selectedSet = new Set(selectedTagIds);
+        const hasAllSelected = selectedTagIds.length === 0 || selectedTagIds.every(id =>
+          cats.some(cat => (cat.tags || []).some(tag => tag.tag_id === id))
         );
+
+        if (entityType && selectedSet.size > 0 && !hasAllSelected) {
+          const fallbackQs = [domainId ? `domain_id=${domainId}` : ''].filter(Boolean).join('&');
+          const fallbackUrl = `/tags/categories${fallbackQs ? `?${fallbackQs}` : ''}`;
+          api.get(fallbackUrl)
+            .then((fallbackData: CategoryItem[]) => {
+              const selectedOnly = (fallbackData || [])
+                .map(cat => ({ ...cat, tags: (cat.tags || []).filter(tag => selectedSet.has(tag.tag_id)) }))
+                .filter(cat => cat.tags.length > 0);
+              const merged = mergeCategories(cats, selectedOnly);
+              setAllCategories(merged);
+              onTagsLoaded?.(flattenTags(merged));
+            })
+            .catch(() => {
+              setAllCategories(cats);
+              onTagsLoaded?.(flattenTags(cats));
+            })
+            .finally(() => setLoading(false));
+          return;
+        }
+
+        setAllCategories(cats);
+        onTagsLoaded?.(flattenTags(cats));
       })
       .catch(() => setAllCategories([]))
       .finally(() => setLoading(false));
-  }, [entityType, domainId]);
+  }, [entityType, domainId, selectedTagIds]);
 
   /* ── Fetch domaines (si showDomains) ────────────────────────────────── */
   useEffect(() => {
