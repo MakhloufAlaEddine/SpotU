@@ -125,7 +125,7 @@ export function TagPickerField({
     if (!q) return cats.filter(c => (c.tags || []).length > 0);
     return cats
       .map(cat => {
-        const catNameMatches = cat.label_fr.toLowerCase().includes(q);
+        const catNameMatches = (cat.label_fr ?? '').toLowerCase().includes(q);
         return {
           ...cat,
           // Si le nom de catégorie matche → afficher tous ses tags
@@ -133,7 +133,7 @@ export function TagPickerField({
           tags: catNameMatches
             ? (cat.tags || [])
             : (cat.tags || []).filter(t =>
-                t.label_fr.toLowerCase().includes(q) ||
+                (t.label_fr ?? '').toLowerCase().includes(q) ||
                 (t.label_en ?? '').toLowerCase().includes(q)
               ),
         };

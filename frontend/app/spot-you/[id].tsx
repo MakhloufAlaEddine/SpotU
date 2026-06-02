@@ -682,7 +682,16 @@ export default function SpotYouDetail() {
         description: point.description || '',
         domainId: point.domain_id || '',
         precision: point.precision || 'exact',
-        tagIds: JSON.stringify(point.tags?.map((t: any) => t.tag_id) || []),
+        tagIds: JSON.stringify(
+          (point.tags?.length
+            ? point.tags.map((t: any) => t.tag_id)
+            : Array.isArray(point.tag_ids)
+              ? point.tag_ids
+              : typeof point.tag_ids === 'string'
+                ? (() => { try { return JSON.parse(point.tag_ids); } catch { return []; } })()
+                : []
+          ).filter((id: unknown): id is string => typeof id === 'string' && id.length > 0),
+        ),
         images: JSON.stringify(allImages),
         eventDate: point.event_date || '',
         eventEndDate: point.event_end_date || '',

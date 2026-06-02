@@ -513,6 +513,7 @@ export default function CreateSpotYouScreen() {
         <StepContenu
           description={description} setDescription={setDescription}
           selectedTagIds={selectedTagIds} onChangeTagIds={setSelectedTagIds}
+          selectedDomainId={selectedDomainId}
           onTagsLoaded={(tags: any[]) => setAllTagsMap(prev => ({ ...prev, ...Object.fromEntries(tags.map((t: any) => [t.tag_id, t])) }))}
           onDomainChange={setSelectedDomainId}
           lang={lang}
@@ -1054,7 +1055,7 @@ function StepEssentiel({ images, title, setTitle, onPickImages, onRemoveImage, m
 }
 
 // ─── Step 2: Le contenu ─────────────────────────────────────────────────────────
-function StepContenu({ description, setDescription, selectedTagIds, onChangeTagIds, onTagsLoaded, onDomainChange, lang }: any) {
+function StepContenu({ description, setDescription, selectedTagIds, selectedDomainId, onChangeTagIds, onTagsLoaded, onDomainChange, lang }: any) {
   return (
     <View style={{ gap: Spacing.lg }}>
       {/* Description */}
@@ -1438,11 +1439,11 @@ function FullPreviewModal({ visible, onClose, title, description, images, select
             </View>
             {selectedTags.length > 0 && (
               <View style={fpSt.tagsRow}>
-                {selectedTags.map((t: any) => {
-                  const c = tagColor(t.category_id);
+                {selectedTags.map((t: any, idx: number) => {
+                  const c = tagColor(t?.category_id ?? '');
                   return (
-                    <View key={t.tag_id} style={[fpSt.tagPill, { backgroundColor: c + '22', borderColor: c }]}>
-                      <Text style={[fpSt.tagText, { color: c }]}>{lang === 'fr' ? t.label_fr : t.label_en}</Text>
+                    <View key={t?.tag_id ?? `tag-${idx}`} style={[fpSt.tagPill, { backgroundColor: c + '22', borderColor: c }]}>
+                      <Text style={[fpSt.tagText, { color: c }]}>{lang === 'fr' ? (t?.label_fr ?? '') : (t?.label_en ?? t?.label_fr ?? '')}</Text>
                     </View>
                   );
                 })}
