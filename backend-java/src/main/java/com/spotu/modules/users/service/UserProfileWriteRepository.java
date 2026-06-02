@@ -2,19 +2,24 @@ package com.spotu.modules.users.service;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 @Repository
 public class UserProfileWriteRepository {
 
     private final JdbcTemplate jdbcTemplate;
+    private final boolean postgres;
+    private static final Set<String> JSONB_FIELDS = Set.of("coach_tags", "goals", "user_roles");
 
-    public UserProfileWriteRepository(JdbcTemplate jdbcTemplate) {
+    public UserProfileWriteRepository(JdbcTemplate jdbcTemplate, @Value("${spring.datasource.url:}") String jdbcUrl) {
         this.jdbcTemplate = jdbcTemplate;
+        this.postgres = jdbcUrl != null && jdbcUrl.startsWith("jdbc:postgresql:");
     }
 
     public void updateProfileDynamic(String userId, Map<String, Object> updateFields) {
@@ -26,7 +31,11 @@ public class UserProfileWriteRepository {
                 sql.append(", ");
             }
             first = false;
-            sql.append(e.getKey()).append(" = ?");
+            if (postgres && JSONB_FIELDS.contains(e.getKey()) && e.getValue() != null) {
+                sql.append(e.getKey()).append(" = CAST(? AS jsonb)");
+            } else {
+                sql.append(e.getKey()).append(" = ?");
+            }
             params.add(e.getValue());
         }
         sql.append(", updated_at = CURRENT_TIMESTAMP WHERE user_id = ?");
