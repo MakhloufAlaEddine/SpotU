@@ -2,6 +2,7 @@ package com.spotu.modules.spotyou.infra;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.spotu.common.JsonbMedia;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -816,10 +817,11 @@ public class TagPointReadRepository {
     }
 
     public List<String> parseTagIdList(Object raw) {
-        if (raw == null) {
+        Object unwrapped = JsonbMedia.unwrapPostgresJson(raw);
+        if (unwrapped == null) {
             return List.of();
         }
-        if (raw instanceof String s) {
+        if (unwrapped instanceof String s) {
             if (s.isBlank() || "[]".equals(s.trim())) {
                 return List.of();
             }
@@ -830,6 +832,9 @@ public class TagPointReadRepository {
             } catch (Exception e) {
                 return List.of();
             }
+        }
+        if (unwrapped instanceof List<?> list) {
+            return list.stream().map(String::valueOf).toList();
         }
         return List.of();
     }

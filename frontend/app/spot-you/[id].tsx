@@ -673,13 +673,6 @@ export default function SpotYouDetail() {
       try { return Array.isArray(point.images) ? point.images : JSON.parse(point.images || '[]'); } catch { return []; }
     })();
     const allImages = parsedImages;
-    const tagIdsForEdit = (
-      Array.isArray(point.tag_ids)
-        ? point.tag_ids
-        : typeof point.tag_ids === 'string'
-          ? (() => { try { return JSON.parse(point.tag_ids); } catch { return []; } })()
-          : []
-    ).filter((tagId: unknown): tagId is string => typeof tagId === 'string' && tagId.length > 0);
     router.replace({
       pathname: '/(tabs)/create' as any,
       params: {
@@ -689,7 +682,7 @@ export default function SpotYouDetail() {
         description: point.description || '',
         domainId: point.domain_id || '',
         precision: point.precision || 'exact',
-        tagIds: JSON.stringify(tagIdsForEdit),
+        tagIds: JSON.stringify(point.tags?.map((t: any) => t.tag_id) || []),
         images: JSON.stringify(allImages),
         eventDate: point.event_date || '',
         eventEndDate: point.event_end_date || '',
