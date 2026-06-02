@@ -266,16 +266,50 @@ public class TagPointReadRepository {
         }
         Map<String, Object> current = base.get();
         List<String> tagList = parseTagIdList(current.get("tag_ids"));
+        List<Map<String, Object>> rows;
         try {
             if (!tagList.isEmpty()) {
-                return similarWithTagsPostgis(pointId, current, tagList, currentUserId);
+                rows = similarWithTagsPostgis(pointId, current, tagList, currentUserId);
+            } else {
+                rows = similarDistanceOnlyPostgis(pointId, current, currentUserId);
             }
-            return similarDistanceOnlyPostgis(pointId, current, currentUserId);
         } catch (DataAccessException e) {
             if (!tagList.isEmpty()) {
-                return similarWithTagsFallback(pointId, current, tagList, currentUserId);
+                rows = similarWithTagsFallback(pointId, current, tagList, currentUserId);
+            } else {
+                rows = similarDistanceOnlyFallback(pointId, current, currentUserId);
             }
-            return similarDistanceOnlyFallback(pointId, current, currentUserId);
+        }
+        if (!rows.isEmpty()) {
+            return rows;
+        }
+        // Filet de sécurité: si aucun match tags/distance, proposer le même domaine puis les plus récents.
+        return similarDomainOrRecent(pointId, current, currentUserId);
+    }
+
+    private List<Map<String, Object>> similarDomainOrRecent(String pointId, Map<String, Object> current, String currentUserId) {
+        String ex = (currentUserId != null && !currentUserId.isBlank()) ? " AND tp.user_id <> ?" : "";
+        String sql = "SELECT " + TP_FIELDS_POSTGIS
+                + " FROM tag_points tp LEFT JOIN users u ON tp.user_id = u.user_id "
+                + "WHERE tp.point_id <> ? AND tp.active = TRUE " + ex + " "
+                + "ORDER BY CASE WHEN ? IS NOT NULL AND tp.domain_id = ? THEN 0 ELSE 1 END, tp.created_at DESC LIMIT 10";
+        List<Object> params = new ArrayList<>();
+        params.add(pointId);
+        if (currentUserId != null && !currentUserId.isBlank()) {
+            params.add(currentUserId);
+        }
+        Object domain = current.get("domain_id");
+        String domainId = domain == null ? null : String.valueOf(domain);
+        params.add(domainId);
+        params.add(domainId);
+        try {
+            return queryForListOfMaps(sql, params);
+        } catch (DataAccessException e) {
+            String fallbackSql = "SELECT " + TP_FIELDS_FALLBACK
+                    + " FROM tag_points tp LEFT JOIN users u ON tp.user_id = u.user_id "
+                    + "WHERE tp.point_id <> ? AND tp.active = TRUE " + ex + " "
+                    + "ORDER BY CASE WHEN ? IS NOT NULL AND tp.domain_id = ? THEN 0 ELSE 1 END, tp.created_at DESC LIMIT 10";
+            return queryForListOfMaps(fallbackSql, params);
         }
     }
 

@@ -140,6 +140,13 @@ class TagPointReadIntegrationTest {
     }
 
     @Test
+    void similar_known_returnsAtLeastOneResult() throws Exception {
+        mockMvc.perform(get("/api/tag-points/tp_001/similar").accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(greaterThanOrEqualTo(1))));
+    }
+
+    @Test
     void pendingRequests_nominal() throws Exception {
         mockMvc.perform(get("/api/users/me/pending-requests")
                         .header("Authorization", "Bearer " + TestJwtTokens.validZoeToken())
