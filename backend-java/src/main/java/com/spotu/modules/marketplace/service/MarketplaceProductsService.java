@@ -258,7 +258,18 @@ public class MarketplaceProductsService {
                 return List.of();
             }
         }
-        return List.of();
+        // PostgreSQL JSON/JSONB peut arriver sous type objet JDBC (ex: PGobject).
+        // On tente une désérialisation via toString() avant d'abandonner.
+        try {
+            String asText = String.valueOf(raw);
+            if (asText.isBlank()) {
+                return List.of();
+            }
+            return objectMapper.readValue(asText, new TypeReference<List<String>>() {
+            });
+        } catch (Exception ignored) {
+            return List.of();
+        }
     }
 
     private List<Object> deserializeStringListOrObjectList(Object raw) {
