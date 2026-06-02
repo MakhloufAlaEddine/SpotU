@@ -673,16 +673,13 @@ export default function SpotYouDetail() {
       try { return Array.isArray(point.images) ? point.images : JSON.parse(point.images || '[]'); } catch { return []; }
     })();
     const allImages = parsedImages;
-    const tagsForEdit = (
-      Array.isArray(point.tags) ? point.tags : []
-    )
-      .map((t: any) => ({
-        tag_id: t?.tag_id,
-        label_fr: t?.label_fr || t?.name || '',
-        label_en: t?.label_en || t?.label_fr || t?.name || '',
-        category_id: t?.category_id || '',
-      }))
-      .filter((t: any) => typeof t.tag_id === 'string' && t.tag_id.length > 0);
+    const tagIdsForEdit = (
+      Array.isArray(point.tag_ids)
+        ? point.tag_ids
+        : typeof point.tag_ids === 'string'
+          ? (() => { try { return JSON.parse(point.tag_ids); } catch { return []; } })()
+          : []
+    ).filter((tagId: unknown): tagId is string => typeof tagId === 'string' && tagId.length > 0);
     router.replace({
       pathname: '/(tabs)/create' as any,
       params: {
@@ -692,17 +689,7 @@ export default function SpotYouDetail() {
         description: point.description || '',
         domainId: point.domain_id || '',
         precision: point.precision || 'exact',
-        tagIds: JSON.stringify(
-          (point.tags?.length
-            ? point.tags.map((t: any) => t.tag_id)
-            : Array.isArray(point.tag_ids)
-              ? point.tag_ids
-              : typeof point.tag_ids === 'string'
-                ? (() => { try { return JSON.parse(point.tag_ids); } catch { return []; } })()
-                : []
-          ).filter((id: unknown): id is string => typeof id === 'string' && id.length > 0),
-        ),
-        tags: JSON.stringify(tagsForEdit),
+        tagIds: JSON.stringify(tagIdsForEdit),
         images: JSON.stringify(allImages),
         eventDate: point.event_date || '',
         eventEndDate: point.event_end_date || '',
