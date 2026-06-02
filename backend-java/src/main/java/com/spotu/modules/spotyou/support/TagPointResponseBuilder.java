@@ -52,6 +52,8 @@ public final class TagPointResponseBuilder {
 
     public static Map<String, Object> buildPointResponse(Map<String, Object> row, boolean isOwner, ObjectMapper objectMapper) {
         Map<String, Object> d = new LinkedHashMap<>(row);
+        normalizeJsonField(d, "event_schedule", objectMapper);
+        normalizeJsonField(d, "schedule", objectMapper);
         List<String> imgs = JsonbMedia.normalizeImageUrls(objectMapper, d.get("images"), d.get("image_url"));
         d.put("images", new ArrayList<>(imgs));
         if (!imgs.isEmpty()) {
@@ -87,6 +89,29 @@ public final class TagPointResponseBuilder {
         }
         d.put("is_owner", isOwner);
         return d;
+    }
+
+    private static void normalizeJsonField(Map<String, Object> target, String key, ObjectMapper objectMapper) {
+        Object raw = target.get(key);
+        if (raw == null) {
+            return;
+        }
+        Object unwrapped = JsonbMedia.unwrapPostgresJson(raw);
+        if (unwrapped instanceof String s) {
+            if (s.isBlank()) {
+                target.put(key, null);
+                return;
+            }
+            try {
+                target.put(key, objectMapper.readValue(s, Object.class));
+                return;
+            } catch (Exception ignored) {
+                // Keep raw string if invalid JSON.
+                target.put(key, s);
+                return;
+            }
+        }
+        target.put(key, unwrapped);
     }
 
     private static Double asDouble(Object v) {

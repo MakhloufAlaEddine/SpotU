@@ -1,6 +1,7 @@
 package com.spotu.modules.users.util;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.spotu.common.JsonbMedia;
 import com.spotu.modules.users.dto.TagPointPublicDto;
 import org.springframework.stereotype.Component;
 
@@ -30,6 +31,7 @@ public class NextSessionDateCalculator {
         TagPointPublicDto dto = new TagPointPublicDto();
         // Aligné sur spot_you_routes.get_next_session_date : uniquement event_schedule, pas schedule.
         Object es = point.get("event_schedule");
+        es = JsonbMedia.unwrapPostgresJson(es);
         if (es instanceof String s && !s.isBlank()) {
             try {
                 dto.setEventSchedule(objectMapper.readValue(s, Map.class));
