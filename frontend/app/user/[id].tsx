@@ -73,15 +73,23 @@ export default function UserProfileScreen() {
   const repoTopRef = useRef(-MAX_OFFSET_PX * 0.5);
   const repoScaleRef = useRef(1.0);
 
+  const loadCompletionStats = async () => {
+    if (!me?.user_id || me.user_id !== id) return;
+    try {
+      const [bookings, stats] = await Promise.all([
+        api.get<any[]>('/bookings/me'),
+        api.get<{ is_community_member: boolean; has_participation: boolean }>('/spot-you/my-completion-stats'),
+      ]);
+      setHasBooking(Array.isArray(bookings) && bookings.length > 0);
+      setIsCommunityMember(stats.is_community_member);
+      setHasParticipation(stats.has_participation);
+    } catch { /* stats optionnelles */ }
+  };
+
   // ── Data loading ──
   useFocusEffect(
     useCallback(() => {
       if (id) { setLoading(true); load(); }
-      if (me?.user_id && me.user_id === id) {
-        api.get<any[]>('/bookings/me').then(b => setHasBooking(Array.isArray(b) && b.length > 0)).catch(() => {});
-        api.get<{ is_community_member: boolean; has_participation: boolean }>('/spot-you/my-completion-stats')
-          .then(s => { setIsCommunityMember(s.is_community_member); setHasParticipation(s.has_participation); }).catch(() => {});
-      }
     }, [id, me?.user_id])
   );
 
@@ -106,6 +114,7 @@ export default function UserProfileScreen() {
       repoTopAnim.setValue(initTop); repoScaleAnim.setValue(scale);
       repoTopRef.current = initTop; repoScaleRef.current = scale;
       if (data.show_reviews) await loadReviews();
+      await loadCompletionStats();
     } catch {} finally { setLoading(false); }
   };
 

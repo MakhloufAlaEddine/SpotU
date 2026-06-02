@@ -3,9 +3,13 @@
 # Usage : source detect-changes.sh && detect_changes && echo "$BACKEND_DETECTED"
 set -euo pipefail
 
-SHIP_DIR="$(cd "$(dirname "$0")" && pwd)"
-# shellcheck source=common.sh
-source "$SHIP_DIR/common.sh"
+# Peut être sourcé après common.sh (ex. ship-smart.sh) — ne pas réassigner SHIP_DIR (readonly).
+if [[ -z "${ROOT:-}" ]]; then
+  _detect_ship_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  # shellcheck source=common.sh
+  source "$_detect_ship_dir/common.sh"
+  unset _detect_ship_dir
+fi
 
 BACKEND_DETECTED=0
 FRONTEND_OTA_DETECTED=0

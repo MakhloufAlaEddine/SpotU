@@ -652,6 +652,32 @@ public class TagPointReadRepository {
         return v == null ? 0 : v;
     }
 
+    /**
+     * Aligné {@code GET /spot-you/my-completion-stats} (Python) — membre d'au moins une
+     * communauté SpotYou dont l'utilisateur n'est pas l'auteur (tous statuts membership).
+     */
+    public boolean isCommunityMember(String userId) {
+        Boolean v = jdbcTemplate.queryForObject("""
+                SELECT EXISTS(
+                    SELECT 1 FROM spot_you_members syp
+                    JOIN tag_points tp ON tp.point_id = syp.spot_you_id
+                    WHERE syp.user_id = ? AND tp.user_id <> ?
+                )
+                """, Boolean.class, userId, userId);
+        return Boolean.TRUE.equals(v);
+    }
+
+    /** Aligné Python — au moins une présence {@code going} sur spot_you_attendance. */
+    public boolean hasGoingParticipation(String userId) {
+        Boolean v = jdbcTemplate.queryForObject("""
+                SELECT EXISTS(
+                    SELECT 1 FROM spot_you_attendance
+                    WHERE user_id = ? AND status = 'going'
+                )
+                """, Boolean.class, userId);
+        return Boolean.TRUE.equals(v);
+    }
+
     private List<Map<String, Object>> queryForListOfMaps(String sql, List<?> params) {
         return jdbcTemplate.query(sql, rs -> {
             List<Map<String, Object>> out = new ArrayList<>();

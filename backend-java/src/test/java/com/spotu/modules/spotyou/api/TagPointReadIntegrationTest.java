@@ -175,4 +175,40 @@ class TagPointReadIntegrationTest {
                 .andExpect(jsonPath("$.is_participant", is(false)));
     }
 
+    @Test
+    void myCompletionStats_adminMemberOfOthersSpot_returnsCommunityTrue() throws Exception {
+        mockMvc.perform(get("/api/spot-you/my-completion-stats")
+                        .header("Authorization", "Bearer " + TestJwtTokens.validAdminToken())
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.is_community_member", is(true)))
+                .andExpect(jsonPath("$.has_participation", is(true)));
+    }
+
+    @Test
+    void myCompletionStats_ownerOnlyOwnSpots_returnsCommunityFalse() throws Exception {
+        mockMvc.perform(get("/api/spot-you/my-completion-stats")
+                        .header("Authorization", "Bearer " + TestJwtTokens.validCoachToken())
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.is_community_member", is(false)))
+                .andExpect(jsonPath("$.has_participation", is(true)));
+    }
+
+    @Test
+    void myCompletionStats_pendingMembership_countsAsCommunityMember() throws Exception {
+        mockMvc.perform(get("/api/spot-you/my-completion-stats")
+                        .header("Authorization", "Bearer " + TestJwtTokens.validZoeToken())
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.is_community_member", is(true)))
+                .andExpect(jsonPath("$.has_participation", is(false)));
+    }
+
+    @Test
+    void myCompletionStats_withoutAuth_returns401() throws Exception {
+        mockMvc.perform(get("/api/spot-you/my-completion-stats").accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isUnauthorized());
+    }
+
 }

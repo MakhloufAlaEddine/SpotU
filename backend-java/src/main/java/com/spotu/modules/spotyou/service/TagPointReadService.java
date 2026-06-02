@@ -453,4 +453,14 @@ public class TagPointReadService {
         }
         return Stream.of(csv.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList();
     }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> myCompletionStats(HttpServletRequest request) {
+        CurrentUserDto user = authMeService.requireCurrentUser(request);
+        String userId = user.userId();
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("is_community_member", repository.isCommunityMember(userId));
+        body.put("has_participation", repository.hasGoingParticipation(userId));
+        return body;
+    }
 }
