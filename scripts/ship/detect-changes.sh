@@ -69,7 +69,8 @@ detect_changes() {
   collect_changed_files
 
   local f
-  for f in "${CHANGED_FILES[@]}"; do
+  # Bash 3.2 + set -u : "${arr[@]}" sur tableau vide → « unbound variable »
+  for f in ${CHANGED_FILES+"${CHANGED_FILES[@]}"}; do
     [[ -z "$f" ]] && continue
     if is_backend_path "$f"; then
       BACKEND_DETECTED=1
@@ -93,7 +94,7 @@ print_detection_report() {
   if [[ ${#CHANGED_FILES[@]} -gt 0 ]]; then
     echo "  Fichiers (${#CHANGED_FILES[@]}) :"
     local f
-    for f in "${CHANGED_FILES[@]}"; do
+    for f in ${CHANGED_FILES+"${CHANGED_FILES[@]}"}; do
       [[ -n "$f" ]] && echo "    - $f"
     done
   else
