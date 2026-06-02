@@ -47,6 +47,13 @@ public class NotificationsService {
                         data.put("sender_picture", picture)
                 );
             }
+            String imageUrl = asString(data.get("image_url"));
+            String productId = asString(data.get("product_id"));
+            if ((imageUrl == null || imageUrl.isBlank()) && productId != null && !productId.isBlank()) {
+                repository.findMarketplaceImageByProductId(productId).ifPresent(img ->
+                        data.put("image_url", img)
+                );
+            }
             out.add(new NotificationInboxItemDto(
                     asString(row.get("notif_id")),
                     asString(row.get("type")),

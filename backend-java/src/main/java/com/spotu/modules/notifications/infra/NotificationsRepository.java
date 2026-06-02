@@ -63,4 +63,22 @@ public class NotificationsRepository {
         }
         return Optional.ofNullable(rows.get(0));
     }
+
+    public Optional<String> findMarketplaceImageByProductId(String productId) {
+        List<String> rows = jdbcTemplate.query(
+                """
+                SELECT COALESCE(cover_image_url, image_url) AS img
+                FROM marketplace_products
+                WHERE product_id = ?
+                LIMIT 1
+                """,
+                (rs, rowNum) -> rs.getString("img"),
+                productId
+        );
+        if (rows.isEmpty()) {
+            return Optional.empty();
+        }
+        String image = rows.get(0);
+        return (image == null || image.isBlank()) ? Optional.empty() : Optional.of(image);
+    }
 }
