@@ -206,15 +206,19 @@ export default function CreateSpotYouScreen() {
     // Set tags directement en mode édition
     if (params.tagIds) {
       const rawTagIds = Array.isArray(params.tagIds) ? params.tagIds.join(',') : params.tagIds;
+      const normalizedRaw = (() => {
+        try { return decodeURIComponent(rawTagIds); } catch { return rawTagIds; }
+      })();
       try {
-        const parsed = JSON.parse(rawTagIds);
+        const parsed = JSON.parse(normalizedRaw);
         if (Array.isArray(parsed)) {
           setSelectedTagIds(parsed.filter((t: unknown): t is string => typeof t === 'string' && t.length > 0));
         } else if (typeof parsed === 'string' && parsed.trim()) {
           setSelectedTagIds(parsed.split(',').map(s => s.trim()).filter(Boolean));
         }
       } catch {
-        setSelectedTagIds(rawTagIds.split(',').map(s => s.trim()).filter(Boolean));
+        const cleaned = normalizedRaw.replace(/^\[|\]$/g, '').replace(/"/g, '');
+        setSelectedTagIds(cleaned.split(',').map(s => s.trim()).filter(Boolean));
       }
     }
     // Restore location (after domainId to avoid GPS override)
@@ -538,6 +542,7 @@ export default function CreateSpotYouScreen() {
           description={description} setDescription={setDescription}
           selectedTagIds={selectedTagIds} onChangeTagIds={setSelectedTagIds}
           selectedDomainId={selectedDomainId}
+          allTagsMap={allTagsMap}
           onTagsLoaded={(tags: any[]) => setAllTagsMap(prev => ({ ...prev, ...Object.fromEntries(tags.map((t: any) => [t.tag_id, t])) }))}
           onDomainChange={setSelectedDomainId}
           lang={lang}
@@ -1079,7 +1084,7 @@ function StepEssentiel({ images, title, setTitle, onPickImages, onRemoveImage, m
 }
 
 // ─── Step 2: Le contenu ─────────────────────────────────────────────────────────
-function StepContenu({ description, setDescription, selectedTagIds, selectedDomainId, onChangeTagIds, onTagsLoaded, onDomainChange, lang }: any) {
+function StepContenu({ description, setDescription, selectedTagIds, selectedDomainId, allTagsMap, onChangeTagIds, onTagsLoaded, onDomainChange, lang }: any) {
   return (
     <View style={{ gap: Spacing.lg }}>
       {/* Description */}
@@ -1107,6 +1112,7 @@ function StepContenu({ description, setDescription, selectedTagIds, selectedDoma
         initialDomainId={selectedDomainId}
         selectedTagIds={selectedTagIds}
         onChangeTagIds={onChangeTagIds}
+        resolvedTagsMap={allTagsMap}
         onTagsLoaded={onTagsLoaded}
         onDomainChange={onDomainChange}
         accentColor={Colors.primary}

@@ -75,6 +75,8 @@ interface TagPickerFieldProps {
   onDomainChange?:  (domainId: string) => void;
   /** Domaine initial (utile en mode édition). */
   initialDomainId?: string | null;
+  /** Map de labels résolus par le parent (source référentiel). */
+  resolvedTagsMap?: Record<string, { label_fr: string; label_en?: string; category_id?: string }>;
 }
 
 export function TagPickerField({
@@ -83,6 +85,7 @@ export function TagPickerField({
   maxSelect, accentColor = '#3B82F6',
   label, hint, required, onTagsLoaded, onDomainChange,
   initialDomainId = null,
+  resolvedTagsMap,
 }: TagPickerFieldProps) {
   const [allCategories, setAllCategories] = useState<CategoryItem[]>([]);
   const [domains,       setDomains]       = useState<DomainItem[]>([]);
@@ -214,7 +217,22 @@ export function TagPickerField({
       return true;
     });
   }, [allCategories]);
-  const selTagObjs = allTags.filter(t => selectedTagIds.includes(t.tag_id));
+  const selTagObjs = useMemo(() => {
+    const tagsById = new Map<string, TagItem & { category_id?: string }>();
+    allTags.forEach(t => tagsById.set(t.tag_id, t));
+    selectedTagIds.forEach(id => {
+      if (!tagsById.has(id) && resolvedTagsMap?.[id]) {
+        const rt = resolvedTagsMap[id];
+        tagsById.set(id, {
+          tag_id: id,
+          label_fr: rt.label_fr || id,
+          label_en: rt.label_en,
+          category_id: rt.category_id,
+        });
+      }
+    });
+    return selectedTagIds.map(id => tagsById.get(id)).filter(Boolean) as (TagItem & { category_id?: string })[];
+  }, [allTags, selectedTagIds, resolvedTagsMap]);
   const count      = selectedTagIds.length;
 
   /* ── Couleur domaine ─────────────────────────────────────────────────── */
