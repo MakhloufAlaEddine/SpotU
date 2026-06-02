@@ -1356,11 +1356,17 @@ export default function SpotYouDetail() {
                     <View style={{ flex: 1 }}>
                       {isPast ? (
                         <>
-                          <Text style={st.pastMainText}>Événement passé (passé)</Text>
-                          <Text style={st.pastEndedText}>
-                            Événement terminé {formatEventDateFull(point.event_date)}
+                          <View style={st.pastHeaderRow}>
+                            <Text style={st.pastMainText}>Événement passé</Text>
+                            <View style={st.pastBadge}>
+                              <Text style={st.pastBadgeText}>Passé</Text>
+                            </View>
+                          </View>
+                          <Text style={st.pastEndedText}>Événement terminé</Text>
+                          <Text style={st.pastEndedDate}>
+                            {formatEventDateFull(point.event_date)}
                             {formatTimeOnly(point.event_date) ? ` ${formatTimeOnly(point.event_date)}` : ''}
-                            {formatTimeOnly(point.event_end_date) ? ` -> ${formatTimeOnly(point.event_end_date)}` : ''}
+                            {formatTimeOnly(point.event_end_date) ? ` → ${formatTimeOnly(point.event_end_date)}` : ''}
                           </Text>
                         </>
                       ) : (
@@ -2198,8 +2204,10 @@ const st = StyleSheet.create({
   dateLabel: { fontSize: 11, color: Colors.muted, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
   dateValue: { fontSize: 15, fontWeight: '700', color: Colors.primary },
   dateSub: { fontSize: 12, color: Colors.muted, marginTop: 2, textTransform: 'capitalize' },
-  pastMainText: { fontSize: 15, fontWeight: '800', color: Colors.foreground, marginBottom: 2 },
-  pastEndedText: { fontSize: 12, color: Colors.muted, fontWeight: '700', textTransform: 'capitalize' },
+  pastHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
+  pastMainText: { fontSize: 15, fontWeight: '800', color: Colors.foreground },
+  pastEndedText: { fontSize: 12, color: Colors.muted, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4, marginTop: 1 },
+  pastEndedDate: { fontSize: 13, color: Colors.foreground, fontWeight: '600', marginTop: 2, textTransform: 'capitalize', lineHeight: 18 },
   dateSep: { height: 1, backgroundColor: Colors.border, marginHorizontal: Spacing.md },
   // Per-day recurring schedule table
   scheduleTable: { marginHorizontal: Spacing.md, marginTop: 8, marginBottom: 4, backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
