@@ -182,15 +182,16 @@ export default function CreateSpotYouScreen() {
     if (params.images) { try { setImages(JSON.parse(params.images)); } catch {} }
     // Set tags directement en mode édition
     if (params.tagIds) {
+      const rawTagIds = Array.isArray(params.tagIds) ? params.tagIds.join(',') : params.tagIds;
       try {
-        const parsed = JSON.parse(params.tagIds);
+        const parsed = JSON.parse(rawTagIds);
         if (Array.isArray(parsed)) {
           setSelectedTagIds(parsed.filter((t: unknown): t is string => typeof t === 'string' && t.length > 0));
         } else if (typeof parsed === 'string' && parsed.trim()) {
           setSelectedTagIds(parsed.split(',').map(s => s.trim()).filter(Boolean));
         }
       } catch {
-        setSelectedTagIds(params.tagIds.split(',').map(s => s.trim()).filter(Boolean));
+        setSelectedTagIds(rawTagIds.split(',').map(s => s.trim()).filter(Boolean));
       }
     }
     // Restore location (after domainId to avoid GPS override)

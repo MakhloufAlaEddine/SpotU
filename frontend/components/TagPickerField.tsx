@@ -111,6 +111,16 @@ export function TagPickerField({
       .catch(() => {});
   }, [showDomains, initialDomainId]);
 
+  // Garde le domaine interne synchronisé avec le domaine fourni par le parent
+  // (important en mode édition quand initialDomainId arrive après le 1er render).
+  useEffect(() => {
+    if (!showDomains || !initialDomainId || domains.length === 0) return;
+    if (!domains.some(d => d.domain_id === initialDomainId)) return;
+    if (domainId === initialDomainId) return;
+    setDomainId(initialDomainId);
+    onDomainChange?.(initialDomainId);
+  }, [showDomains, initialDomainId, domains, domainId, onDomainChange]);
+
   /* ── Filtrage dans le modal ──────────────────────────────────────────── */
   const filteredCategories = useMemo(() => {
     // Déduplique les catégories par category_id (évite les doublons quand entityType='')
