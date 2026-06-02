@@ -179,6 +179,13 @@ function formatEventDateFull(d: string): string {
   return new Date(d).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 
+function formatTimeOnly(d?: string | null): string | null {
+  if (!d) return null;
+  const dt = new Date(d);
+  if (Number.isNaN(dt.getTime())) return null;
+  return dt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+}
+
 const CATEGORY_COLORS: Record<string, string> = {
   cat_running: '#00BFA5', cat_football: '#4CAF50', cat_basketball: '#FF9800',
   cat_tennis: '#E91E63', cat_yoga: '#9C27B0', cat_cycling: '#2196F3',
@@ -1344,37 +1351,34 @@ export default function SpotYouDetail() {
                 <View>
                   <View style={st.dateRow}>
                     <View style={[st.dateIconBox, isPast && st.dateIconBoxPast]}>
-                      <Ionicons name={isPast ? 'calendar-outline' : 'calendar'} size={20} color={isPast ? Colors.muted : Colors.primary} />
+                      <Ionicons name={isPast ? 'time-outline' : 'calendar'} size={20} color={isPast ? Colors.muted : Colors.primary} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Text style={[st.dateLabel, isPast && { color: Colors.muted }]}>
-                          {isPast ? 'Événement passé' : 'Prochain événement'}
-                        </Text>
-                        {isPast && (
-                          <View style={st.pastBadge}>
-                            <Text style={st.pastBadgeText}>Passé</Text>
-                          </View>
-                        )}
-                      </View>
-                      <Text style={[st.dateValue, isPast && { color: Colors.muted }]}>
-                        {formatEventDate(point.event_date)}
-                        {point.event_end_date && (
-                          ` → ${new Date(point.event_end_date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
-                        )}
-                      </Text>
-                      <Text style={st.dateSub}>{formatEventDateFull(point.event_date)}</Text>
+                      {isPast ? (
+                        <>
+                          <Text style={st.pastMainText}>Événement passé (passé)</Text>
+                          <Text style={st.pastEndedText}>
+                            Événement terminé {formatEventDateFull(point.event_date)}
+                            {formatTimeOnly(point.event_date) ? ` ${formatTimeOnly(point.event_date)}` : ''}
+                            {formatTimeOnly(point.event_end_date) ? ` -> ${formatTimeOnly(point.event_end_date)}` : ''}
+                          </Text>
+                        </>
+                      ) : (
+                        <>
+                          <Text style={st.dateLabel}>Prochain événement</Text>
+                          <Text style={st.dateValue}>
+                            {formatEventDate(point.event_date)}
+                            {point.event_end_date && (
+                              ` → ${new Date(point.event_end_date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+                            )}
+                          </Text>
+                          <Text style={st.dateSub}>{formatEventDateFull(point.event_date)}</Text>
+                        </>
+                      )}
                     </View>
                   </View>
                   {/* Barre d'action Je participe pour date unique */}
-                  {isPast ? (
-                    <View style={[st.eventActionBar, { justifyContent: 'flex-start', gap: 6 }]}>
-                      <Ionicons name="time-outline" size={13} color={Colors.muted} />
-                      <Text style={{ fontSize: 12, color: Colors.muted, fontStyle: 'italic' }}>
-                        Événement terminé · {formatEventDateFull(point.event_date)}
-                      </Text>
-                    </View>
-                  ) : (
+                  {!isPast ? (
                     canParticipate ? (
                       <View style={st.eventActionBar}>
                         <TouchableOpacity
@@ -1420,7 +1424,7 @@ export default function SpotYouDetail() {
                         </TouchableOpacity>
                       </View>
                     ) : null
-                  )}
+                  ) : null}
                 </View>
               )}
               {showRecurring && (() => {
@@ -2194,6 +2198,8 @@ const st = StyleSheet.create({
   dateLabel: { fontSize: 11, color: Colors.muted, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
   dateValue: { fontSize: 15, fontWeight: '700', color: Colors.primary },
   dateSub: { fontSize: 12, color: Colors.muted, marginTop: 2, textTransform: 'capitalize' },
+  pastMainText: { fontSize: 15, fontWeight: '800', color: Colors.foreground, marginBottom: 2 },
+  pastEndedText: { fontSize: 12, color: Colors.muted, fontWeight: '700', textTransform: 'capitalize' },
   dateSep: { height: 1, backgroundColor: Colors.border, marginHorizontal: Spacing.md },
   // Per-day recurring schedule table
   scheduleTable: { marginHorizontal: Spacing.md, marginTop: 8, marginBottom: 4, backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
