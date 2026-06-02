@@ -41,11 +41,10 @@ public class NotificationsService {
         List<NotificationInboxItemDto> out = new ArrayList<>(rows.size());
         for (Map<String, Object> row : rows) {
             Map<String, Object> data = parseData(row.get("data"));
-            String senderId = asString(data.get("sender_id"));
-            if (senderId != null && !senderId.isBlank()) {
-                repository.findCurrentPictureByUserId(senderId).ifPresent(picture ->
-                        data.put("sender_picture", picture)
-                );
+            // Parité Python: toujours injecter la photo profil actuelle du sender quand disponible.
+            String senderCurrentPicture = asString(row.get("sender_current_picture"));
+            if (senderCurrentPicture != null && !senderCurrentPicture.isBlank()) {
+                data.put("sender_picture", senderCurrentPicture);
             }
             String imageUrl = asString(data.get("image_url"));
             String productId = asString(data.get("product_id"));
@@ -120,6 +119,18 @@ public class NotificationsService {
             Map<String, Object> converted = objectMapper.convertValue(raw, MAP_TYPE);
             return converted == null ? new LinkedHashMap<>() : new LinkedHashMap<>(converted);
         } catch (Exception ignored) {
+            // Fallback robuste (PGobject/toString JSON): aligné comportement Python json.loads(raw)
+            try {
+                String s = String.valueOf(raw);
+                if (!s.isBlank()) {
+                    Object parsed = objectMapper.readValue(s, Object.class);
+                    if (parsed instanceof Map<?, ?> m) {
+                        return new LinkedHashMap<>(objectMapper.convertValue(m, MAP_TYPE));
+                    }
+                }
+            } catch (Exception ignored2) {
+                // ignore
+            }
             return new LinkedHashMap<>();
         }
     }

@@ -19,8 +19,10 @@ public class NotificationsRepository {
     public List<Map<String, Object>> listByUserId(String userId, int limit) {
         return jdbcTemplate.queryForList(
                 """
-                SELECT n.notif_id, n.type, n.title, n.body, n.data, n.read, n.created_at
+                SELECT n.notif_id, n.type, n.title, n.body, n.data, n.read, n.created_at,
+                       u.picture AS sender_current_picture
                 FROM notifications n
+                LEFT JOIN users u ON u.user_id = (n.data::jsonb ->> 'sender_id')
                 WHERE n.user_id = ?
                 ORDER BY n.created_at DESC
                 LIMIT ?
