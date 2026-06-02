@@ -397,6 +397,23 @@ public class TagPointReadService {
     }
 
     @Transactional(readOnly = true)
+    public Map<String, Object> myVote(HttpServletRequest request, String pointId) {
+        CurrentUserDto user = authMeService.requireCurrentUser(request);
+        Optional<Map<String, Object>> row = repository.findMyVote(pointId, user.userId());
+        if (row.isEmpty()) {
+            return Map.of("exists", false, "rating", 0, "comment", null);
+        }
+        Map<String, Object> out = new LinkedHashMap<>(row.get());
+        out.put("exists", true);
+        return out;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> votes(String pointId) {
+        return repository.listVotes(pointId);
+    }
+
+    @Transactional(readOnly = true)
     public List<Map<String, Object>> pendingRequests(HttpServletRequest request) {
         CurrentUserDto user = authMeService.requireCurrentUser(request);
         List<Map<String, Object>> rows = repository.findPendingRequests(user.userId());

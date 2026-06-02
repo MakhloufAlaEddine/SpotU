@@ -50,4 +50,13 @@ public class TagPointWriteController {
     public Map<String, Object> toggleNewDateComing(HttpServletRequest request, @PathVariable String pointId) {
         return tagPointWriteService.toggleNewDateComing(request, pointId);
     }
+
+    @PostMapping("/{pointId}/vote")
+    public Map<String, Object> vote(
+            HttpServletRequest request,
+            @PathVariable String pointId,
+            @RequestBody(required = false) Map<String, Object> body
+    ) {
+        return tagPointWriteService.vote(request, pointId, body);
+    }
 }

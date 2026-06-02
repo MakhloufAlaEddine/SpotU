@@ -265,6 +265,69 @@ public class TagPointWriteRepository {
         );
     }
 
+    public Optional<Map<String, Object>> findTagPointForVote(String pointId) {
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT point_id, user_id, title, images, active FROM tag_points WHERE point_id = ?",
+                pointId
+        );
+        return rows.isEmpty() ? Optional.empty() : Optional.of(rows.get(0));
+    }
+
+    public void upsertVote(String voteId, String pointId, String userId, int rating, String comment) {
+        if (usePostgisLocationColumn()) {
+            int updated = jdbcTemplate.update(
+                    """
+                            UPDATE tag_point_votes
+                            SET rating = ?, comment = ?, updated_at = CURRENT_TIMESTAMP
+                            WHERE point_id = ? AND user_id = ?
+                            """,
+                    rating, comment, pointId, userId
+            );
+            if (updated > 0) {
+                return;
+            }
+            try {
+                jdbcTemplate.update(
+                        """
+                                INSERT INTO tag_point_votes (vote_id, point_id, user_id, rating, comment, created_at, updated_at)
+                                VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                                """,
+                        voteId, pointId, userId, rating, comment
+                );
+                return;
+            } catch (DataAccessException ignored) {
+                // Compat schéma éventuel avec colonne id au lieu de vote_id.
+            }
+            jdbcTemplate.update(
+                    """
+                            INSERT INTO tag_point_votes (id, point_id, user_id, rating, comment, created_at, updated_at)
+                            VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                            """,
+                    voteId, pointId, userId, rating, comment
+            );
+            return;
+        }
+
+        // Fallback H2/tests : schéma minimal sans user/comment.
+        try {
+            jdbcTemplate.update(
+                    "INSERT INTO tag_point_votes (id, point_id, rating) VALUES (?, ?, ?)",
+                    voteId, pointId, rating
+            );
+        } catch (DataAccessException ignored) {
+            jdbcTemplate.update(
+                    """
+                            UPDATE tag_point_votes
+                            SET rating = ?
+                            WHERE point_id = ? AND id = (
+                                SELECT id FROM tag_point_votes WHERE point_id = ? LIMIT 1
+                            )
+                            """,
+                    rating, pointId, pointId
+            );
+        }
+    }
+
     public Integer fetchMinParticipants(String pointId) {
         Integer v = jdbcTemplate.queryForObject(
                 "SELECT minimum_participants FROM tag_points WHERE point_id = ?",

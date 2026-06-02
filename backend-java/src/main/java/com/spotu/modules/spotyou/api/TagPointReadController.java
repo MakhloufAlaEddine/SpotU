@@ -41,6 +41,16 @@ public class TagPointReadController {
         return tagPointReadService.participants(pointId);
     }
 
+    @GetMapping("/{pointId}/my-vote")
+    public Map<String, Object> myVote(HttpServletRequest request, @PathVariable String pointId) {
+        return tagPointReadService.myVote(request, pointId);
+    }
+
+    @GetMapping("/{pointId}/votes")
+    public List<Map<String, Object>> votes(@PathVariable String pointId) {
+        return tagPointReadService.votes(pointId);
+    }
+
     @GetMapping("/{pointId}")
     public Map<String, Object> detail(HttpServletRequest request, @PathVariable String pointId) {
         return tagPointReadService.detail(request, pointId);

@@ -315,6 +315,35 @@ public class TagPointWriteService {
         return Map.of("new_date_coming", newVal);
     }
 
+    @Transactional
+    public Map<String, Object> vote(HttpServletRequest request, String pointId, Map<String, Object> body) {
+        CurrentUserDto user = authMeService.requireCurrentUser(request);
+        Map<String, Object> tp = writeRepository.findTagPointForVote(pointId)
+                .orElseThrow(() -> new ApiNotFoundException("SpotYou non disponible"));
+        if (!isTruthy(tp.get("active"))) {
+            throw new ApiNotFoundException("SpotYou non disponible");
+        }
+
+        Integer ratingVal = asInt(body == null ? null : body.get("rating"));
+        int rating = ratingVal == null ? 0 : ratingVal;
+        if (rating < 1 || rating > 5) {
+            throw new ApiBadRequestException("Rating must be between 1 and 5");
+        }
+
+        String comment = body == null ? null : asNullableString(body.get("comment"));
+        String voteId = EmergentIds.newId("vote");
+        writeRepository.upsertVote(voteId, pointId, user.userId(), rating, comment);
+
+        Map<String, Object> stats = readRepository.fetchVoteStats(pointId);
+        double avg = stats.get("avg_rating") instanceof Number n ? n.doubleValue() : 0.0;
+        int count = stats.get("vote_count") instanceof Number n ? n.intValue() : 0;
+        return Map.of(
+                "success", true,
+                "avg_rating", avg,
+                "vote_count", count
+        );
+    }
+
     private String toJson(Object v) {
         try {
             return objectMapper.writeValueAsString(v);
@@ -342,6 +371,27 @@ public class TagPointWriteService {
             return n.intValue();
         }
         return Integer.parseInt(String.valueOf(o));
+    }
+
+    private static String asNullableString(Object o) {
+        if (o == null) {
+            return null;
+        }
+        String s = String.valueOf(o).trim();
+        return s.isEmpty() ? null : s;
+    }
+
+    private static boolean isTruthy(Object o) {
+        if (o == null) {
+            return false;
+        }
+        if (o instanceof Boolean b) {
+            return b;
+        }
+        if (o instanceof Number n) {
+            return n.intValue() != 0;
+        }
+        return "true".equalsIgnoreCase(String.valueOf(o));
     }
 
     private static Double popDouble(Map<String, Object> raw, String k) {
