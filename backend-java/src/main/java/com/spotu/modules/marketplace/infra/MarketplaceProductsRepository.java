@@ -89,9 +89,11 @@ public class MarketplaceProductsRepository {
             String ph = String.join(",", tags.stream().map(t -> "?").toList());
             sql.append(" AND (");
             // Robuste selon le type SQL réel de p.tag_ids (text[] / jsonb / texte JSON).
-            sql.append("jsonb_exists_any(COALESCE(to_jsonb(p.tag_ids), '[]'::jsonb), ARRAY[")
+            // On évite jsonb_exists_any sur scalaire JSON (sinon erreur SQL).
+            sql.append("CASE WHEN jsonb_typeof(COALESCE(to_jsonb(p.tag_ids), '[]'::jsonb)) = 'array' ")
+                    .append("THEN jsonb_exists_any(COALESCE(to_jsonb(p.tag_ids), '[]'::jsonb), ARRAY[")
                     .append(ph)
-                    .append("]::text[])");
+                    .append("]::text[]) ELSE FALSE END");
             sql.append(" OR (");
             StringJoiner sj = new StringJoiner(" OR ");
             for (int i = 0; i < tags.size(); i++) {
@@ -134,8 +136,22 @@ public class MarketplaceProductsRepository {
                 """);
         if (isPostgres()) {
             String ph = String.join(",", tags.stream().map(t -> "?").toList());
-            sql.append(" AND jsonb_exists_any(COALESCE(s.tag_ids::jsonb, '[]'::jsonb), ARRAY[").append(ph).append("]::text[]) ");
+            sql.append(" AND (");
+            sql.append("CASE WHEN jsonb_typeof(COALESCE(to_jsonb(s.tag_ids), '[]'::jsonb)) = 'array' ")
+                    .append("THEN jsonb_exists_any(COALESCE(to_jsonb(s.tag_ids), '[]'::jsonb), ARRAY[")
+                    .append(ph)
+                    .append("]::text[]) ELSE FALSE END");
+            sql.append(" OR (");
+            StringJoiner sj = new StringJoiner(" OR ");
+            for (int i = 0; i < tags.size(); i++) {
+                sj.add("s.tag_ids::text LIKE ?");
+            }
+            sql.append(sj).append(")");
+            sql.append(") ");
             params.addAll(tags);
+            for (String tag : tags) {
+                params.add("%\"" + tag + "\"%");
+            }
         } else {
             sql.append(" AND (");
             StringJoiner sj = new StringJoiner(" OR ");

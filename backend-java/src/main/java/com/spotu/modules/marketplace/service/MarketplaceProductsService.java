@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.sql.Array;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -80,6 +81,9 @@ public class MarketplaceProductsService {
         List<Map<String, Object>> enrichedProducts = new ArrayList<>();
         for (Map<String, Object> row : products) {
             Map<String, Object> p = new LinkedHashMap<>(row);
+            normalizeSqlArrayField(p, "related_spotyou_ids");
+            normalizeSqlArrayField(p, "pricing_modes");
+            normalizeSqlArrayField(p, "delivery_modes");
             List<String> imgUrls = JsonbMedia.normalizeImageUrls(objectMapper, row.get("image_urls"), row.get("cover_image_url"));
             p.put("image_urls", imgUrls);
             if (!imgUrls.isEmpty()) {
@@ -316,5 +320,28 @@ public class MarketplaceProductsService {
         } catch (Exception ignored) {
             return null;
         }
+    }
+
+    private void normalizeSqlArrayField(Map<String, Object> target, String key) {
+        Object raw = target.get(key);
+        if (!(raw instanceof Array sqlArray)) {
+            return;
+        }
+        try {
+            Object arr = sqlArray.getArray();
+            if (arr instanceof Object[] values) {
+                List<String> out = new ArrayList<>(values.length);
+                for (Object v : values) {
+                    if (v != null) {
+                        out.add(String.valueOf(v));
+                    }
+                }
+                target.put(key, out);
+                return;
+            }
+        } catch (Exception ignored) {
+            // fallback below
+        }
+        target.put(key, deserializeStringList(String.valueOf(raw)));
     }
 }
