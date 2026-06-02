@@ -111,7 +111,7 @@ export default function CreateSpotYouScreen() {
   const { triggerProfileRefresh } = useRefresh();
   const params = useLocalSearchParams<{
     editMode?: string; pointId?: string; title?: string; description?: string;
-    domainId?: string; precision?: string; tagIds?: string; images?: string;
+    domainId?: string; precision?: string; tagIds?: string; tags?: string; images?: string;
     eventDate?: string; eventEndDate?: string; eventSchedule?: string; lat?: string; lng?: string;
     minParticipants?: string; maxParticipants?: string; address?: string;
     visibilityType?: string; joinMode?: string; invitePermissions?: string;
@@ -180,6 +180,30 @@ export default function CreateSpotYouScreen() {
     if (params.description) setDescription(params.description);
     if (params.precision) setPrecision(params.precision as any);
     if (params.images) { try { setImages(JSON.parse(params.images)); } catch {} }
+    // Hydrate directement les labels de tags passés depuis le détail SpotYou (mode édition).
+    if (params.tags) {
+      const rawTags = Array.isArray(params.tags) ? params.tags.join(',') : params.tags;
+      try {
+        const parsedTags = JSON.parse(rawTags);
+        if (Array.isArray(parsedTags)) {
+          const seed = Object.fromEntries(
+            parsedTags
+              .filter((t: any) => t && typeof t.tag_id === 'string' && t.tag_id.length > 0)
+              .map((t: any) => [
+                t.tag_id,
+                {
+                  label_fr: typeof t.label_fr === 'string' ? t.label_fr : '',
+                  label_en: typeof t.label_en === 'string' ? t.label_en : undefined,
+                  category_id: typeof t.category_id === 'string' ? t.category_id : '',
+                },
+              ]),
+          );
+          if (Object.keys(seed).length > 0) {
+            setAllTagsMap(prev => ({ ...seed, ...prev }));
+          }
+        }
+      } catch {}
+    }
     // Set tags directement en mode édition
     if (params.tagIds) {
       const rawTagIds = Array.isArray(params.tagIds) ? params.tagIds.join(',') : params.tagIds;
