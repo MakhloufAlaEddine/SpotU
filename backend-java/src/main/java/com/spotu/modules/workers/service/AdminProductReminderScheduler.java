@@ -22,8 +22,8 @@ public class AdminProductReminderScheduler {
     }
 
     @Scheduled(
-            fixedDelayString = "${admin.product.reminder.interval.secs:600}000",
-            initialDelayString = "${admin.product.reminder.interval.secs:600}000"
+            fixedDelayString = "${admin.product.reminder.interval.secs:7200}000",
+            initialDelayString = "${admin.product.reminder.interval.secs:7200}000"
     )
     public void periodicTick() {
         if (!enabled) {

@@ -1,7 +1,7 @@
 """
 admin_product_reminder_worker.py — Rappel 2h aux admins pour produits non traités.
 
-Toutes les 10 minutes, vérifie s'il existe des produits en `pending_review`
+Toutes les 2 heures, vérifie s'il existe des produits en `pending_review`
 depuis plus de 2 heures sans rappel envoyé (ou dont le dernier rappel
 remonte à plus de 2h) et envoie une notification push à tous les admins.
 """
@@ -11,7 +11,7 @@ from datetime import timezone, datetime
 
 log = logging.getLogger("admin_product_reminder")
 
-REMINDER_INTERVAL_SECS = 600   # vérification toutes les 10 minutes
+REMINDER_INTERVAL_SECS = 7200  # vérification toutes les 2 heures
 REMINDER_DELAY_HOURS   = 2     # délai avant premier rappel
 
 
