@@ -87,8 +87,22 @@ public class MarketplaceProductsRepository {
                 """);
         if (isPostgres()) {
             String ph = String.join(",", tags.stream().map(t -> "?").toList());
-            sql.append(" AND p.tag_ids && ARRAY[").append(ph).append("]::text[] ");
+            sql.append(" AND (");
+            // Robuste selon le type SQL réel de p.tag_ids (text[] / jsonb / texte JSON).
+            sql.append("jsonb_exists_any(COALESCE(to_jsonb(p.tag_ids), '[]'::jsonb), ARRAY[")
+                    .append(ph)
+                    .append("]::text[])");
+            sql.append(" OR (");
+            StringJoiner sj = new StringJoiner(" OR ");
+            for (int i = 0; i < tags.size(); i++) {
+                sj.add("p.tag_ids::text LIKE ?");
+            }
+            sql.append(sj).append(")");
+            sql.append(") ");
             params.addAll(tags);
+            for (String tag : tags) {
+                params.add("%\"" + tag + "\"%");
+            }
         } else {
             sql.append(" AND (");
             StringJoiner sj = new StringJoiner(" OR ");
