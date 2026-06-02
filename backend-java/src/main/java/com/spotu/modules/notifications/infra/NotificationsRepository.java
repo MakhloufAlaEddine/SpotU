@@ -67,7 +67,14 @@ public class NotificationsRepository {
     public Optional<String> findMarketplaceImageByProductId(String productId) {
         List<String> rows = jdbcTemplate.query(
                 """
-                SELECT COALESCE(cover_image_url, image_url) AS img
+                SELECT COALESCE(
+                           cover_image_url,
+                           image_url,
+                           CASE
+                               WHEN image_urls IS NULL THEN NULL
+                               ELSE (image_urls::jsonb ->> 0)
+                           END
+                       ) AS img
                 FROM marketplace_products
                 WHERE product_id = ?
                 LIMIT 1
