@@ -1362,7 +1362,6 @@ export default function SpotYouDetail() {
                               <Text style={st.pastBadgeText}>Passé</Text>
                             </View>
                           </View>
-                          <Text style={st.pastEndedText}>Événement terminé</Text>
                           <Text style={st.pastEndedDate}>
                             {formatEventDateFull(point.event_date)}
                             {formatTimeOnly(point.event_date) ? ` ${formatTimeOnly(point.event_date)}` : ''}
