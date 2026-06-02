@@ -1553,47 +1553,119 @@ export default function SpotYouDetail() {
         {!isOwner && (
         <View style={st.chatRow}>
           <TouchableOpacity
-            style={[st.chatBtn, { flex: 1 }]}
+            style={[st.chatCard, !isMember && { flex: 1 }]}
             onPress={openPrivateChat}
             disabled={chatLoading}
+            activeOpacity={0.75}
             testID="message-button"
           >
-            {chatLoading
-              ? <ActivityIndicator size="small" color={Colors.foreground} />
-              : <Ionicons name="chatbubble-ellipses-outline" size={18} color={Colors.foreground} />
-            }
-            <Text style={st.chatBtnText}>Message</Text>
+            <View style={st.chatCardInner}>
+              <View style={st.chatCardIconOuter}>
+                <View style={st.chatCardIconWrap}>
+                  {chatLoading
+                    ? <ActivityIndicator size="small" color={Colors.background} />
+                    : point.owner?.picture
+                      ? <Image source={{ uri: point.owner.picture }} style={{ width: '100%', height: '100%' }} />
+                      : <Text style={st.chatCardAvatarInitial}>{point.owner?.name?.charAt(0)?.toUpperCase() || '?'}</Text>
+                  }
+                </View>
+                {!chatLoading && (
+                  <View style={st.chatCardBadge}>
+                    <Ionicons name="chatbubble" size={7} color="#fff" />
+                  </View>
+                )}
+              </View>
+              <View style={st.chatCardTexts}>
+                <Text style={st.chatCardTitle}>Propriétaire</Text>
+                <Text style={st.chatCardSub} numberOfLines={1}>
+                  {point.owner?.name ? `Message à ${point.owner.name.split(' ')[0]}` : 'Message privé'}
+                </Text>
+              </View>
+              {!chatLoading && (
+                <Ionicons name="paper-plane-outline" size={15} color={Colors.muted} style={st.chatCardSendIcon} />
+              )}
+            </View>
           </TouchableOpacity>
 
           {isMember && (
             <TouchableOpacity
-              style={[st.chatBtn, { flex: 1, backgroundColor: Colors.primaryLight, borderColor: Colors.primary + '40' }]}
+              style={[st.chatCard, st.chatCardGroup]}
               onPress={openGroupChat}
               disabled={chatLoading}
+              activeOpacity={0.75}
               testID="group-chat-button"
             >
-              <Ionicons name="people-outline" size={18} color={Colors.primary} />
-              <Text style={[st.chatBtnText, { color: Colors.primary }]}>Groupe</Text>
+              <View style={st.chatCardInner}>
+                <View style={st.chatCardIconOuter}>
+                  <View style={[st.chatCardIconWrap, st.chatCardIconWrapGroup]}>
+                    {chatLoading
+                      ? <ActivityIndicator size="small" color={Colors.primary} />
+                      : images[0]
+                        ? <Image source={{ uri: images[0] }} style={{ width: '100%', height: '100%' }} />
+                        : <Ionicons name="people" size={16} color={Colors.primary} />
+                    }
+                  </View>
+                  {!chatLoading && images[0] && (
+                    <View style={[st.chatCardBadge, st.chatCardBadgeGroup]}>
+                      <Ionicons name="people" size={7} color="#fff" />
+                    </View>
+                  )}
+                </View>
+                <View style={st.chatCardTexts}>
+                  <Text style={[st.chatCardTitle, { color: Colors.primary }]}>Communauté</Text>
+                  <Text style={[st.chatCardSub, { color: Colors.primary + '99' }]} numberOfLines={1}>
+                    {participantsCount > 0
+                      ? `${participantsCount} membre${participantsCount > 1 ? 's' : ''}`
+                      : 'Discussion collective'}
+                  </Text>
+                </View>
+                {!chatLoading && (
+                  <Ionicons name="paper-plane-outline" size={15} color={Colors.primary} style={st.chatCardSendIcon} />
+                )}
+              </View>
             </TouchableOpacity>
           )}
         </View>
         )}
 
-        {/* Bouton Groupe + Toggle participation pour le créateur */}
-        {/* Bouton Voir le groupe — propriétaire uniquement */}
+        {/* Bouton communauté — propriétaire uniquement */}
         {isOwner && (
           <View style={st.chatRow}>
             <TouchableOpacity
-              style={[st.chatBtn, { flex: 1, backgroundColor: Colors.primaryLight, borderColor: Colors.primary + '40' }]}
+              style={[st.chatCard, st.chatCardGroup, { flex: 1 }]}
               onPress={openGroupChat}
               disabled={chatLoading}
+              activeOpacity={0.75}
               testID="owner-group-chat-btn"
             >
-              {chatLoading
-                ? <ActivityIndicator size="small" color={Colors.primary} />
-                : <Ionicons name="people-outline" size={18} color={Colors.primary} />
-              }
-              <Text style={[st.chatBtnText, { color: Colors.primary }]}>Voir le groupe</Text>
+              <View style={st.chatCardInner}>
+                <View style={st.chatCardIconOuter}>
+                  <View style={[st.chatCardIconWrap, st.chatCardIconWrapGroup]}>
+                    {chatLoading
+                      ? <ActivityIndicator size="small" color={Colors.primary} />
+                      : images[0]
+                        ? <Image source={{ uri: images[0] }} style={{ width: '100%', height: '100%' }} />
+                        : <Ionicons name="people" size={16} color={Colors.primary} />
+                    }
+                  </View>
+                  {!chatLoading && images[0] && (
+                    <View style={[st.chatCardBadge, st.chatCardBadgeGroup]}>
+                      <Ionicons name="people" size={7} color="#fff" />
+                    </View>
+                  )}
+                </View>
+                <View style={st.chatCardTexts}>
+                  <Text style={[st.chatCardTitle, { color: Colors.primary }]}>Communauté</Text>
+                  <Text style={[st.chatCardSub, { color: Colors.primary + '99' }]} numberOfLines={1}>
+                    {participantsCount > 0
+                      ? `Voir le groupe · ${participantsCount} membre${participantsCount > 1 ? 's' : ''}`
+                      : 'Voir la discussion collective'}
+                  </Text>
+                </View>
+                {!chatLoading && (
+                  <Ionicons name="paper-plane-outline" size={15} color={Colors.primary} style={st.chatCardSendIcon} />
+                )}
+              </View>
             </TouchableOpacity>
           </View>
         )}
@@ -2283,10 +2355,21 @@ const st = StyleSheet.create({
     borderWidth: 1.5, borderColor: Colors.background,
   },
   pendingBadgeText: { fontSize: 9, fontWeight: '800', color: '#fff' },
-  // Boutons de communication (Message + Groupe)
-  chatRow: { flexDirection: 'row', gap: Spacing.sm, paddingHorizontal: Spacing.md, marginBottom: Spacing.sm },
-  chatBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: Colors.card, paddingVertical: 9, borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.border },
-  chatBtnText: { fontSize: 13, fontWeight: '600', color: Colors.foreground },
+  // Boutons de communication (propriétaire + communauté)
+  chatRow: { flexDirection: 'row', gap: 8, paddingHorizontal: Spacing.md, marginBottom: Spacing.sm },
+  chatCard: { flex: 1, backgroundColor: Colors.card, borderRadius: Radius.sm, borderWidth: 1, borderColor: Colors.border, paddingVertical: 8, paddingHorizontal: 10 },
+  chatCardGroup: { backgroundColor: Colors.primaryLight, borderColor: Colors.primary + '40' },
+  chatCardInner: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  chatCardIconOuter: { width: 30, height: 30, position: 'relative' },
+  chatCardIconWrap: { width: 30, height: 30, borderRadius: 15, backgroundColor: Colors.primary, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  chatCardIconWrapGroup: { backgroundColor: Colors.primary + '22', borderWidth: 1, borderColor: Colors.primary + '55', overflow: 'hidden' },
+  chatCardBadge: { position: 'absolute', bottom: -2, right: -2, width: 14, height: 14, borderRadius: 7, backgroundColor: Colors.primaryDark, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: Colors.card },
+  chatCardBadgeGroup: { backgroundColor: Colors.primary },
+  chatCardAvatarInitial: { fontSize: 12, fontWeight: '700', color: Colors.background },
+  chatCardTexts: { flex: 1, minWidth: 0 },
+  chatCardTitle: { fontSize: 12, fontWeight: '700', color: Colors.foreground },
+  chatCardSub: { fontSize: 10, color: Colors.muted, marginTop: 1 },
+  chatCardSendIcon: { flexShrink: 0, marginLeft: 2, opacity: 0.75 },
   eventActionBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingLeft: 76, paddingRight: Spacing.md, paddingBottom: 4, paddingTop: 0, marginTop: -10 },
   eventParticipantChip: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: Colors.primary + '15', borderRadius: Radius.full, paddingHorizontal: 11, paddingVertical: 6, borderWidth: 1, borderColor: Colors.primary + '40' },
   eventParticipantChipText: { fontSize: 12, fontWeight: '700', color: Colors.primary },
