@@ -22,7 +22,8 @@ cd "$ROOT"
 BRANCH="$(git branch --show-current)"
 info "Branche : $BRANCH"
 
-if ! git diff --quiet || ! git diff --cached --quiet; then
+HAS_UNTRACKED="$(git ls-files --others --exclude-standard)"
+if ! git diff --quiet || ! git diff --cached --quiet || [[ -n "$HAS_UNTRACKED" ]]; then
   echo
   git status --short
   echo
