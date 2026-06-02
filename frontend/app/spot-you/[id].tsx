@@ -1426,8 +1426,14 @@ export default function SpotYouDetail() {
               {showRecurring && (() => {
                 const rec = formatRecurring(point.event_schedule);
                 const next = getNextOccurrence(point.event_schedule);
+                const backendNext = point.next_session_date
+                  ? new Date(`${point.next_session_date}T00:00:00`)
+                  : null;
+                const fallbackStart = rec.perDay?.[0]?.times?.[0];
                 const nextLabel = next
                   ? `${formatDayLabel(next.date)} · ${next.startTime}${next.endTime ? ` → ${next.endTime}` : ''}`
+                  : backendNext
+                    ? `${formatDayLabel(backendNext)}${fallbackStart ? ` · ${fallbackStart}` : ''}`
                   : rec.summary;
                 return (
                   <View>
