@@ -20,3 +20,5 @@ services:
       # Surcharges possibles sans toucher au .env
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
       SERVER_PORT: ${SERVER_PORT:-8080}
+      # Apps mobiles Expo : Origin absent → autoriser * (override possible via .env)
+      APP_WS_ALLOWED_ORIGINS: ${APP_WS_ALLOWED_ORIGINS:-*}

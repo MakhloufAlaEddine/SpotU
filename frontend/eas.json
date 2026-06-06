@@ -28,7 +28,6 @@
       "env": {
         "ENVIRONMENT": "preview",
         "EXPO_PUBLIC_BACKEND_URL": "http://178.105.95.184:8080",
-        "EXPO_PUBLIC_SKIP_PUSH_TOKEN": "1",
         "EAS_BUILD_PROFILE": "preview"
       },
       "android": {

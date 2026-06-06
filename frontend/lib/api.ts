@@ -63,6 +63,6 @@ export const api = {
   post: <T = any>(path: string, data?: unknown) => request<T>('POST', path, data),
   put: <T = any>(path: string, data?: unknown) => request<T>('PUT', path, data),
   patch: <T = any>(path: string, data?: unknown) => request<T>('PATCH', path, data),
-  delete: <T = any>(path: string) => request<T>('DELETE', path),
+  delete: <T = any>(path: string, data?: unknown) => request<T>('DELETE', path, data),
 };
 

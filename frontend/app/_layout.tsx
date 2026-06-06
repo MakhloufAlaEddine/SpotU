@@ -49,23 +49,25 @@ function NavigationGuard() {
     ensureNotificationHandler();
   }, []);
 
-  // Enregistrement push notifications après connexion
+  // Enregistrement push notifications après connexion (iPhone physique requis)
   useEffect(() => {
-    if (user && !pushTokenRef.current) {
-      registerForPushNotificationsAsync().then((token) => {
-        if (token) {
-          pushTokenRef.current = token;
-          storage.set('spotu_push_token', token).catch(() => {});
-          saveTokenToServer(token);
-        }
-      });
-    } else if (!user) {
-      // Réinitialiser la ref pour que le prochain compte puisse s'enregistrer
+    if (!user) {
       pushTokenRef.current = null;
+      return setupNotificationResponseHandler();
     }
+    let cancelled = false;
+    registerForPushNotificationsAsync().then(async (token) => {
+      if (cancelled || !token) return;
+      pushTokenRef.current = token;
+      await storage.set('spotu_push_token', token).catch(() => {});
+      await saveTokenToServer(token);
+    });
     const cleanup = setupNotificationResponseHandler();
-    return cleanup;
-  }, [user]);
+    return () => {
+      cancelled = true;
+      cleanup();
+    };
+  }, [user?.user_id]);
 
   useEffect(() => {
     if (Platform.OS === 'web' && !navigationState?.key) return;

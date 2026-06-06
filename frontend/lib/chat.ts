@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { AppState } from 'react-native';
 import { storage } from './storage';
 import { api } from './api';
 import { buildCacheKey, cacheGet, cacheSet, isFresh, SCHEMA_VERSION } from './cache';
@@ -58,14 +59,17 @@ export function useNotifications() {
     const token = await storage.get('spotu_token');
     if (!token) return;
 
-    // [SEC-14] Token envoyé en premier message JSON après ouverture,
-    //          JAMAIS dans l'URL (logs serveur, proxies, historique browser).
+    if (wsRef.current) {
+      const prev = wsRef.current;
+      wsRef.current = null;
+      prev.close();
+    }
+
     const url = `${BASE_WS}/api/ws/notifications`;
     const ws = new WebSocket(url);
     wsRef.current = ws;
 
     ws.onopen = () => {
-      // Handshake : premier message = {token}
       ws.send(JSON.stringify({ token }));
     };
 
@@ -79,10 +83,10 @@ export function useNotifications() {
     };
 
     ws.onclose = (e) => {
-      // Ne pas reconnecter si auth refusée (4001) ou accès interdit (4003)
+      if (wsRef.current === ws) wsRef.current = null;
       if (e.code === 4001 || e.code === 4003) return;
       reconnectRef.current = setTimeout(() => {
-        if (wsRef.current === ws) connect();
+        if (!wsRef.current) connect();
       }, 5000);
     };
 
@@ -91,7 +95,13 @@ export function useNotifications() {
 
   useEffect(() => {
     connect();
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN)) {
+        connect();
+      }
+    });
     return () => {
+      sub.remove();
       if (reconnectRef.current) clearTimeout(reconnectRef.current);
       if (wsRef.current) {
         const ws = wsRef.current;
@@ -99,7 +109,7 @@ export function useNotifications() {
         ws.close();
       }
     };
-  }, []);
+  }, [connect]);
 
   return { unreadTotal, unreadNotif };
 }
@@ -148,22 +158,27 @@ export function useChat(conversationId: string | null) {
     const token = await storage.get('spotu_token');
     if (!token) return;
 
-    // [SEC-14] Token envoyé en premier message JSON, JAMAIS dans l'URL.
+    if (wsRef.current) {
+      const prev = wsRef.current;
+      wsRef.current = null;
+      prev.close();
+    }
+
     const url = `${BASE_WS}/api/ws/chat/${conversationId}`;
     const ws = new WebSocket(url);
     wsRef.current = ws;
 
     ws.onopen = () => {
-      // Handshake : premier message = {token}
       ws.send(JSON.stringify({ token }));
-      setIsConnected(true);
     };
     ws.onclose = (e) => {
+      if (wsRef.current === ws) {
+        wsRef.current = null;
+      }
       setIsConnected(false);
-      // Ne pas reconnecter si auth refusée ou accès interdit
       if (e.code === 4001 || e.code === 4003) return;
       setTimeout(() => {
-        if (wsRef.current === ws) connect();
+        if (!wsRef.current) connect();
       }, 3000);
     };
     ws.onerror = () => setIsConnected(false);
@@ -171,7 +186,11 @@ export function useChat(conversationId: string | null) {
       try {
         const data = JSON.parse(e.data);
 
-        // Message supprimé en temps réel (soft delete)
+        if (data.type === 'auth_ok') {
+          setIsConnected(true);
+          return;
+        }
+
         if (data.type === 'message_deleted') {
           setMessages(prev => prev.map(m =>
             m.message_id === data.message_id
@@ -181,13 +200,14 @@ export function useChat(conversationId: string | null) {
           return;
         }
 
-        // Erreur CONTEXT_DELETED (rejet WS si contexte supprimé) — ignorer silencieusement
         if (data.type === 'error') return;
+
+        if (!data.message_id) return;
 
         const msg: ChatMessage = data;
         setMessages(prev => {
+          if (prev.some(m => m.message_id === msg.message_id)) return prev;
           const updated = [...prev, msg];
-          // Mise à jour du cache en arrière-plan pour la prochaine consultation offline
           const key = buildCacheKey({ path: `/conversations/${conversationId}/messages`, schemaVersion: SCHEMA_VERSION });
           cacheSet(key, updated, 30 * 60_000).catch(() => {});
           return updated;
@@ -210,6 +230,26 @@ export function useChat(conversationId: string | null) {
       }
     };
   }, [conversationId]);
+
+  // Fallback : polling si le WS est coupé (réseau, origine serveur, etc.)
+  useEffect(() => {
+    if (!conversationId || isConnected) return;
+    const timer = setInterval(() => loadHistory(true), 5000);
+    return () => clearInterval(timer);
+  }, [conversationId, isConnected, loadHistory]);
+
+  // Reconnexion WS quand l'app revient au premier plan
+  useEffect(() => {
+    if (!conversationId) return;
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+          connect();
+        }
+      }
+    });
+    return () => sub.remove();
+  }, [conversationId, connect]);
 
   const sendMessage = useCallback((content: string) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {

@@ -174,6 +174,7 @@ public class ChatWsHandler extends TextWebSocketHandler {
         session.getAttributes().put("context_deleted", chatService.isContextDeleted(convId));
         session.getAttributes().put("authenticated", true);
         chatRegistry.add(convId, session);
+        sendJson(session, Map.of("type", "auth_ok"));
     }
 
     private boolean isAuthenticated(WebSocketSession session) {

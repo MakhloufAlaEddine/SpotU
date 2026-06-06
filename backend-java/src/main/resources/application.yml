@@ -65,7 +65,8 @@ app:
   cors:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:${ALLOWED_ORIGINS:http://localhost:3000,http://localhost:19006,http://localhost:8081}}
   ws:
-    allowed-origins: ${APP_WS_ALLOWED_ORIGINS:${ALLOWED_ORIGINS:http://localhost:3000,http://localhost:19006,http://localhost:8081}}
+    # * = apps mobiles React Native (Origin absent ou variable). Restreindre en prod web si besoin.
+    allowed-origins: ${APP_WS_ALLOWED_ORIGINS:*}
     cluster:
       enabled: ${APP_WS_CLUSTER_ENABLED:false}
       provider: ${APP_WS_CLUSTER_PROVIDER:noop}

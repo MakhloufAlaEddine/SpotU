@@ -57,6 +57,17 @@ public class SpotYouPushSideEffectService {
             String body,
             Map<String, Object> data
     ) {
+        persistAndPush(recipientUserId, notifType, title, body, data);
+    }
+
+    /** Persistance inbox + envoi Expo (appel synchrone, ex. workers admin). */
+    public void persistAndPush(
+            String recipientUserId,
+            String notifType,
+            String title,
+            String body,
+            Map<String, Object> data
+    ) {
         try {
             String notifId = "notif_" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 16);
             String dataJson = data == null || data.isEmpty() ? "{}" : objectMapper.writeValueAsString(data);

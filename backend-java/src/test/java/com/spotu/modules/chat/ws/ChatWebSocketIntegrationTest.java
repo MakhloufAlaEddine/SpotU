@@ -138,6 +138,30 @@ class ChatWebSocketIntegrationTest {
     }
 
     @Test
+    void wsChat_validToken_receivesAuthOk() throws Exception {
+        CompletableFuture<WebSocketSession> sessionRef = new CompletableFuture<>();
+        AtomicReference<String> payloadRef = new AtomicReference<>();
+        var handler = new AbstractWebSocketHandler() {
+            @Override
+            public void afterConnectionEstablished(WebSocketSession session) {
+                sessionRef.complete(session);
+            }
+
+            @Override
+            protected void handleTextMessage(WebSocketSession session, TextMessage message) {
+                payloadRef.set(message.getPayload());
+            }
+        };
+        StandardWebSocketClient client = new StandardWebSocketClient();
+        client.execute(handler, "ws://localhost:" + port + "/api/ws/chat/conv_ws").get(5, TimeUnit.SECONDS);
+        WebSocketSession session = sessionRef.get(2, TimeUnit.SECONDS);
+        session.sendMessage(new TextMessage(objectMapper.writeValueAsString(Map.of("token", TestJwtTokens.validUserToken()))));
+        Thread.sleep(300);
+        assertTrue(payloadRef.get() != null && payloadRef.get().contains("auth_ok"));
+        session.close();
+    }
+
+    @Test
     void wsChat_disallowedOrigin_rejectedAtHandshake() {
         StandardWebSocketClient client = new StandardWebSocketClient();
         WebSocketHttpHeaders headers = new WebSocketHttpHeaders();

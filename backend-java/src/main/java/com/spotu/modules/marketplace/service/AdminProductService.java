@@ -5,6 +5,7 @@ import com.spotu.modules.auth.dto.CurrentUserDto;
 import com.spotu.modules.auth.service.AuthMeService;
 import com.spotu.modules.marketplace.dto.AdminPendingProductsResponseDto;
 import com.spotu.modules.marketplace.infra.AdminProductRepository;
+import com.spotu.modules.spotyou.service.SpotYouPushSideEffectService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -22,15 +23,18 @@ public class AdminProductService {
 
     private final AuthMeService authMeService;
     private final AdminProductRepository repository;
+    private final SpotYouPushSideEffectService pushSideEffectService;
     private final int reminderDelayHours;
 
     public AdminProductService(
             AuthMeService authMeService,
             AdminProductRepository repository,
+            SpotYouPushSideEffectService pushSideEffectService,
             @Value("${admin.product.reminder.delay.hours:2}") int reminderDelayHours
     ) {
         this.authMeService = authMeService;
         this.repository = repository;
+        this.pushSideEffectService = pushSideEffectService;
         this.reminderDelayHours = reminderDelayHours;
     }
 
@@ -57,7 +61,7 @@ public class AdminProductService {
 
         Timestamp now = Timestamp.from(Instant.now());
         repository.approveProduct(productId, admin.userId(), now, comment);
-        repository.insertNotification(
+        pushSideEffectService.persistAndPush(
                 sellerId,
                 "product_approved",
                 "Produit publié !",
@@ -83,7 +87,7 @@ public class AdminProductService {
 
         Timestamp now = Timestamp.from(Instant.now());
         repository.rejectProduct(productId, admin.userId(), now, commentDb);
-        repository.insertNotification(
+        pushSideEffectService.persistAndPush(
                 sellerId,
                 "product_rejected",
                 "Annonce refusée",
@@ -117,7 +121,7 @@ public class AdminProductService {
             String productId = product.get("product_id");
             String title = product.get("title");
             for (String adminId : adminIds) {
-                repository.insertNotification(
+                pushSideEffectService.persistAndPush(
                         adminId,
                         "admin_product_reminder",
                         "Rappel : annonce en attente",
