@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
-import { useChat, ChatMessage } from '../../lib/chat';
+import { useChat, ChatMessage, setActiveChatConversationId } from '../../lib/chat';
 import { api } from '../../lib/api';
 import { storage } from '../../lib/storage';
 import { ErrorNoData } from '../../components/OfflineBanner';
@@ -86,6 +86,11 @@ export default function ChatScreen() {
   const flatRef = useRef<FlatList>(null);
 
   const { messages, sendMessage, isConnected, historyState, loadHistory } = useChat(id ?? null);
+
+  useEffect(() => {
+    setActiveChatConversationId(id ?? null);
+    return () => setActiveChatConversationId(null);
+  }, [id]);
 
   const isBlocked = convInfo?.is_blocked === true;
   const isContextDeleted = convInfo?.context_deleted === true;

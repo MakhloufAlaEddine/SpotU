@@ -33,6 +33,9 @@ public class ExpoPushClient {
         this.enabled = enabled;
         this.endpoint = endpoint;
         this.restTemplate = new RestTemplate();
+        if (!enabled) {
+            log.warn("Expo push disabled (EXPO_PUSH_ENABLED=false) — aucune notification push ne sera envoyée");
+        }
     }
 
     public PushSendResult send(String expoToken, String title, String body, Map<String, Object> data) {
@@ -51,6 +54,9 @@ public class ExpoPushClient {
             payload.put("title", title);
             payload.put("body", body);
             payload.put("data", data == null ? Map.of() : data);
+            payload.put("sound", "default");
+            payload.put("priority", "high");
+            payload.put("channelId", "default");
             String responseBody = restTemplate
                     .postForEntity(endpoint, new HttpEntity<>(payload, headers), String.class)
                     .getBody();

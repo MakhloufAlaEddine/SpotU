@@ -112,15 +112,20 @@ public class ChatWsHandler extends TextWebSocketHandler {
         Map<String, Object> payload = chatService.persistWsMessage(convId, userId, name, picture, finalContent);
         chatRegistry.broadcast(convId, payload);
 
+        String preview = finalContent.substring(0, Math.min(100, finalContent.length()));
+        String createdAt = String.valueOf(payload.get("created_at"));
         for (String pid : chatService.otherActiveParticipants(convId, userId)) {
             chatService.pushUnread(pid);
-            CompletableFuture.runAsync(() -> chatPushService.sendToUser(
-                    pid,
-                    name,
-                    finalContent.substring(0, Math.min(100, finalContent.length())),
-                    Map.of("type", "chat_message", "conversationId", convId),
-                    false
-            ));
+            chatService.pushChatInbox(pid, convId, name, preview, createdAt);
+            if (!chatRegistry.hasUserConnected(convId, pid)) {
+                CompletableFuture.runAsync(() -> chatPushService.sendToUser(
+                        pid,
+                        name,
+                        preview,
+                        Map.of("type", "chat_message", "conversationId", convId),
+                        false
+                ));
+            }
         }
     }
 

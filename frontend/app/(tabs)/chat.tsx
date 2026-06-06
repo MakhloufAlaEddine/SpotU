@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity,
   StyleSheet, Image, RefreshControl,
@@ -8,7 +8,7 @@ import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../../constants/Colors';
 import { api } from '../../lib/api';
-import { Conversation, useNotifications } from '../../lib/chat';
+import { Conversation, subscribeChatInbox, subscribeUnreadTotal, ChatInboxEvent } from '../../lib/chat';
 import { buildCacheKey, cacheGet, cacheSet, isFresh, cacheAgeMinutes, getTtl, SCHEMA_VERSION } from '../../lib/cache';
 import { useAuth } from '../../context/AuthContext';
 import { StaleBanner, ErrorNoData } from '../../components/OfflineBanner';
@@ -146,9 +146,7 @@ export default function ChatListScreen() {
   const [networkFailed, setNetworkFailed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [currentUserId, setCurrentUserId] = useState('');
-
-  // Canal notifications WS — rechargement automatique quand un nouveau message arrive
-  const { unreadTotal } = useNotifications();
+  const loadRef = useRef<(isRefresh?: boolean) => Promise<void>>(async () => {});
 
   const load = useCallback(async (isRefresh = false) => {
     const userId = user?.user_id;
@@ -192,20 +190,53 @@ export default function ChatListScreen() {
     }
   }, [user?.user_id]);
 
+  loadRef.current = load;
+
+  const applyInboxUpdate = useCallback((event: ChatInboxEvent) => {
+    setConversations(prev => {
+      const idx = prev.findIndex(c => c.conversation_id === event.conversation_id);
+      if (idx === -1) {
+        loadRef.current(true);
+        return prev;
+      }
+      const conv = prev[idx];
+      const updated: Conversation = {
+        ...conv,
+        last_message_at: event.created_at,
+        last_message: {
+          content: event.preview,
+          created_at: event.created_at,
+          sender_id: '',
+          sender_name: event.sender_name,
+        },
+        unread_count: (conv.unread_count || 0) + 1,
+      };
+      return [updated, ...prev.filter((_, i) => i !== idx)];
+    });
+  }, []);
+
   // Enregistrement refresh progressif
   useEffect(() => registerScreenRefresh('chat', () => load(true), 8), []);
 
-  // Rechargement à chaque fois que l'onglet prend le focus
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  // Rechargement réseau à chaque focus (ignore le cache frais)
+  useFocusEffect(useCallback(() => { load(true); }, [load]));
 
-  // Rechargement WS quand le total non-lus change
-  const prevUnreadRef = React.useRef(unreadTotal);
-  React.useEffect(() => {
-    if (prevUnreadRef.current !== unreadTotal) {
-      prevUnreadRef.current = unreadTotal;
-      load();
-    }
-  }, [unreadTotal]);
+  // Preview temps réel via WS + refetch si le total non-lus change
+  useEffect(() => subscribeChatInbox(applyInboxUpdate), [applyInboxUpdate]);
+
+  useEffect(() => {
+    const prevRef = { current: null as number | null };
+    return subscribeUnreadTotal((count) => {
+      if (prevRef.current === null) {
+        prevRef.current = count;
+        return;
+      }
+      if (prevRef.current !== count) {
+        prevRef.current = count;
+        load(true);
+      }
+    });
+  }, [load]);
 
   const totalUnread = conversations.reduce((s, c) => s + (c.unread_count || 0), 0);
 

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { AppState } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import { storage } from './storage';
 import { api } from './api';
 import { buildCacheKey, cacheGet, cacheSet, isFresh, SCHEMA_VERSION } from './cache';
@@ -47,69 +48,184 @@ function _emitNewNotification(notif: any) {
   _notifHandlers.forEach(fn => { try { fn(notif); } catch {} });
 }
 
+// ── Conversation ouverte (évite une notif locale inutile) ─────────────────────
+let _activeChatConversationId: string | null = null;
+
+export function setActiveChatConversationId(conversationId: string | null) {
+  _activeChatConversationId = conversationId;
+}
+
+// ── Événement inbox (preview liste des chats) ─────────────────────────────────
+export interface ChatInboxEvent {
+  conversation_id: string;
+  sender_name: string;
+  preview: string;
+  created_at: string;
+}
+
+type ChatInboxHandler = (event: ChatInboxEvent) => void;
+let _chatInboxHandlers: ChatInboxHandler[] = [];
+
+export function subscribeChatInbox(fn: ChatInboxHandler): () => void {
+  _chatInboxHandlers.push(fn);
+  return () => { _chatInboxHandlers = _chatInboxHandlers.filter(h => h !== fn); };
+}
+
+function _emitChatInbox(event: ChatInboxEvent) {
+  _chatInboxHandlers.forEach(fn => { try { fn(event); } catch {} });
+}
+
+type UnreadTotalHandler = (count: number) => void;
+let _unreadTotalHandlers: UnreadTotalHandler[] = [];
+
+export function subscribeUnreadTotal(fn: UnreadTotalHandler): () => void {
+  _unreadTotalHandlers.push(fn);
+  return () => { _unreadTotalHandlers = _unreadTotalHandlers.filter(h => h !== fn); };
+}
+
+function _emitUnreadTotal(count: number) {
+  _sharedUnreadTotal = count;
+  _unreadTotalHandlers.forEach(fn => { try { fn(count); } catch {} });
+}
+
+async function _maybeShowForegroundChatNotification(event: ChatInboxEvent) {
+  if (AppState.currentState !== 'active') return;
+  if (_activeChatConversationId === event.conversation_id) return;
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: event.sender_name || 'Nouveau message',
+        body: event.preview,
+        data: { type: 'chat_message', conversationId: event.conversation_id },
+        sound: 'default',
+      },
+      trigger: null,
+    });
+  } catch {}
+}
+
+// ── WebSocket notifications (singleton — une seule connexion pour toute l'app) ─
+
+let _sharedUnreadTotal = 0;
+let _sharedUnreadNotif = 0;
+let _notifWs: WebSocket | null = null;
+let _notifReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let _notifSubscriberCount = 0;
+let _notifAppStateSub: { remove: () => void } | null = null;
+
+type UnreadNotifListener = (count: number) => void;
+const _unreadNotifListeners = new Set<UnreadNotifListener>();
+
+function _setSharedUnreadNotif(count: number) {
+  _sharedUnreadNotif = count;
+  _unreadNotifListeners.forEach(fn => fn(count));
+}
+
+async function _connectNotifWs() {
+  const token = await storage.get('spotu_token');
+  if (!token) return;
+
+  if (_notifWs) {
+    const prev = _notifWs;
+    _notifWs = null;
+    prev.close();
+  }
+
+  const url = `${BASE_WS}/api/ws/notifications`;
+  const ws = new WebSocket(url);
+  _notifWs = ws;
+
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ token }));
+  };
+
+  ws.onmessage = (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      if (data.type === 'unread_total') _emitUnreadTotal(data.count ?? 0);
+      if (data.type === 'unread_notif') _setSharedUnreadNotif(data.count ?? 0);
+      if (data.type === 'new_notification') _emitNewNotification(data.notification);
+      if (data.type === 'chat_inbox' && data.conversation_id) {
+        const event: ChatInboxEvent = {
+          conversation_id: data.conversation_id,
+          sender_name: data.sender_name ?? '',
+          preview: data.preview ?? '',
+          created_at: data.created_at ?? new Date().toISOString(),
+        };
+        _emitChatInbox(event);
+        _maybeShowForegroundChatNotification(event);
+      }
+    } catch {}
+  };
+
+  ws.onclose = (e) => {
+    if (_notifWs === ws) _notifWs = null;
+    if (e.code === 4001 || e.code === 4003) return;
+    if (_notifSubscriberCount <= 0) return;
+    _notifReconnectTimer = setTimeout(() => {
+      if (_notifSubscriberCount > 0 && !_notifWs) _connectNotifWs();
+    }, 5000);
+  };
+
+  ws.onerror = () => {};
+}
+
+function _teardownNotifWs() {
+  if (_notifReconnectTimer) {
+    clearTimeout(_notifReconnectTimer);
+    _notifReconnectTimer = null;
+  }
+  if (_notifAppStateSub) {
+    _notifAppStateSub.remove();
+    _notifAppStateSub = null;
+  }
+  if (_notifWs) {
+    const ws = _notifWs;
+    _notifWs = null;
+    ws.close();
+  }
+}
+
+function _acquireNotifWs() {
+  _notifSubscriberCount++;
+  if (_notifSubscriberCount === 1) {
+    _connectNotifWs();
+    _notifAppStateSub = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && (!_notifWs || _notifWs.readyState !== WebSocket.OPEN)) {
+        _connectNotifWs();
+      }
+    });
+  }
+}
+
+function _releaseNotifWs() {
+  _notifSubscriberCount--;
+  if (_notifSubscriberCount <= 0) {
+    _notifSubscriberCount = 0;
+    _teardownNotifWs();
+  }
+}
+
 // ── Hook: canal de notifications temps réel ────────────────────────────────────
 
 export function useNotifications() {
-  const [unreadTotal, setUnreadTotal] = useState(0);
-  const [unreadNotif, setUnreadNotif] = useState(0);
-  const wsRef = useRef<WebSocket | null>(null);
-  const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const connect = useCallback(async () => {
-    const token = await storage.get('spotu_token');
-    if (!token) return;
-
-    if (wsRef.current) {
-      const prev = wsRef.current;
-      wsRef.current = null;
-      prev.close();
-    }
-
-    const url = `${BASE_WS}/api/ws/notifications`;
-    const ws = new WebSocket(url);
-    wsRef.current = ws;
-
-    ws.onopen = () => {
-      ws.send(JSON.stringify({ token }));
-    };
-
-    ws.onmessage = (e) => {
-      try {
-        const data = JSON.parse(e.data);
-        if (data.type === 'unread_total') setUnreadTotal(data.count ?? 0);
-        if (data.type === 'unread_notif') setUnreadNotif(data.count ?? 0);
-        if (data.type === 'new_notification') _emitNewNotification(data.notification);
-      } catch {}
-    };
-
-    ws.onclose = (e) => {
-      if (wsRef.current === ws) wsRef.current = null;
-      if (e.code === 4001 || e.code === 4003) return;
-      reconnectRef.current = setTimeout(() => {
-        if (!wsRef.current) connect();
-      }, 5000);
-    };
-
-    ws.onerror = () => {};
-  }, []);
+  const [unreadTotal, setUnreadTotal] = useState(_sharedUnreadTotal);
+  const [unreadNotif, setUnreadNotif] = useState(_sharedUnreadNotif);
 
   useEffect(() => {
-    connect();
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active' && (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN)) {
-        connect();
-      }
-    });
+    const onTotal = (n: number) => setUnreadTotal(n);
+    const onNotif = (n: number) => setUnreadNotif(n);
+    _unreadTotalHandlers.push(onTotal);
+    _unreadNotifListeners.add(onNotif);
+    setUnreadTotal(_sharedUnreadTotal);
+    setUnreadNotif(_sharedUnreadNotif);
+    _acquireNotifWs();
     return () => {
-      sub.remove();
-      if (reconnectRef.current) clearTimeout(reconnectRef.current);
-      if (wsRef.current) {
-        const ws = wsRef.current;
-        wsRef.current = null;
-        ws.close();
-      }
+      _unreadTotalHandlers = _unreadTotalHandlers.filter(h => h !== onTotal);
+      _unreadNotifListeners.delete(onNotif);
+      _releaseNotifWs();
     };
-  }, [connect]);
+  }, []);
 
   return { unreadTotal, unreadNotif };
 }

@@ -240,6 +240,16 @@ public class ChatService {
         notifRegistry.broadcast(userId, Map.of("type", "unread_total", "count", unreadTotal(userId)));
     }
 
+    public void pushChatInbox(String userId, String convId, String senderName, String preview, String createdAt) {
+        notifRegistry.broadcast(userId, Map.of(
+                "type", "chat_inbox",
+                "conversation_id", convId,
+                "sender_name", senderName == null ? "" : senderName,
+                "preview", preview == null ? "" : preview,
+                "created_at", createdAt == null ? "" : createdAt
+        ));
+    }
+
     public boolean isActiveParticipant(String convId, String userId) {
         return repository.isParticipantActive(convId, userId);
     }

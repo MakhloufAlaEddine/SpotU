@@ -45,7 +45,11 @@ public class ChatPushService {
                 failed++;
             }
         }
-        log.info("chat_push_summary user_id={} attempted={} sent={} failed={} invalid_token_disabled={}",
-                userId, attempted, sent, failed, invalidDisabled);
+        if (attempted == 0) {
+            log.info("chat_push_summary user_id={} attempted=0 (no active token or push disabled)", userId);
+        } else {
+            log.info("chat_push_summary user_id={} attempted={} sent={} failed={} invalid_token_disabled={}",
+                    userId, attempted, sent, failed, invalidDisabled);
+        }
     }
 }

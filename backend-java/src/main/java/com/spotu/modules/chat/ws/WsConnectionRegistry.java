@@ -48,6 +48,27 @@ public class WsConnectionRegistry {
         return active.values().stream().mapToInt(List::size).sum();
     }
 
+    /** True si l'utilisateur a une session chat WS ouverte sur cette conversation. */
+    public boolean hasUserConnected(String key, String userId) {
+        if (userId == null || userId.isBlank()) {
+            return false;
+        }
+        List<WebSocketSession> sessions = active.get(key);
+        if (sessions == null || sessions.isEmpty()) {
+            return false;
+        }
+        for (WebSocketSession ws : sessions) {
+            if (!ws.isOpen()) {
+                continue;
+            }
+            Object uid = ws.getAttributes().get("user_id");
+            if (userId.equals(uid == null ? null : String.valueOf(uid))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public void broadcast(String key, Map<String, Object> payload) {
         broadcastLocal(key, payload);
         if (clusterRelay != null) {
