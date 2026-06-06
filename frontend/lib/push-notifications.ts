@@ -115,7 +115,7 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
  */
 export async function saveTokenToServer(token: string): Promise<void> {
   try {
-    await api.post('/users/push-token', { token, platform: 'expo' });
+    await api.post('/push-token', { token, platform: 'expo' });
     console.log('[Push] Token enregistré:', token.slice(0, 30) + '...');
   } catch (e) {
     console.warn('[Push] Erreur enregistrement token:', e);
@@ -127,7 +127,7 @@ export async function saveTokenToServer(token: string): Promise<void> {
  */
 export async function removeTokenFromServer(token: string): Promise<void> {
   try {
-    await api.delete('/users/push-token', { token });
+    await api.delete('/push-token', { token });
   } catch {}
 }
 

@@ -227,7 +227,7 @@ export default function OnboardingScreen() {
       if (goals.length) payload.goals = goals;
       await api.put('/users/profile', payload);
       updateUser({ onboarding_done: true });
-      if (roles.includes('coach')) { try { await api.post('/become-coach', {}); } catch {} }
+      if (roles.includes('coach')) { try { await api.post('/users/become-coach', {}); } catch {} }
     } catch {}
     router.replace('/(tabs)/map');
     setLoading(false);
