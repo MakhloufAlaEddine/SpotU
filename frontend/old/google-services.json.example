@@ -1,0 +1,22 @@
+{
+  "_comment": "Copier vers google-services.json — Firebase Console → spotu-35061 → Project settings → Your apps → Android com.winek.app → Download google-services.json",
+  "project_info": {
+    "project_number": "XXXXXXXXXXXX",
+    "project_id": "spotu-35061",
+    "storage_bucket": "spotu-35061.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:XXXXXXXXXXXX:android:XXXXXXXXXXXXXXXX",
+        "android_client_info": {
+          "package_name": "com.winek.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [{ "current_key": "YOUR_FIREBASE_API_KEY" }],
+      "services": { "appinvite_service": { "other_platform_oauth_client": [] } }
+    }
+  ],
+  "configuration_version": "1"
+}

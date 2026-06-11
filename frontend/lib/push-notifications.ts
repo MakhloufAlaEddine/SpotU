@@ -76,25 +76,33 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
   let finalStatus = existing;
 
   if (existing !== 'granted') {
-    const { status } = await Notifications.requestPermissionsAsync();
+    const { status } = await Notifications.requestPermissionsAsync({
+      ios: {
+        allowAlert: true,
+        allowBadge: true,
+        allowSound: true,
+      },
+    });
     finalStatus = status;
   }
 
   if (finalStatus !== 'granted') {
-    console.warn('[Push] Permission refusée');
+    console.warn('[Push] Permission refusée', Platform.OS);
     return null;
   }
 
   try {
-    // Récupère le projectId depuis la config EAS si disponible
     const projectId =
       Constants.expoConfig?.extra?.eas?.projectId ??
       (Constants as any).easConfig?.projectId;
 
-    const tokenData = projectId
-      ? await Notifications.getExpoPushTokenAsync({ projectId })
-      : await Notifications.getExpoPushTokenAsync();
+    if (!projectId) {
+      console.warn('[Push] projectId EAS manquant — token push impossible');
+      return null;
+    }
 
+    const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
+    console.log('[Push] Token obtenu', Platform.OS, tokenData.data.slice(0, 35) + '...');
     return tokenData.data;
   } catch (e) {
     if (isFcmNotConfiguredError(e)) {

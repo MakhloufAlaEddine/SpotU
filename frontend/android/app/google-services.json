@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "618478893944",
+    "project_id": "spotu-35061",
+    "storage_bucket": "spotu-35061.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:618478893944:android:ef68750570ebacae9b268d",
+        "android_client_info": {
+          "package_name": "com.winek.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAT68lx4RdM_lH_pgmc1l_-RR6rRHRknbY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

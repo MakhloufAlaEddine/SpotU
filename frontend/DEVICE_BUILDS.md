@@ -155,6 +155,88 @@ Le fichier `.env` local sert **uniquement** à Metro / `expo run:*`, pas aux bui
 | iOS « Untrusted Developer » | Réglages → Général → Gestion des appareils → Trust. |
 | Android bloque l’APK | Autoriser installation apps inconnues pour Chrome / Fichiers. |
 | Build iOS échoue (credentials) | `eas credentials` puis rebuild. |
+| **Push Android ne marchent pas** (iOS OK) | Voir section **Push Android (FCM)** ci-dessous. |
+
+---
+
+## Push Android (FCM)
+
+Sur Android, Expo passe par **Firebase Cloud Messaging (FCM)**. iOS utilise APNs (déjà configuré si les push iPhone marchent). **Les deux sont indépendants.**
+
+### 1. Credentials FCM dans EAS (obligatoire)
+
+```bash
+cd frontend
+npx eas credentials -p android
+# Profil : preview
+# Google Service Account → FCM V1 → Upload le JSON *firebase-adminsdk*.json
+```
+
+Guide Expo : [FCM credentials](https://docs.expo.dev/push-notifications/fcm-credentials/)
+
+Sans cette clé, Expo **ne peut pas envoyer** les push depuis le serveur.
+
+### 1b. `google-services.json` dans l’app (obligatoire pour l’arrière-plan)
+
+La clé EAS FCM V1 sert à **envoyer**. L’APK a aussi besoin du fichier **`google-services.json`** pour **recevoir** en arrière-plan.
+
+1. [Firebase Console](https://console.firebase.google.com/) → projet **`spotu-35061`**
+2. ⚙️ Project settings → **Your apps** → ajoute une app **Android** si besoin  
+   - Package : **`com.winek.app`**
+3. Télécharge **`google-services.json`**
+4. Copie-le ici :
+
+```bash
+cp ~/Downloads/google-services.json frontend/google-services.json
+cp frontend/google-services.json frontend/android/app/google-services.json
+```
+
+5. Rebuild APK :
+
+```bash
+npm run build:preview:android
+```
+
+**Symptôme typique sans ce fichier :** push visibles **uniquement quand l’app est ouverte** (WebSocket + notif locale), rien en arrière-plan.
+
+Sans `google-services.json`, l’APK preview **ne peut pas** obtenir un `ExponentPushToken[...]` valide pour Android.
+
+### 2. Permission notifications (Android 13+)
+
+L’app demande `POST_NOTIFICATIONS` au premier lancement. Si refusée :
+
+**Réglages → Apps → SpotU → Notifications → Autoriser**
+
+Après changement du manifest (`POST_NOTIFICATIONS`), refais un build APK :
+
+```bash
+npm run build:preview:android
+```
+
+### 3. Vérifier que le token est enregistré
+
+1. Connecte-toi sur l’APK Android.
+2. Dans les logs Metro (dev) ou via `adb logcat | grep -i Push`, cherche :
+   - `[Push] Token obtenu android ExponentPushToken[...]`
+   - `[Push] Token enregistré: ExponentPushToken[...]`
+3. Dans Supabase, table `push_tokens` : une ligne active pour ton `user_id` avec un token `ExponentPushToken[...]`.
+
+### 4. Vérifier l’envoi serveur
+
+Sur Hetzner :
+
+```bash
+docker compose logs -f spotu-api | grep chat_push_summary
+```
+
+Envoie un message **vers** le compte Android (app en arrière-plan). Tu dois voir `attempted=1 sent=1`.
+
+Si `attempted=0` → pas de token en base pour cet utilisateur.  
+Si `invalid_token_disabled=1` → refais login sur l’APK (token FCM régénéré) ou reconfigure FCM EAS.
+
+### 5. Backend
+
+`EXPO_PUSH_ENABLED=true` dans `/opt/spotu/SpotU/backend-java/.env` (comme pour iOS).
 
 ---
 

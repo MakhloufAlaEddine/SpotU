@@ -57,6 +57,11 @@ public class ExpoPushClient {
             payload.put("sound", "default");
             payload.put("priority", "high");
             payload.put("channelId", "default");
+            payload.put("android", Map.of(
+                    "channelId", "default",
+                    "priority", "high",
+                    "sound", "default"
+            ));
             String responseBody = restTemplate
                     .postForEntity(endpoint, new HttpEntity<>(payload, headers), String.class)
                     .getBody();

@@ -78,7 +78,7 @@ public class PushTokenRepository {
                 """
                         SELECT token
                         FROM push_tokens
-                        WHERE user_id = ? AND is_active = TRUE AND platform = 'expo'
+                        WHERE user_id = ? AND is_active = TRUE
                         ORDER BY last_used_at DESC
                         """,
                 (rs, rn) -> rs.getString("token"),
